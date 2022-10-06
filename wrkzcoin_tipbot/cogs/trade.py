@@ -194,8 +194,8 @@ class Trade(commands.Cog):
 
         # get opened order:
         user_count_order = await store.sql_count_open_order_by_sellerid(str(ctx.author.id), SERVER_BOT)
-        if user_count_order >= config.trade.Max_Open_Order:
-            msg = f"{ctx.author.mention}, you have maximum opened selling **{config.trade.Max_Open_Order}**. Please cancel some or wait."
+        if user_count_order >= self.bot.config['trade']['Max_Open_Order']:
+            msg = f"{ctx.author.mention}, you have maximum opened selling **{self.bot.config['trade']['Max_Open_Order']}**. Please cancel some or wait."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -256,8 +256,8 @@ class Trade(commands.Cog):
             return
         else:
             sell_div_get = round(sell_amount / buy_amount, 12)
-            fee_sell = round(config.trade.Trade_Margin * sell_amount, 8)
-            fee_buy = round(config.trade.Trade_Margin * buy_amount, 8)
+            fee_sell = round(self.bot.config['trade']['Trade_Margin'] * sell_amount, 8)
+            fee_buy = round(self.bot.config['trade']['Trade_Margin'] * buy_amount, 8)
             if fee_sell == 0: fee_sell = 0.00000010
             if fee_buy == 0: fee_buy = 0.00000010
             order_add = await store.sql_store_openorder(sell_ticker, coin_decimal_sell, sell_amount,

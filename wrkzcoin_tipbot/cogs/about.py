@@ -8,7 +8,6 @@ import disnake
 import store
 from Bot import RowButtonRowCloseAnyMessage, logchanbot, SERVER_BOT
 from cogs.utils import Utils
-from config import config
 from disnake.ext import commands
 
 
@@ -71,7 +70,7 @@ class About(commands.Cog):
         botdetails.add_field(name='Creator\'s Discord Name:', value='pluton#8888', inline=True)
         botdetails.add_field(name='My Github:', value="[TipBot Github](https://github.com/wrkzcoin/TipBot)",
                              inline=True)
-        botdetails.add_field(name='Invite Me:', value=config.discord.invite_link, inline=True)
+        botdetails.add_field(name='Invite Me:', value=self.bot.config['discord']['invite_link'], inline=True)
         try:
             get_tipping_count = await self.get_tipping_count()
             if get_tipping_count:

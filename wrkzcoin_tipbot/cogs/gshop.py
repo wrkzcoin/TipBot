@@ -11,8 +11,6 @@ from typing import List
 
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
-
-from config import config
 import store
 from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, \
     EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, RowButtonRowCloseAnyMessage, human_format, \
@@ -717,11 +715,11 @@ class GShop(commands.Cog):
                 await logchanbot(f"[GSHOP] User `{str(ctx.author.id)}` in Guild `{str(ctx.guild.id)}` tried with /gshop which disable in their Guild.")
                 return
             # Check max if set in guild
-            if serverinfo and len(get_guild_items) >= serverinfo['max_role_shop_items'] and ctx.author.id != config.discord.ownerID:
+            if serverinfo and len(get_guild_items) >= serverinfo['max_role_shop_items'] and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are maximum number of role items listed already!'
                 await ctx.edit_original_message(content=msg)
                 return
-            elif serverinfo is None and len(get_guild_items) >= self.max_default_guild_item and ctx.author.id != config.discord.ownerID:
+            elif serverinfo is None and len(get_guild_items) >= self.max_default_guild_item and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are maximum number of role items listed already!'
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(f"[GSHOP] server {str(ctx.guild.id)} has no data in discord_server.")

@@ -7,7 +7,6 @@ from decimal import Decimal
 
 from Bot import logchanbot, truncate
 import store
-from config import config
 from disnake.ext import tasks, commands
 from web3 import Web3
 from web3.middleware import geth_poa_middleware

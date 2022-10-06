@@ -27,11 +27,11 @@ from tronpy.providers.async_http import AsyncHTTPProvider
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
 
-from config import config
-
 Account.enable_unaudited_hdwallet_features()
 
-from Bot import decrypt_string
+from Bot import decrypt_string, load_config
+
+config = load_config()
 
 redis_pool = None
 redis_conn = None
@@ -39,15 +39,12 @@ redis_expired = 10
 pool = None
 pool_netmon = None
 conn = None
-
 sys.path.append("..")
-
 
 def init():
     global redis_pool
     print("PID %d: initializing redis pool..." % os.getpid())
     redis_pool = redis.ConnectionPool(host='localhost', port=6379, decode_responses=True, db=8)
-
 
 def openRedis():
     global redis_pool, redis_conn
@@ -57,28 +54,28 @@ def openRedis():
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-
 async def openConnection():
     global pool
     try:
         if pool is None:
-            pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=4, maxsize=8,
-                                              user=config.mysql.user, password=config.mysql.password,
-                                              db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
+            pool = await aiomysql.create_pool(
+                host=config['mysql']['host'], port=3306, minsize=2, maxsize=4,
+                user=config['mysql']['user'], password=config['mysql']['password'],
+                db=config['mysql']['db'], cursorclass=DictCursor, autocommit=True
+            )
     except:
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
         traceback.print_exc(file=sys.stdout)
-
 
 async def openConnection_node_monitor():
     global pool_netmon
     try:
         if pool_netmon is None:
-            pool_netmon = await aiomysql.create_pool(host=config.mysql_node_monitor.host, port=3306, minsize=1,
-                                                     maxsize=2,
-                                                     user=config.mysql_node_monitor.user,
-                                                     password=config.mysql_node_monitor.password,
-                                                     db=config.mysql_node_monitor.db, cursorclass=DictCursor)
+            pool = await aiomysql.create_pool(
+                host=config['mysql_node_monitor']['host'], port=3306, minsize=1, maxsize=2,
+                user=config['mysql_node_monitor']['user'], password=config['mysql_node_monitor']['password'],
+                db=config['mysql_node_monitor']['db'], cursorclass=DictCursor, autocommit=True
+            )
     except:
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
         traceback.print_exc(file=sys.stdout)
@@ -86,12 +83,13 @@ async def openConnection_node_monitor():
 
 async def logchanbot(content: str):
     try:
-        webhook = DiscordWebhook(url=config.discord.webhook_url,
-                                 content=f'```{disnake.utils.escape_markdown(content)}```')
+        webhook = DiscordWebhook(
+            url=config['discord']['webhook_url'],
+            content=disnake.utils.escape_markdown(content)
+        )
         webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-
 
 async def handle_best_node(network: str):
     global pool_netmon
@@ -118,7 +116,6 @@ async def handle_best_node(network: str):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
-
 async def sql_info_by_server(server_id: str):
     global pool
     try:
@@ -142,7 +139,6 @@ async def sql_info_by_server(server_id: str):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
-
 
 async def sql_addinfo_by_server(server_id: str, servername: str, prefix: str, default_coin: str, rejoin: bool = True):
     global pool
@@ -174,7 +170,6 @@ async def sql_addinfo_by_server(server_id: str, servername: str, prefix: str, de
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
-
 async def sql_add_messages(list_messages):
     if len(list_messages) == 0:
         return 0
@@ -192,7 +187,6 @@ async def sql_add_messages(list_messages):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
-
 
 async def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_user: int = None):
     global pool
@@ -225,8 +219,9 @@ async def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_u
         traceback.print_exc(file=sys.stdout)
     return None
 
-
-async def sql_changeinfo_by_server(server_id: str, what: str, value: str):
+async def sql_changeinfo_by_server(
+    server_id: str, what: str, value: str
+):
     global pool
     if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel",
                         "react_tip", "react_tip_100", "react_tip_coin", "lastUpdate", "botchan", "raffle_channel",
@@ -247,8 +242,10 @@ async def sql_changeinfo_by_server(server_id: str, what: str, value: str):
             traceback.print_exc(file=sys.stdout)
                            
 # TODO: get balance based on various coin, external withdraw, other expenses, tipping out, etc
-async def sql_user_balance_single(user_id: str, coin: str, address: str, coin_family: str, top_block: int,
-                                  confirmed_depth: int = 0, user_server: str = 'DISCORD'):
+async def sql_user_balance_single(
+    user_id: str, coin: str, address: str, coin_family: str, top_block: int,
+    confirmed_depth: int = 0, user_server: str = 'DISCORD'
+):
     global pool
     # address: TRTL/BCN/XMR = paymentId
     token_name = coin.upper()
@@ -704,7 +701,6 @@ async def sql_user_balance_single(user_id: str, coin: str, address: str, coin_fa
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store user_balance " +str(traceback.format_exc()))
 
-
 # owner message to delete (which bot respond)
 async def add_discord_bot_message(message_id: str, guild_id: str, owner_id: str):
     global pool
@@ -721,7 +717,6 @@ async def add_discord_bot_message(message_id: str, guild_id: str, owner_id: str)
         traceback.print_exc(file=sys.stdout)
     return None
 
-
 async def get_discord_mathtip_by_msgid(msg_id: str):
     global pool
     try:
@@ -736,7 +731,6 @@ async def get_discord_mathtip_by_msgid(msg_id: str):
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return None
-
 
 async def get_discord_triviatip_by_msgid(msg_id: str):
     global pool
@@ -753,8 +747,6 @@ async def get_discord_triviatip_by_msgid(msg_id: str):
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return None
-
-
 # End owner message
 
 # get coin_setting
@@ -775,7 +767,6 @@ async def get_coin_settings(coin_type: str = None):
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-
 async def sql_nano_get_user_wallets(coin: str):
     global pool
     coin_name = coin.upper()
@@ -792,7 +783,6 @@ async def sql_nano_get_user_wallets(coin: str):
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-
 async def sql_get_new_tx_table(notified: str = 'NO', failed_notify: str = 'NO'):
     try:
         await openConnection()
@@ -806,7 +796,6 @@ async def sql_get_new_tx_table(notified: str = 'NO', failed_notify: str = 'NO'):
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return []
-
 
 async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name: str, notified: str, 
                                      failed_notify: str, txid: str):
@@ -824,7 +813,6 @@ async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name:
     except Exception as e:
         await logchanbot("store " +str(traceback.format_exc()))
     return 0
-
 
 async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family: str):
     coin_name = coin.upper()
@@ -885,7 +873,6 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family
         await logchanbot("store " +str(traceback.format_exc()))
     return None
 
-
 # ERC, TRC scan
 async def get_txscan_stored_list_erc(net_name: str):
     global pool
@@ -910,7 +897,6 @@ async def get_txscan_stored_list_erc(net_name: str):
         await logchanbot("store " +str(traceback.format_exc()))
     return {'txHash_unique': []}
 
-
 async def get_latest_stored_scanning_height_erc(net_name: str, contract: str = None):
     global pool
     try:
@@ -931,7 +917,6 @@ async def get_latest_stored_scanning_height_erc(net_name: str, contract: str = N
         traceback.print_exc(file=sys.stdout)
     return 1
 
-
 async def get_monit_contract_tx_insert_erc(list_data):
     global pool
     if len(list_data) == 0:
@@ -949,7 +934,6 @@ async def get_monit_contract_tx_insert_erc(list_data):
         pass
     return 0
 
-
 async def get_monit_contract_tx_insert_trc(list_data):
     global pool
     if len(list_data) == 0:
@@ -958,7 +942,10 @@ async def get_monit_contract_tx_insert_trc(list_data):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT IGNORE INTO `trc20_contract_scan` (`net_name`, `contract`, `from_addr`, `to_addr`, `blockNumber`, `blockTime`, `transactionHash`, `contract_blockNumber_Tx_from_to_uniq`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                sql = """ INSERT IGNORE INTO `trc20_contract_scan` 
+                (`net_name`, `contract`, `from_addr`, `to_addr`, `blockNumber`, `blockTime`, 
+                `transactionHash`, `contract_blockNumber_Tx_from_to_uniq`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                 await cur.executemany(sql, list_data)
                 await conn.commit()
                 return cur.rowcount
@@ -967,7 +954,6 @@ async def get_monit_contract_tx_insert_trc(list_data):
         pass
     return 0
 
-
 async def get_monit_scanning_net_name_update_height(net_name: str, new_height: int, coin_name: str = None):
     global pool
     try:
@@ -975,19 +961,22 @@ async def get_monit_scanning_net_name_update_height(net_name: str, new_height: i
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if net_name == "TRX":
-                    sql = """ UPDATE `coin_settings` SET `scanned_from_height`=%s WHERE `net_name`=%s AND (`scanned_from_height`<%s OR `scanned_from_height` IS NULL) AND `coin_name`=%s LIMIT 1 """
+                    sql = """ UPDATE `coin_settings` SET `scanned_from_height`=%s 
+                    WHERE `net_name`=%s AND (`scanned_from_height`<%s OR `scanned_from_height` IS NULL) AND `coin_name`=%s 
+                    LIMIT 1 """
                     await cur.execute(sql, (new_height, net_name, new_height, coin_name))
                     await conn.commit()
                     return new_height
                 else:
-                    sql = """ UPDATE `coin_ethscan_setting` SET `scanned_from_height`=%s WHERE `net_name`=%s AND `scanned_from_height`<%s  LIMIT 1 """
+                    sql = """ UPDATE `coin_ethscan_setting` SET `scanned_from_height`=%s 
+                    HERE `net_name`=%s AND `scanned_from_height`<%s  
+                    LIMIT 1 """
                     await cur.execute(sql, (new_height, net_name, new_height))
                     await conn.commit()
                     return new_height
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
-
 
 async def trx_get_block_number(timeout: int = 64):
     height = 0
@@ -1009,7 +998,6 @@ async def trx_get_block_number(timeout: int = 64):
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return height
-
 
 async def trx_get_block_info(url: str, height: int, timeout: int = 32):
     try:
@@ -1330,11 +1318,20 @@ async def http_wallet_getbalance(url: str, address: str, contract: str, time_out
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     else:
-        data = '{"jsonrpc":"2.0","method":"eth_call","params":[{"to": "' + contract + '", "data": "0x70a08231000000000000000000000000' + address[
-                                                                                                                                         2:] + '"}, "latest"],"id":1}'
+        data = {
+            "jsonrpc": "2.0",
+            "method": "eth_call",
+            "params": [
+                {
+                    "to": contract,
+                    "data": "0x70a08231000000000000000000000000" + address[2:]
+                }, "latest"
+            ],
+            "id": 1
+        }
         try:
             async with aiohttp.ClientSession(connector=TCPConnector(ssl=False)) as session:
-                async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data),
+                async with session.post(url, headers={'Content-Type': 'application/json'}, json=data,
                                         timeout=time_out) as response:
                     if response.status == 200:
                         data = await response.read()
@@ -1347,7 +1344,6 @@ async def http_wallet_getbalance(url: str, address: str, contract: str, time_out
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     return None
-
 
 async def check_approved_erc20(user_id: str, contract: str, address: str, user_server: str, network: str):
     global pool
@@ -1367,7 +1363,9 @@ async def check_approved_erc20(user_id: str, contract: str, address: str, user_s
         await logchanbot("store " +str(traceback.format_exc()))
     return False
 
-async def insert_approved_erc20(user_id: str, contract: str, address: str, user_server: str, network: str, approved_hash: str):
+async def insert_approved_erc20(
+    user_id: str, contract: str, address: str, user_server: str, network: str, approved_hash: str
+):
     global pool
     try:
         await openConnection()
@@ -1386,10 +1384,12 @@ async def insert_approved_erc20(user_id: str, contract: str, address: str, user_
         await logchanbot("store " +str(traceback.format_exc()))
     return 0
 
-async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, contract: str, coin_decimal: int,
-                                          min_move_deposit: float, min_gas_tx: float, gas_ticker: str,
-                                          move_gas_amount: float, chainId: str, real_deposit_fee: float,
-                                          erc20_approve_spend: int = 0, time_lap: int = 0):
+async def sql_check_minimum_deposit_erc20(
+    url: str, net_name: str, coin: str, contract: str, coin_decimal: int,
+    min_move_deposit: float, min_gas_tx: float, gas_ticker: str,
+    move_gas_amount: float, chainId: str, real_deposit_fee: float,
+    erc20_approve_spend: int = 0, time_lap: int = 0
+):
     global pool
     async def send_gas(url: str, chainId: str, to_address: str, move_gas_amount: float, min_gas_tx: float):
         # HTTPProvider:
@@ -1398,14 +1398,14 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
         # inject the poa compatibility middleware to the innermost layer
         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
         # TODO: Let's move gas from main to have sufficient to move
-        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(config.eth.MainAddress))
+        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(config['eth']['MainAddress']))
 
         # get gas price
         gasPrice = w3.eth.gasPrice
 
         estimateGas = w3.eth.estimateGas(
             {'to': w3.toChecksumAddress(to_address),
-             'from': w3.toChecksumAddress(config.eth.MainAddress),
+             'from': w3.toChecksumAddress(config['eth']['MainAddress']),
              'value': int(move_gas_amount * 10 ** 18)})
 
         est_gas_amount = float(gasPrice * estimateGas / 10 ** 18)
@@ -1419,7 +1419,7 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
             if amount_gas_move < move_gas_amount * 10 ** 18: amount_gas_move = int(
                 move_gas_amount * 10 ** 18)
             transaction = {
-                'from': w3.toChecksumAddress(config.eth.MainAddress),
+                'from': w3.toChecksumAddress(config['eth']['MainAddress']),
                 'to': w3.toChecksumAddress(to_address),
                 'value': amount_gas_move,
                 'nonce': nonce,
@@ -1428,7 +1428,7 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                 'chainId': int(chainId, 16)
             }
             acct = Account.from_mnemonic(
-                mnemonic=config.eth.MainAddress_seed)
+                mnemonic=config['eth']['MainAddress_seed'])
             signed = w3.eth.account.sign_transaction(transaction, private_key=acct.key)
             # send Transaction for gas:
             send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
@@ -1459,7 +1459,7 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                     if real_deposited_balance > 0:
                         # print("Skipped {}, {}. Having {}, minimum {}".format(token_name, each_address['balance_wallet_address'], real_deposited_balance, min_move_deposit))
                         pass
-                # config.eth.MainAddress => each_address['balance_wallet_address']
+                # config['eth']['MainAddress'] => each_address['balance_wallet_address']
                 else:
                     balance_above_min += 1
                     try:
@@ -1478,7 +1478,7 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                         # get gas price
                         gasPrice = int(w3.eth.gasPrice * 1.0)
 
-                        estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(config.eth.MainAddress),
+                        estimateGas = w3.eth.estimateGas({'to': w3.toChecksumAddress(config['eth']['MainAddress']),
                                                           'from': w3.toChecksumAddress(
                                                               each_address['balance_wallet_address']),
                                                           'value': deposited_balance})
@@ -1491,14 +1491,13 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                             await asyncio.sleep(5.0)
                             continue
 
-                        print("TX {} deposited_balance: {}, gasPrice*estimateGas: {}*{}={}, ".format(token_name,
-                                                                                                     deposited_balance / 10 ** 18,
-                                                                                                     gasPrice,
-                                                                                                     estimateGas,
-                                                                                                     gasPrice * estimateGas / 10 ** 18))
+                        print("TX {} deposited_balance: {}, gasPrice*estimateGas: {}*{}={}, ".format(
+                            token_name, deposited_balance / 10 ** 18, gasPrice,
+                            estimateGas, gasPrice * estimateGas / 10 ** 18)
+                        )
                         transaction = {
                             'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
-                            'to': w3.toChecksumAddress(config.eth.MainAddress),
+                            'to': w3.toChecksumAddress(config['eth']['MainAddress']),
                             'value': deposited_balance - gasPrice * estimateGas,
                             'nonce': nonce,
                             'gasPrice': gasPrice,
@@ -1513,14 +1512,11 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                         if signed_txn and sent_tx:
                             # Add to SQL
                             try:
-                                inserted = await sql_move_deposit_for_spendable(token_name, None,
-                                                                                each_address['user_id'],
-                                                                                each_address['balance_wallet_address'],
-                                                                                config.eth.MainAddress,
-                                                                                real_deposited_balance,
-                                                                                real_deposit_fee, coin_decimal,
-                                                                                sent_tx.hex(),
-                                                                                each_address['user_server'], net_name)
+                                inserted = await sql_move_deposit_for_spendable(
+                                    token_name, None, each_address['user_id'], each_address['balance_wallet_address'],
+                                    config['eth']['MainAddress'], real_deposited_balance,
+                                    real_deposit_fee, coin_decimal, sent_tx.hex(), each_address['user_server'], net_name
+                                )
                                 await asyncio.sleep(15.0)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
@@ -1528,19 +1524,18 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                     except Exception as e:
                         print(
                             "ERROR TOKEN: {} - from {} to {}".format(token_name, each_address['balance_wallet_address'],
-                                                                     config.eth.MainAddress))
+                                                                     config['eth']['MainAddress']))
                         traceback.print_exc(file=sys.stdout)
                         # await logchanbot("store " +str(traceback.format_exc()))
-            msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(token_name,
-                                                                                                      len(list_user_addresses),
-                                                                                                      balance_below_min,
-                                                                                                      balance_above_min)
+            msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(
+                token_name, len(list_user_addresses), balance_below_min, balance_above_min
+            )
         else:
             msg_deposit += "TOKEN {}: No deposit address.".format(token_name)
     else:
         # ERC-20
         # get withdraw gas balance    
-        gas_main_balance = await http_wallet_getbalance(url, config.eth.MainAddress, None, 64)
+        gas_main_balance = await http_wallet_getbalance(url, config['eth']['MainAddress'], None, 64)
 
         # main balance has gas?
         main_balance_gas_sufficient = True
@@ -1554,7 +1549,10 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
             # OK check them one by one
             # print("{} addresses for updating balance".format(len(list_user_addresses)))
             if main_balance_gas_sufficient is False:
-                await logchanbot("Main address not having enough gas! net_name {}, main address: {}".format(net_name, config.eth.MainAddress))
+                await logchanbot("Main address not having enough gas! net_name {}, main address: {}".format(
+                    net_name, config['eth']['MainAddress']
+                    )
+                )
                 return
 
             for each_address in list_user_addresses:
@@ -1567,47 +1565,57 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                     gas_of_address = await http_wallet_getbalance(url, each_address['balance_wallet_address'], None, 64)
                     if erc20_approve_spend == 1:
                         # Check if in approved DB
-                        check_approved = await check_approved_erc20(each_address['user_id'], contract, 
-                                                                    each_address['balance_wallet_address'], 
-                                                                    each_address['user_server'], net_name)
+                        check_approved = await check_approved_erc20(
+                            each_address['user_id'], contract, each_address['balance_wallet_address'], 
+                            each_address['user_server'], net_name
+                        )
                         if check_approved is False:
                             # Not in DB, Check gas and set approve
                             if gas_of_address / 10 ** 18 >= min_gas_tx:
-                                transaction = await erc20_approve_spender(url, int(chainId, 16), contract, 
-                                                                          each_address['balance_wallet_address'],
-                                                                          decrypt_string(each_address['seed']),
-                                                                          config.eth.MainAddress)
+                                transaction = await erc20_approve_spender(
+                                    url, int(chainId, 16), contract, 
+                                    each_address['balance_wallet_address'],
+                                    decrypt_string(each_address['seed']),
+                                    config['eth']['MainAddress']
+                                )
                                 if transaction:
-                                    added = await insert_approved_erc20(each_address['user_id'], contract, 
-                                                                        each_address['balance_wallet_address'], 
-                                                                        each_address['user_server'], net_name, 
-                                                                        transaction)
+                                    added = await insert_approved_erc20(
+                                        each_address['user_id'], contract, 
+                                        each_address['balance_wallet_address'], 
+                                        each_address['user_server'], net_name, 
+                                        transaction
+                                    )
                                     await asyncio.sleep(5.0)
                                     continue
                             elif gas_of_address / 10 ** 18 < min_gas_tx and main_balance_gas_sufficient:
-                                send_gas_tx = await send_gas(url, chainId, each_address['balance_wallet_address'], move_gas_amount, min_gas_tx)
+                                send_gas_tx = await send_gas(
+                                    url, chainId, each_address['balance_wallet_address'], move_gas_amount, min_gas_tx
+                                )
                                 if send_gas_tx:
-                                    await logchanbot("[{}] Sent gas {} to to {}".format(net_name, move_gas_amount/10**18, each_address['balance_wallet_address']))
+                                    await logchanbot("[{}] Sent gas {} to to {}".format(
+                                        net_name, move_gas_amount/10**18, each_address['balance_wallet_address']
+                                        )
+                                    )
                                 await asyncio.sleep(5.0)
                                 continue
                         else:
                             # Transfer
                             if main_balance_gas_sufficient:
-                                transaction = await erc20_transfer_token_to_operator(url, int(chainId, 16), contract, 
-                                                                                     each_address['balance_wallet_address'],
-                                                                                     config.eth.MainAddress, config.eth.MainAddress_seed, 
-                                                                                     deposited_balance)
+                                transaction = await erc20_transfer_token_to_operator(
+                                    url, int(chainId, 16), contract, 
+                                    each_address['balance_wallet_address'],
+                                    config['eth']['MainAddress'], config['eth']['MainAddress_seed'], 
+                                    deposited_balance
+                                )
                                 if transaction:
                                     # Add to SQL
                                     try:
-                                        inserted = await sql_move_deposit_for_spendable(token_name, contract,
-                                                                                        each_address['user_id'],
-                                                                                        each_address['balance_wallet_address'],
-                                                                                        config.eth.MainAddress,
-                                                                                        real_deposited_balance,
-                                                                                        real_deposit_fee, coin_decimal,
-                                                                                        transaction,
-                                                                                        each_address['user_server'], net_name)
+                                        inserted = await sql_move_deposit_for_spendable(
+                                            token_name, contract, each_address['user_id'],
+                                            each_address['balance_wallet_address'], config['eth']['MainAddress'],
+                                            real_deposited_balance, real_deposit_fee, coin_decimal,
+                                            transaction, each_address['user_server'], net_name
+                                        )
                                         await asyncio.sleep(5.0)
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
@@ -1627,7 +1635,7 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                             nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
 
                             unicorn_txn = unicorns.functions.transfer(
-                                w3.toChecksumAddress(config.eth.MainAddress),
+                                w3.toChecksumAddress(config['eth']['MainAddress']),
                                 deposited_balance  # amount to send
                             ).buildTransaction({
                                 'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
@@ -1642,14 +1650,12 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                             if signed_txn and sent_tx:
                                 # Add to SQL
                                 try:
-                                    inserted = await sql_move_deposit_for_spendable(token_name, contract,
-                                                                                    each_address['user_id'],
-                                                                                    each_address['balance_wallet_address'],
-                                                                                    config.eth.MainAddress,
-                                                                                    real_deposited_balance,
-                                                                                    real_deposit_fee, coin_decimal,
-                                                                                    sent_tx.hex(),
-                                                                                    each_address['user_server'], net_name)
+                                    inserted = await sql_move_deposit_for_spendable(
+                                        token_name, contract, each_address['user_id'],
+                                        each_address['balance_wallet_address'], config['eth']['MainAddress'],
+                                        real_deposited_balance, real_deposit_fee, coin_decimal,
+                                        sent_tx.hex(), each_address['user_server'], net_name
+                                    )
                                     await asyncio.sleep(15.0)
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
@@ -1662,11 +1668,11 @@ async def sql_check_minimum_deposit_erc20(url: str, net_name: str, coin: str, co
                         elif gas_of_address / 10 ** 18 < min_gas_tx and main_balance_gas_sufficient == False:
                             print('Main address has no sufficient balance to supply gas {}'.format(each_address['balance_wallet_address']))
 
-
-async def sql_move_deposit_for_spendable(token_name: str, contract: str, user_id: str, balance_wallet_address: str,
-                                         to_main_address: str, \
-                                         real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str,
-                                         user_server: str, network: str):
+async def sql_move_deposit_for_spendable(
+    token_name: str, contract: str, user_id: str, balance_wallet_address: str,
+    to_main_address: str, real_amount: float, real_deposit_fee: float, 
+    token_decimal: int, txn: str, user_server: str, network: str
+):
     global pool
     try:
         await openConnection()
@@ -1685,7 +1691,6 @@ async def sql_move_deposit_for_spendable(token_name: str, contract: str, user_id
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return False
-
 
 async def sql_get_pending_move_deposit_erc20(net_name: str):
     global pool
@@ -1725,8 +1730,10 @@ async def sql_get_tx_info_erc20(url: str, tx: str, timeout: int = 64):
     return None
 
 
-async def sql_check_pending_move_deposit_erc20(url: str, net_name: str, deposit_confirm_depth: int,
-                                               block_timeout: int = 64):
+async def sql_check_pending_move_deposit_erc20(
+    url: str, net_name: str, deposit_confirm_depth: int,
+    block_timeout: int = 64
+):
     global pool
     topBlock = await erc_get_block_number(url, block_timeout)
     if topBlock is None:
@@ -1745,24 +1752,28 @@ async def sql_check_pending_move_deposit_erc20(url: str, net_name: str, deposit_
                 if 'status' in check_tx and int(check_tx['status'], 16) == 0:
                     status = "FAILED"
                 if topBlock - deposit_confirm_depth > tx_block_number:
-                    confirming_tx = await sql_update_confirming_move_tx_erc20(each_tx['txn'], tx_block_number,
-                                                                              topBlock - tx_block_number, status)
+                    confirming_tx = await sql_update_confirming_move_tx_erc20(
+                        each_tx['txn'], tx_block_number, topBlock - tx_block_number, status
+                    )
             elif check_tx is None:
                 # None found
                 if int(time.time()) - 4 * 3600 > each_tx['time_insert']:
                     status = "FAILED"
                     tx_block_number = 0
-                    failed_tx = await sql_update_confirming_move_tx_erc20(each_tx['txn'], tx_block_number,
-                                                                          topBlock - tx_block_number, status)
+                    failed_tx = await sql_update_confirming_move_tx_erc20(
+                        each_tx['txn'], tx_block_number, topBlock - tx_block_number, status
+                    )
 
-
-async def sql_update_confirming_move_tx_erc20(tx: str, blockNumber: int, confirmed_depth: int, status):
+async def sql_update_confirming_move_tx_erc20(
+    tx: str, blockNumber: int, confirmed_depth: int, status
+):
     global pool
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE erc20_move_deposit SET `status`=%s, `blockNumber`=%s, `confirmed_depth`=%s WHERE `txn`=%s """
+                sql = """ UPDATE erc20_move_deposit SET `status`=%s, `blockNumber`=%s, `confirmed_depth`=%s 
+                WHERE `txn`=%s """
                 await cur.execute(sql, (status, blockNumber, confirmed_depth, tx))
                 await conn.commit()
                 return True
@@ -1770,7 +1781,6 @@ async def sql_update_confirming_move_tx_erc20(tx: str, blockNumber: int, confirm
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return None
-
 
 async def get_monit_scanning_contract_balance_address_erc20(net_name: str, called_Update: int = 1200):
     global pool
@@ -1788,7 +1798,6 @@ async def get_monit_scanning_contract_balance_address_erc20(net_name: str, calle
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-
 async def sql_update_erc_user_update_call_many_erc20(list_data):
     global pool
     try:
@@ -1803,7 +1812,6 @@ async def sql_update_erc_user_update_call_many_erc20(list_data):
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return 0
-
 
 async def sql_get_pending_notification_users_erc20(user_server: str = 'DISCORD'):
     global pool
@@ -1823,8 +1831,9 @@ async def sql_get_pending_notification_users_erc20(user_server: str = 'DISCORD')
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-
-async def sql_updating_pending_move_deposit_erc20(notified_confirmation: bool, failed_notification: bool, txn: str):
+async def sql_updating_pending_move_deposit_erc20(
+    notified_confirmation: bool, failed_notification: bool, txn: str
+):
     global pool
     try:
         await openConnection()
@@ -1843,10 +1852,11 @@ async def sql_updating_pending_move_deposit_erc20(notified_confirmation: bool, f
         await logchanbot("store " +str(traceback.format_exc()))
     return 0
 
-
-async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, coin_decimal: int,
-                                    min_move_deposit: float, min_gas_tx: float, fee_limit_trx: float, gas_ticker: str,
-                                    move_gas_amount: float, chainId: str, real_deposit_fee: float, time_lap: int = 0):
+async def trx_check_minimum_deposit(
+    coin: str, type_coin: str, contract: str, coin_decimal: int,
+    min_move_deposit: float, min_gas_tx: float, fee_limit_trx: float, gas_ticker: str,
+    move_gas_amount: float, chainId: str, real_deposit_fee: float, time_lap: int = 0
+):
     global pool
     token_name = coin.upper()
     list_user_addresses = await sql_get_all_trx_user(token_name, time_lap)
@@ -1878,8 +1888,10 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                 traceback.print_exc(file=sys.stdout)
 
             deposited_balance = float(
-                await trx_wallet_getbalance(each_address['balance_wallet_address'], token_name, coin_decimal, type_coin,
-                                            contract))
+                await trx_wallet_getbalance(
+                    each_address['balance_wallet_address'], token_name, coin_decimal, type_coin, contract
+                )
+            )
             if deposited_balance is None or deposited_balance == 0:
                 continue
 
@@ -1898,7 +1910,7 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                                                    timeout=Timeout(timeout=30, connect=20, read=20))
                         TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
                         txb = (
-                            TronClient.trx.transfer(each_address['balance_wallet_address'], config.trc.MainAddress,
+                            TronClient.trx.transfer(each_address['balance_wallet_address'], config['trc']['MainAddress'],
                                                     int(real_deposited_balance * 10 ** 6))
                             # .memo("test memo")
                             # .fee_limit(100_000_000)
@@ -1921,15 +1933,12 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                         await TronClient.close()
                         if txn_ret and in_block:
                             try:
-                                inserted = await trx_move_deposit_for_spendable(token_name, contract,
-                                                                                each_address['user_id'],
-                                                                                each_address['balance_wallet_address'],
-                                                                                config.trc.MainAddress,
-                                                                                real_deposited_balance,
-                                                                                real_deposit_fee, coin_decimal,
-                                                                                txn_ret['txid'],
-                                                                                in_block['blockNumber'],
-                                                                                each_address['user_server'])
+                                inserted = await trx_move_deposit_for_spendable(
+                                    token_name, contract, each_address['user_id'],
+                                    each_address['balance_wallet_address'], config['trc']['MainAddress'], real_deposited_balance,
+                                    real_deposit_fee, coin_decimal, txn_ret['txid'], in_block['blockNumber'],
+                                    each_address['user_server']
+                                )
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                         await asyncio.sleep(3)
@@ -1955,18 +1964,18 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                                                                           6, type_coin, contract)
                                 if gas_balance < min_gas_tx:
                                     txb_gas = (
-                                        TronClient.trx.transfer(config.trc.MainAddress,
+                                        TronClient.trx.transfer(config['trc']['MainAddress'],
                                                                 each_address['balance_wallet_address'],
                                                                 int(move_gas_amount * 10 ** 6))
                                         .fee_limit(int(fee_limit_trx * 10 ** 6))
                                     )
                                     txn_gas = await txb_gas.build()
-                                    priv_key_gas = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
+                                    priv_key_gas = PrivateKey(bytes.fromhex(config['trc']['MainAddress_key']))
                                     txn_ret_gas = await txn_gas.sign(priv_key_gas).broadcast()
                                     await asyncio.sleep(0.5)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
-                            txb = await cntr.functions.transfer(config.trc.MainAddress,
+                            txb = await cntr.functions.transfer(config['trc']['MainAddress'],
                                                                 int(balance * 10 ** coin_decimal))
                             txb = txb.with_owner(each_address['balance_wallet_address']).fee_limit(
                                 int(fee_limit_trx * 10 ** 6))
@@ -1988,15 +1997,12 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                             await TronClient.close()
                             if txn_ret and in_block:
                                 try:
-                                    inserted = await trx_move_deposit_for_spendable(token_name, contract,
-                                                                                    each_address['user_id'],
-                                                                                    each_address[
-                                                                                        'balance_wallet_address'],
-                                                                                    config.trc.MainAddress, balance,
-                                                                                    real_deposit_fee, coin_decimal,
-                                                                                    txn_ret['txid'],
-                                                                                    in_block['blockNumber'],
-                                                                                    each_address['user_server'])
+                                    inserted = await trx_move_deposit_for_spendable(
+                                        token_name, contract, each_address['user_id'],
+                                        each_address['balance_wallet_address'], config['trc']['MainAddress'], balance,
+                                        real_deposit_fee, coin_decimal, txn_ret['txid'], in_block['blockNumber'],
+                                        each_address['user_server']
+                                    )
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
                             await asyncio.sleep(0.5)
@@ -2016,13 +2022,13 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                                                                           token_name, coin_decimal, type_coin, contract)
                                 if gas_balance < min_gas_tx:
                                     txb_gas = (
-                                        TronClient.trx.transfer(config.trc.MainAddress,
+                                        TronClient.trx.transfer(config['trc']['MainAddress'],
                                                                 each_address['balance_wallet_address'],
                                                                 int(move_gas_amount * 10 ** coin_decimal))
                                         .fee_limit(int(fee_limit_trx * 10 ** 6))
                                     )
                                     txn_gas = await txb_gas.build()
-                                    priv_key_gas = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
+                                    priv_key_gas = PrivateKey(bytes.fromhex(config['trc']['MainAddress_key']))
                                     txn_ret_gas = await txn_gas.sign(priv_key_gas).broadcast()
                                     await asyncio.sleep(0.5)
                             except Exception as e:
@@ -2032,7 +2038,7 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                             amount = int(precision * balance)
                             txb = (
                                 TronClient.trx.asset_transfer(
-                                    each_address['balance_wallet_address'], config.trc.MainAddress, amount,
+                                    each_address['balance_wallet_address'], config['trc']['MainAddress'], amount,
                                     token_id=int(contract)
                                 )
                                 .fee_limit(int(fee_limit_trx * 10 ** 6))
@@ -2048,28 +2054,22 @@ async def trx_check_minimum_deposit(coin: str, type_coin: str, contract: str, co
                             await TronClient.close()
                             if txn_ret and in_block:
                                 try:
-                                    inserted = await trx_move_deposit_for_spendable(token_name, str(contract),
-                                                                                    each_address['user_id'],
-                                                                                    each_address[
-                                                                                        'balance_wallet_address'],
-                                                                                    config.trc.MainAddress, balance,
-                                                                                    real_deposit_fee, coin_decimal,
-                                                                                    txn_ret['txid'],
-                                                                                    in_block['blockNumber'],
-                                                                                    each_address['user_server'])
+                                    inserted = await trx_move_deposit_for_spendable(
+                                        token_name, str(contract), each_address['user_id'], each_address['balance_wallet_address'],
+                                        config['trc']['MainAddress'], balance, real_deposit_fee, coin_decimal, txn_ret['txid'],
+                                        in_block['blockNumber'], each_address['user_server']
+                                    )
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
                             await asyncio.sleep(3)
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
-        msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(token_name,
-                                                                                                  len(list_user_addresses),
-                                                                                                  balance_below_min,
-                                                                                                  balance_above_min)
+        msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(
+            token_name, len(list_user_addresses), balance_below_min, balance_above_min
+        )
     else:
         msg_deposit += "TOKEN {}: No deposit address.\n".format(token_name)
     return msg_deposit
-
 
 async def sql_check_pending_move_deposit_trc20(net_name: str, deposit_confirm_depth: int, option: str = 'PENDING'):
     global pool
@@ -2077,9 +2077,7 @@ async def sql_check_pending_move_deposit_trc20(net_name: str, deposit_confirm_de
     if topBlock is None:
         await logchanbot('Can not get top block for {}.'.format(net_name))
         return
-
     list_pending = await trx_get_pending_move_deposit(option.upper())
-
     if len(list_pending) > 0:
         # Have pending, let's check
         for each_tx in list_pending:
@@ -2100,7 +2098,6 @@ async def sql_check_pending_move_deposit_trc20(net_name: str, deposit_confirm_de
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("store " +str(traceback.format_exc()))
 
-
 async def trx_get_tx_info(tx: str):
     timeout = 64
     try:
@@ -2119,7 +2116,6 @@ async def trx_get_tx_info(tx: str):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return False
-
 
 async def trx_wallet_getbalance(address: str, coin: str, coin_decimal: int, type_coin: str, contract: str = None):
     token_name = coin.upper()
@@ -2170,7 +2166,6 @@ async def trx_wallet_getbalance(address: str, coin: str, coin_decimal: int, type
         balance = 0.0
     return balance
 
-
 async def trx_update_confirming_move_tx(tx: str, confirmed_depth: int, status: str = 'CONFIRMED'):
     global pool
     status = status.upper()
@@ -2187,7 +2182,6 @@ async def trx_update_confirming_move_tx(tx: str, confirmed_depth: int, status: s
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return None
-
 
 async def sql_get_pending_notification_users_trc20(user_server: str = 'DISCORD'):
     global pool
@@ -2206,7 +2200,6 @@ async def sql_get_pending_notification_users_trc20(user_server: str = 'DISCORD')
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return None
-
 
 async def trx_get_pending_move_deposit(option: str = 'PENDING'):
     global pool
@@ -2232,7 +2225,6 @@ async def trx_get_pending_move_deposit(option: str = 'PENDING'):
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-
 async def sql_updating_pending_move_deposit_trc20(notified_confirmation: bool, failed_notification: bool, txn: str):
     global pool
     try:
@@ -2251,7 +2243,6 @@ async def sql_updating_pending_move_deposit_trc20(notified_confirmation: bool, f
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return 0
-
 
 async def sql_get_all_trx_user(coin: str, called_Update: int = 0):
     # Check update only who has recently called for balance
@@ -2286,7 +2277,6 @@ async def sql_get_all_trx_user(coin: str, called_Update: int = 0):
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-
 async def get_all_coin_token_addresses():
     global pool
     try:
@@ -2311,7 +2301,6 @@ async def get_all_coin_token_addresses():
         traceback.print_exc(file=sys.stdout)
     return []
 
-
 async def contract_tx_remove_after(type_coin: str, duration: int = 1200):
     global pool
     try:
@@ -2331,13 +2320,14 @@ async def contract_tx_remove_after(type_coin: str, duration: int = 1200):
         traceback.print_exc(file=sys.stdout)
     return False
 
-
 ## math tip
-async def insert_discord_mathtip(token_name: str, contract: str, from_userid: str, from_username: str, message_id: str,
-                                 eval_content: str, eval_answer: float, wrong_answer_1: float, wrong_answer_2: float,
-                                 wrong_answer_3: float, guild_id: str, channel_id: str, real_amount: float,
-                                 real_amount_usd: float, real_amount_usd_text: str, unit_price_usd: float,
-                                 token_decimal: int, math_endtime: int, network: str, status: str = "ONGOING"):
+async def insert_discord_mathtip(
+    token_name: str, contract: str, from_userid: str, from_username: str, message_id: str,
+    eval_content: str, eval_answer: float, wrong_answer_1: float, wrong_answer_2: float,
+    wrong_answer_3: float, guild_id: str, channel_id: str, real_amount: float,
+    real_amount_usd: float, real_amount_usd_text: str, unit_price_usd: float,
+    token_decimal: int, math_endtime: int, network: str, status: str = "ONGOING"
+):
     global pool
     try:
         await openConnection()
@@ -2355,7 +2345,6 @@ async def insert_discord_mathtip(token_name: str, contract: str, from_userid: st
         await logchanbot("store " +str(traceback.format_exc()))
     return False
 
-
 async def get_discord_mathtip_by_chanid(chan_id: str):
     global pool
     try:
@@ -2372,7 +2361,6 @@ async def get_discord_mathtip_by_chanid(chan_id: str):
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-
 async def discord_mathtip_update(message_id: str, status: str):
     global pool
     try:
@@ -2387,7 +2375,6 @@ async def discord_mathtip_update(message_id: str, status: str):
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return None
-
 
 async def get_math_responders_by_message_id(message_id: str):
     global pool
@@ -2418,8 +2405,6 @@ async def get_math_responders_by_message_id(message_id: str):
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return {'total': 0, 'wrong_ids': [], 'wrong_names': [], 'right_ids': [], 'right_names': []}
-
-
 # end of math tip
 
 ## Trivia
@@ -2442,7 +2427,6 @@ async def get_random_q_db(level: str):
         traceback.print_exc(file=sys.stdout)
     return None
 
-
 async def get_q_db(q_id: str):
     global pool
     try:
@@ -2457,7 +2441,6 @@ async def get_q_db(q_id: str):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
-
 
 async def get_active_discord_triviatip():
     global pool
@@ -2474,7 +2457,6 @@ async def get_active_discord_triviatip():
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return []
-
 
 async def get_responders_by_message_id(message_id: str):
     global pool
@@ -2506,12 +2488,13 @@ async def get_responders_by_message_id(message_id: str):
         await logchanbot("store " +str(traceback.format_exc()))
     return {'total': 0, 'wrong_ids': [], 'wrong_names': [], 'right_ids': [], 'right_names': []}
 
-
-async def insert_discord_triviatip(token_name: str, contract: str, from_userid: str, from_owner_name: str,
-                                   message_id: str, question_content: str, question_id: int, button_correct_answer: str,
-                                   guild_id: str, channel_id: str, real_amount: float, real_amount_usd: float,
-                                   real_amount_usd_text: str, unit_price_usd: float, token_decimal: int,
-                                   trivia_endtime: int, network: str, status: str = "ONGOING"):
+async def insert_discord_triviatip(
+    token_name: str, contract: str, from_userid: str, from_owner_name: str,
+    message_id: str, question_content: str, question_id: int, button_correct_answer: str,
+    guild_id: str, channel_id: str, real_amount: float, real_amount_usd: float,
+    real_amount_usd_text: str, unit_price_usd: float, token_decimal: int,
+    trivia_endtime: int, network: str, status: str = "ONGOING"
+):
     global pool
     try:
         await openConnection()
@@ -2532,7 +2515,6 @@ async def insert_discord_triviatip(token_name: str, contract: str, from_userid: 
         await logchanbot("store " +str(traceback.format_exc()))
     return False
 
-
 async def discord_triviatip_update(message_id: str, status: str):
     global pool
     try:
@@ -2547,14 +2529,14 @@ async def discord_triviatip_update(message_id: str, status: str):
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return None
-
-
 ## End of Trivia
 
 
-async def sql_user_balance_mv_single(from_userid: str, to_userid: str, guild_id: str, channel_id: str,
-                                     real_amount: float, coin: str, tiptype: str, token_decimal: int, user_server: str,
-                                     contract: str, real_amount_usd: float, extra_message: str = None):
+async def sql_user_balance_mv_single(
+    from_userid: str, to_userid: str, guild_id: str, channel_id: str,
+    real_amount: float, coin: str, tiptype: str, token_decimal: int, user_server: str,
+    contract: str, real_amount_usd: float, extra_message: str = None
+):
     global pool
     token_name = coin.upper()
     currentTs = int(time.time())
@@ -2635,9 +2617,11 @@ async def sql_user_balance_mv_multple_amount(user_dict_tip, tiptype: str, user_s
         await logchanbot("store " +str(traceback.format_exc()))
     return False
 
-async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, channel_id: str, amount_each: float,
-                                       coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str,
-                                       real_amount_usd: float, extra_message: str = None):
+async def sql_user_balance_mv_multiple(
+    user_from: str, user_tos, guild_id: str, channel_id: str, amount_each: float,
+    coin: str, tiptype: str, token_decimal: int, user_server: str, contract: str,
+    real_amount_usd: float, extra_message: str = None
+):
     # user_tos is array "account1", "account2", ....
     global pool
     token_name = coin.upper()
@@ -2681,11 +2665,11 @@ async def sql_user_balance_mv_multiple(user_from: str, user_tos, guild_id: str, 
         await logchanbot("store " +str(traceback.format_exc()))
     return False
 
-
-async def trx_move_deposit_for_spendable(token_name: str, contract: str, user_id: str, balance_wallet_address: str,
-                                         to_main_address: str, \
-                                         real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str,
-                                         blockNumber: int, user_server: str = 'DISCORD'):
+async def trx_move_deposit_for_spendable(
+    token_name: str, contract: str, user_id: str, balance_wallet_address: str,
+    to_main_address: str, real_amount: float, real_deposit_fee: float,
+    token_decimal: int, txn: str, blockNumber: int, user_server: str = 'DISCORD'
+):
     global pool
     try:
         await openConnection()
@@ -2705,7 +2689,6 @@ async def trx_move_deposit_for_spendable(token_name: str, contract: str, user_id
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return False
-
 
 ## ADA
 async def ada_get_address_pools(min_remaining: int = 20):
@@ -2741,8 +2724,6 @@ async def ada_get_address_pools(min_remaining: int = 20):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
-
-
 ## END ADA
 
 async def sql_toggle_tipnotify(user_id: str, onoff: str):
@@ -2780,7 +2761,6 @@ async def sql_toggle_tipnotify(user_id: str, onoff: str):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("store " +str(traceback.format_exc()))
 
-
 async def sql_get_tipnotify():
     global pool
     try:
@@ -2796,7 +2776,6 @@ async def sql_get_tipnotify():
                 return ignorelist
     except Exception as e:
         await logchanbot("store " +str(traceback.format_exc()))
-
 
 # FreeTip
 async def insert_freetip_collector(message_id: str, from_userid: str, collector_id: str, collector_name: str):
@@ -2815,7 +2794,6 @@ async def insert_freetip_collector(message_id: str, from_userid: str, collector_
         await logchanbot("store " +str(traceback.format_exc()))
     return False
 
-
 async def check_if_freetip_collector_in(message_id: str, from_userid: str, collector_id: str):
     global pool
     try:
@@ -2831,7 +2809,6 @@ async def check_if_freetip_collector_in(message_id: str, from_userid: str, colle
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return False
-
 
 async def get_freetip_collector_by_id(message_id: str, from_userid: str):
     global pool
@@ -2849,11 +2826,12 @@ async def get_freetip_collector_by_id(message_id: str, from_userid: str):
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-
-async def insert_discord_freetip(token_name: str, contract: str, from_userid: str, from_name: str, message_id: str,
-                                 airdrop_content: str, guild_id: str, channel_id: str, real_amount: float,
-                                 real_amount_usd: float, real_amount_usd_text: str, unit_price_usd: float,
-                                 token_decimal: int, airdrop_time: int, status: str = "ONGOING"):
+async def insert_discord_freetip(
+    token_name: str, contract: str, from_userid: str, from_name: str, message_id: str,
+    airdrop_content: str, guild_id: str, channel_id: str, real_amount: float,
+    real_amount_usd: float, real_amount_usd_text: str, unit_price_usd: float,
+    token_decimal: int, airdrop_time: int, status: str = "ONGOING"
+):
     global pool
     try:
         await openConnection()
@@ -2872,7 +2850,6 @@ async def insert_discord_freetip(token_name: str, contract: str, from_userid: st
         await logchanbot("store " +str(traceback.format_exc()))
     return False
 
-
 async def get_active_discord_freetip(lap: int = 60):
     global pool
     try:
@@ -2888,7 +2865,6 @@ async def get_active_discord_freetip(lap: int = 60):
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return []
-
 
 async def get_inactive_discord_freetip(lap: int = 1200):
     # cleanup some mess
@@ -2908,7 +2884,6 @@ async def get_inactive_discord_freetip(lap: int = 1200):
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-
 async def get_discord_freetip_by_msgid(message_id: str):
     global pool
     try:
@@ -2924,7 +2899,6 @@ async def get_discord_freetip_by_msgid(message_id: str):
         traceback.print_exc(file=sys.stdout)
     return None
 
-
 async def discord_freetip_update(message_id: str, status: str):
     global pool
     try:
@@ -2938,7 +2912,6 @@ async def discord_freetip_update(message_id: str, status: str):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
-
 
 async def discord_freetip_ongoing(user_id: str, status: str = "ONGOING"):
     global pool
@@ -2987,8 +2960,6 @@ async def discord_freetip_ongoing_guild(guild_id: str, status: str = "ONGOING"):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return 0
-
-
 # End of FreeTip
 
 # Trade
@@ -3010,12 +2981,13 @@ async def sql_count_open_order_by_sellerid(user_id: str, user_server: str, statu
         traceback.print_exc(file=sys.stdout)
     return 0
 
-
 # use to store data
-async def sql_store_openorder(coin_sell: str, coin_decimal_sell: str, amount_sell: float,
-                              amount_sell_after_fee: float, userid_sell: str, coin_get: str, coin_decimal_buy: str,
-                              amount_get: float, amount_get_after_fee: float, sell_div_get: float,
-                              sell_user_server: str = 'DISCORD'):
+async def sql_store_openorder(
+    coin_sell: str, coin_decimal_sell: str, amount_sell: float,
+    amount_sell_after_fee: float, userid_sell: str, coin_get: str, coin_decimal_buy: str,
+    amount_get: float, amount_get_after_fee: float, sell_div_get: float,
+    sell_user_server: str = 'DISCORD'
+):
     global pool
     sell_user_server = sell_user_server.upper()
     if amount_sell == 0 or amount_sell_after_fee == 0 or amount_get == 0 \
@@ -3042,11 +3014,12 @@ async def sql_store_openorder(coin_sell: str, coin_decimal_sell: str, amount_sel
         traceback.print_exc(file=sys.stdout)
     return False
 
-
 # If in Discord, notified = True
 # If API, notified = False
-async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_server: str, sell_user_server: str,
-                                      userid_sell: str, notified: bool = True):
+async def sql_match_order_by_sellerid(
+    userid_get: str, ref_numb: str, buy_user_server: str, sell_user_server: str,
+    userid_sell: str, notified: bool = True
+):
     global pool
     buy_user_server = buy_user_server.upper()
     if buy_user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
@@ -3140,7 +3113,6 @@ async def sql_match_order_by_sellerid(userid_get: str, ref_numb: str, buy_user_s
         traceback.print_exc(file=sys.stdout)
     return False
 
-
 async def sql_get_open_order_by_alluser(coin: str, status: str, option: str, limit: int = 50):
     global pool
     coin_name = coin.upper()
@@ -3166,9 +3138,9 @@ async def sql_get_open_order_by_alluser(coin: str, status: str, option: str, lim
         traceback.print_exc(file=sys.stdout)
     return False
 
-
-async def sql_get_open_order_by_alluser_by_coins(coin1: str, coin2: str, status: str, option_order: str,
-                                                 limit: int = 50):
+async def sql_get_open_order_by_alluser_by_coins(
+    coin1: str, coin2: str, status: str, option_order: str, limit: int = 50
+):
     global pool
     option_order = option_order.upper()
     if option_order not in ["DESC", "ASC"]:
@@ -3193,7 +3165,6 @@ async def sql_get_open_order_by_alluser_by_coins(coin1: str, coin2: str, status:
         traceback.print_exc(file=sys.stdout)
     return False
 
-
 async def sql_get_order_numb(order_num: str, status: str = None):
     global pool
     if status is None: status = 'OPEN'
@@ -3216,7 +3187,6 @@ async def sql_get_order_numb(order_num: str, status: str = None):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
-
 async def sql_get_open_order_by_sellerid_all(userid_sell: str, status: str = 'OPEN'):
     global pool
     try:
@@ -3231,7 +3201,6 @@ async def sql_get_open_order_by_sellerid_all(userid_sell: str, status: str = 'OP
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return False
-
 
 async def sql_cancel_open_order_by_sellerid(userid_sell: str, coin: str = 'ALL'):
     global pool
@@ -3267,7 +3236,6 @@ async def sql_cancel_open_order_by_sellerid(userid_sell: str, coin: str = 'ALL')
         traceback.print_exc(file=sys.stdout)
     return False
 
-
 async def sql_get_open_order_by_sellerid(userid_sell: str, coin: str, status: str = 'OPEN'):
     global pool
     coin_name = coin.upper()
@@ -3283,8 +3251,6 @@ async def sql_get_open_order_by_sellerid(userid_sell: str, coin: str, status: st
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return False
-
-
 # End of Trade
 
 # Faucet / Game stats
@@ -3303,7 +3269,6 @@ async def sql_list_game_coins():
         traceback.print_exc(file=sys.stdout)
     return []
 
-
 async def sql_faucet_count_all():
     global pool
     try:
@@ -3317,7 +3282,6 @@ async def sql_faucet_count_all():
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
-
 
 async def sql_game_stat(game_coins):
     global pool
@@ -3351,7 +3315,6 @@ async def sql_game_stat(game_coins):
         traceback.print_exc(file=sys.stdout)
     return None
 
-
 async def sql_faucet_sum_count_claimed(coin: str):
     coin_name = coin.upper()
     global pool
@@ -3369,7 +3332,6 @@ async def sql_faucet_sum_count_claimed(coin: str):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
-
 
 async def sql_discord_userinfo_get(user_id: str, user_server: str = 'DISCORD'):
     global pool
@@ -3390,14 +3352,15 @@ async def sql_discord_userinfo_get(user_id: str, user_server: str = 'DISCORD'):
         traceback.print_exc(file=sys.stdout)
     return None
 
-
-async def sql_faucet_penalty_checkuser(user_id: str, penalty_add: False, user_server: str = 'DISCORD'):
+async def sql_faucet_penalty_checkuser(
+    user_id: str, penalty_add: False, user_server: str = 'DISCORD'
+):
     global pool, redis_conn, redis_pool
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
     # Check if in redis already:
-    key = config.redis.prefix_faucet_take_penalty + user_server + "_" + user_id
+    key = config['redis']['prefix_faucet_take_penalty'] + user_server + "_" + user_id
     result = None
     if penalty_add == False:
         try:
@@ -3411,12 +3374,13 @@ async def sql_faucet_penalty_checkuser(user_id: str, penalty_add: False, user_se
         # add
         try:
             if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
-            if redis_conn: redis_conn.set(key, str(int(time.time())),
-                                          int(int(config.faucet.interval) * 3600 / 2))  # 12h
+            if redis_conn: redis_conn.set(
+                key, str(int(time.time())),
+                int(int(config['faucet']['interval']) * 3600 / 2)
+            )  # 12h
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     return result
-
 
 async def sql_roach_get_by_id(roach_id: str, user_server: str = 'DISCORD'):
     global pool
@@ -3490,9 +3454,10 @@ async def sql_faucet_count_user(user_id: str, user_server: str = 'DISCORD'):
         traceback.print_exc(file=sys.stdout)
     return None
 
-
-async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int,
-                         user_server: str = 'DISCORD'):
+async def sql_faucet_add(
+    claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int,
+    user_server: str = 'DISCORD'
+):
     global pool, redis_conn
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
@@ -3514,9 +3479,11 @@ async def sql_faucet_add(claimed_user: str, claimed_server: str, coin_name: str,
 # End Faucet / Game stats
 
 ## approve spender to operator
-async def erc20_approve_spender(url: str, chainId: int, contract: str, 
-                                sender_address: str, sender_seed: str, 
-                                operator_address: str):
+async def erc20_approve_spender(
+    url: str, chainId: int, contract: str, 
+    sender_address: str, sender_seed: str, 
+    operator_address: str
+):
     try:
         w3 = Web3(Web3.HTTPProvider(url))
 
@@ -3608,13 +3575,14 @@ async def sql_updateinfo_by_server(server_id: str, what: str, value: str):
     except Exception as e:
         await logchanbot(str(traceback.format_exc()) + "\n\n" + f"({sql}, ({what}, {value}, {server_id},)")
 
-
 # Partydrop
-async def insert_partydrop_create(token_name: str, contract: str, from_userid: str, from_ownername: str,
-                                  message_id: str, guild_id: str, channel_id: str, minimum_amount: float, 
-                                  init_amount: float, real_init_amount_usd: float, real_init_amount_usd_text: str, 
-                                  unit_price_usd: float, token_decimal: int, partydrop_time: int, 
-                                  status: str = "ONGOING"):
+async def insert_partydrop_create(
+    token_name: str, contract: str, from_userid: str, from_ownername: str,
+    message_id: str, guild_id: str, channel_id: str, minimum_amount: float, 
+    init_amount: float, real_init_amount_usd: float, real_init_amount_usd_text: str, 
+    unit_price_usd: float, token_decimal: int, partydrop_time: int, 
+    status: str = "ONGOING"
+):
     global pool
     try:
         await openConnection()
@@ -3685,8 +3653,10 @@ async def get_party_attendant(message_id: str):
         traceback.print_exc(file=sys.stdout)
     return []
 
-async def attend_party(message_id: str, attendant_id: str, attendant_name: str, 
-                      joined_amount: float, token_name: str, token_decimal: int):
+async def attend_party(
+    message_id: str, attendant_id: str, attendant_name: str, 
+    joined_amount: float, token_name: str, token_decimal: int
+):
     global pool
     try:
         await openConnection()
@@ -3776,23 +3746,31 @@ async def update_party_failed(message_id: str, turn_off: bool=False):
 # End Partydrop
 
 # quickdrop
-async def insert_quickdrop_create(token_name: str, contract: str, from_userid: str, from_ownername: str,
-                                  message_id: str, guild_id: str, channel_id: str, real_amount: float, 
-                                  real_amount_usd: float, real_amount_usd_text: float, 
-                                  unit_price_usd: float, token_decimal: int, quickdrop_time: int, 
-                                  status: str = "ONGOING"):
+async def insert_quickdrop_create(
+    token_name: str, contract: str, from_userid: str, from_ownername: str,
+    message_id: str, guild_id: str, channel_id: str, real_amount: float, 
+    real_amount_usd: float, real_amount_usd_text: float, 
+    unit_price_usd: float, token_decimal: int, quickdrop_time: int, 
+    status: str = "ONGOING"
+):
     global pool
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO `discord_quickdrop` (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, `expiring_time`, `status`) 
+                sql = """ INSERT INTO `discord_quickdrop` 
+                (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, 
+                `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, 
+                `unit_price_usd`, `token_decimal`, `message_time`, `expiring_time`, `status`) 
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (token_name, contract, from_userid, from_ownername, 
-                                        message_id, guild_id, channel_id, real_amount, 
-                                        real_amount_usd, real_amount_usd_text, 
-                                        unit_price_usd, token_decimal, int(time.time()), 
-                                        quickdrop_time, status))
+                await cur.execute(sql, (
+                    token_name, contract, from_userid, from_ownername, 
+                    message_id, guild_id, channel_id, real_amount, 
+                    real_amount_usd, real_amount_usd_text, 
+                    unit_price_usd, token_decimal, int(time.time()), 
+                    quickdrop_time, status
+                    )
+                )
                 await conn.commit()
                 return True
     except Exception as e:
@@ -3870,11 +3848,13 @@ async def update_quickdrop_id(message_id: str, status: str, collected_id: str, c
 # End quickdrop
 
 # Talkdrop
-async def insert_talkdrop_create(token_name: str, contract: str, from_userid: str, from_ownername: str,
-                                 message_id: str, guild_id: str, channel_id: str, talked_in_channel: str, 
-                                 talked_from_when: int, minimum_message: int, real_amount: float, real_amount_usd: float, 
-                                 real_amount_usd_text: str, unit_price_usd: float, token_decimal: int, 
-                                 talkdrop_time: int, status: str = "ONGOING"):
+async def insert_talkdrop_create(
+    token_name: str, contract: str, from_userid: str, from_ownername: str,
+    message_id: str, guild_id: str, channel_id: str, talked_in_channel: str, 
+    talked_from_when: int, minimum_message: int, real_amount: float, real_amount_usd: float, 
+    real_amount_usd_text: str, unit_price_usd: float, token_decimal: int, 
+    talkdrop_time: int, status: str = "ONGOING"
+):
     global pool
     try:
         await openConnection()
@@ -4043,7 +4023,9 @@ async def update_talkdrop_failed(message_id: str, turn_off: bool=False):
 # End Talkdrop
 
 # Recent Activity
-async def recent_tips(user_id: str, user_server: str, token_name: str, coin_family: str, what: str, limit: int):
+async def recent_tips(
+    user_id: str, user_server: str, token_name: str, coin_family: str, what: str, limit: int
+):
     global pool
     coin_name = token_name.upper()
     try:
@@ -4385,7 +4367,4 @@ async def recent_tips(user_id: str, user_server: str, token_name: str, coin_fami
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return []
-
-
-
 # End of recent activity

@@ -30,10 +30,10 @@ from disnake.ext.commands import AutoShardedBot, when_mentioned
 from cachetools import TTLCache
 
 import store
-from config import config
 # linedraw
 from linedraw.linedraw import *
 
+from config import load_config
 
 # For eval
 # For hash file in case already have
@@ -123,8 +123,8 @@ async def logchanbot(content: str):
     if "Requested object not found" in content:
         return
     try:
-        webhook = DiscordWebhook(url=config.discord.webhook_url,
-                                 content=f'```{disnake.utils.escape_markdown(content)}```')
+        webhook = DiscordWebhook(url=bot.config['discord']['webhook_url'],
+                                 content=f'{disnake.utils.escape_markdown(content)}')
         webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -136,11 +136,13 @@ shard_number = 2
 intents = disnake.Intents.default()
 intents.members = True
 intents.presences = True
-bot = AutoShardedBot(shard_count=shard_number, command_prefix=when_mentioned, owner_id=config.discord.ownerID,
-                     intents=intents, sync_commands=True)
-bot.remove_command('help')
+bot = AutoShardedBot(
+    shard_count=shard_number, command_prefix=when_mentioned,
+    intents=intents, sync_commands=True, help_command=None
+)
+bot.config = load_config()
 
-bot.owner_id = config.discord.ownerID
+bot.owner_id = bot.config['discord']['owner_id']
 bot.coin_list = None
 bot.token_hints = None
 bot.token_hint_names = None
@@ -161,7 +163,6 @@ bot.coin_price_dex = []
 bot.coin_price_dex_from = {}
 
 bot.TX_IN_PROCESS = []
-bot.LOG_CHAN = config.discord.logchan
 bot.MINGPOOLSTAT_IN_PROCESS = []
 bot.GAME_INTERACTIVE_ECO = []
 bot.GAME_INTERACTIVE_PROGRESS = []
@@ -171,17 +172,17 @@ bot.GAME_DICE_IN_PROGRESS = []
 bot.GAME_RAFFLE_QUEUE = []
 
 bot.erc_node_list = {
-    "FTM": config.default_endpoints.ftm,
-    "BSC": config.default_endpoints.bsc,
-    "MATIC": config.default_endpoints.matic,
-    "xDai": config.default_endpoints.xdai,
-    "ETH": config.default_endpoints.eth,
-    "TLOS": config.default_endpoints.tlos,
-    "AVAX": config.default_endpoints.avax,
-    "TRX": config.Tron_Node.fullnode,
-    "SOL": config.default_endpoints.sol,
-    "CELO": config.default_endpoints.celo,
-    "ONE": config.default_endpoints.one
+    "FTM": bot.config['default_endpoints']['ftm'],
+    "BSC": bot.config['default_endpoints']['bsc'],
+    "MATIC": bot.config['default_endpoints']['matic'],
+    "xDai":bot.config['default_endpoints']['xdai'],
+    "ETH": bot.config['default_endpoints']['eth'],
+    "TLOS": bot.config['default_endpoints']['tlos'],
+    "AVAX": bot.config['default_endpoints']['avax'],
+    "TRX": bot.config['Tron_Node']['fullnode'],
+    "SOL": bot.config['default_endpoints']['sol'],
+    "CELO": bot.config['default_endpoints']['celo'],
+    "ONE": bot.config['default_endpoints']['one']
 }
 bot.commandings = []
 bot.user_balance_cache = TTLCache(maxsize=20480, ttl=120.0) # userid_coin
@@ -194,7 +195,7 @@ async def load(ctx, extension):
     try:
         extension = extension.lower()
         bot.load_extension(f'cogs.{extension}')
-        await ctx.send('{} has been loaded.'.format(extension.capitalize()))
+        await ctx.send('{}, {} has been loaded.'.format(ctx.author.mention, extension.capitalize()))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -206,10 +207,9 @@ async def unload(ctx, extension):
     try:
         extension = extension.lower()
         bot.unload_extension(f'cogs.{extension}')
-        await ctx.send('{} has been unloaded.'.format(extension.capitalize()))
+        await ctx.send('{}, {} has been unloaded.'.format(ctx.author.mention, extension.capitalize()))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-
 
 @bot.command(usage="reload <cog/guilds/utils/all>")
 @disnake.ext.commands.is_owner()
@@ -218,15 +218,24 @@ async def reload(ctx, extension):
     try:
         extension = extension.lower()
         bot.reload_extension(f'cogs.{extension}')
-        await ctx.send('{} has been reloaded.'.format(extension.capitalize()))
+        await ctx.send('{}, {} has been reloaded.'.format(ctx.author.mention, extension.capitalize()))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
+@bot.command(usage="reconfig")
+@commands.is_owner()
+async def reconfig(ctx):
+    """Reload configuration"""
+    try:
+        reload_config()
+        await ctx.send(f'{ctx.author.mention}, configuration has been reloaded.')
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
 
 async def add_msg_redis(msg: str, delete_temp: bool = False):
     try:
         openRedis()
-        key = config.redis.prefix + ":MSG"
+        key = bot.config['redis']['prefix'] + ":MSG"
         if redis_conn:
             if delete_temp:
                 redis_conn.delete(key)
@@ -242,7 +251,7 @@ async def store_message_list():
         interval_msg_list = 15  # in second
         try:
             openRedis()
-            key = config.redis.prefix + ":MSG"
+            key = bot.config['redis']['prefix'] + ":MSG"
             if redis_conn and redis_conn.llen(key) > 0:
                 temp_msg_list = []
                 for each in redis_conn.lrange(key, 0, -1):
@@ -257,7 +266,7 @@ async def store_message_list():
                     redis_conn.delete(key)
                 else:
                     redis_conn.delete(key)
-                    print(config.redis.prefix + f":MSG: Failed delete {key}")
+                    print(bot.config['redis']['prefix'] + f":MSG: Failed delete {key}")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -422,14 +431,14 @@ def base58_to_hex(base58_string):
 
 async def get_guild_prefix(ctx):
     if isinstance(ctx.channel, disnake.DMChannel):
-        return config.discord.prefixCmd
+        return bot.config['discord']['prefixCmd']
     else:
-        return config.discord.slashPrefix
+        return bot.config['discord']['slashPrefix']
 
 
 # Steal from https://nitratine.net/blog/post/encryption-and-decryption-in-python/
 def encrypt_string(to_encrypt: str):
-    key = (config.encrypt.key).encode()
+    key = (bot.config['encrypt']['key']).encode()
 
     # Encrypt
     message = to_encrypt.encode()
@@ -439,7 +448,7 @@ def encrypt_string(to_encrypt: str):
 
 
 def decrypt_string(decrypted: str):
-    key = (config.encrypt.key).encode()
+    key = (bot.config['encrypt']['key']).encode()
 
     # Decrypt
     f = Fernet(key)
@@ -481,6 +490,8 @@ async def alert_if_userlock(ctx, cmd: str):
 def remap_keys(mapping):
     return [{'key': k, 'value': v} for k, v in mapping.items()]
 
+def reload_config():
+    bot.config = load_config()
 
 @click.command()
 def main():
@@ -488,7 +499,7 @@ def main():
         if filename.endswith('.py'):
             bot.load_extension(f'cogs.{filename[:-3]}')
 
-    bot.run(config.discord.token, reconnect=True)
+    bot.run(bot.config['discord']['token'], reconnect=True)
 
 
 if __name__ == '__main__':

@@ -4,7 +4,6 @@ import traceback
 import store
 from Bot import logchanbot
 from attrdict import AttrDict
-from config import config
 from disnake.ext import commands
 
 
@@ -112,7 +111,7 @@ class CoinSetting(commands.Cog):
         description="Reload coin setting"
     )
     async def config(self, ctx, cmd: str = None):
-        if config.discord.owner != ctx.author.id:
+        if self.bot.config['discord']['owner_id'] != ctx.author.id:
             await ctx.reply(f"{ctx.author.mention}, permission denied...")
             await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} tried to use `{ctx.command}`.")
             return

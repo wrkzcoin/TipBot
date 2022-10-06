@@ -28,17 +28,19 @@ from disnake.app_commands import Option, OptionChoice
 from Bot import EMOJI_CHART_DOWN, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_FLOPPY, logchanbot, EMOJI_HOURGLASS_NOT_DONE, SERVER_BOT
 import redis_utils
 import store
-from config import config
 from cogs.utils import Utils
 
 
 # https://api.coinpaprika.com/#tag/Tags/paths/~1tags~1{tag_id}/get
 
-def get_trade_view_by_id(display_id: str, web_url: str, id_coin: str, saved_path: str, option: str = None):
+def get_trade_view_by_id(
+    display_id: str, selenium_setting, web_url: str, id_coin: str, saved_path: str, option: str = None
+):
     timeout = 20
     return_to = None
-    file_name = "tradeview_{}_image_{}_{}.png".format(id_coin, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M"),
-                                                      option.lower() if option else "")  #
+    file_name = "tradeview_{}_image_{}_{}.png".format(
+        id_coin, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M"), option.lower() if option else ""
+    )  #
     file_path = saved_path + file_name
     if os.path.exists(file_path):
         return file_name
@@ -54,14 +56,14 @@ def get_trade_view_by_id(display_id: str, web_url: str, id_coin: str, saved_path
         options.add_argument('start-maximized')  #
         options.add_argument('disable-infobars')
         options.add_argument("--disable-extensions")
-        userAgent = config.selenium_setting.user_agent
+        userAgent = selenium_setting['user_agent']
         options.add_argument(f'user-agent={userAgent}')
         options.add_argument("--user-data-dir=chrome-data")
         options.headless = True
 
         driver = webdriver.Chrome(options=options)
         driver.set_window_position(0, 0)
-        driver.set_window_size(config.selenium_setting.win_w, config.selenium_setting.win_h)
+        driver.set_window_size(selenium_setting['win_w'], selenium_setting['win_h'])
 
         driver.get(web_url)
         WebDriverWait(driver, timeout).until(
@@ -238,7 +240,6 @@ class Paprika(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-
     async def paprika_coin(
         self,
         ctx,
@@ -246,7 +247,6 @@ class Paprika(commands.Cog):
         option: str
     ):
         await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} {ctx.author.mention}, checking coinpaprika..")
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, f"/paprika {coin}", int(time.time())))
@@ -255,7 +255,7 @@ class Paprika(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         coin_name = coin.upper()
-        key = config.redis.prefix_paprika + coin.upper()
+        key = self.bot.config['redis']['prefix_paprika'] + coin.upper()
         # Get from redis
         try:
             if redis_utils.redis_conn.exists(key):
@@ -270,9 +270,10 @@ class Paprika(commands.Cog):
                         elif coin_name in self.bot.token_hint_names:
                             id = self.bot.token_hint_names[coin_name]['ticker_name']
                         else:
-                            if redis_utils.redis_conn.exists(config.redis.prefix_paprika + "COINSLIST"):
+                            if redis_utils.redis_conn.exists(self.bot.config['redis']['prefix_paprika'] + "COINSLIST"):
                                 j = json.loads(
-                                    redis_utils.redis_conn.get(config.redis.prefix_paprika + "COINSLIST").decode())
+                                    redis_utils.redis_conn.get(self.bot.config['redis']['prefix_paprika'] + "COINSLIST").decode()
+                                )
                             else:
                                 link = 'https://api.coinpaprika.com/v1/coins'
                                 async with aiohttp.ClientSession() as session:
@@ -281,9 +282,11 @@ class Paprika(commands.Cog):
                                             j = await resp.json()
                                             # add to redis coins list
                                             try:
-                                                redis_utils.redis_conn.set(config.redis.prefix_paprika + "COINSLIST",
-                                                                           json.dumps(j),
-                                                                           ex=config.redis.default_time_coinlist)
+                                                redis_utils.redis_conn.set(
+                                                    self.bot.config['redis']['prefix_paprika'] + "COINSLIST",
+                                                    json.dumps(j),
+                                                    ex=self.bot.config['redis']['default_time_coinlist']
+                                                )
                                             except Exception:
                                                 traceback.format_exc()
                                             # end add to redis
@@ -299,9 +302,9 @@ class Paprika(commands.Cog):
                         if len(self.display_list) > 2:
                             display_id = random.choice(self.display_list)
                             self.display_list.remove(display_id)
-                            fetch_tradeview = functools.partial(get_trade_view_by_id, display_id,
-                                                                self.tradeview_url + id, id, self.tradeview_path,
-                                                                option)
+                            fetch_tradeview = functools.partial(
+                                get_trade_view_by_id, display_id, self.bot.config['selenium_setting'], self.tradeview_url + id, id, self.tradeview_path, option
+                            )
                             self.display_list.append(display_id)
                             tv_image = await self.bot.loop.run_in_executor(None, fetch_tradeview)
                             if tv_image:
@@ -327,8 +330,8 @@ class Paprika(commands.Cog):
         elif coin_name in self.bot.token_hint_names:
             id = self.bot.token_hint_names[coin_name]['ticker_name']
         else:
-            if redis_utils.redis_conn.exists(config.redis.prefix_paprika + "COINSLIST"):
-                j = json.loads(redis_utils.redis_conn.get(config.redis.prefix_paprika + "COINSLIST").decode())
+            if redis_utils.redis_conn.exists(self.bot.config['redis']['prefix_paprika'] + "COINSLIST"):
+                j = json.loads(redis_utils.redis_conn.get(self.bot.config['redis']['prefix_paprika'] + "COINSLIST").decode())
             else:
                 link = 'https://api.coinpaprika.com/v1/coins'
                 async with aiohttp.ClientSession() as session:
@@ -337,8 +340,11 @@ class Paprika(commands.Cog):
                             j = await resp.json()
                             # add to redis coins list
                             try:
-                                redis_utils.redis_conn.set(config.redis.prefix_paprika + "COINSLIST", json.dumps(j),
-                                                           ex=config.redis.default_time_coinlist)
+                                redis_utils.redis_conn.set(
+                                    self.bot.config['redis']['prefix_paprika'] + "COINSLIST",
+                                    json.dumps(j),
+                                    ex=self.bot.config['redis']['default_time_coinlist']
+                                )
                             except Exception:
                                 traceback.format_exc()
                             # end add to redis
@@ -375,7 +381,7 @@ class Paprika(commands.Cog):
                             j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'],
                             j['quotes']['USD']['ath_date'])
                         try:
-                            redis_utils.redis_conn.set(key, response_text, ex=config.redis.default_time_paprika)
+                            redis_utils.redis_conn.set(key, response_text, ex=self.bot.config['redis']['default_time_paprika'])
                         except Exception:
                             traceback.format_exc()
                             await logchanbot("paprika " +str(traceback.format_exc()))
@@ -388,9 +394,10 @@ class Paprika(commands.Cog):
                                 elif coin_name in self.bot.token_hint_names:
                                     id = self.bot.token_hint_names[coin_name]['ticker_name']
                                 else:
-                                    if redis_utils.redis_conn.exists(config.redis.prefix_paprika + "COINSLIST"):
+                                    if redis_utils.redis_conn.exists(self.bot.config['redis']['prefix_paprika'] + "COINSLIST"):
                                         j = json.loads(redis_utils.redis_conn.get(
-                                            config.redis.prefix_paprika + "COINSLIST").decode())
+                                            self.bot.config['redis']['prefix_paprika'] + "COINSLIST").decode()
+                                        )
                                     else:
                                         link = 'https://api.coinpaprika.com/v1/coins'
                                         async with aiohttp.ClientSession() as session:
@@ -400,8 +407,10 @@ class Paprika(commands.Cog):
                                                     # add to redis coins list
                                                     try:
                                                         redis_utils.redis_conn.set(
-                                                            config.redis.prefix_paprika + "COINSLIST", json.dumps(j),
-                                                            ex=config.redis.default_time_coinlist)
+                                                            self.bot.config['redis']['prefix_paprika'] + "COINSLIST",
+                                                            json.dumps(j),
+                                                            ex=self.bot.config['redis']['default_time_coinlist']
+                                                        )
                                                     except Exception:
                                                         traceback.format_exc()
                                                     # end add to redis
@@ -417,9 +426,9 @@ class Paprika(commands.Cog):
                                 if len(self.display_list) > 2:
                                     display_id = random.choice(self.display_list)
                                     self.display_list.remove(display_id)
-                                    fetch_tradeview = functools.partial(get_trade_view_by_id, display_id,
-                                                                        self.tradeview_url + id, id,
-                                                                        self.tradeview_path, option)
+                                    fetch_tradeview = functools.partial(
+                                        get_trade_view_by_id, display_id, self.bot.config['selenium_setting'], self.tradeview_url + id, id, self.tradeview_path, option
+                                    )
                                     self.display_list.append(display_id)
                                     tv_image = await self.bot.loop.run_in_executor(None, fetch_tradeview)
                                     if tv_image:

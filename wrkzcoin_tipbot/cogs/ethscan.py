@@ -10,7 +10,6 @@ from disnake.ext import tasks, commands
 import functools
 import redis_utils
 
-from config import config
 import store
 from Bot import get_token_list, logchanbot, hex_to_base58, base58_to_hex
 from cogs.utils import Utils
@@ -585,7 +584,7 @@ class EthScan(commands.Cog):
             local_height = await store.erc_get_block_number(url)
             try:
                 if local_height and local_height > 0:
-                    redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{net_name}',
+                    redis_utils.redis_conn.set(f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{net_name}",
                                                str(local_height))
                 else:
                     return
@@ -745,7 +744,7 @@ class EthScan(commands.Cog):
                 return
 
             try:
-                redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{net_name}',
+                redis_utils.redis_conn.set(f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{net_name}",
                                            str(local_height))
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -758,7 +757,7 @@ class EthScan(commands.Cog):
                 try:
                     async with aiohttp.ClientSession() as session:
                         async with session.get(url, headers={'Content-Type': 'application/json',
-                                                             'TRON-PRO-API-KEY': config.Tron_Node.trongrid_api},
+                                                             'TRON-PRO-API-KEY': self.bot.config['Tron_Node']['trongrid_api']},
                                                timeout=timeout) as response:
                             if response.status == 200:
                                 res_data = await response.read()

@@ -11,7 +11,6 @@ from decimal import Decimal
 import random
 import math
 
-from config import config
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, \
     seconds_str, RowButtonRowCloseAnyMessage, SERVER_BOT, createBox
 
@@ -490,7 +489,7 @@ class database_economy():
                         # insert to dairy ownership
                         sql = """ INSERT INTO discord_economy_dairy_cattle_ownership (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
                                   VALUES (%s, %s, %s, %s, %s) """
-                        await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+config.economy.dairy_collecting_time))
+                        await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+self.bot.config['economy']['dairy_collecting_time']))
                     elif what.upper() == "SALT FIELD":
                         sql = """ UPDATE discord_economy_userinfo SET `numb_salt_field`=`numb_salt_field`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
                         await cur.execute(sql, (item_nos, credit, user_id,))
@@ -507,7 +506,7 @@ class database_economy():
                         # insert to dairy ownership
                         sql = """ INSERT INTO discord_economy_chickenfarm_ownership (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
                                   VALUES (%s, %s, %s, %s, %s) """
-                        await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+config.economy.egg_collecting_time))
+                        await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+self.bot.config['economy']['egg_collecting_time']))
                     elif what.upper() == "CREDIT" or what == "💵":
                         sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s,`gem_credit`=`gem_credit`-1 WHERE `user_id`=%s """
                         await cur.execute(sql, (credit, user_id))
@@ -863,7 +862,7 @@ class database_economy():
                               WHERE `user_id`=%s AND `id`=%s """
                     list_update = []
                     for each_item in cowlist:
-                        list_update.append((int(time.time()), int(time.time())+config.economy.dairy_collecting_time, config.economy.raw_milk_per_cow, user_id, each_item))
+                        list_update.append((int(time.time()), int(time.time())+self.bot.config['economy']['dairy_collecting_time'], self.bot.config['economy']['raw_milk_per_cow'], user_id, each_item))
                     await cur.executemany(sql, list_update)
                     await conn.commit()
                     return True
@@ -1020,7 +1019,7 @@ class database_economy():
                               WHERE `user_id`=%s AND `id`=%s """
                     list_update = []
                     for each_item in chickenlist:
-                        list_update.append((int(time.time()), int(time.time())+config.economy.egg_collecting_time, config.economy.egg_per_chicken, user_id, each_item))
+                        list_update.append((int(time.time()), int(time.time())+self.bot.config['economy']['egg_collecting_time'], self.bot.config['economy']['egg_per_chicken'], user_id, each_item))
                     await cur.executemany(sql, list_update)
                     await conn.commit()
                     return True
@@ -1185,10 +1184,10 @@ class Economy(commands.Cog):
             elif get_userinfo['tree_seed'] >= self.eco_max_seed[str(get_userinfo['farm_level'])] and (item_name.upper() == "SEED" or item_name == "🌱"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum of seeds already.")
                 return
-            elif get_userinfo['numb_farm'] >= config.economy.max_farm_per_user and (item_name.upper() == "FARM" or item_name == "👨‍🌾"):
+            elif get_userinfo['numb_farm'] >= self.bot.config['economy']['max_farm_per_user'] and (item_name.upper() == "FARM" or item_name == "👨‍🌾"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a farm already.")
                 return
-            elif get_userinfo['numb_chicken_farm'] >= config.economy.max_chickenfarm_per_user and (item_name.upper() == "CHICKENFARM" or item_name.upper() == "CHICKEN FARM"):
+            elif get_userinfo['numb_chicken_farm'] >= self.bot.config['economy']['max_chickenfarm_per_user'] and (item_name.upper() == "CHICKENFARM" or item_name.upper() == "CHICKEN FARM"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a chicken farm already.")
                 return
             elif get_userinfo['numb_chicken_farm'] == 0 and (item_name.upper() == "CHICKEN" or item_name == "🐔"):
@@ -1200,13 +1199,13 @@ class Economy(commands.Cog):
             elif get_userinfo['numb_salt_farm'] == 0 and item_name.upper() == "SALT FIELD":
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have a salt farm. Please buy one.")
                 return
-            elif get_userinfo['numb_chicken'] >= config.economy.max_chicken_per_user and (item_name.upper() == "CHICKEN" or item_name == "🐔"):
+            elif get_userinfo['numb_chicken'] >= self.bot.config['economy']['max_chicken_per_user'] and (item_name.upper() == "CHICKEN" or item_name == "🐔"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum number of chicken already.")
                 return
-            elif get_userinfo['numb_tractor'] >= config.economy.max_tractor_per_user and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
+            elif get_userinfo['numb_tractor'] >= self.bot.config['economy']['max_tractor_per_user'] and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a tractor already.")
                 return
-            elif get_userinfo['numb_dairy_cattle'] >= config.economy.max_dairycattle_per_user and (item_name.upper() == "DAIRY CATTLE" or item_name == "DAIRYCATTLE"):
+            elif get_userinfo['numb_dairy_cattle'] >= self.bot.config['economy']['max_dairycattle_per_user'] and (item_name.upper() == "DAIRY CATTLE" or item_name == "DAIRYCATTLE"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a dairy cattle already.")
                 return
             elif get_userinfo['numb_dairy_cattle'] == 0 and item_name.upper() == "COW":
@@ -1215,7 +1214,7 @@ class Economy(commands.Cog):
             elif get_userinfo['numb_farm'] == 0 and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have a farm.")
                 return
-            elif get_userinfo['numb_boat'] >= config.economy.max_boat_per_user and (item_name.upper() == "BOAT" or item_name == "🚣"):
+            elif get_userinfo['numb_boat'] >= self.bot.config['economy']['max_boat_per_user'] and (item_name.upper() == "BOAT" or item_name == "🚣"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention} You have a boat already.")
                 return
             elif get_userinfo['numb_cow'] >= self.eco_max_cow_level[str(get_userinfo['dairy_farm_level'])] and (item_name.upper() == "COW" or item_name == "🐄"):
@@ -1224,7 +1223,7 @@ class Economy(commands.Cog):
             elif get_userinfo['numb_salt_field'] >= self.eco_max_salt_farm_level[str(get_userinfo['salt_farm_level'])] and item_name.upper() == "SALT FIELD":
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum number of salt field already.")
                 return
-            elif get_userinfo['numb_market'] >= config.economy.max_market_per_user and (item_name.upper() == "MARKET" or item_name == "🛒"):
+            elif get_userinfo['numb_market'] >= self.bot.config['economy']['max_market_per_user'] and (item_name.upper() == "MARKET" or item_name == "🛒"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a market already.")
                 return
             else:
@@ -1356,7 +1355,7 @@ class Economy(commands.Cog):
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['numb_market'] >= 1:
             extra_bonus = "🛒 "
-            market_factored = config.economy.market_price_factor
+            market_factored = self.bot.config['economy']['market_price_factor']
 
         try:
             get_fish_inventory_list = await self.db.economy_get_list_fish_caught(str(ctx.author.id), sold='NO', caught='YES')
@@ -1622,7 +1621,7 @@ class Economy(commands.Cog):
             count_eating_record = await self.db.economy_get_guild_eating_list_record(str(ctx.guild.id), 12*3600)
             if count_eating_record is None:
                 count_eating_record = []
-            allowed_eating_session = int(config.economy.max_guild_food*len(ctx.guild.members))
+            allowed_eating_session = int(self.bot.config['economy']['max_guild_food']*len(ctx.guild.members))
             try:
                 get_inventory_from_backpack = await self.db.economy_get_user_inventory(str(member.id), 'Gem')
                 if get_inventory_from_backpack and 'numbers' in get_inventory_from_backpack:
@@ -1644,7 +1643,7 @@ class Economy(commands.Cog):
                 get_user_inventory = await self.db.economy_get_user_inventory(str(member.id))
                 nos_items = sum(each_item['numbers'] for each_item in get_user_inventory if each_item['item_name'] != "Gem")
                 items_str = ''.join([each_item['item_emoji'] for each_item in get_user_inventory]) if len(get_user_inventory) > 0 else ''
-                embed.add_field(name="Backpack", value='{}/{} {}'.format(nos_items, config.economy.max_backpack_items, items_str), inline=True)
+                embed.add_field(name="Backpack", value='{}/{} {}'.format(nos_items, self.bot.config['economy']['max_backpack_items'], items_str), inline=True)
                 embed.add_field(name="Fishing Bait", value='{}/{}'.format(get_userinfo['fishing_bait'], self.eco_max_bait[str(get_userinfo['boat_level'])]), inline=True)
                 embed.add_field(name="Fishing Exp", value='{:,.0f}'.format(get_userinfo['fishing_exp']), inline=True)
                 embed.add_field(name="Seed - Planted/Cut", value='{}/{} - {}/{}'.format(get_userinfo['tree_seed'], self.eco_max_seed[str(get_userinfo['farm_level'])], get_userinfo['tree_planted'], get_userinfo['tree_cut']), inline=True)
@@ -1870,7 +1869,7 @@ class Economy(commands.Cog):
                 return
             elif plant_name == "TREE":
                 await asyncio.sleep(0.1)
-                exp_gained = config.economy.plant_exp_gained
+                exp_gained = self.bot.config['economy']['plant_exp_gained']
                 energy_loss = exp_gained * 2
                 insert_item = await self.db.economy_insert_planting(str(ctx.author.id), str(ctx.guild.id), exp_gained, energy_loss)
                 if insert_item:
@@ -1879,7 +1878,7 @@ class Economy(commands.Cog):
                 # Not tree and not max, let's plant
                 # Using tractor, loss same energy but gain more experience
                 await asyncio.sleep(0.1)
-                exp_gained = config.economy.plant_exp_gained
+                exp_gained = self.bot.config['economy']['plant_exp_gained']
                 energy_loss = exp_gained * 2
                 selected_crop = None
                 for each_item in plant_list_arr:
@@ -1937,10 +1936,10 @@ class Economy(commands.Cog):
                     for each_cow in get_cows:
                         if each_cow['possible_collect_date'] < int(time.time()):
                             total_can_collect += 1
-                            qty_collect += config.economy.raw_milk_per_cow
+                            qty_collect += self.bot.config['economy']['raw_milk_per_cow']
                             id_collecting.append(each_cow['id'])
                     if total_can_collect > 0:
-                        insert_collecting = await self.db.economy_dairy_collecting(str(ctx.author.id), id_collecting, qty_collect, config.economy.credit_raw_milk_liter)
+                        insert_collecting = await self.db.economy_dairy_collecting(str(ctx.author.id), id_collecting, qty_collect, self.bot.config['economy']['credit_raw_milk_liter'])
                         if insert_collecting:
                             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, nice! You have collected `{qty_collect}` liters of milk from `{total_can_collect}` cow(s).'
                             await ctx.edit_original_message(content=msg)
@@ -1965,10 +1964,10 @@ class Economy(commands.Cog):
                     for each_chicken in get_chickens:
                         if each_chicken['possible_collect_date'] < int(time.time()):
                             total_can_collect += 1
-                            qty_collect += config.economy.egg_per_chicken
+                            qty_collect += self.bot.config['economy']['egg_per_chicken']
                             id_collecting.append(each_chicken['id'])
                     if total_can_collect > 0:
-                        insert_collecting = await self.db.economy_egg_collecting(str(ctx.author.id), id_collecting, qty_collect, config.economy.credit_egg)
+                        insert_collecting = await self.db.economy_egg_collecting(str(ctx.author.id), id_collecting, qty_collect, self.bot.config['economy']['credit_egg'])
                         if insert_collecting:
                             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, nice! You have collected `{qty_collect}` egg(s) from `{total_can_collect}` chicken(s).'
                             await ctx.edit_original_message(content=msg)
@@ -2148,8 +2147,8 @@ class Economy(commands.Cog):
                 get_chickens = await self.db.economy_chicken_farm_ownership(str(member.id))
                 if get_chickens and len(get_chickens) > 0:
                     chickens_array_emoji = [chicken_emoji]*len(get_chickens)
-                    if len(chickens_array_emoji) < config.economy.max_chicken_per_user:
-                        chickens_array_emoji = chickens_array_emoji + [soil]*(config.economy.max_chicken_per_user - len(chickens_array_emoji))
+                    if len(chickens_array_emoji) < self.bot.config['economy']['max_chicken_per_user']:
+                        chickens_array_emoji = chickens_array_emoji + [soil]*(self.bot.config['economy']['max_chicken_per_user'] - len(chickens_array_emoji))
                     i=1
                     for each_chicken in chickens_array_emoji:
                         if (i-1) % 9 == 0:
@@ -2172,7 +2171,7 @@ class Economy(commands.Cog):
                         can_harvest_string = "\n".join(can_collect)
                 else:
                     # Empty cattle
-                    chickens_array_emoji = [soil]*(config.economy.max_chicken_per_user)
+                    chickens_array_emoji = [soil]*(self.bot.config['economy']['max_chicken_per_user'])
                     i=1
                     for each_chicken in chickens_array_emoji:
                         if (i-1) % 9 == 0:
@@ -2545,9 +2544,9 @@ class Economy(commands.Cog):
                 # Get a selected fish
                 fish_strength = round(random.uniform(float(selected_item['fish_strength_min']), float(selected_item['fish_strength_max'])), 2)
                 fish_weight = round(random.uniform(float(selected_item['fish_weight_min']), float(selected_item['fish_weight_max'])), 2)
-                energy_loss = round(float(fish_strength)*config.economy.fishing_energy_loss_ratio, 2)
+                energy_loss = round(float(fish_strength)*self.bot.config['economy']['fishing_energy_loss_ratio'], 2)
                 if caught == "YES":
-                    exp_gained = int(fish_weight*config.economy.fishing_exp_strength_ratio) + 1
+                    exp_gained = int(fish_weight*self.bot.config['economy']['fishing_exp_strength_ratio']) + 1
                     numb_caught += 1
                 else:
                     exp_gained = 0
@@ -2605,7 +2604,7 @@ class Economy(commands.Cog):
 
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['tree_cut'] > 10:
-            if get_userinfo['tree_planted'] / get_userinfo['tree_cut'] < config.economy.ratio_plant_cut:
+            if get_userinfo['tree_planted'] / get_userinfo['tree_cut'] < self.bot.config['economy']['ratio_plant_cut']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have cut many trees than planting. Please plant some trees."
                 await ctx.edit_original_message(content=msg)
                 return
@@ -2635,8 +2634,8 @@ class Economy(commands.Cog):
         try:
             # Get list of items:
             await asyncio.sleep(0.1)
-            timber_volume = math.floor(random.uniform(config.economy.plant_volume_rand_min, config.economy.plant_volume_rand_max)) + 1
-            leaf_kg = math.floor(config.economy.leaf_per_volume * timber_volume) + 1
+            timber_volume = math.floor(random.uniform(self.bot.config['economy']['plant_volume_rand_min'], self.bot.config['economy']['plant_volume_rand_max'])) + 1
+            leaf_kg = math.floor(self.bot.config['economy']['leaf_per_volume'] * timber_volume) + 1
             energy_loss = int(timber_volume/5) + 10
             try:
                 insert_woodcut = await self.db.economy_insert_woodcutting(str(ctx.author.id), str(ctx.guild.id), timber_volume, leaf_kg, energy_loss)
@@ -2667,15 +2666,15 @@ class Economy(commands.Cog):
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         get_user_inventory = await self.db.economy_get_user_inventory(str(ctx.author.id))
         nos_items = sum(each_item['numbers'] for each_item in get_user_inventory if each_item['item_name'] != "Gem")
-        if get_userinfo and nos_items >= config.economy.max_backpack_items:
+        if get_userinfo and nos_items >= self.bot.config['economy']['max_backpack_items']:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there are many items in your backpack. Please use them first."
             await ctx.edit_original_message(content=msg)
             return
 
         # If user just searched recently;
-        get_last_searching = await self.db.economy_get_user_searched_item_list_record(str(ctx.author.id), config.economy.search_duration_lap)
-        if get_last_searching and len(get_last_searching) >= config.economy.search_duration_lap_nos_item:
-            remaining = config.economy.search_duration_lap - int(time.time()) + get_last_searching[0]['date']
+        get_last_searching = await self.db.economy_get_user_searched_item_list_record(str(ctx.author.id), self.bot.config['economy']['search_duration_lap'])
+        if get_last_searching and len(get_last_searching) >= self.bot.config['economy']['search_duration_lap_nos_item']:
+            remaining = self.bot.config['economy']['search_duration_lap'] - int(time.time()) + get_last_searching[0]['date']
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you just searched recently. Try again in `{seconds_str(remaining)}`."
             await ctx.edit_original_message(content=msg)
             return
@@ -2689,7 +2688,7 @@ class Economy(commands.Cog):
 
         try:
             # Get list of items:
-            if random.randint(1,100) < config.economy.luck_search:
+            if random.randint(1,100) < self.bot.config['economy']['luck_search']:
                 # You get luck
                 try:
                     item_list = await self.db.economy_get_list_secret_items()
@@ -2743,7 +2742,7 @@ class Economy(commands.Cog):
         
         # If guild already has many food ordered last 12h
         count_eating_record = await self.db.economy_get_guild_eating_list_record(str(ctx.guild.id), 12*3600)
-        allowed_eating_session = int(config.economy.max_guild_food*len(ctx.guild.members))
+        allowed_eating_session = int(self.bot.config['economy']['max_guild_food']*len(ctx.guild.members))
         if count_eating_record and len(count_eating_record) > allowed_eating_session:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, restaurant out of food. There were allowed only **{str(allowed_eating_session)}** orders for the last 12h."
             await ctx.edit_original_message(content=msg)

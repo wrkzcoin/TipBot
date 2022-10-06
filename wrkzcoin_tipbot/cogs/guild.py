@@ -24,8 +24,6 @@ from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH,
     EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, \
     RowButtonRowCloseAnyMessage, human_format, text_to_num, truncate, \
     NOTIFICATION_OFF_CMD, DEFAULT_TICKER, seconds_str, seconds_str_days
-
-from config import config
 from cogs.wallet import WalletAPI
 from cogs.utils import MenuPage
 from cogs.utils import Utils
@@ -770,7 +768,7 @@ class Guild(commands.Cog):
 
     async def vote_logchan(self, content: str):
         try:
-            webhook = DiscordWebhook(url=config.topgg.topgg_votehook, content=content)
+            webhook = DiscordWebhook(url=self.bot.config['topgg']['topgg_votehook'], content=content)
             webhook.execute()
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -1751,7 +1749,9 @@ class Guild(commands.Cog):
             insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, False)
             if insert_key:
                 try:
-                    await ctx.edit_original_message(content=f'Your guild {ctx.guild.name}\'s topgg key: `{random_string}`\nWebook URL: `{config.topgg.guild_vote_url}`')
+                    await ctx.edit_original_message(
+                        content=f"Your guild {ctx.guild.name}\'s topgg key: `{random_string}`\nWebook URL: `{self.bot.config['topgg']['guild_vote_url']}`"
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
@@ -1762,7 +1762,9 @@ class Guild(commands.Cog):
         elif get_guild_by_key and resetkey == "NO":
             # Just display
             try:
-                await ctx.edit_original_message(content=f'Your guild {ctx.guild.name}\'s topgg key: `{get_guild_by_key}`\nWebook URL: `{config.topgg.guild_vote_url}`')
+                await ctx.edit_original_message(
+                    content=f"Your guild {ctx.guild.name}\'s topgg key: `{get_guild_by_key}`\nWebook URL: `{self.bot.config['topgg']['guild_vote_url']}`"
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif get_guild_by_key and resetkey == "YES":
@@ -1771,7 +1773,9 @@ class Guild(commands.Cog):
             insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, True)
             if insert_key:
                 try:
-                    await ctx.edit_original_message(content=f'Your guild {ctx.guild.name}\'s topgg updated key: `{random_string}`\nWebook URL: `{config.topgg.guild_vote_url}`')
+                    await ctx.edit_original_message(
+                        content=f"Your guild {ctx.guild.name}\'s topgg updated key: `{random_string}`\nWebook URL: `{self.bot.config['topgg']['guild_vote_url']}`"
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
@@ -1816,7 +1820,9 @@ class Guild(commands.Cog):
             insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, False)
             if insert_key:
                 try:
-                    await ctx.edit_original_message(content=f'Your guild {ctx.guild.name}\'s discordlist key: `{random_string}`\nWebook URL: `{config.discordlist.guild_vote_url}`')
+                    await ctx.edit_original_message(
+                        content=f"Your guild {ctx.guild.name}\'s discordlist key: `{random_string}`\nWebook URL: `{self.bot.config['discordlist']['guild_vote_url']}`"
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
@@ -1827,7 +1833,9 @@ class Guild(commands.Cog):
         elif get_guild_by_key and resetkey == "NO":
             # Just display
             try:
-                await ctx.edit_original_message(content=f'Your guild {ctx.guild.name}\'s discordlist key: `{get_guild_by_key}`\nWebook URL: `{config.discordlist.guild_vote_url}`')
+                await ctx.edit_original_message(
+                    content=f"Your guild {ctx.guild.name}\'s discordlist key: `{get_guild_by_key}`\nWebook URL: `{self.bot.config['discordlist']['guild_vote_url']}`"
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif get_guild_by_key and resetkey == "YES":
@@ -1836,7 +1844,9 @@ class Guild(commands.Cog):
             insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, True)
             if insert_key:
                 try:
-                    await ctx.edit_original_message(content=f'Your guild {ctx.guild.name}\'s discordlist updated key: `{random_string}`\nWebook URL: `{config.discordlist.guild_vote_url}`')
+                    await ctx.edit_original_message(
+                        content=f"Your guild {ctx.guild.name}\'s discordlist updated key: `{random_string}`\nWebook URL: `{self.bot.config['discordlist']['guild_vote_url']}`"
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
@@ -1895,7 +1905,7 @@ class Guild(commands.Cog):
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             try:
                 gen_qr_address = await self.wallet_api.generate_qr_address(wallet_address)
-                embed.set_thumbnail(url=config.storage.deposit_url + wallet_address + ".png")
+                embed.set_thumbnail(url=self.bot.config['storage']['deposit_url'] + wallet_address + ".png")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             plain_msg = 'Guild {} deposit address: ```{}```'.format(ctx.guild.name, wallet_address)
@@ -3089,15 +3099,15 @@ class Guild(commands.Cog):
 
 
     async def async_set_gamechan(self, ctx, game):
-        game_list = config.game.game_list.split(",")
+        game_list = self.bot.config['game']['game_list'].split(",")
         if game is None:
-            msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name to set game channel for it. Game list: {config.game.game_list}."
+            msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name to set game channel for it. Game list: {self.bot.config['game']['game_list']}."
             await ctx.response.send_message(msg)
             return
         else:
             game = game.lower()
             if game not in game_list:
-                msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name within this list: {config.game.game_list}."
+                msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name within this list: {self.bot.config['game']['game_list']}."
                 await ctx.response.send_message(msg)
                 return
             else:

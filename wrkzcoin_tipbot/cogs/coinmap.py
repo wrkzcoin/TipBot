@@ -10,7 +10,6 @@ from io import BytesIO
 
 from Bot import EMOJI_RED_NO, SERVER_BOT
 from PIL import Image
-from config import config
 from disnake.ext import commands
 from pyvirtualdisplay import Display
 # The selenium module
@@ -23,10 +22,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from cogs.utils import Utils
 
 
-def get_coin360(display_id: str):
+def get_coin360(display_id: str, static_coin360_path, selenium_setting, coin360):
     return_to = None
     file_name = "coin360_image_{}.png".format(datetime.datetime.now().strftime("%Y-%m-%d-%H-%M"))  #
-    file_path = config.coin360.static_coin360_path + file_name
+    file_path = static_coin360_path + file_name
     if os.path.exists(file_path):
         return file_name
 
@@ -43,23 +42,23 @@ def get_coin360(display_id: str):
         options.add_argument('start-maximized')  #
         options.add_argument('disable-infobars')
         options.add_argument("--disable-extensions")
-        userAgent = config.selenium_setting.user_agent
+        userAgent = selenium_setting['user_agent']
         options.add_argument(f'user-agent={userAgent}')
         options.add_argument("--user-data-dir=chrome-data")
         options.headless = True
 
         driver = webdriver.Chrome(options=options)
         driver.set_window_position(0, 0)
-        driver.set_window_size(config.selenium_setting.win_w, config.selenium_setting.win_h)
+        driver.set_window_size(selenium_setting['win_w'], selenium_setting['win_h'])
 
-        driver.get(config.coin360.url)
+        driver.get(coin360['url'])
         WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.ID, "SHA256")))
         WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.ID, "EtHash")))
         time.sleep(3.0)
 
         # https://stackoverflow.com/questions/8900073/webdriver-screenshot
         # now that we have the preliminary stuff out of the way time to get that image :D
-        element = driver.find_element_by_id(config.coin360.id_crop)  # find part of the page you want image of
+        element = driver.find_element_by_id(coin360['id_crop'])  # find part of the page you want image of
         location = element.location
         size = element.size
         png = driver.get_screenshot_as_png()  # saves screenshot of entire page
@@ -104,11 +103,14 @@ class CoinMap(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
             display_id = random.choice(self.display_list)
             self.display_list.remove(display_id)
-            fetch_coin360 = functools.partial(get_coin360, display_id)
+            fetch_coin360 = functools.partial(
+                get_coin360, display_id, self.bot.config['coin360']['static_coin360_path'],
+                self.bot.config['selenium_setting'], self.bot.config['coin360']
+            )
             map_image = await self.bot.loop.run_in_executor(None, fetch_coin360)
             self.display_list.append(display_id)
             if map_image:
-                await ctx.edit_original_message(content=config.coin360.static_coin360_link + map_image)
+                await ctx.edit_original_message(content=self.bot.config['coin360']['static_coin360_link'] + map_image)
             else:
                 await ctx.edit_original_message(
                     content=f'{EMOJI_RED_NO} {ctx.author.mention}, internal error during fetch image.')

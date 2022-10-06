@@ -1549,7 +1549,7 @@ class Twitter(commands.Cog):
                     address_path = qr_address.replace('{', '_').replace('}', '_').replace(':', '_').replace('"',
                                                                                                             "_").replace(
                         ',', "_").replace(' ', "_")
-                    embed.set_thumbnail(url=config.storage.deposit_url + address_path + ".png")
+                    embed.set_thumbnail(url=self.bot.config['storage']['deposit_url'] + address_path + ".png")
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 

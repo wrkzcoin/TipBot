@@ -12,7 +12,6 @@ from Bot import SERVER_BOT, num_format_coin
 from aiohttp import web
 from cogs.wallet import Faucet
 from cogs.wallet import WalletAPI
-from config import config
 from discord_webhook import DiscordWebhook
 from disnake.ext import commands
 
@@ -57,7 +56,7 @@ class BFDBotVote(commands.Cog):
 
     async def vote_logchan(self, content: str):
         try:
-            webhook = DiscordWebhook(url=config.botsfordiscord.botsfordiscord_votehook, content=content)
+            webhook = DiscordWebhook(url=self.bot.config['botsfordiscord']['botsfordiscord_votehook'], content=content)
             webhook.execute()
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -78,8 +77,8 @@ class BFDBotVote(commands.Cog):
                     if str(request.rel_url).startswith("/bfd_bot_vote/"):  # discords.com
                         # Bot:
                         if 'Authorization' in request.headers and request.headers[
-                            'Authorization'] == config.botsfordiscord.auth:
-                            vote_to = str(config.discord.bot_id)  # full_payload['bot'] = 'bot'
+                            'Authorization'] == self.bot.config['botsfordiscord']['auth']:
+                            vote_to = str(self.bot.config['discord']['bot_id'])  # full_payload['bot'] = 'bot'
                             try:
                                 # Check if user just vote less than 1h. Sometimes just push too fast multiple times.
                                 check_last_vote = await self.check_last_bot_vote(user_vote, "botsfordiscord")
@@ -97,7 +96,7 @@ class BFDBotVote(commands.Cog):
                                 try:
                                     await self.vote_logchan(
                                         f'[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{vote_to}> type `{type_vote}` in botsfordiscord.com.')
-                                    if int(vote_to) == config.discord.bot_id:
+                                    if int(vote_to) == self.bot.config['discord']['bot_id']:
                                         # It's TipBot
                                         try:
                                             faucet = Faucet(self.bot)
@@ -132,11 +131,11 @@ class BFDBotVote(commands.Cog):
                                                     deposit_confirm_depth = getattr(
                                                         getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                                                     user_from = await self.wallet_api.sql_get_userwallet(
-                                                        str(config.discord.bot_id), coin_name, net_name, type_coin,
+                                                        str(self.bot.config['discord']['bot_id']), coin_name, net_name, type_coin,
                                                         SERVER_BOT, 0)
                                                     if user_from is None:
                                                         user_from = await self.wallet_api.sql_register_user(
-                                                            str(config.discord.bot_id), coin_name, net_name, type_coin,
+                                                            str(self.bot.config['discord']['bot_id']), coin_name, net_name, type_coin,
                                                             SERVER_BOT, 0)
                                                     wallet_address = user_from['balance_wallet_address']
                                                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -148,7 +147,7 @@ class BFDBotVote(commands.Cog):
                                                                                               net_name)
                                                     # height can be None
                                                     userdata_balance = await store.sql_user_balance_single(
-                                                        str(config.discord.bot_id), coin_name, wallet_address,
+                                                        str(self.bot.config['discord']['bot_id']), coin_name, wallet_address,
                                                         type_coin, height, deposit_confirm_depth, SERVER_BOT)
                                                     total_balance = userdata_balance['adjust']
                                                     if total_balance <= amount:
@@ -185,7 +184,7 @@ class BFDBotVote(commands.Cog):
                                                                     amount_in_usd = float(
                                                                         Decimal(per_unit) * Decimal(amount))
                                                             try:
-                                                                key_coin = config.discord.bot_id + "_" + coin_name + "_" + SERVER_BOT
+                                                                key_coin = self.bot.config['discord']['bot_id'] + "_" + coin_name + "_" + SERVER_BOT
                                                                 if key_coin in self.bot.user_balance_cache:
                                                                     del self.bot.user_balance_cache[key_coin]
 
@@ -195,11 +194,11 @@ class BFDBotVote(commands.Cog):
                                                             except Exception:
                                                                 pass
                                                             tip = await store.sql_user_balance_mv_single(
-                                                                config.discord.bot_id, user_vote, "BOTSFORDISCORD",
+                                                                self.bot.config['discord']['bot_id'], user_vote, "BOTSFORDISCORD",
                                                                 "VOTE", amount, coin_name, "BOTVOTE", coin_decimal,
                                                                 SERVER_BOT, contract, amount_in_usd, None)
                                                             if member is not None:
-                                                                msg = f"Thank you for voting for our TipBot at <{config.bot_vote_link.botsfordiscord}>. You got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. Check with `/claim` for voting list at other websites."
+                                                                msg = f"Thank you for voting for our TipBot at <{self.bot.config['bot_vote_link']['botsfordiscord']}>. You got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. Check with `/claim` for voting list at other websites."
                                                                 try:
                                                                     await member.send(msg)
                                                                 except (
@@ -217,7 +216,7 @@ class BFDBotVote(commands.Cog):
                                                                         num_format_coin(amount, coin_name, coin_decimal,
                                                                                         False), coin_name), inline=True)
                                                                     embed.add_field(name="Link",
-                                                                                    value=config.bot_vote_link.botsfordiscord,
+                                                                                    value=self.bot.config['bot_vote_link']['botsfordiscord'],
                                                                                     inline=False)
                                                                     embed.set_author(name=self.bot.user.name,
                                                                                      icon_url=self.bot.user.display_avatar)
@@ -229,7 +228,7 @@ class BFDBotVote(commands.Cog):
                                             else:
                                                 # User didn't put any prefer coin. Message him he could reward
                                                 if member is not None:
-                                                    msg = f"Thank you for voting for our TipBot at <{config.bot_vote_link.botsfordiscord}>. You can get a reward! Know more by `/claim` or `/claim token_name` to set your preferred coin/token reward."
+                                                    msg = f"Thank you for voting for our TipBot at <{self.bot.config['bot_vote_link']['botsfordiscord']}>. You can get a reward! Know more by `/claim` or `/claim token_name` to set your preferred coin/token reward."
                                                     try:
                                                         await member.send(msg)
                                                     except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:

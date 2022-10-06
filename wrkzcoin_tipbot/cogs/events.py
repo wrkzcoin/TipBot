@@ -5,6 +5,8 @@ import time
 import traceback
 
 import disnake
+from disnake.ext import commands, tasks
+
 import store
 from Bot import SERVER_BOT, num_format_coin, EMOJI_INFORMATION, EMOJI_RED_NO, seconds_str, seconds_str_days
 from Bot import logchanbot
@@ -12,8 +14,6 @@ from attrdict import AttrDict
 from cachetools import TTLCache
 from cogs.economy import database_economy
 from cogs.wallet import WalletAPI
-from config import config
-from disnake.ext import commands, tasks
 from cogs.utils import Utils
 
 
@@ -1353,7 +1353,7 @@ class Events(commands.Cog):
                     botdetails.add_field(name='Creator\'s Discord Name:', value='pluton#8888', inline=True)
                     botdetails.add_field(name='My Github:', value="[TipBot Github](https://github.com/wrkzcoin/TipBot)",
                                          inline=True)
-                    botdetails.add_field(name='Invite Me:', value=config.discord.invite_link, inline=True)
+                    botdetails.add_field(name='Invite Me:', value=self.bot.config['discord']['invite_link'], inline=True)
                     botdetails.add_field(name='Servers:', value=len(self.bot.guilds), inline=True)
                     try:
                         botdetails.add_field(name="Online", value='{:,.0f}'.format(
@@ -1376,7 +1376,7 @@ class Events(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        add_server_info = await store.sql_addinfo_by_server(str(guild.id), guild.name, config.discord.prefixCmd, "WRKZ",
+        add_server_info = await store.sql_addinfo_by_server(str(guild.id), guild.name, self.bot.config['discord']['prefixCmd'], "WRKZ",
                                                             True)
         await self.botLogChan.send(
             f'Bot joins a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. Total guilds: {len(self.bot.guilds)}.')
@@ -1398,7 +1398,7 @@ class Events(commands.Cog):
                     botdetails.add_field(name='Creator\'s Discord Name:', value='pluton#8888', inline=True)
                     botdetails.add_field(name='My Github:', value="[TipBot Github](https://github.com/wrkzcoin/TipBot)",
                                          inline=True)
-                    botdetails.add_field(name='Invite Me:', value=config.discord.invite_link, inline=True)
+                    botdetails.add_field(name='Invite Me:', value=self.bot.config['discord']['invite_link'], inline=True)
                     botdetails.add_field(name='Servers:', value=len(self.bot.guilds), inline=True)
                     try:
                         botdetails.add_field(name="Online", value='{:,.0f}'.format(

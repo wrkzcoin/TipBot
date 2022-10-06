@@ -120,7 +120,7 @@ class TopGGVote(commands.Cog):
 
     async def vote_logchan(self, content: str):
         try:
-            webhook = DiscordWebhook(url=config.topgg.topgg_votehook, content=content)
+            webhook = DiscordWebhook(url=self.bot.config['topgg']['topgg_votehook'], content=content)
             webhook.execute()
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -329,7 +329,7 @@ class TopGGVote(commands.Cog):
                             return web.Response(text="No Authorization! Or not up to date!")
                     elif str(request.rel_url).startswith("/topgg_bot_vote/"):
                         # Bot: {'user': '386761001808166912', 'type': 'test', 'query': '', 'bot': '474841349968101386'}
-                        if 'Authorization' in request.headers and request.headers['Authorization'] == config.topgg.auth:
+                        if 'Authorization' in request.headers and request.headers['Authorization'] == self.bot.config['topgg']['auth']:
                             vote_to = full_payload['bot']
                             try:
                                 # Check if user just vote less than 1h. Sometimes top.gg just push too fast multiple times.
@@ -348,7 +348,7 @@ class TopGGVote(commands.Cog):
                                 try:
                                     await self.vote_logchan(
                                         f'[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{vote_to}> type `{type_vote}` in top.gg.')
-                                    if int(vote_to) == config.discord.bot_id:
+                                    if int(vote_to) == self.bot.config['discord']['bot_id']:
                                         # It's TipBot
                                         try:
                                             faucet = Faucet(self.bot)
@@ -382,12 +382,14 @@ class TopGGVote(commands.Cog):
                                                     deposit_confirm_depth = getattr(
                                                         getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                                                     user_from = await self.wallet_api.sql_get_userwallet(
-                                                        str(config.discord.bot_id), coin_name, net_name, type_coin,
-                                                        SERVER_BOT, 0)
+                                                        str(self.bot.config['discord']['bot_id']), coin_name, 
+                                                        net_name, type_coin, SERVER_BOT, 0
+                                                    )
                                                     if user_from is None:
                                                         user_from = await self.wallet_api.sql_register_user(
-                                                            str(config.discord.bot_id), coin_name, net_name, type_coin,
-                                                            SERVER_BOT, 0)
+                                                            str(self.bot.config['discord']['bot_id']), coin_name, 
+                                                            net_name, type_coin, SERVER_BOT, 0
+                                                        )
                                                     wallet_address = user_from['balance_wallet_address']
                                                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                                         wallet_address = user_from['paymentid']
@@ -399,8 +401,9 @@ class TopGGVote(commands.Cog):
 
                                                     # height can be None
                                                     userdata_balance = await store.sql_user_balance_single(
-                                                        str(config.discord.bot_id), coin_name, wallet_address,
-                                                        type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                                                        str(self.bot.config['discord']['bot_id']), coin_name, wallet_address,
+                                                        type_coin, height, deposit_confirm_depth, SERVER_BOT
+                                                    )
                                                     total_balance = userdata_balance['adjust']
                                                     if total_balance <= amount:
                                                         await self.vote_logchan(
@@ -437,7 +440,7 @@ class TopGGVote(commands.Cog):
                                                                         Decimal(per_unit) * Decimal(amount))
 
                                                             try:
-                                                                key_coin = config.discord.bot_id + "_" + coin_name + "_" + SERVER_BOT
+                                                                key_coin = self.bot.config['discord']['bot_id'] + "_" + coin_name + "_" + SERVER_BOT
                                                                 if key_coin in self.bot.user_balance_cache:
                                                                     del self.bot.user_balance_cache[key_coin]
 
@@ -447,11 +450,12 @@ class TopGGVote(commands.Cog):
                                                             except Exception:
                                                                 pass
                                                             tip = await store.sql_user_balance_mv_single(
-                                                                config.discord.bot_id, user_vote, "TOPGG", "VOTE",
+                                                                self.bot.config['discord']['bot_id'], user_vote, "TOPGG", "VOTE",
                                                                 amount, coin_name, "BOTVOTE", coin_decimal, SERVER_BOT,
-                                                                contract, amount_in_usd, None)
+                                                                contract, amount_in_usd, None
+                                                            )
                                                             if member is not None:
-                                                                msg = f"Thank you for voting for our TipBot at <{config.bot_vote_link.topgg}>. You just got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. Check with `/claim` for voting list at other websites."
+                                                                msg = f"Thank you for voting for our TipBot at <{self.bot.config['bot_vote_link']['topgg']}>. You just got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. Check with `/claim` for voting list at other websites."
                                                                 try:
                                                                     await member.send(msg)
                                                                 except (
@@ -469,7 +473,7 @@ class TopGGVote(commands.Cog):
                                                                         num_format_coin(amount, coin_name, coin_decimal,
                                                                                         False), coin_name), inline=True)
                                                                     embed.add_field(name="Link",
-                                                                                    value=config.bot_vote_link.topgg,
+                                                                                    value=self.bot.config['bot_vote_link']['topgg'],
                                                                                     inline=False)
                                                                     embed.set_author(name=self.bot.user.name,
                                                                                      icon_url=self.bot.user.display_avatar)
@@ -481,7 +485,7 @@ class TopGGVote(commands.Cog):
                                             else:
                                                 # User didn't put any prefer coin. Message him he could reward
                                                 if member is not None:
-                                                    msg = f"Thank you for voting for our TipBot at <{config.bot_vote_link.topgg}>. You can get a reward! Know more by `/claim` or `/claim token_name` to set your preferred coin/token reward."
+                                                    msg = f"Thank you for voting for our TipBot at <{self.bot.config['bot_vote_link']['topgg']}>. You can get a reward! Know more by `/claim` or `/claim token_name` to set your preferred coin/token reward."
                                                     try:
                                                         await member.send(msg)
                                                     except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:

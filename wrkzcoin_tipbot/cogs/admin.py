@@ -25,7 +25,6 @@ from Bot import num_format_coin, SERVER_BOT, logchanbot, encrypt_string, decrypt
 from aiomysql.cursors import DictCursor
 from attrdict import AttrDict
 from cogs.wallet import WalletAPI
-from config import config
 from disnake.ext import commands, tasks
 from eth_account import Account
 from httpx import AsyncClient, Timeout, Limits
@@ -1284,7 +1283,7 @@ class Admin(commands.Cog):
                     headers = {
                         'Content-Type': 'application/json'
                     }
-                    data_json = {"mnemonic_sentence": seeds, "passphrase": config.ada.default_passphrase,
+                    data_json = {"mnemonic_sentence": seeds, "passphrase": self.bot.config['ada']['default_passphrase'],
                                  "name": wallet_name, "address_pool_gap": number}
                     async with aiohttp.ClientSession() as session:
                         async with session.post(url, headers=headers, json=data_json, timeout=timeout) as response:
@@ -1325,7 +1324,7 @@ class Admin(commands.Cog):
                     mnemo = Mnemonic("english")
                     words = str(mnemo.generate(strength=256))
                     seeds = words.split()
-                    create = await call_ada_wallet(config.ada.default_wallet_url + "v2/wallets", wallet_name, seeds,
+                    create = await call_ada_wallet(self.bot.config['ada']['default_wallet_url'] + "v2/wallets", wallet_name, seeds,
                                                    number, 300)
                     if create:
                         try:
@@ -1335,7 +1334,7 @@ class Admin(commands.Cog):
                                     wallet_d = create['id']
                                     sql = """ INSERT INTO `ada_wallets` (`wallet_rpc`, `passphrase`, `wallet_name`, `wallet_id`, `seed`) VALUES (%s, %s, %s, %s, %s) """
                                     await cur.execute(sql, (
-                                        config.ada.default_wallet_url, encrypt_string(config.ada.default_passphrase),
+                                        self.bot.config['ada']['default_wallet_url'], encrypt_string(self.bot.config['ada']['default_passphrase']),
                                         wallet_name, wallet_d, encrypt_string(words)))
                                     await conn.commit()
                                     msg = f'{ctx.author.mention}, wallet `{wallet_name}` created with number `{number}` and wallet ID: `{wallet_d}`.'
@@ -1519,7 +1518,7 @@ class Admin(commands.Cog):
                         if result:
                             wallet_id = result['wallet_id']
                             delete = await call_ada_delete_wallet(
-                                config.ada.default_wallet_url + "v2/wallets/" + wallet_id, 300)
+                                self.bot.config['ada']['default_wallet_url'] + "v2/wallets/" + wallet_id, 300)
                             if delete is True:
                                 try:
                                     await store.openConnection()
@@ -2415,7 +2414,7 @@ class Admin(commands.Cog):
         *,
         code
     ):
-        if config.discord.enable_eval != 1:
+        if self.bot.config['discord']['enable_eval'] != 1:
             return
 
         str_obj = io.StringIO()  # Retrieves a stream of data

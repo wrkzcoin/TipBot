@@ -546,22 +546,11 @@ class RPCException(Exception):
 class Faucet(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        # DB
-        self.pool = None
-
-    async def openConnection(self):
-        try:
-            if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4,
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
 
     async def get_faucet_coin_list(self):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT `reward_for`, `coin_name`, `reward_amount`
                               FROM `coin_bot_reward_setting` 
@@ -577,8 +566,8 @@ class Faucet(commands.Cog):
 
     async def update_faucet_user(self, user_id: str, coin_name: str, user_server: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `coin_user_reward_setting` (`user_id`, `coin_name`, `user_server`)
                               VALUES (%s, %s, %s) ON DUPLICATE KEY 
@@ -594,8 +583,8 @@ class Faucet(commands.Cog):
 
     async def get_user_faucet_coin(self, user_id: str, user_server: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """SELECT * FROM `coin_user_reward_setting` 
                              WHERE `user_id`=%s AND `user_server`=%s LIMIT 1 
@@ -610,8 +599,8 @@ class Faucet(commands.Cog):
     async def insert_reward(self, user_id: str, reward_for: str, reward_amount: float, coin_name: str, reward_time: int,
                             user_server: str):
         try:
-            await self.openConnection()
-            async with self.pool.acquire() as conn:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `coin_user_reward_list` (`user_id`, `reward_for`, `reward_amount`, `coin_name`, `reward_time`, `user_server`)
                               VALUES (%s, %s, %s, %s, %s, %s)
@@ -624,7 +613,6 @@ class Faucet(commands.Cog):
             await logchanbot("wallet insert_reward " + str(traceback.format_exc()))
         return False
 
-
 class WalletAPI(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -632,6 +620,17 @@ class WalletAPI(commands.Cog):
         redis_utils.openRedis()
         # DB
         self.pool = None
+
+    async def openConnection(self):
+        try:
+            if self.pool is None:
+                self.pool = await aiomysql.create_pool(
+                    host=self.bot.config['mysql']['host'], port=3306, minsize=2, maxsize=4,
+                    user=self.bot.config['mysql']['user'], password=self.bot.config['mysql']['password'],
+                    db=self.bot.config['mysql']['db'], cursorclass=DictCursor, autocommit=True
+                )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     async def get_coin_balance(self, coin: str):
         balance = 0.0
@@ -642,10 +641,10 @@ class WalletAPI(commands.Cog):
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         if type_coin == "ERC-20":
-            main_balance = await store.http_wallet_getbalance(self.bot.erc_node_list[net_name], config.eth.MainAddress, contract, 16)
+            main_balance = await store.http_wallet_getbalance(self.bot.erc_node_list[net_name], self.bot.config['eth']['MainAddress'], contract, 16)
             balance = float(main_balance / 10 ** coin_decimal)
         elif type_coin in ["TRC-20", "TRC-10"]:
-            main_balance = await store.trx_wallet_getbalance(config.trc.MainAddress, coin_name, coin_decimal, type_coin,
+            main_balance = await store.trx_wallet_getbalance(self.bot.config['trc']['MainAddress'], coin_name, coin_decimal, type_coin,
                                                              contract)
             if main_balance:
                 # already divided decimal
@@ -769,7 +768,7 @@ class WalletAPI(commands.Cog):
                 return None
 
             try:
-                get_balance = await fetch_wallet_balance(self.bot.erc_node_list['SOL'], config.sol.MainAddress)
+                get_balance = await fetch_wallet_balance(self.bot.erc_node_list['SOL'], self.bot.config['sol']['MainAddress'])
                 if 'context' in get_balance and 'value' in get_balance:
                     balance = float(get_balance['value'] / 10 ** coin_decimal)
             except Exception:
@@ -1356,25 +1355,16 @@ class WalletAPI(commands.Cog):
         try:
             if type_coin in ["ERC-20", "TRC-20"]:
                 height = int(redis_utils.redis_conn.get(
-                    f'{config.redis.prefix + config.redis.daemon_height}{net_name}').decode())
+                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{net_name}").decode())
             elif type_coin in ["XLM", "NEO", "VITE"]:
                 height = int(redis_utils.redis_conn.get(
-                    f'{config.redis.prefix + config.redis.daemon_height}{type_coin}').decode())
+                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{type_coin}").decode())
             else:
                 height = int(redis_utils.redis_conn.get(
-                    f'{config.redis.prefix + config.redis.daemon_height}{coin_name}').decode())
+                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}").decode())
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return height
-
-    async def openConnection(self):
-        try:
-            if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4,
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
 
     async def generate_qr_address(
             self,
@@ -1386,7 +1376,7 @@ class WalletAPI(commands.Cog):
         address_path = address.replace('{', '_').replace('}', '_').replace(':', '_').replace('"', "_").replace(',',
                                                                                                                "_").replace(
             ' ', "_")
-        if not os.path.exists(config.storage.path_deposit_qr_create + address_path + ".png"):
+        if not os.path.exists(self.bot.config['storage']['path_deposit_qr_create'] + address_path + ".png"):
             try:
                 # do some QR code
                 qr = qrcode.QRCode(
@@ -1399,7 +1389,7 @@ class WalletAPI(commands.Cog):
                 qr.make(fit=True)
                 img = qr.make_image(fill_color="black", back_color="white")
                 img = img.resize((256, 256))
-                img.save(config.storage.path_deposit_qr_create + address_path + ".png")
+                img.save(self.bot.config['storage']['path_deposit_qr_create'] + address_path + ".png")
                 return address
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -1532,7 +1522,7 @@ class WalletAPI(commands.Cog):
                 balance_address = await self.call_nano(coin_name,
                                                        payload='{ "action": "account_create", "wallet": "' + walletkey + '" }')
             elif type_coin.upper() == "BTC":
-                naming = config.redis.prefix + "_" + user_server + "_" + str(user_id)
+                naming = self.bot.config['redis']['prefix'] + "_" + user_server + "_" + str(user_id)
                 payload = f'"{naming}"'
                 if coin_name in ["BTCZ", "VTC", "ZEC"]:
                     payload = ''
@@ -2985,12 +2975,14 @@ class WalletAPI(commands.Cog):
             await logchanbot("wallet send_external_ada_asset " + str(traceback.format_exc()))
         return None
 
-    async def send_external_sol(self, url: str, user_from: str, amount: float, to_address: str, coin: str,
-                                coin_decimal: int, tx_fee: float, withdraw_fee: float, user_server: str = 'DISCORD'):
+    async def send_external_sol(
+        self, url: str, user_from: str, amount: float, to_address: str, coin: str,
+        coin_decimal: int, tx_fee: float, withdraw_fee: float, user_server: str = 'DISCORD'
+    ):
         async def move_wallet_balance(url: str, receiver: str, atomic_amount: int):
             # url: is endpoint transfer
             try:
-                sender = Keypair.from_secret_key(bytes.fromhex(config.sol.MainAddress_key_hex))
+                sender = Keypair.from_secret_key(bytes.fromhex(self.bot.config['sol']['MainAddress_key_hex']))
                 client = Sol_AsyncClient(url)
                 txn = Transaction().add(transfer(TransferParams(
                     from_pubkey=sender.public_key, to_pubkey=receiver, lamports=atomic_amount)))
@@ -3731,9 +3723,11 @@ class Wallet(commands.Cog):
     async def openConnection(self):
         try:
             if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=3, maxsize=6,
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
+                self.pool = await aiomysql.create_pool(
+                    host=self.bot.config['mysql']['host'], port=3306, minsize=3, maxsize=6,
+                    user=self.bot.config['mysql']['user'], password=self.bot.config['mysql']['password'],
+                    db=self.bot.config['mysql']['db'], cursorclass=DictCursor, autocommit=True
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -5269,9 +5263,9 @@ class Wallet(commands.Cog):
             return
         await asyncio.sleep(time_lap)
         try:
-            if config.notify_new_tx.enable_new_no_confirm == 1:
-                key_tx_new = config.redis.prefix_new_tx + 'NOCONFIRM'
-                key_tx_no_confirmed_sent = config.redis.prefix_new_tx + 'NOCONFIRM:SENT'
+            if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
+                key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
+                key_tx_no_confirmed_sent = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM:SENT'
                 try:
                     if redis_utils.redis_conn.llen(key_tx_new) > 0:
                         list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
@@ -5284,7 +5278,7 @@ class Wallet(commands.Cog):
                             try:
                                 if tx not in list_new_tx_sent:
                                     tx = tx.decode()  # decode byte from b'xxx to xxx
-                                    key_tx_json = config.redis.prefix_new_tx + tx
+                                    key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx
                                     eachTx = None
                                     try:
                                         if redis_utils.redis_conn.exists(key_tx_json): eachTx = json.loads(
@@ -5471,8 +5465,9 @@ class Wallet(commands.Cog):
                                     height = int(decoded_data['result'])
                                     try:
                                         redis_utils.redis_conn.set(
-                                            f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                            str(height))
+                                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                                            str(height)
+                                        )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                 except Exception:
@@ -5692,8 +5687,9 @@ class Wallet(commands.Cog):
             if height and height > 0:
                 try:
                     redis_utils.redis_conn.set(
-                        f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                        str(height))
+                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                        str(height)
+                    )
                     # if there are other asset, set them all here
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -5866,8 +5862,9 @@ class Wallet(commands.Cog):
                                     height = decoded_data['history_latest_ledger']
                                     try:
                                         redis_utils.redis_conn.set(
-                                            f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                            str(height))
+                                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                                            str(height)
+                                        )
                                         # if there are other asset, set them all here
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
@@ -6049,11 +6046,10 @@ class Wallet(commands.Cog):
                 pass
             return None
 
-        async def move_wallet_balance(url: str, sender_hex_key: str, atomic_amount: int):
+        async def move_wallet_balance(url: str, sender_hex_key: str, atomic_amount: int, receiver_addr: str):
             # url: is endpoint transfer
             try:
                 sender = Keypair.from_secret_key(bytes.fromhex(sender_hex_key))
-                receiver_addr = config.sol.MainAddress
                 client = Sol_AsyncClient(url)
                 txn = Transaction().add(transfer(TransferParams(
                     from_pubkey=sender.public_key, to_pubkey=receiver_addr, lamports=atomic_amount)))
@@ -6072,8 +6068,10 @@ class Wallet(commands.Cog):
             if getEpochInfo:
                 height = getEpochInfo['absoluteSlot']
                 try:
-                    redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                               str(height))
+                    redis_utils.redis_conn.set(
+                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                        str(height)
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
         except Exception:
@@ -6107,23 +6105,26 @@ class Wallet(commands.Cog):
                                     if actual_balance >= real_min_deposit:
                                         # Let's move
                                         remaining = int((actual_balance - tx_fee) * 10 ** coin_decimal)
-                                        moving = await move_wallet_balance(self.bot.erc_node_list['SOL'],
-                                                                           decrypt_string(each_addr['secret_key_hex']),
-                                                                           remaining)
+                                        moving = await move_wallet_balance(
+                                            self.bot.erc_node_list['SOL'], decrypt_string(each_addr['secret_key_hex']),
+                                            remaining, self.bot.config['sol']['MainAddress']
+                                        )
                                         if moving:
                                             await self.openConnection()
                                             async with self.pool.acquire() as conn:
                                                 async with conn.cursor() as cur:
-                                                    sql = """ INSERT INTO `sol_move_deposit` (`token_name`, `contract`, `user_id`, `balance_wallet_address`, `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `time_insert`, `user_server`) 
-                                                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
-                                                              UPDATE `sol_user` SET `last_move_deposit`=%s WHERE `balance_wallet_address`=%s LIMIT 1; """
-                                                    await cur.execute(sql, (coin_name, contract, each_addr['user_id'],
-                                                                            each_addr['balance_wallet_address'],
-                                                                            config.sol.MainAddress,
-                                                                            actual_balance - tx_fee, real_deposit_fee,
-                                                                            coin_decimal, moving, int(time.time()),
-                                                                            each_addr['user_server'], int(time.time()),
-                                                                            each_addr['balance_wallet_address']))
+                                                    sql = """ INSERT INTO `sol_move_deposit` 
+                                                    (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
+                                                    `to_main_address`, `real_amount`, `real_deposit_fee`, 
+                                                    `token_decimal`, `txn`, `time_insert`, `user_server`) 
+                                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                                                    UPDATE `sol_user` SET `last_move_deposit`=%s WHERE `balance_wallet_address`=%s LIMIT 1; """
+                                                    await cur.execute(sql, (
+                                                        coin_name, contract, each_addr['user_id'], each_addr['balance_wallet_address'],
+                                                        self.bot.config['sol']['MainAddress'], actual_balance - tx_fee, real_deposit_fee,
+                                                        coin_decimal, moving, int(time.time()), each_addr['user_server'], int(time.time()),
+                                                        each_addr['balance_wallet_address'])
+                                                    )
                                                     await conn.commit()
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -6187,7 +6188,7 @@ class Wallet(commands.Cog):
                                 get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name),
                                                             "deposit_confirm_depth")
                                 net_height = int(redis_utils.redis_conn.get(
-                                    f'{config.redis.prefix + config.redis.daemon_height}{coin_name}').decode())
+                                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}").decode())
                                 height = fetch_tx['slot']
                                 confirmed_depth = net_height - height
                                 status = "FAILED"
@@ -6280,8 +6281,9 @@ class Wallet(commands.Cog):
                                             for each_coin in self.bot.coin_name_list:
                                                 if getattr(getattr(self.bot.coin_list, each_coin), "type") == "ADA":
                                                     redis_utils.redis_conn.set(
-                                                        f'{config.redis.prefix + config.redis.daemon_height}{each_coin.upper()}',
-                                                        str(height))
+                                                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{each_coin.upper()}",
+                                                        str(height)
+                                                    )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                     await self.openConnection()
@@ -6432,8 +6434,10 @@ class Wallet(commands.Cog):
                     gettopblock = await self.gettopblock(coin_name, time_out=32)
                     height = int(gettopblock['block_header']['height'])
                     try:
-                        redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                                   str(height))
+                        redis_utils.redis_conn.set(
+                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                            str(height)
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
 
@@ -6506,13 +6510,13 @@ class Wallet(commands.Cog):
                                                         traceback.print_exc(file=sys.stdout)
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
-                                    elif len(tx['transfers']) > 0 and height < int(
-                                            tx['blockHeight']) + get_confirm_depth and tx['transfers'][0][
-                                        'amount'] >= get_min_deposit_amount and 'paymentID' in tx:
+                                    elif len(tx['transfers']) > 0 and height < int(tx['blockHeight']) + \
+                                        get_confirm_depth and tx['transfers'][0]['amount'] >= get_min_deposit_amount \
+                                            and 'paymentID' in tx:
                                         # add notify to redis and alert deposit. Can be clean later?
-                                        if config.notify_new_tx.enable_new_no_confirm == 1:
-                                            key_tx_new = config.redis.prefix_new_tx + 'NOCONFIRM'
-                                            key_tx_json = config.redis.prefix_new_tx + tx['hash']
+                                        if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
+                                            key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
+                                            key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['hash']
                                             try:
                                                 if redis_utils.redis_conn.llen(key_tx_new) > 0:
                                                     list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
@@ -6569,8 +6573,10 @@ class Wallet(commands.Cog):
                     gettopblock = await self.gettopblock(coin_name, time_out=32)
                     height = int(gettopblock['block_header']['height'])
                     try:
-                        redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                                   str(height))
+                        redis_utils.redis_conn.set(
+                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                            str(height)
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
 
@@ -6644,9 +6650,9 @@ class Wallet(commands.Cog):
                                         elif height < int(tx['blockIndex']) + get_confirm_depth and tx[
                                             'amount'] >= get_min_deposit_amount and 'paymentId' in tx:
                                             # add notify to redis and alert deposit. Can be clean later?
-                                            if config.notify_new_tx.enable_new_no_confirm == 1:
-                                                key_tx_new = config.redis.prefix_new_tx + 'NOCONFIRM'
-                                                key_tx_json = config.redis.prefix_new_tx + tx['transactionHash']
+                                            if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
+                                                key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
+                                                key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['transactionHash']
                                                 try:
                                                     if redis_utils.redis_conn.llen(key_tx_new) > 0:
                                                         list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
@@ -6700,8 +6706,10 @@ class Wallet(commands.Cog):
                     gettopblock = await self.gettopblock(coin_name, time_out=32)
                     height = int(gettopblock['block_header']['height'])
                     try:
-                        redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                                   str(height))
+                        redis_utils.redis_conn.set(
+                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                            str(height)
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
 
@@ -6776,9 +6784,9 @@ class Wallet(commands.Cog):
                                         elif height < int(tx['height']) + get_confirm_depth and tx[
                                             'amount'] >= get_min_deposit_amount and 'payment_id' in tx:
                                             # add notify to redis and alert deposit. Can be clean later?
-                                            if config.notify_new_tx.enable_new_no_confirm == 1:
-                                                key_tx_new = config.redis.prefix_new_tx + 'NOCONFIRM'
-                                                key_tx_json = config.redis.prefix_new_tx + tx['txid']
+                                            if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
+                                                key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
+                                                key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['txid']
                                                 try:
                                                     if redis_utils.redis_conn.llen(key_tx_new) > 0:
                                                         list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
@@ -6838,8 +6846,10 @@ class Wallet(commands.Cog):
                         gettopblock = await self.wallet_api.call_doge('getblockchaininfo', coin_name)
                     height = int(gettopblock['blocks'])
                     try:
-                        redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                                   str(height))
+                        redis_utils.redis_conn.set(
+                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                            str(height)
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await asyncio.sleep(1.0)
@@ -6937,9 +6947,9 @@ class Wallet(commands.Cog):
                                                 and tx['category'] == 'receive' and 'generated' in tx and tx['amount'] > 0:
                                                 continue
                                             # add notify to redis and alert deposit. Can be clean later?
-                                            if config.notify_new_tx.enable_new_no_confirm == 1:
-                                                key_tx_new = config.redis.prefix_new_tx + 'NOCONFIRM'
-                                                key_tx_json = config.redis.prefix_new_tx + tx['txid']
+                                            if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
+                                                key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
+                                                key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['txid']
                                                 try:
                                                     if redis_utils.redis_conn.llen(key_tx_new) > 0:
                                                         list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
@@ -6986,8 +6996,10 @@ class Wallet(commands.Cog):
             gettopblock = await self.wallet_api.call_neo('getblockcount', payload=[]) 
             try:
                 height = int(gettopblock['result'])
-                redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                           str(height))
+                redis_utils.redis_conn.set(
+                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                    str(height)
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("wallet update_balance_neo " + str(traceback.format_exc()))
@@ -7120,8 +7132,10 @@ class Wallet(commands.Cog):
                     gettopblock = await self.gettopblock(coin_name, time_out=32)
                     height = int(gettopblock['height'])
                     try:
-                        redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                                   str(height))
+                        redis_utils.redis_conn.set(
+                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                            str(height)
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
 
@@ -7201,9 +7215,9 @@ class Wallet(commands.Cog):
                                             if height < get_confirm_depth + int(tx['confirmed_at_height']) and tx[
                                                 'amount'] >= get_min_deposit_amount:
                                                 # add notify to redis and alert deposit. Can be clean later?
-                                                if config.notify_new_tx.enable_new_no_confirm == 1:
-                                                    key_tx_new = config.redis.prefix_new_tx + 'NOCONFIRM'
-                                                    key_tx_json = config.redis.prefix_new_tx + tx['name']
+                                                if self.bot.config['notify_new_tx'].['enable_new_no_confirm'] == 1:
+                                                    key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
+                                                    key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['name']
                                                     try:
                                                         if redis_utils.redis_conn.llen(key_tx_new) > 0:
                                                             list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0,
@@ -7267,7 +7281,9 @@ class Wallet(commands.Cog):
                             # store in redis
                             try:
                                 redis_utils.redis_conn.set(
-                                    f'{config.redis.prefix + config.redis.daemon_height}{coin_name}', str(height))
+                                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                                    str(height)
+                                )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                     except Exception:
@@ -7403,8 +7419,9 @@ class Wallet(commands.Cog):
                 for each_coin in self.bot.coin_name_list:
                     if getattr(getattr(self.bot.coin_list, each_coin), "type") == "XRP":
                         redis_utils.redis_conn.set(
-                            f'{config.redis.prefix + config.redis.daemon_height}{each_coin.upper()}',
-                            str(height))
+                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{each_coin.upper()}",
+                            str(height)
+                        )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             # get transactions
@@ -7526,14 +7543,18 @@ class Wallet(commands.Cog):
             try:
                 if get_head:
                     height = get_head['result']['sync_info']['latest_block_height']
-                    redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                               str(height))
+                    redis_utils.redis_conn.set(
+                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                        str(height)
+                    )
                     if len(near_contracts) > 0:
                         for each_coin in near_contracts:
                             name = each_coin['coin_name']
                             try:
-                                redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{name}',
-                                                           str(height))
+                                redis_utils.redis_conn.set(
+                                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{name}",
+                                    str(height)
+                                )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
             except Exception:
@@ -7834,14 +7855,18 @@ class Wallet(commands.Cog):
             get_status = await vet_get_status(self.bot.erc_node_list['VET'], 16)
             if get_status:
                 height = int(get_status['number'])
-                redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                           str(height))
+                redis_utils.redis_conn.set(
+                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                    str(height)
+                )
                 if len(vet_contracts) > 0:
                     for each_coin in vet_contracts:
                         name = each_coin['coin_name']
                         try:
-                            redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{name}',
-                                                       str(height))
+                            redis_utils.redis_conn.set(
+                                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{name}",
+                                str(height)
+                            )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
             ## Check VET and VTHO
@@ -8029,14 +8054,18 @@ class Wallet(commands.Cog):
             get_status = await zil_get_status(self.bot.erc_node_list['ZIL'], 16)
             if get_status:
                 height = int(get_status['result']['NumTxBlocks'])
-                redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                           str(height))
+                redis_utils.redis_conn.set(
+                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                    str(height)
+                )
                 if len(zil_contracts) > 0:
                     for each_coin in zil_contracts:
                         name = each_coin['coin_name']
                         try:
-                            redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{name}',
-                                                       str(height))
+                            redis_utils.redis_conn.set(
+                                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{name}",
+                                str(height)
+                            )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
             real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
@@ -8149,14 +8178,18 @@ class Wallet(commands.Cog):
             try:
                 if get_head:
                     height = get_head['level']
-                    redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{coin_name}',
-                                               str(height))
+                    redis_utils.redis_conn.set(
+                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                        str(height)
+                    )
                     if len(xtz_contracts) > 0:
                         for each_coin in xtz_contracts:
                             name = each_coin['coin_name']
                             try:
-                                redis_utils.redis_conn.set(f'{config.redis.prefix + config.redis.daemon_height}{name}',
-                                                           str(height))
+                                redis_utils.redis_conn.set(
+                                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{name}",
+                                    str(height)
+                                )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
             except Exception:
@@ -8582,9 +8615,11 @@ class Wallet(commands.Cog):
         await asyncio.sleep(time_lap)
 
 
-    async def send_external_erc20(self, url: str, network: str, user_id: str, to_address: str, amount: float, coin: str,
-                                  coin_decimal: int, real_withdraw_fee: float, user_server: str, chain_id: str = None,
-                                  contract: str = None):
+    async def send_external_erc20(
+        self, url: str, network: str, user_id: str, to_address: str, amount: float, coin: str,
+        coin_decimal: int, real_withdraw_fee: float, user_server: str, chain_id: str = None,
+        contract: str = None
+    ):
         token_name = coin.upper()
         user_server = user_server.upper()
 
@@ -8596,19 +8631,19 @@ class Wallet(commands.Cog):
             if contract is None:
                 # Main Token
                 if network == "MATIC":
-                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(config.eth.MainAddress), 'pending')
+                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(self.bot.config['eth']['MainAddress']), 'pending')
                 else:
-                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(config.eth.MainAddress))
+                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(self.bot.config['eth']['MainAddress']))
                 # get gas price
                 gasPrice = w3.eth.gasPrice
 
                 estimateGas = w3.eth.estimateGas(
-                    {'to': w3.toChecksumAddress(to_address), 'from': w3.toChecksumAddress(config.eth.MainAddress),
+                    {'to': w3.toChecksumAddress(to_address), 'from': w3.toChecksumAddress(self.bot.config['eth']['MainAddress']),
                      'value': int(amount * 10 ** coin_decimal)})
 
                 atomic_amount = int(amount * 10 ** 18)
                 transaction = {
-                    'from': w3.toChecksumAddress(config.eth.MainAddress),
+                    'from': w3.toChecksumAddress(self.bot.config['eth']['MainAddress']),
                     'to': w3.toChecksumAddress(to_address),
                     'value': atomic_amount,
                     'nonce': nonce,
@@ -8617,7 +8652,7 @@ class Wallet(commands.Cog):
                     'chainId': chain_id
                 }
                 try:
-                    signed_txn = w3.eth.account.sign_transaction(transaction, private_key=config.eth.MainAddress_key)
+                    signed_txn = w3.eth.account.sign_transaction(transaction, private_key=self.bot.config['eth']['MainAddress_key'])
                     # send Transaction for gas:
                     sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
                 except Exception:
@@ -8629,22 +8664,22 @@ class Wallet(commands.Cog):
 
                 unicorns = w3.eth.contract(address=w3.toChecksumAddress(contract), abi=EIP20_ABI)
                 if network == "MATIC":
-                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(config.eth.MainAddress), 'pending')
+                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(self.bot.config['eth']['MainAddress']), 'pending')
                 else:
-                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(config.eth.MainAddress))
+                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(self.bot.config['eth']['MainAddress']))
 
                 unicorn_txn = unicorns.functions.transfer(
                     w3.toChecksumAddress(to_address),
                     int(amount * 10 ** coin_decimal)  # amount to send
                 ).buildTransaction({
-                    'from': w3.toChecksumAddress(config.eth.MainAddress),
+                    'from': w3.toChecksumAddress(self.bot.config['eth']['MainAddress']),
                     'gasPrice': w3.eth.gasPrice,
                     'nonce': nonce,
                     'chainId': chain_id
                 })
 
                 acct = Account.from_mnemonic(
-                    mnemonic=config.eth.MainAddress_seed)
+                    mnemonic=self.bot.config['eth']['MainAddress_seed'])
                 signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=acct.key)
                 sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
             if signed_txn and sent_tx:
@@ -8658,7 +8693,8 @@ class Wallet(commands.Cog):
                                       `user_server`, `network`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql,
                                               (token_name, contract, user_id, amount, real_withdraw_fee, coin_decimal,
-                                               to_address, int(time.time()), sent_tx.hex(), user_server, network))
+                                               to_address, int(time.time()), sent_tx.hex(), user_server, network)
+                            )
                             await conn.commit()
                             return sent_tx.hex()
                 except Exception:
@@ -8668,9 +8704,11 @@ class Wallet(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("wallet send_external_erc20 " + str(traceback.format_exc()))
 
-    async def send_external_trc20(self, user_id: str, to_address: str, amount: float, coin: str, coin_decimal: int,
-                                  real_withdraw_fee: float, user_server: str, fee_limit: float, trc_type: str,
-                                  contract: str = None):
+    async def send_external_trc20(
+        self, user_id: str, to_address: str, amount: float, coin: str, coin_decimal: int,
+        real_withdraw_fee: float, user_server: str, fee_limit: float, trc_type: str,
+        contract: str = None
+    ):
         token_name = coin.upper()
         user_server = user_server.upper()
 
@@ -8680,12 +8718,12 @@ class Wallet(commands.Cog):
             TronClient = AsyncTron(provider=AsyncHTTPProvider(self.bot.erc_node_list['TRX'], client=_http_client))
             if token_name == "TRX":
                 txb = (
-                    TronClient.trx.transfer(config.trc.MainAddress, to_address, int(amount * 10 ** 6))
+                    TronClient.trx.transfer(self.bot.config['trc']['MainAddress'], to_address, int(amount * 10 ** 6))
                     # .memo("test memo")
                     .fee_limit(int(fee_limit * 10 ** 6))
                 )
                 txn = await txb.build()
-                priv_key = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
+                priv_key = PrivateKey(bytes.fromhex(self.bot.config['trc']['MainAddress_key']))
                 txn_ret = await txn.sign(priv_key).broadcast()
                 try:
                     in_block = await txn_ret.wait()
@@ -8716,11 +8754,11 @@ class Wallet(commands.Cog):
                         cntr = await TronClient.get_contract(contract)
                         precision = await cntr.functions.decimals()
                         ## TODO: alert if balance below threshold
-                        ## balance = await cntr.functions.balanceOf(config.trc.MainAddress) / 10**precision
+                        ## balance = await cntr.functions.balanceOf(self.bot.config['trc']['MainAddress']) / 10**precision
                         txb = await cntr.functions.transfer(to_address, int(amount * 10 ** coin_decimal))
-                        txb = txb.with_owner(config.trc.MainAddress).fee_limit(int(fee_limit * 10 ** 6))
+                        txb = txb.with_owner(self.bot.config['trc']['MainAddress']).fee_limit(int(fee_limit * 10 ** 6))
                         txn = await txb.build()
-                        priv_key = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
+                        priv_key = PrivateKey(bytes.fromhex(self.bot.config['trc']['MainAddress_key']))
                         txn_ret = await txn.sign(priv_key).broadcast()
                         in_block = None
                         try:
@@ -8753,12 +8791,12 @@ class Wallet(commands.Cog):
                         precision = 10 ** coin_decimal
                         txb = (
                             TronClient.trx.asset_transfer(
-                                config.trc.MainAddress, to_address, int(precision * amount), token_id=int(contract)
+                                self.bot.config['trc']['MainAddress'], to_address, int(precision * amount), token_id=int(contract)
                             )
                             .fee_limit(int(fee_limit * 10 ** 6))
                         )
                         txn = await txb.build()
-                        priv_key = PrivateKey(bytes.fromhex(config.trc.MainAddress_key))
+                        priv_key = PrivateKey(bytes.fromhex(self.bot.config['trc']['MainAddress_key']))
                         txn_ret = await txn.sign(priv_key).broadcast()
 
                         in_block = None
@@ -9157,7 +9195,7 @@ class Wallet(commands.Cog):
                 if " MEMO:" in wallet_address_new:
                     wallet_address_new = wallet_address_new.replace(" MEMO:", "\nMEMO:")
                 embed.add_field(name="Your Deposit Address", value="`{}`".format(wallet_address_new), inline=False)
-                embed.set_thumbnail(url=config.storage.deposit_url + address_path + ".png")
+                embed.set_thumbnail(url=self.bot.config['storage']['deposit_url'] + address_path + ".png")
 
             if getattr(getattr(self.bot.coin_list, coin_name), "related_coins"):
                 embed.add_field(name="Related Coins", value="```{}```".format(
@@ -10462,7 +10500,7 @@ class Wallet(commands.Cog):
                     for k, v in each.items():
                         reward_list.append("{}{}".format(v, k))
                 reward_list_default = reward_list
-                link_list.append("Vote at: [{}]({})".format(key, getattr(config.bot_vote_link, key)))
+                link_list.append("Vote at: [{}]({})".format(key,  self.bot.config['bot_vote_link'][key]))
             embed.add_field(name="Vote List", value="\n".join(link_list), inline=False)
             embed.add_field(name="Vote rewards".format(key), value="```{}```".format(", ".join(reward_list_default)),
                             inline=False)
@@ -10642,8 +10680,8 @@ class Wallet(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        claim_interval = config.faucet.interval
-        half_claim_interval = int(config.faucet.interval / 2)
+        claim_interval = self.bot.config['faucet']['interval']
+        half_claim_interval = int(self.bot.config['faucet']['interval'] / 2)
 
         serverinfo = None
         extra_take_text = ""
@@ -10735,7 +10773,7 @@ class Wallet(commands.Cog):
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
-            if (datetime.utcnow().astimezone() - account_created).total_seconds() <= config.faucet.account_age_to_claim:
+            if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using /take. Alternatively, vote for TipBot to get reward `/claim`.{extra_take_text}"
                 await ctx.edit_original_message(content=msg)
                 return
@@ -11241,7 +11279,7 @@ when using this bot and any funds lost, mis-used or stolen in using this bot. Ti
                     # Do swap
                     data_rows = []
                     currentTs = int(time.time())
-                    fee_taker = str(config.discord.ownerID)  # "460755304863498250" # str(config.discord.ownerID)
+                    fee_taker = str(bot.config['discord']['owner_id'])
                     # FROM_COIN
                     contract_from = getattr(getattr(self.bot.coin_list, FROM_COIN), "contract")
                     token_decimal_from = getattr(getattr(self.bot.coin_list, FROM_COIN), "decimal")

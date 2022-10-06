@@ -16,7 +16,7 @@ from disnake.ext import commands
 import store
 from Bot import logchanbot, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, seconds_str, \
     SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE, remap_keys, DEFAULT_TICKER
-from config import config
+
 from games.blackjack import displayHands as blackjack_displayHands
 from games.blackjack import getCardValue as blackjack_getCardValue
 from games.blackjack import getDeck as blackjack_getDeck
@@ -90,7 +90,7 @@ class DatabaseGames:
 
     async def sql_game_stat(self):
         stat = {}
-        game_coin = config.game.coin_game.split(",")
+        game_coin = self.bot.config['game']['coin_game'].split(",")
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -1642,8 +1642,8 @@ class Sokoban_Buttons(disnake.ui.View):
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    config.discord.invite_link, config.discord.support_server_link,
-                                    config.discord.github_link), inline=False)
+                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                                    self.bot.config['discord']['github_link']), inline=False)
 
                 ## game end
                 for child in self.children:
@@ -1682,8 +1682,8 @@ class Sokoban_Buttons(disnake.ui.View):
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    config.discord.invite_link, config.discord.support_server_link,
-                                    config.discord.github_link), inline=False)
+                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                                    self.bot.config['discord']['github_link']), inline=False)
                 await interaction.response.defer()
                 await self.message.edit(embed=embed, view=self)
         except Exception:
@@ -1774,9 +1774,10 @@ class Sokoban_Buttons(disnake.ui.View):
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    config.discord.invite_link, config.discord.support_server_link,
-                                    config.discord.github_link), inline=False)
-
+                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                                    self.bot.config['discord']['github_link']),
+                                inline=False
+                                )
                 ## game end
                 for child in self.children:
                     if isinstance(child, disnake.ui.Button):
@@ -1813,8 +1814,10 @@ class Sokoban_Buttons(disnake.ui.View):
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    config.discord.invite_link, config.discord.support_server_link,
-                                    config.discord.github_link), inline=False)
+                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                                    self.bot.config['discord']['github_link']),
+                                inline=False
+                                )
                 await interaction.response.defer()
                 await self.message.edit(embed=embed, view=self)
         except Exception:
@@ -1905,9 +1908,10 @@ class Sokoban_Buttons(disnake.ui.View):
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    config.discord.invite_link, config.discord.support_server_link,
-                                    config.discord.github_link), inline=False)
-
+                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                                    self.bot.config['discord']['github_link']),
+                                inline=False
+                                )
                 ## game end
                 for child in self.children:
                     if isinstance(child, disnake.ui.Button):
@@ -1944,8 +1948,10 @@ class Sokoban_Buttons(disnake.ui.View):
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    config.discord.invite_link, config.discord.support_server_link,
-                                    config.discord.github_link), inline=False)
+                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                                    self.bot.config['discord']['github_link']),
+                                inline=False
+                                )
                 await interaction.response.defer()
                 await self.message.edit(embed=embed, view=self)
         except Exception:
@@ -2035,8 +2041,10 @@ class Sokoban_Buttons(disnake.ui.View):
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    config.discord.invite_link, config.discord.support_server_link,
-                                    config.discord.github_link), inline=False)
+                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                                    self.bot.config['discord']['github_link']),
+                                inline=False
+                                )
 
                 ## game end
                 for child in self.children:
@@ -2074,8 +2082,10 @@ class Sokoban_Buttons(disnake.ui.View):
                 embed.add_field(name="LEVEL", value=f'{self.level}')
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    config.discord.invite_link, config.discord.support_server_link,
-                                    config.discord.github_link), inline=False)
+                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                                    self.bot.config['discord']['github_link']),
+                                inline=False
+                                )
                 await interaction.response.defer()
                 await self.message.edit(embed=embed, view=self)
         except Exception:
@@ -2176,7 +2186,7 @@ class Games(commands.Cog):
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
-            if (datetime.now().astimezone() - account_created).total_seconds() <= config.game.account_age_to_play:
+            if (datetime.now().astimezone() - account_created).total_seconds() <= self.bot.config['game']['account_age_to_play']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is very new. Wait a few days before using this."
                 await ctx.edit_original_message(content=msg)
                 return
@@ -2186,9 +2196,9 @@ class Games(commands.Cog):
         free_game = False
         won = False
 
-        count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT,
+        count_played = await self.db.sql_game_count_user(str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT,
                                                          False)
-        if count_played and count_played >= config.game.max_daily_play:
+        if count_played and count_played >= self.bot.config['game']['max_daily_play']:
             free_game = True
 
         game_text = '''
@@ -2259,7 +2269,7 @@ class Games(commands.Cog):
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
-            if (datetime.now().astimezone() - account_created).total_seconds() <= config.game.account_age_to_play:
+            if (datetime.now().astimezone() - account_created).total_seconds() <= self.bot.config['game']['account_age_to_play']:
                 await ctx.edit_original_message(
                     content=f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.")
                 return
@@ -2269,18 +2279,22 @@ class Games(commands.Cog):
         free_game = False
         won = False
 
-        count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT,
-                                                         False)
-        count_played_free = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT,
-                                                              True)
-        if count_played and count_played >= config.game.max_daily_play:
+        count_played = await self.db.sql_game_count_user(
+            str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT, False
+        )
+        count_played_free = await self.db.sql_game_count_user(
+            str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT, True
+        )
+        if count_played and count_played >= self.bot.config['game']['max_daily_play']:
             free_game = True
 
-        count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT,
-                                                         False)
-        count_played_free = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT,
-                                                              True)
-        if count_played and count_played >= config.game.max_daily_play:
+        count_played = await self.db.sql_game_count_user(
+            str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT, False
+        )
+        count_played_free = await self.db.sql_game_count_user(
+            str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT, True
+        )
+        if count_played and count_played >= self.bot.config['game']['max_daily_play']:
             free_game = True
 
         # Portion from https://github.com/MitchellAW/Discord-Bot/blob/master/features/rng.py
@@ -2332,10 +2346,12 @@ class Games(commands.Cog):
         embed.add_field(name="Result", value=slotOutput, inline=False)
         embed.add_field(name="Comment", value=slotOutput_2, inline=False)
         embed.add_field(name="Reward", value=result, inline=False)
-        embed.add_field(name='More',
-                        value=f'[TipBot Github]({config.discord.github_link}) | {config.discord.invite_link} ',
-                        inline=False)
-        embed.set_footer(text="Randomed Coin: {}".format(config.game.coin_game))
+        embed.add_field(
+            name='More',
+            value=f"[TipBot Github]({self.bot.config['discord']['github_link']}) | {self.bot.config['discord']['invite_link']}",
+            inline=False
+        )
+        embed.set_footer(text="Randomed Coin: {}".format(self.bot.config['game']['coin_game']))
         try:
             if ctx.author.id in self.bot.GAME_SLOT_IN_PROGRESS:
                 self.bot.GAME_SLOT_IN_PROGRESS.remove(ctx.author.id)
@@ -2398,9 +2414,10 @@ class Games(commands.Cog):
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
-            if (datetime.now().astimezone() - account_created).total_seconds() <= config.game.account_age_to_play:
+            if (datetime.now().astimezone() - account_created).total_seconds() <= self.bot.config['game']['account_age_to_play']:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.")
+                    content=f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this."
+                )
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -2412,9 +2429,10 @@ class Games(commands.Cog):
             await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game** play.")
             return
 
-        count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT,
-                                                         False)
-        if count_played and count_played >= config.game.max_daily_play:
+        count_played = await self.db.sql_game_count_user(
+            str(ctx.author.id), self.bot.config['game'].['duration_24h'], SERVER_BOT, False
+        )
+        if count_played and count_played >= self.bot.config['game']['max_daily_play']:
             free_game = True
 
         view = Maze_Buttons(ctx, self.bot, free_game, timeout=15.0)
@@ -2476,7 +2494,7 @@ class Games(commands.Cog):
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
-            if (datetime.now().astimezone() - account_created).total_seconds() <= config.game.account_age_to_play:
+            if (datetime.now().astimezone() - account_created).total_seconds() <= self.bot.config['game']['account_age_to_play']:
                 await ctx.edit_original_message(
                     content=f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.")
                 return
@@ -2491,9 +2509,10 @@ class Games(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT,
-                                                         False)
-        if count_played and count_played >= config.game.max_daily_play:
+        count_played = await self.db.sql_game_count_user(
+            str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT, False
+        )
+        if count_played and count_played >= self.bot.config['game']['max_daily_play']:
             free_game = True
 
         game_text = '''A player rolls two dice. Each die has six faces. 
@@ -2677,9 +2696,10 @@ class Games(commands.Cog):
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
-            if (datetime.now().astimezone() - account_created).total_seconds() <= config.game.account_age_to_play:
+            if (datetime.now().astimezone() - account_created).total_seconds() <= self.bot.config['game']['account_age_to_play']:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this.")
+                    content=f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. Wait a few days before using this."
+                )
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -2691,9 +2711,10 @@ class Games(commands.Cog):
             await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game** play.")
             return
 
-        count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT,
-                                                         False)
-        if count_played and count_played >= config.game.max_daily_play:
+        count_played = await self.db.sql_game_count_user(
+            str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT, False
+        )
+        if count_played and count_played >= self.bot.config['game']['max_daily_play']:
             free_game = True
 
         time_start = int(time.time())
@@ -2941,9 +2962,10 @@ class Games(commands.Cog):
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
-            if (datetime.now().astimezone() - account_created).total_seconds() <= config.game.account_age_to_play:
+            if (datetime.now().astimezone() - account_created).total_seconds() <= self.bot.config['game']['account_age_to_play']:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_RED_NO} {ctx.author.mention}, your account is very new. Wait a few days before using this.")
+                    content=f"{EMOJI_RED_NO} {ctx.author.mention}, your account is very new. Wait a few days before using this."
+                )
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -2955,9 +2977,10 @@ class Games(commands.Cog):
             await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game** play.")
             return
 
-        count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT,
-                                                         False)
-        if count_played and count_played >= config.game.max_daily_play:
+        count_played = await self.db.sql_game_count_user(
+            str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT, False
+        )
+        if count_played and count_played >= self.bot.config['game']['max_daily_play']:
             free_game = True
 
         view = g2048_Buttons(ctx, self.bot, free_game, timeout=15.0)
@@ -3020,9 +3043,10 @@ class Games(commands.Cog):
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
-            if (datetime.now().astimezone() - account_created).total_seconds() <= config.game.account_age_to_play:
+            if (datetime.now().astimezone() - account_created).total_seconds() <= self.bot.config['game']['account_age_to_play']:
                 await ctx.edit_original_message(content=
-                    f"{EMOJI_RED_NO} {ctx.author.mention}, your account is very new. Wait a few days before using this.")
+                    f"{EMOJI_RED_NO} {ctx.author.mention}, your account is very new. Wait a few days before using this."
+                )
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -3034,9 +3058,10 @@ class Games(commands.Cog):
             await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game** play.")
             return
 
-        count_played = await self.db.sql_game_count_user(str(ctx.author.id), config.game.duration_24h, SERVER_BOT,
-                                                         False)
-        if count_played and count_played >= config.game.max_daily_play:
+        count_played = await self.db.sql_game_count_user(
+            str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT, False
+        )
+        if count_played and count_played >= self.bot.config['game']['max_daily_play']:
             free_game = True
 
         view = Sokoban_Buttons(ctx, free_game, timeout=15.0)
@@ -3074,8 +3099,10 @@ class Games(commands.Cog):
                 embed.add_field(name="LEVEL", value=f'{level}')
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    config.discord.invite_link, config.discord.support_server_link,
-                                    config.discord.github_link), inline=False)
+                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                                    self.bot.config['discord']['github_link']),
+                                inline=False
+                                )
                 view.message = await ctx.channel.send(embed=embed, view=view)
                 view.level = level
                 # Find the player position:

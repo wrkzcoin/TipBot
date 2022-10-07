@@ -94,7 +94,7 @@ class DatabaseGames:
 
     async def sql_game_stat(self):
         stat = {}
-        game_coin = self.bot.config['game']['coin_game'].split(",")
+        game_coin = self.bot.config['game']['coin_game']
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -2378,7 +2378,7 @@ class Games(commands.Cog):
             value=f"[TipBot Github]({self.bot.config['discord']['github_link']}) | {self.bot.config['discord']['invite_link']}",
             inline=False
         )
-        embed.set_footer(text="Randomed Coin: {}".format(self.bot.config['game']['coin_game']))
+        embed.set_footer(text="Randomed Coin: {}".format(', '.join(self.bot.config['game']['coin_game'])))
         try:
             if ctx.author.id in self.bot.GAME_SLOT_IN_PROGRESS:
                 self.bot.GAME_SLOT_IN_PROGRESS.remove(ctx.author.id)

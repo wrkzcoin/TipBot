@@ -3104,17 +3104,17 @@ class Guild(commands.Cog):
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
             await ctx.response.send_message(msg)
 
-
     async def async_set_gamechan(self, ctx, game):
-        game_list = self.bot.config['game']['game_list'].split(",")
         if game is None:
-            msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name to set game channel for it. Game list: {self.bot.config['game']['game_list']}."
+            msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name to set game channel for it. Game list: "\
+                f"{', '.join(self.bot.config['game']['game_list'])}."
             await ctx.response.send_message(msg)
             return
         else:
             game = game.lower()
-            if game not in game_list:
-                msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name within this list: {self.bot.config['game']['game_list']}."
+            if game not in self.bot.config['game']['game_list']:
+                msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name within this list"\
+                    f": {', '.join(self.bot.config['game']['game_list'])}."
                 await ctx.response.send_message(msg)
                 return
             else:

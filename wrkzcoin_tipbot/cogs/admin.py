@@ -93,8 +93,8 @@ class Admin(commands.Cog):
             await self.openConnection_extra()
             async with self.pool_local_db_extra.acquire() as conn_extra:
                 async with conn_extra.cursor() as cur_extra:
-                    sql = """ SELECT * FROM `discord_messages` ORDER BY `id` DESC LIMIT """ + str(number_msg)
-                    await cur_extra.execute(sql, )
+                    sql = """ SELECT * FROM `discord_messages` ORDER BY `id` DESC LIMIT %s """
+                    await cur_extra.execute(sql, number_msg)
                     result = await cur_extra.fetchall()
                     if result and len(result) > 0:
                         # Insert to original DB and delete
@@ -135,8 +135,8 @@ class Admin(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_messages` ORDER BY `id` ASC LIMIT """ + str(number_msg)
-                    await cur.execute(sql, )
+                    sql = """ SELECT * FROM `discord_messages` ORDER BY `id` ASC LIMIT %s """
+                    await cur.execute(sql, number_msg)
                     result = await cur.fetchall()
                     if result and len(result) > 0:
                         # Insert to extra DB and delete
@@ -1262,7 +1262,7 @@ class Admin(commands.Cog):
         description="Various admin commands."
     )
     async def admin(self, ctx):
-        if ctx.invoked_subcommand is None: await ctx.reply(f'{ctx.author.mention}, invalid admin command')
+        if ctx.invoked_subcommand is None: await ctx.reply(f"{ctx.author.mention}, invalid admin command")
         return
 
     @commands.is_owner()
@@ -1271,7 +1271,7 @@ class Admin(commands.Cog):
         await self.bot.wait_until_ready()
         game = disnake.Game(name=msg)
         await self.bot.change_presence(status=disnake.Status.online, activity=game)
-        msg = f'{ctx.author.mention}, changed status to: {msg}'
+        msg = f"{ctx.author.mention}, changed status to: {msg}"
         await ctx.reply(msg)
         return
 
@@ -1299,7 +1299,7 @@ class Admin(commands.Cog):
                 return None
 
             if param is None:
-                msg = f'{ctx.author.mention}, this action requires <param> (number)!'
+                msg = f"{ctx.author.mention}, this action requires <param> (number)!"
                 await ctx.reply(msg)
                 return
             else:
@@ -1315,7 +1315,7 @@ class Admin(commands.Cog):
                                 await cur.execute(sql, (wallet_name))
                                 result = await cur.fetchone()
                                 if result:
-                                    msg = f'{ctx.author.mention}, wallet `{wallet_name}` already exist!'
+                                    msg = f"{ctx.author.mention}, wallet `{wallet_name}` already exist!"
                                     await ctx.reply(msg)
                                     return
                     except Exception:
@@ -1334,18 +1334,19 @@ class Admin(commands.Cog):
                             async with store.pool.acquire() as conn:
                                 async with conn.cursor() as cur:
                                     wallet_d = create['id']
-                                    sql = """ INSERT INTO `ada_wallets` (`wallet_rpc`, `passphrase`, `wallet_name`, `wallet_id`, `seed`) VALUES (%s, %s, %s, %s, %s) """
+                                    sql = """ INSERT INTO `ada_wallets` (`wallet_rpc`, `passphrase`, `wallet_name`, `wallet_id`, `seed`) 
+                                    VALUES (%s, %s, %s, %s, %s) """
                                     await cur.execute(sql, (
                                         self.bot.config['ada']['default_wallet_url'], encrypt_string(self.bot.config['ada']['default_passphrase']),
                                         wallet_name, wallet_d, encrypt_string(words)))
                                     await conn.commit()
-                                    msg = f'{ctx.author.mention}, wallet `{wallet_name}` created with number `{number}` and wallet ID: `{wallet_d}`.'
+                                    msg = f"{ctx.author.mention}, wallet `{wallet_name}` created with number `{number}` and wallet ID: `{wallet_d}`."
                                     await ctx.reply(msg)
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                    msg = f'{ctx.author.mention}, invalid <param> (wallet_name.number)!'
+                    msg = f"{ctx.author.mention}, invalid <param> (wallet_name.number)!"
                     await ctx.reply(msg)
                     return
         elif action == "MOVE" or action == "MV":  # no param, move from all deposit balance to withdraw
@@ -1465,7 +1466,7 @@ class Admin(commands.Cog):
                                                     if "code" in sending_tx and "message" in sending_tx:
                                                         # send error
                                                         wallet_id = each_w['wallet_id']
-                                                        msg = f'{ctx.author.mention}, error with `{wallet_id}`\n````{str(sending_tx)}``'
+                                                        msg = f"{ctx.author.mention}, error with `{wallet_id}`\n````{str(sending_tx)}``"
                                                         await ctx.reply(msg)
                                                         print(msg)
                                                     elif "status" in sending_tx and sending_tx['status'] == "pending":
@@ -1473,23 +1474,23 @@ class Admin(commands.Cog):
                                                         # success
                                                         wallet_id = each_w['wallet_id']
                                                         tx_hash = sending_tx['id']
-                                                        msg = f'{ctx.author.mention}, successfully transfer `{wallet_id}` to `{withdraw_address}` via `{tx_hash}`.'
+                                                        msg = f"{ctx.author.mention}, successfully transfer `{wallet_id}` to `{withdraw_address}` via `{tx_hash}`."
                                                         await ctx.reply(msg)
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                             if has_deposit is False:
-                                msg = f'{ctx.author.mention}, there is no any wallet with balance sufficient to transfer.!'
+                                msg = f"{ctx.author.mention}, there is no any wallet with balance sufficient to transfer.!"
                                 await ctx.reply(msg)
                                 return
                         else:
-                            msg = f'{ctx.author.mention}, doesnot have any wallet in DB!'
+                            msg = f"{ctx.author.mention}, doesnot have any wallet in DB!"
                             await ctx.reply(msg)
                             return
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif action == "DELETE" or action == "DEL":  # param is name only
             if param is None:
-                msg = f'{ctx.author.mention}, required param `wallet_name`!'
+                msg = f"{ctx.author.mention}, required param `wallet_name`!"
                 await ctx.reply(msg)
                 return
 
@@ -1531,17 +1532,17 @@ class Admin(commands.Cog):
                                                       DELETE FROM `ada_wallets` WHERE `wallet_id`=%s LIMIT 1 """
                                             await cur.execute(sql, (wallet_id, wallet_id))
                                             await conn.commit()
-                                            msg = f'{ctx.author.mention}, sucessfully delete wallet `{wallet_name}` | `{wallet_id}`.'
+                                            msg = f"{ctx.author.mention}, sucessfully delete wallet `{wallet_name}` | `{wallet_id}`."
                                             await ctx.reply(msg)
                                             return
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
                             else:
-                                msg = f'{ctx.author.mention}, failed to delete `{wallet_name}` | `{wallet_id}` from wallet server!'
+                                msg = f"{ctx.author.mention}, failed to delete `{wallet_name}` | `{wallet_id}` from wallet server!"
                                 await ctx.reply(msg)
                                 return
                         else:
-                            msg = f'{ctx.author.mention}, wallet `{wallet_name}` not exist in database!'
+                            msg = f"{ctx.author.mention}, wallet `{wallet_name}` not exist in database!"
                             await ctx.reply(msg)
                             return
             except Exception:
@@ -1567,14 +1568,14 @@ class Admin(commands.Cog):
                             await ctx.author.send(file=data_file)
                             return
                         else:
-                            msg = f'{ctx.author.mention}, nothing in DB!'
+                            msg = f"{ctx.author.mention}, nothing in DB!"
                             await ctx.reply(msg)
                             return
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 return
         else:
-            msg = f'{ctx.author.mention}, action not exist!'
+            msg = f"{ctx.author.mention}, action not exist!"
             await ctx.reply(msg)
 
     @commands.is_owner()
@@ -1600,14 +1601,14 @@ class Admin(commands.Cog):
             _msg: disnake.Message = await _channel.fetch_message(int(msg_id))
             if _msg is not None:
                 if _msg.author != self.bot.user:
-                    msg = f'{ctx.author.mention}, that message `{msg_id}` was not belong to me.'
+                    msg = f"{ctx.author.mention}, that message `{msg_id}` was not belong to me."
                     await ctx.reply(msg)
                 else:
                     await _msg.edit(view=None)
-                    msg = f'{ctx.author.mention}, removed all view from `{msg_id}`.'
+                    msg = f"{ctx.author.mention}, removed all view from `{msg_id}`."
                     await ctx.reply(msg)
             else:
-                msg = f'{ctx.author.mention}, I can not find message `{msg_id}`.'
+                msg = f"{ctx.author.mention}, I can not find message `{msg_id}`."
                 await ctx.reply(msg)
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -1620,11 +1621,11 @@ class Admin(commands.Cog):
             if guild is not None:
                 await logchanbot(
                     f"[LEAVING] {ctx.author.name}#{ctx.author.discriminator} / {str(ctx.author.id)} commanding to leave guild `{guild.name} / {guild_id}`.")
-                msg = f'{ctx.author.mention}, OK leaving guild `{guild.name} / {guild_id}`.'
+                msg = f"{ctx.author.mention}, OK leaving guild `{guild.name} / {guild_id}`."
                 await ctx.reply(msg)
                 await guild.leave()
             else:
-                msg = f'{ctx.author.mention}, I can not find guild id `{guild_id}`.'
+                msg = f"{ctx.author.mention}, I can not find guild id `{guild_id}`."
                 await ctx.reply(msg)
             return
         except Exception:
@@ -1637,7 +1638,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -1654,7 +1655,8 @@ class Admin(commands.Cog):
                 list_guilds = [g.id for g in self.bot.guilds]
                 already_checked = []
                 if len(all_user_id) > 0:
-                    msg = f'{ctx.author.mention}, {EMOJI_INFORMATION} **{coin_name}** there are total {str(len(all_user_id))} user records. Wait a big while...'
+                    msg = f"{ctx.author.mention}, {EMOJI_INFORMATION} **{coin_name}** there are "\
+                        f"total {str(len(all_user_id))} user records. Wait a big while..."
                     await ctx.reply(msg)
                     sum_balance = 0.0
                     sum_user = 0
@@ -1746,7 +1748,7 @@ class Admin(commands.Cog):
                     else:
                         await ctx.reply(msg_checkcoin)
                 else:
-                    msg = f'{ctx.author.mention}, {coin_name}: there is no users for this.'
+                    msg = f"{ctx.author.mention}, {coin_name}: there is no users for this."
                     await ctx.reply(msg)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -1764,7 +1766,7 @@ class Admin(commands.Cog):
             if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
                 coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
-                await ctx.reply(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
+                await ctx.reply(f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
                 return
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
@@ -1825,7 +1827,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
 
@@ -1849,7 +1851,7 @@ class Admin(commands.Cog):
                 member_id, coin_name, net_name, type_coin, user_server, 0
             )
             if get_deposit is None:
-                msg = f'{ctx.author.mention}, {member_id} not exist with server `{user_server}` in our DB.'
+                msg = f"{ctx.author.mention}, {member_id} not exist with server `{user_server}` in our DB."
                 await ctx.reply(msg)
                 return
             else:
@@ -1908,23 +1910,23 @@ class Admin(commands.Cog):
     async def purge(self, ctx, item: str, numbers: int = 100):
         item = item.upper()
         if item not in ["MESSAGE"]:
-            msg = f'{ctx.author.mention}, nothing to do. ITEM not exist!'
+            msg = f"{ctx.author.mention}, nothing to do. ITEM not exist!"
             await ctx.reply(msg)
             return
         elif item == "MESSAGE":
             # purgeg message
             if numbers <= 0 or numbers >= 10 ** 6:
-                msg = f'{ctx.author.mention}, nothing to do with <=0 or a million.'
+                msg = f"{ctx.author.mention}, nothing to do with <=0 or a million."
                 await ctx.reply(msg)
             else:
                 start = time.time()
                 purged_items = await self.purge_msg(numbers)
                 if purged_items >= 0:
-                    msg = f'{ctx.author.mention}, successfully purged `{item}` {str(purged_items)}. "\
-                        f"Time taken: {str(time.time() - start)}s..'
+                    msg = f"{ctx.author.mention}, successfully purged `{item}` {str(purged_items)}. "\
+                        f"Time taken: {str(time.time() - start)}s.."
                     await ctx.reply(msg)
                 else:
-                    msg = f'{ctx.author.mention}, internal error.'
+                    msg = f"{ctx.author.mention}, internal error."
                     await ctx.reply(msg)
 
     @commands.is_owner()
@@ -1932,23 +1934,23 @@ class Admin(commands.Cog):
     async def restore(self, ctx, item: str, numbers: int = 100):
         item = item.upper()
         if item not in ["MESSAGE"]:
-            msg = f'{ctx.author.mention}, nothing to do. ITEM not exist!'
+            msg = f"{ctx.author.mention}, nothing to do. ITEM not exist!"
             await ctx.reply(msg)
             return
         elif item == "MESSAGE":
             # purgeg message
             if numbers <= 0 or numbers >= 10 ** 6:
-                msg = f'{ctx.author.mention}, nothing to do with <=0 or a million.'
+                msg = f"{ctx.author.mention}, nothing to do with <=0 or a million."
                 await ctx.reply(msg)
             else:
                 start = time.time()
                 purged_items = await self.restore_msg(numbers)
                 if purged_items >= 0:
-                    msg = f'{ctx.author.mention}, successfully restored `{item}` {str(purged_items)}. "\
-                        f"Time taken: {str(time.time() - start)}s..'
+                    msg = f"{ctx.author.mention}, successfully restored `{item}` {str(purged_items)}. "\
+                        f"Time taken: {str(time.time() - start)}s.."
                     await ctx.reply(msg)
                 else:
-                    msg = f'{ctx.author.mention}, internal error.'
+                    msg = f"{ctx.author.mention}, internal error."
                     await ctx.reply(msg)
 
     @commands.is_owner()
@@ -1967,7 +1969,7 @@ class Admin(commands.Cog):
             all_pages = []
             all_names = [each['coin_name'] for each in mytokens]
             total_coins = len(mytokens)
-            page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
+            page = disnake.Embed(title=f"[ BALANCE LIST {member_id} ]",
                                  color=disnake.Color.blue(),
                                  timestamp=datetime.now(), )
             page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)),
@@ -2034,7 +2036,7 @@ class Admin(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
 
                 if num_coins == 0 or num_coins % per_page == 0:
-                    page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
+                    page = disnake.Embed(title=f"[ BALANCE LIST {member_id} ]",
                                          description="Thank you for using TipBot!",
                                          color=disnake.Color.blue(),
                                          timestamp=datetime.now(), )
@@ -2073,7 +2075,7 @@ class Admin(commands.Cog):
                 if num_coins > 0 and num_coins % per_page == 0:
                     all_pages.append(page)
                     if num_coins < total_coins - len(zero_tokens):
-                        page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
+                        page = disnake.Embed(title=f"[ BALANCE LIST {member_id} ]",
                                              description="Thank you for using TipBot!",
                                              color=disnake.Color.blue(),
                                              timestamp=datetime.now(), )
@@ -2092,13 +2094,13 @@ class Admin(commands.Cog):
                 total_all_balance_usd = "Having ~ {:,.4f}$".format(total_all_balance_usd)
             else:
                 total_all_balance_usd = "Thank you for using TipBot!"
-            page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
+            page = disnake.Embed(title=f"[ BALANCE LIST {member_id} ]",
                                  description=f"`{total_all_balance_usd}`",
                                  color=disnake.Color.blue(),
                                  timestamp=datetime.now(), )
             # Remove zero from all_names
             if has_none_balance is True:
-                msg = f'{member_id} does not have any balance.'
+                msg = f"{member_id} does not have any balance."
                 await ctx.reply(msg)
                 return
             else:
@@ -2150,7 +2152,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -2182,7 +2184,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -2214,7 +2216,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -2246,7 +2248,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -2278,7 +2280,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -2361,7 +2363,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -2389,34 +2391,34 @@ class Admin(commands.Cog):
     @commands.command(hidden=True, usage='cleartx', description='Clear TX_IN_PROCESS')
     async def cleartx(self, ctx):
         if len(self.bot.TX_IN_PROCESS) == 0:
-            await ctx.reply(f'{ctx.author.mention} TX_IN_PROCESS, nothing in tx pending to clear.')
+            await ctx.reply(f"{ctx.author.mention} TX_IN_PROCESS, nothing in tx pending to clear.")
         else:
             try:
                 string_ints = [str(num) for num in self.bot.TX_IN_PROCESS]
                 list_pending = '{' + ', '.join(string_ints) + '}'
-                await ctx.reply(f'Clearing {str(len(self.bot.TX_IN_PROCESS))} {list_pending} in pending...')
+                await ctx.reply(f"Clearing {str(len(self.bot.TX_IN_PROCESS))} {list_pending} in pending...")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             self.bot.TX_IN_PROCESS = []
         # GAME_INTERACTIVE_ECO
         if len(self.bot.GAME_INTERACTIVE_ECO) == 0:
-            await ctx.reply(f'{ctx.author.mention}, GAME_INTERACTIVE_ECO nothing in tx pending to clear.')
+            await ctx.reply(f"{ctx.author.mention}, GAME_INTERACTIVE_ECO nothing in tx pending to clear.")
         else:
             try:
                 string_ints = [str(num) for num in self.bot.GAME_INTERACTIVE_ECO]
                 list_pending = '{' + ', '.join(string_ints) + '}'
-                await ctx.reply(f'Clearing {str(len(self.bot.GAME_INTERACTIVE_ECO))} {list_pending} in pending...')
+                await ctx.reply(f"Clearing {str(len(self.bot.GAME_INTERACTIVE_ECO))} {list_pending} in pending...")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             self.bot.GAME_INTERACTIVE_ECO = []
         # GAME_INTERACTIVE_PROGRESS
         if len(self.bot.GAME_INTERACTIVE_PROGRESS) == 0:
-            await ctx.reply(f'{ctx.author.mention}, GAME_INTERACTIVE_PROGRESS nothing in tx pending to clear.')
+            await ctx.reply(f"{ctx.author.mention}, GAME_INTERACTIVE_PROGRESS nothing in tx pending to clear.")
         else:
             try:
                 string_ints = [str(num) for num in self.bot.GAME_INTERACTIVE_PROGRESS]
                 list_pending = '{' + ', '.join(string_ints) + '}'
-                await ctx.reply(f'Clearing {str(len(self.bot.GAME_INTERACTIVE_PROGRESS))} {list_pending} in pending...')
+                await ctx.reply(f"Clearing {str(len(self.bot.GAME_INTERACTIVE_PROGRESS))} {list_pending} in pending...")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             self.bot.GAME_INTERACTIVE_PROGRESS = []
@@ -2441,23 +2443,23 @@ class Admin(commands.Cog):
                 exec(code)
         except Exception as e:
             return await ctx.reply(f"```{e.__class__.__name__}: {e}```")
-        await ctx.reply(f'```{str_obj.getvalue()}```')
+        await ctx.reply(f"```{str_obj.getvalue()}```")
 
     @commands.is_owner()
     @admin.command(hidden=True, usage='create', description='Create an address')
     async def create(self, ctx, token: str):
         if token.upper() not in ["ERC-20", "TRC-20", "XTZ", "NEAR", "VET"]:
-            await ctx.reply(f'{ctx.author.mention}, only with ERC-20 and TRC-20.')
+            await ctx.reply(f"{ctx.author.mention}, only with ERC-20 and TRC-20.")
         elif token.upper() == "ERC-20":
             try:
                 w = await self.create_address_eth()
-                await ctx.reply(f'{ctx.author.mention}, ```{str(w)}```', view=RowButtonRowCloseAnyMessage())
+                await ctx.reply(f"{ctx.author.mention}, ```{str(w)}```", view=RowButtonRowCloseAnyMessage())
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif token.upper() == "TRC-20":
             try:
                 w = await self.create_address_trx()
-                await ctx.reply(f'{ctx.author.mention}, ```{str(w)}```', view=RowButtonRowCloseAnyMessage())
+                await ctx.reply(f"{ctx.author.mention}, ```{str(w)}```", view=RowButtonRowCloseAnyMessage())
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif token.upper() == "XTZ":
@@ -2465,7 +2467,7 @@ class Admin(commands.Cog):
                 mnemo = Mnemonic("english")
                 words = str(mnemo.generate(strength=128))
                 key = XtzKey.from_mnemonic(mnemonic=words, passphrase="", email="")
-                await ctx.reply(f'{ctx.author.mention}, ```Pub: {key.public_key_hash()}\nSeed: {words}\nKey: {key.secret_key()}```', view=RowButtonRowCloseAnyMessage())
+                await ctx.reply(f"{ctx.author.mention}, ```Pub: {key.public_key_hash()}\nSeed: {words}\nKey: {key.secret_key()}```", view=RowButtonRowCloseAnyMessage())
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif token.upper() == "NEAR":
@@ -2484,7 +2486,7 @@ class Admin(commands.Cog):
                 new_addr = sender_signer.public_key.hex()
                 if new_addr == address:
                     await ctx.reply(
-                        f'{ctx.author.mention}, {address}:```Seed:{words}\nKey: {key_byte}```',
+                        f"{ctx.author.mention}, {address}:```Seed:{words}\nKey: {key_byte}```",
                         view=RowButtonRowCloseAnyMessage()
                     )
             except Exception:
@@ -2492,7 +2494,7 @@ class Admin(commands.Cog):
         elif token.upper() == "VET":
             wallet = thor_wallet.newWallet()
             await ctx.reply(
-                f'{ctx.author.mention}, {wallet.address}:```key:{wallet.priv.hex()}```',
+                f"{ctx.author.mention}, {wallet.address}:```key:{wallet.priv.hex()}```",
                 view=RowButtonRowCloseAnyMessage()
             )
 

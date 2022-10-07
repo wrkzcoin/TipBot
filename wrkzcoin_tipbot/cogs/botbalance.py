@@ -37,12 +37,12 @@ class BotBalance(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.response.send_message(msg)
             return
         # End token name check
 
-        msg = f'{ctx.author.mention}, checking {member.mention}\'s balance.'
+        msg = f"{ctx.author.mention}, checking {member.mention}'s balance."
         await ctx.response.send_message(msg)
 
         try:
@@ -75,7 +75,7 @@ class BotBalance(commands.Cog):
             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             description = ""
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-            embed = disnake.Embed(title=f'Balance for Bot {member.name}#{member.discriminator}',
+            embed = disnake.Embed(title=f"Balance for Bot {member.name}#{member.discriminator}",
                                   description="This is for Bot's! Not yours!", timestamp=datetime.now())
             embed.set_author(name=member.name, icon_url=member.display_avatar)
             try:

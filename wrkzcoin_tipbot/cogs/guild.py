@@ -153,9 +153,11 @@ class Guild(commands.Cog):
                                 wallet_address = get_deposit['destination_tag']
 
                             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                            userdata_balance = await self.wallet_api.user_balance(each_drop['serverid'], coin_name, 
-                                                                                  wallet_address, type_coin, height, 
-                                                                                  deposit_confirm_depth, SERVER_BOT)
+                            userdata_balance = await self.wallet_api.user_balance(
+                                each_drop['serverid'], coin_name, 
+                                wallet_address, type_coin, height, 
+                                deposit_confirm_depth, SERVER_BOT
+                            )
                             actual_balance = float(userdata_balance['adjust'])
                             
                             if actual_balance < float(each_drop['tiptalk_amount']):
@@ -461,7 +463,12 @@ class Guild(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-    async def raffle_update_id(self, raffle_id: int, status: str, coin: str=None, list_winner=None, list_amounts=None, list_entries=None, amount_each: float=None, coin_decimal: int=None, unit_price_usd: float=None, contract: str=None, guild_id: str=None, channel_id: str=None):
+    async def raffle_update_id(
+        self, raffle_id: int, status: str, coin: str=None, list_winner=None, 
+        list_amounts=None, list_entries=None, amount_each: float=None, 
+        coin_decimal: int=None, unit_price_usd: float=None, contract: str=None, 
+        guild_id: str=None, channel_id: str=None
+    ):
         # list_winner = 3
         # list_amounts = 4
         user_server = SERVER_BOT
@@ -610,7 +617,10 @@ class Guild(commands.Cog):
             await logchanbot("guild " +str(traceback.format_exc()))	
         return None
 
-    async def raffle_insert_new_entry(self, raffle_id: int, guild_id: str, amount: float, decimal: int, coin: str, user_id: str, user_name: str, user_server: str='DISCORD'):
+    async def raffle_insert_new_entry(
+        self, raffle_id: int, guild_id: str, amount: float, decimal: int, 
+        coin: str, user_id: str, user_name: str, user_server: str='DISCORD'
+    ):
         coin_name = coin.upper()
         user_server = user_server.upper()  
         try:	
@@ -628,7 +638,11 @@ class Guild(commands.Cog):
             await logchanbot("guild " +str(traceback.format_exc()))	
         return False
 
-    async def raffle_insert_new(self, guild_id: str, guild_name: str, amount: float, decimal: int, coin: str, created_userid: str, created_username: str, created_ts: int, ending_ts: str, user_server: str='DISCORD'):
+    async def raffle_insert_new(
+        self, guild_id: str, guild_name: str, amount: float, decimal: int, coin: str, 
+        created_userid: str, created_username: str, created_ts: int, 
+        ending_ts: str, user_server: str='DISCORD'
+    ):
         coin_name = coin.upper()
         user_server = user_server.upper()  
         try:	
@@ -3150,7 +3164,6 @@ class Guild(commands.Cog):
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} set game **{game}** channel in {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
                     return
 
-
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
         usage="setting gamechan <game>", 
@@ -3193,19 +3206,30 @@ class Guild(commands.Cog):
         embed.add_field(name="Total Roles", value=str(total_role), inline=False)
         await ctx.response.send_message(embed=embed)
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.monitor_guild_reward_amount.is_running():
+                self.monitor_guild_reward_amount.start()
+            if not self.check_raffle_status.is_running():
+                self.check_raffle_status.start()
+            if not self.check_tiptalker_drop.is_running():
+                self.check_tiptalker_drop.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.monitor_guild_reward_amount.start()
-        self.check_raffle_status.start()
-        self.check_tiptalker_drop.start()
-
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.monitor_guild_reward_amount.is_running():
+                self.monitor_guild_reward_amount.start()
+            if not self.check_raffle_status.is_running():
+                self.check_raffle_status.start()
+            if not self.check_tiptalker_drop.is_running():
+                self.check_tiptalker_drop.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.monitor_guild_reward_amount.stop()
-        self.check_raffle_status.stop()
-        self.check_tiptalker_drop.stop()
+        self.monitor_guild_reward_amount.cancel()
+        self.check_raffle_status.cancel()
+        self.check_tiptalker_drop.cancel()
 
 
 def setup(bot):

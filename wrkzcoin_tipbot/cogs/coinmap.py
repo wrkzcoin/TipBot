@@ -43,7 +43,7 @@ def get_coin360(display_id: str, static_coin360_path, selenium_setting, coin360)
         options.add_argument('disable-infobars')
         options.add_argument("--disable-extensions")
         userAgent = selenium_setting['user_agent']
-        options.add_argument(f'user-agent={userAgent}')
+        options.add_argument(f"user-agent={userAgent}")
         options.add_argument("--user-data-dir=chrome-data")
         options.headless = True
 
@@ -94,7 +94,7 @@ class CoinMap(commands.Cog):
     )
     async def coinmap(self, ctx):
         try:
-            await ctx.response.send_message(f'{ctx.author.mention}, loading...')
+            await ctx.response.send_message(f"{ctx.author.mention}, loading...")
             try:
                 self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                              str(ctx.author.id), SERVER_BOT, "/coinmap", int(time.time())))
@@ -113,7 +113,7 @@ class CoinMap(commands.Cog):
                 await ctx.edit_original_message(content=self.bot.config['coin360']['static_coin360_link'] + map_image)
             else:
                 await ctx.edit_original_message(
-                    content=f'{EMOJI_RED_NO} {ctx.author.mention}, internal error during fetch image.'
+                    content=f"{EMOJI_RED_NO} {ctx.author.mention}, internal error during fetch image."
                 )
         except Exception:
             traceback.print_exc(file=sys.stdout)

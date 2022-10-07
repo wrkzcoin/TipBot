@@ -482,7 +482,7 @@ class Events(commands.Cog):
 
     @commands.Cog.listener()
     async def on_shard_ready(shard_id):
-        print(f'Shard {shard_id} connected')
+        print(f"Shard {shard_id} connected")
 
     @commands.Cog.listener()
     async def on_connect(self):
@@ -1156,7 +1156,7 @@ class Events(commands.Cog):
                 # Eat
                 # Place holder message
                 try:
-                    await inter.response.send_message(f'{inter.author.mention}, checking food...')
+                    await inter.response.send_message(f"{inter.author.mention}, checking food...")
                 except Exception:
                     return
                 name = inter.component.custom_id.replace("economy_{}_eat_".format(inter.author.id), "")
@@ -1247,7 +1247,10 @@ class Events(commands.Cog):
                                         False), coin_name)
                     if insert_eating:
                         await inter.edit_original_message(
-                            content=f'{EMOJI_INFORMATION} {inter.author.mention}, you paid `{paid_money}` and ate `{food_name}`. You gained `{add_energy}` energy. You have total `{total_energy}` energy.')
+                            content=f"{EMOJI_INFORMATION} {inter.author.mention}, "\
+                                f"you paid `{paid_money}` and ate `{food_name}`. "\
+                                f"You gained `{add_energy}` energy. You have total `{total_energy}` energy."
+                            )
                         await inter.message.delete()
                     else:
                         await inter.edit_original_message(
@@ -1269,7 +1272,7 @@ class Events(commands.Cog):
                 # Work
                 # Place holder message
                 try:
-                    await inter.response.send_message(f'{inter.author.mention}, checking your work...')
+                    await inter.response.send_message(f"{inter.author.mention}, checking your work...")
                 except Exception:
                     return
                 name = inter.component.custom_id.replace("economy_{}_work_".format(inter.author.id), "")
@@ -1307,7 +1310,9 @@ class Events(commands.Cog):
                             seconds_str(get_work_id['duration_in_second']))
                         task_name = "{} {}".format(get_work_id['work_name'], get_work_id['work_emoji'])
                         await inter.edit_original_message(
-                            content=f'{EMOJI_INFORMATION} {inter.author.mention}, you started a new task - {task_name}! {additional_text}')
+                            content=f"{EMOJI_INFORMATION} {inter.author.mention}, "\
+                                f"you started a new task - {task_name}! {additional_text}"
+                            )
                     else:
                         await inter.edit_original_message(
                             content=f"{EMOJI_INFORMATION} {inter.author.mention}, internal error.")
@@ -1328,7 +1333,7 @@ class Events(commands.Cog):
                 # Backpack
                 # Place holder message
                 try:
-                    await inter.response.send_message(f'{inter.author.mention}, checking your items...')
+                    await inter.response.send_message(f"{inter.author.mention}, checking your items...")
                 except Exception:
                     return
 
@@ -1368,12 +1373,16 @@ class Events(commands.Cog):
                     total_health = get_userinfo['health_current'] + add_health
                     total_energy_health_str = f"You have total `{total_health}` health."
                 # Update userinfo
-                update_userinfo = await db.economy_item_update_used(str(inter.author.id), all_item_backpack[name],
-                                                                    add_energy, add_health)
+                update_userinfo = await db.economy_item_update_used(
+                    str(inter.author.id), all_item_backpack[name],
+                    add_energy, add_health
+                )
                 using_item = '{} {}'.format(get_item_id['item_name'], get_item_id['item_emoji'])
                 if update_userinfo:
                     await inter.edit_original_message(
-                        content=f'{EMOJI_INFORMATION} {inter.author.mention}, you used `{using_item}`. You gained `{add_energy_health_str}`. {total_energy_health_str}')
+                        content=f"{EMOJI_INFORMATION} {inter.author.mention}, you used "\
+                            f"`{using_item}`. You gained `{add_energy_health_str}`. {total_energy_health_str}"
+                    )
                 else:
                     await inter.edit_original_message(content=f"{EMOJI_RED_NO} {inter.author.mention}, internal error.")
                 if inter.author.id in self.bot.GAME_INTERACTIVE_ECO:
@@ -1382,7 +1391,7 @@ class Events(commands.Cog):
 
     @commands.Cog.listener()
     async def on_shard_ready(self, shard_id):
-        print(f'Shard {shard_id} connected')
+        print(f"Shard {shard_id} connected")
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
@@ -1428,7 +1437,8 @@ class Events(commands.Cog):
             str(guild.id), guild.name, self.bot.config['discord']['prefixCmd'], "WRKZ", True
         )
         await self.botLogChan.send(
-            f'Bot joins a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. Total guilds: {len(self.bot.guilds)}.'
+            f"Bot joins a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. "\
+            f"Total guilds: {len(self.bot.guilds)}."
         )
 
     @commands.Cog.listener()
@@ -1473,7 +1483,8 @@ class Events(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         add_server_info = await store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
         await self.botLogChan.send(
-            f'Bot was removed from guild {guild.name} / {guild.id}. Total guilds: {len(self.bot.guilds)}'
+            f"Bot was removed from guild {guild.name} / {guild.id}. "\
+            f"Total guilds: {len(self.bot.guilds)}"
         )
 
     @commands.Cog.listener()
@@ -1486,7 +1497,7 @@ class Events(commands.Cog):
         game = disnake.Game(name="Starts with /")
         await self.bot.change_presence(status=disnake.Status.online, activity=game)
         botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-        await botLogChan.send(f'I am back :)')
+        await botLogChan.send("I am back :)")
         if self.bot.config['discord']['enable_bg_tasks'] == 1:
             if not self.process_saving_message.is_running():
                 self.process_saving_message.start()

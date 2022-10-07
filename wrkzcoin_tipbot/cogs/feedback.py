@@ -85,11 +85,14 @@ class FeedbackAdd(disnake.ui.Modal):
         )
         if add:
             await inter.response.send_message(
-                f'{inter.author.mention} Thank you for your feedback / inquiry. Your feedback ref: **{feedback_id}**'
+                f"{inter.author.mention} Thank you for your feedback / inquiry. "\
+                f"Your feedback ref: **{feedback_id}**"
             )
             try:
                 await logchanbot(
-                    f'[FEEDBACK] A user {inter.author.mention} / {inter.author.name}#{inter.author.discriminator} has submitted a feedback {feedback_id}')
+                    f"[FEEDBACK] A user {inter.author.mention} / {inter.author.name}#{inter.author.discriminator} "\
+                    f"has submitted a feedback {feedback_id}"
+                )
             except Exception:
                 await logchanbot(traceback.format_exc())
         else:

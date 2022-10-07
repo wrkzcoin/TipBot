@@ -315,9 +315,11 @@ class BlackJackButtons(disnake.ui.View):
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
-            result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                f"{coin_name}** to Tip balance!"
             if self.free_game is True:
-                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+                result = f"You do not get any reward because it is a free game! "\
+                    "Waiting to refresh your paid plays (24h max)."
 
             dealer_get_display = blackjack_displayHands(self.playerHand, self.dealerHand, True)
             msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(
@@ -477,9 +479,11 @@ class BlackJackButtons(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                f"{coin_name}** to Tip balance!"
             if self.free_game is True:
-                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+                result = f"You do not get any reward because it is a free game! "\
+                    "Waiting to refresh your paid plays (24h max)."
 
             dealer_get_display = blackjack_displayHands(self.playerHand, self.dealerHand, True)
             msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(
@@ -604,7 +608,7 @@ class Maze_Buttons(disnake.ui.View):
                 if isinstance(child, disnake.ui.Button):
                     child.disabled = True
             await self.message.edit(view=self)
-            await self.message.reply(f'{self.ctx.author.mention}, time running out.')
+            await self.message.reply(f"{self.ctx.author.mention}, time running out.")
 
     @disnake.ui.button(label="🔼", style=ButtonStyle.red)
     async def up_button(
@@ -627,9 +631,14 @@ class Maze_Buttons(disnake.ui.View):
                     break  # Break if we've reached a branch point.
 
         try:
-            maze_edit = maze_displayMaze(self.maze_data, self.WIDTH, self.HEIGHT, self.playerx, self.playery,
-                                         self.exitx, self.exity)
-            await self.message.edit(content=f'{self.ctx.author.mention} Maze:\n```{maze_edit}```', view=self)
+            maze_edit = maze_displayMaze(
+                self.maze_data, self.WIDTH, self.HEIGHT, self.playerx, self.playery,
+                self.exitx, self.exity
+            )
+            await self.message.edit(
+                content=f"{self.ctx.author.mention} Maze:\n```{maze_edit}```",
+                view=self
+            )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -644,9 +653,11 @@ class Maze_Buttons(disnake.ui.View):
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
-            result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                f"{coin_name}** to Tip balance!"
             if self.free_game is True:
-                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+                result = f"You do not get any reward because it is a free game! "\
+                    "Waiting to refresh your paid plays (24h max)."
 
             for child in self.children:
                 if isinstance(child, disnake.ui.Button):
@@ -655,7 +666,9 @@ class Maze_Buttons(disnake.ui.View):
 
             duration = seconds_str(int(time.time()) - self.time_start)
             await self.message.reply(
-                f'{self.ctx.author.mention} **MAZE** Grats! You completed! You completed in: **{duration}\n{result}**')
+                f"{self.ctx.author.mention} **MAZE** Grats! You completed! "\
+                f"You completed in: **{duration}\n{result}**"
+            )
 
             # Start reward
             if self.free_game is False:
@@ -740,7 +753,10 @@ class Maze_Buttons(disnake.ui.View):
         try:
             maze_edit = maze_displayMaze(self.maze_data, self.WIDTH, self.HEIGHT, self.playerx, self.playery,
                                          self.exitx, self.exity)
-            await self.message.edit(content=f'{self.ctx.author.mention} Maze:\n```{maze_edit}```', view=self)
+            await self.message.edit(
+                content=f"{self.ctx.author.mention} Maze:\n```{maze_edit}```",
+                view=self
+            )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -755,9 +771,11 @@ class Maze_Buttons(disnake.ui.View):
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
-            result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                f"{coin_name}** to Tip balance!"
             if self.free_game is True:
-                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+                result = f"You do not get any reward because it is a free game! "\
+                    "Waiting to refresh your paid plays (24h max)."
 
             for child in self.children:
                 if isinstance(child, disnake.ui.Button):
@@ -766,15 +784,19 @@ class Maze_Buttons(disnake.ui.View):
 
             duration = seconds_str(int(time.time()) - self.time_start)
             await self.message.reply(
-                f'{self.ctx.author.mention} **MAZE** Grats! You completed! You completed in: **{duration}\n{result}**')
+                f"{self.ctx.author.mention} **MAZE** Grats! You completed! "\
+                f"You completed in: **{duration}\n{result}**"
+            )
 
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(json.dumps(remap_keys(self.maze_data)),
-                                                        str(interaction.author.id), coin_name, 'WIN' if won else 'LOSE',
-                                                        amount, coin_decimal, str(interaction.guild.id), 'MAZE',
-                                                        int(time.time()) - self.time_start, SERVER_BOT)
+                    reward = await self.db.sql_game_add(
+                        json.dumps(remap_keys(self.maze_data)),
+                        str(interaction.author.id), coin_name, 'WIN' if won else 'LOSE',
+                        amount, coin_decimal, str(interaction.guild.id), 'MAZE',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -847,7 +869,10 @@ class Maze_Buttons(disnake.ui.View):
         try:
             maze_edit = maze_displayMaze(self.maze_data, self.WIDTH, self.HEIGHT, self.playerx, self.playery,
                                          self.exitx, self.exity)
-            await self.message.edit(content=f'{self.ctx.author.mention} Maze:\n```{maze_edit}```', view=self)
+            await self.message.edit(
+                content=f"{self.ctx.author.mention} Maze:\n```{maze_edit}```",
+                view=self
+            )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -862,9 +887,11 @@ class Maze_Buttons(disnake.ui.View):
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
-            result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                f"{coin_name}** to Tip balance!"
             if self.free_game is True:
-                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+                result = f"You do not get any reward because it is a free game! "\
+                    "Waiting to refresh your paid plays (24h max)."
 
             for child in self.children:
                 if isinstance(child, disnake.ui.Button):
@@ -873,15 +900,19 @@ class Maze_Buttons(disnake.ui.View):
 
             duration = seconds_str(int(time.time()) - self.time_start)
             await self.message.reply(
-                f'{self.ctx.author.mention} **MAZE** Grats! You completed! You completed in: **{duration}\n{result}**')
+                f"{self.ctx.author.mention} **MAZE** Grats! "\
+                f"You completed! You completed in: **{duration}\n{result}**"
+            )
 
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(json.dumps(remap_keys(self.maze_data)),
-                                                        str(interaction.author.id), coin_name, 'WIN' if won else 'LOSE',
-                                                        amount, coin_decimal, str(interaction.guild.id), 'MAZE',
-                                                        int(time.time()) - self.time_start, SERVER_BOT)
+                    reward = await self.db.sql_game_add(
+                        json.dumps(remap_keys(self.maze_data)),
+                        str(interaction.author.id), coin_name, 'WIN' if won else 'LOSE',
+                        amount, coin_decimal, str(interaction.guild.id), 'MAZE',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -912,19 +943,21 @@ class Maze_Buttons(disnake.ui.View):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
-                                                                     str(interaction.guild.id),
-                                                                     str(interaction.channel.id), amount, coin_name,
-                                                                     "GAME", coin_decimal, SERVER_BOT, contract,
-                                                                     amount_in_usd, None)
+                        tip = await store.sql_user_balance_mv_single(
+                            self.bot.user.id, str(interaction.user.id),
+                            str(interaction.guild.id), str(interaction.channel.id), amount, coin_name,
+                            "GAME", coin_decimal, SERVER_BOT, contract, amount_in_usd, None
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
             else:
                 try:
-                    await self.db.sql_game_free_add(json.dumps(remap_keys(self.maze_data)), str(interaction.author.id),
-                                                    'WIN' if won else 'LOSE', str(interaction.guild.id), 'MAZE',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        json.dumps(remap_keys(self.maze_data)), str(interaction.author.id),
+                        'WIN' if won else 'LOSE', str(interaction.guild.id), 'MAZE',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -952,9 +985,13 @@ class Maze_Buttons(disnake.ui.View):
                     break  # Break if we've reached a branch point.
 
         try:
-            maze_edit = maze_displayMaze(self.maze_data, self.WIDTH, self.HEIGHT, self.playerx, self.playery,
-                                         self.exitx, self.exity)
-            await self.message.edit(content=f'{self.ctx.author.mention} Maze:\n```{maze_edit}```', view=self)
+            maze_edit = maze_displayMaze(
+                self.maze_data, self.WIDTH, self.HEIGHT, self.playerx, self.playery,
+                self.exitx, self.exity)
+            await self.message.edit(
+                content=f"{self.ctx.author.mention} Maze:\n```{maze_edit}```",
+                view=self
+            )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -969,9 +1006,11 @@ class Maze_Buttons(disnake.ui.View):
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
-            result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                f"{coin_name}** to Tip balance!"
             if self.free_game is True:
-                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+                result = f"You do not get any reward because it is a free game! "\
+                    "Waiting to refresh your paid plays (24h max)."
 
             for child in self.children:
                 if isinstance(child, disnake.ui.Button):
@@ -980,15 +1019,19 @@ class Maze_Buttons(disnake.ui.View):
 
             duration = seconds_str(int(time.time()) - self.time_start)
             await self.message.reply(
-                f'{self.ctx.author.mention} **MAZE** Grats! You completed! You completed in: **{duration}\n{result}**')
+                f"{self.ctx.author.mention} **MAZE** Grats! You completed! "\
+                f"You completed in: **{duration}\n{result}**"
+            )
 
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(json.dumps(remap_keys(self.maze_data)),
-                                                        str(interaction.author.id), coin_name, 'WIN' if won else 'LOSE',
-                                                        amount, coin_decimal, str(interaction.guild.id), 'MAZE',
-                                                        int(time.time()) - self.time_start, SERVER_BOT)
+                    reward = await self.db.sql_game_add(
+                        json.dumps(remap_keys(self.maze_data)),
+                        str(interaction.author.id), coin_name, 'WIN' if won else 'LOSE',
+                        amount, coin_decimal, str(interaction.guild.id), 'MAZE',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -1052,7 +1095,7 @@ class Maze_Buttons(disnake.ui.View):
             if isinstance(child, disnake.ui.Button):
                 child.disabled = True
         await self.message.edit(view=self)
-        await self.message.reply(f'{self.ctx.author.mention}, you gave up the current game.')
+        await self.message.reply(f"{self.ctx.author.mention}, you gave up the current game.")
         self.game_over = True
         await interaction.response.defer()
 
@@ -1080,7 +1123,7 @@ class g2048_Buttons(disnake.ui.View):
                 if isinstance(child, disnake.ui.Button):
                     child.disabled = True
             await self.message.edit(view=self)
-            await self.message.reply(f'{self.ctx.author.mention}, time running out.')
+            await self.message.reply(f"{self.ctx.author.mention}, time running out.")
 
     @disnake.ui.button(label="🔼", style=ButtonStyle.red)
     async def up_button(
@@ -1108,25 +1151,31 @@ class g2048_Buttons(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                "{coin_name}** to Tip balance!"
             if self.free_game is True:
-                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+                result = f"You do not get any reward because it is a free game! "\
+                    "Waiting to refresh your paid plays (24h max)."
 
             for child in self.children:
                 if isinstance(child, disnake.ui.Button):
                     child.disabled = True
 
             await self.message.edit(
-                content=f'**{self.ctx.author.mention} Game Over**```{self.board}```Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}',
-                view=None)
+                content=f"**{self.ctx.author.mention} Game Over**```{self.board}```"\
+                    f"Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}",
+                view=None
+            )
 
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(self.board, str(interaction.author.id), coin_name,
-                                                        str(self.score), amount, coin_decimal,
-                                                        str(interaction.guild.id), '2048',
-                                                        int(time.time()) - self.time_start, SERVER_BOT)
+                    reward = await self.db.sql_game_add(
+                        self.board, str(interaction.author.id), coin_name,
+                        str(self.score), amount, coin_decimal,
+                        str(interaction.guild.id), '2048',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -1156,26 +1205,31 @@ class g2048_Buttons(disnake.ui.View):
                             del self.bot.user_balance_cache[key_coin]
                     except Exception:
                         pass
-                    tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
-                                                                 str(interaction.guild.id), str(interaction.channel.id),
-                                                                 amount, coin_name, "GAME", coin_decimal, SERVER_BOT,
-                                                                 contract, amount_in_usd, None)
+                    tip = await store.sql_user_balance_mv_single(
+                        self.bot.user.id, str(interaction.user.id),
+                        str(interaction.guild.id), str(interaction.channel.id),
+                        amount, coin_name, "GAME", coin_decimal, SERVER_BOT,
+                        contract, amount_in_usd, None
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
             else:
                 try:
-                    await self.db.sql_game_free_add(self.board, str(interaction.author.id), str(self.score),
-                                                    str(interaction.guild.id), '2048',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        self.board, str(interaction.author.id), str(self.score),
+                        str(interaction.guild.id), '2048',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
             # End reward
         else:
             await self.message.edit(
-                content=f'{self.ctx.author.mention}```GAME 2048\n{self.board}```Your score: **{self.score}**',
-                view=self)
+                content=f"{self.ctx.author.mention}```GAME 2048\n{self.board}```Your score: **{self.score}**",
+                view=self
+            )
 
         # Defer
         await interaction.response.defer()
@@ -1206,25 +1260,31 @@ class g2048_Buttons(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                "{coin_name}** to Tip balance!"
             if self.free_game is True:
-                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+                result = f"You do not get any reward because it is a free game! "\
+                    "Waiting to refresh your paid plays (24h max)."
 
             for child in self.children:
                 if isinstance(child, disnake.ui.Button):
                     child.disabled = True
 
             await self.message.edit(
-                content=f'**{self.ctx.author.mention} Game Over**```{self.board}```Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}',
-                view=None)
+                content=f"**{self.ctx.author.mention} Game Over**```{self.board}```"\
+                    f"Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}",
+                view=None
+            )
 
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(self.board, str(interaction.author.id), coin_name,
-                                                        str(self.score), amount, coin_decimal,
-                                                        str(interaction.guild.id), '2048',
-                                                        int(time.time()) - self.time_start, SERVER_BOT)
+                    reward = await self.db.sql_game_add(
+                        self.board, str(interaction.author.id), coin_name,
+                        str(self.score), amount, coin_decimal,
+                        str(interaction.guild.id), '2048',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -1254,26 +1314,31 @@ class g2048_Buttons(disnake.ui.View):
                             del self.bot.user_balance_cache[key_coin]
                     except Exception:
                         pass
-                    tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
-                                                                 str(interaction.guild.id), str(interaction.channel.id),
-                                                                 amount, coin_name, "GAME", coin_decimal, SERVER_BOT,
-                                                                 contract, amount_in_usd, None)
+                    tip = await store.sql_user_balance_mv_single(
+                        self.bot.user.id, str(interaction.user.id),
+                        str(interaction.guild.id), str(interaction.channel.id),
+                        amount, coin_name, "GAME", coin_decimal, SERVER_BOT,
+                        contract, amount_in_usd, None
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
             else:
                 try:
-                    await self.db.sql_game_free_add(self.board, str(interaction.author.id), str(self.score),
-                                                    str(interaction.guild.id), '2048',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        self.board, str(interaction.author.id), str(self.score),
+                        str(interaction.guild.id), '2048',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
             # End reward
         else:
             await self.message.edit(
-                content=f'{self.ctx.author.mention}```GAME 2048\n{self.board}```Your score: **{self.score}**',
-                view=self)
+                content=f"{self.ctx.author.mention}```GAME 2048\n{self.board}```Your score: **{self.score}**",
+                view=self
+            )
 
         # Defer
         await interaction.response.defer()
@@ -1304,26 +1369,31 @@ class g2048_Buttons(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                "{coin_name}** to Tip balance!"
             if self.free_game is True:
-                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (' \
-                         f'24h max). '
+                result = f"You do not get any reward because it is a free game! "\
+                    "Waiting to refresh your paid plays (24h max)."
 
             for child in self.children:
                 if isinstance(child, disnake.ui.Button):
                     child.disabled = True
 
             await self.message.edit(
-                content=f'**{self.ctx.author.mention} Game Over**```{self.board}```Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}',
-                view=None)
+                content=f"**{self.ctx.author.mention} Game Over**```{self.board}```"\
+                    "Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}",
+                view=None
+            )
 
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(self.board, str(interaction.author.id), coin_name,
-                                                        str(self.score), amount, coin_decimal,
-                                                        str(interaction.guild.id), '2048',
-                                                        int(time.time()) - self.time_start, SERVER_BOT)
+                    reward = await self.db.sql_game_add(
+                        self.board, str(interaction.author.id), coin_name,
+                        str(self.score), amount, coin_decimal,
+                        str(interaction.guild.id), '2048',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -1353,26 +1423,31 @@ class g2048_Buttons(disnake.ui.View):
                             del self.bot.user_balance_cache[key_coin]
                     except Exception:
                         pass
-                    tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
-                                                                 str(interaction.guild.id), str(interaction.channel.id),
-                                                                 amount, coin_name, "GAME", coin_decimal, SERVER_BOT,
-                                                                 contract, amount_in_usd, None)
+                    tip = await store.sql_user_balance_mv_single(
+                        self.bot.user.id, str(interaction.user.id),
+                        str(interaction.guild.id), str(interaction.channel.id),
+                        amount, coin_name, "GAME", coin_decimal, SERVER_BOT,
+                        contract, amount_in_usd, None
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
             else:
                 try:
-                    await self.db.sql_game_free_add(self.board, str(interaction.author.id), str(self.score),
-                                                    str(interaction.guild.id), '2048',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        self.board, str(interaction.author.id), str(self.score),
+                        str(interaction.guild.id), '2048',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
             # End reward
         else:
             await self.message.edit(
-                content=f'{self.ctx.author.mention}```GAME 2048\n{self.board}```Your score: **{self.score}**',
-                view=self)
+                content=f"{self.ctx.author.mention}```GAME 2048\n{self.board}```Your score: **{self.score}**",
+                view=self
+            )
         # Defer
         await interaction.response.defer()
 
@@ -1402,25 +1477,31 @@ class g2048_Buttons(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                f"{coin_name}** to Tip balance!"
             if self.free_game is True:
-                result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
+                result = f"You do not get any reward because it is a free game! "\
+                    "Waiting to refresh your paid plays (24h max)."
 
             for child in self.children:
                 if isinstance(child, disnake.ui.Button):
                     child.disabled = True
 
             await self.message.edit(
-                content=f'**{self.ctx.author.mention} Game Over**```{self.board}```Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}',
-                view=None)
+                content=f"**{self.ctx.author.mention} Game Over**```{self.board}```"\
+                    f"Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}",
+                view=None
+            )
 
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(self.board, str(interaction.author.id), coin_name,
-                                                        str(self.score), amount, coin_decimal,
-                                                        str(interaction.guild.id), '2048',
-                                                        int(time.time()) - self.time_start, SERVER_BOT)
+                    reward = await self.db.sql_game_add(
+                        self.board, str(interaction.author.id), coin_name,
+                        str(self.score), amount, coin_decimal,
+                        str(interaction.guild.id), '2048',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -1450,26 +1531,31 @@ class g2048_Buttons(disnake.ui.View):
                             del self.bot.user_balance_cache[key_coin]
                     except Exception:
                         pass
-                    tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
-                                                                 str(interaction.guild.id), str(interaction.channel.id),
-                                                                 amount, coin_name, "GAME", coin_decimal, SERVER_BOT,
-                                                                 contract, amount_in_usd, None)
+                    tip = await store.sql_user_balance_mv_single(
+                        self.bot.user.id, str(interaction.user.id),
+                        str(interaction.guild.id), str(interaction.channel.id),
+                        amount, coin_name, "GAME", coin_decimal, SERVER_BOT,
+                        contract, amount_in_usd, None
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
             else:
                 try:
-                    await self.db.sql_game_free_add(self.board, str(interaction.author.id), str(self.score),
-                                                    str(interaction.guild.id), '2048',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        self.board, str(interaction.author.id), str(self.score),
+                        str(interaction.guild.id), '2048',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
             # End reward
         else:
             await self.message.edit(
-                content=f'{self.ctx.author.mention}```GAME 2048\n{self.board}```Your score: **{self.score}**',
-                view=self)
+                content=f"{self.ctx.author.mention}```GAME 2048\n{self.board}```Your score: **{self.score}**",
+                view=self
+            )
         # Defer
         await interaction.response.defer()
 
@@ -1486,7 +1572,7 @@ class g2048_Buttons(disnake.ui.View):
             if isinstance(child, disnake.ui.Button):
                 child.disabled = True
         await self.message.edit(view=self)
-        await self.message.reply(f'{self.ctx.author.mention}, you gave up the current game.')
+        await self.message.reply(f"{self.ctx.author.mention}, you gave up the current game.")
         self.game_over = True
         await interaction.response.defer()
 
@@ -1587,7 +1673,7 @@ class Sokoban_Buttons(disnake.ui.View):
                 child.disabled = True
         await self.message.edit(view=self)
         if self.game_over is False:
-            await self.message.reply(f'{self.ctx.author.mention}, time running out.')
+            await self.message.reply(f"{self.ctx.author.mention}, time running out.")
 
     @disnake.ui.button(label="🔼", style=ButtonStyle.red)
     async def up_button(
@@ -1664,13 +1750,17 @@ class Sokoban_Buttons(disnake.ui.View):
 
             if levelIsSolved is True:
                 display_level = self.display_level(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}',
-                                      description=f'{display_level}', timestamp=datetime.now())
-                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed = disnake.Embed(
+                    title=f"SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}",
+                    description=f"{display_level}",
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="LEVEL", value=self.level)
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
                                     self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
-                                    self.bot.config['discord']['github_link']), inline=False)
+                                    self.bot.config['discord']['github_link']), inline=False
+                                )
 
                 ## game end
                 for child in self.children:
@@ -1687,26 +1777,37 @@ class Sokoban_Buttons(disnake.ui.View):
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                 native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+                result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                    f"{coin_name}** to Tip balance!"
                 if self.free_game is True:
-                    result = f'You got no reward. Waiting to refresh your paid plays (24h max).'
+                    result = f"You got no reward. Waiting to refresh your paid plays (24h max)."
 
                 if self.free_game is True:
-                    await self.db.sql_game_free_add(str(self.level), str(self.ctx.author.id), 'WIN',
-                                                    str(self.ctx.guild.id), 'SOKOBAN',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        str(self.level), str(self.ctx.author.id), 'WIN',
+                        str(self.ctx.guild.id), 'SOKOBAN',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 else:
-                    reward = await self.db.sql_game_add(str(self.level), str(self.ctx.author.id), coin_name, 'WIN',
-                                                        amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN',
-                                                        int(time.time()) - self.time_start, SERVER_BOT)
+                    reward = await self.db.sql_game_add(
+                        str(self.level), str(self.ctx.author.id), coin_name, 'WIN',
+                        amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 duration = seconds_str(int(time.time()) - self.time_start)
                 await self.message.reply(
-                    content=f'Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
+                    content=f"Level {self.level} completed. You have spent time: "\
+                        f"**{duration}**\n{result}",
+                    view=None
+                )
             else:
                 display_level = self.display_level(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}',
-                                      description=f'{display_level}', timestamp=datetime.now())
-                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed = disnake.Embed(
+                    title=f"SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}",
+                    description=f"{display_level}",
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="LEVEL", value=self.level)
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
                                     self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
@@ -1796,9 +1897,12 @@ class Sokoban_Buttons(disnake.ui.View):
 
             if levelIsSolved is True:
                 display_level = self.display_level(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}',
-                                      description=f'{display_level}', timestamp=datetime.now())
-                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed = disnake.Embed(
+                    title=f"SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}",
+                    description=display_level,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="LEVEL", value=self.level)
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
                                     self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
@@ -1819,26 +1923,37 @@ class Sokoban_Buttons(disnake.ui.View):
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                 native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+                result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                    f"{coin_name}** to Tip balance!"
                 if self.free_game is True:
-                    result = f'You got no reward. Waiting to refresh your paid plays (24h max).'
+                    result = "You got no reward. Waiting to refresh your paid plays (24h max)."
                 if self.free_game is True:
-                    await self.db.sql_game_free_add(str(self.level), str(self.ctx.author.id), 'WIN',
-                                                    str(self.ctx.guild.id), 'SOKOBAN',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        str(self.level), str(self.ctx.author.id), 'WIN',
+                        str(self.ctx.guild.id), 'SOKOBAN',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 else:
-                    reward = await self.db.sql_game_add(str(self.level), str(self.ctx.author.id), coin_name, 'WIN',
-                                                        amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN',
-                                                        int(time.time()) - self.time_start, SERVER_BOT)
+                    reward = await self.db.sql_game_add(
+                        str(self.level), str(self.ctx.author.id), coin_name, 'WIN',
+                        amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
 
                 duration = seconds_str(int(time.time()) - self.time_start)
                 await self.message.reply(
-                    content=f'Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
+                    content=f"Level {self.level} completed. You have spent time: "\
+                        f"**{duration}**\n{result}",
+                    view=None
+                )
             else:
                 display_level = self.display_level(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}',
-                                      description=f'{display_level}', timestamp=datetime.now())
-                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed = disnake.Embed(
+                    title=f"SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}",
+                    description=display_level,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="LEVEL", value=self.level)
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
                                     self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
@@ -1930,9 +2045,12 @@ class Sokoban_Buttons(disnake.ui.View):
 
             if levelIsSolved is True:
                 display_level = self.display_level(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}',
-                                      description=f'{display_level}', timestamp=datetime.now())
-                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed = disnake.Embed(
+                    title=f"SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}",
+                    description=display_level,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="LEVEL", value=self.level)
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
                                     self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
@@ -1953,26 +2071,37 @@ class Sokoban_Buttons(disnake.ui.View):
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                 native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+                result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                    f"{coin_name}** to Tip balance!"
                 if self.free_game is True:
-                    result = f'You got no reward. Waiting to refresh your paid plays (24h max).'
+                    result = "You got no reward. Waiting to refresh your paid plays (24h max)."
                 if self.free_game is True:
-                    await self.db.sql_game_free_add(str(self.level), str(self.ctx.author.id), 'WIN',
-                                                    str(self.ctx.guild.id), 'SOKOBAN',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        str(self.level), str(self.ctx.author.id), 'WIN',
+                        str(self.ctx.guild.id), 'SOKOBAN',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 else:
-                    reward = await self.db.sql_game_add(str(self.level), str(self.ctx.author.id), coin_name, 'WIN',
-                                                        amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN',
-                                                        int(time.time()) - self.time_start, SERVER_BOT)
+                    reward = await self.db.sql_game_add(
+                        str(self.level), str(self.ctx.author.id), coin_name, 'WIN',
+                        amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
 
                 duration = seconds_str(int(time.time()) - self.time_start)
                 await self.message.reply(
-                    content=f'Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
+                    content=f"Level {self.level} completed. You have spent time: "\
+                        f"**{duration}**\n{result}",
+                    view=None
+                    )
             else:
                 display_level = self.display_level(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}',
-                                      description=f'{display_level}', timestamp=datetime.now())
-                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed = disnake.Embed(
+                    title=f"SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}",
+                    description=display_level,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="LEVEL", value=self.level)
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
                                     self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
@@ -2063,9 +2192,12 @@ class Sokoban_Buttons(disnake.ui.View):
 
             if levelIsSolved is True:
                 display_level = self.display_level(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}',
-                                      description=f'{display_level}', timestamp=datetime.now())
-                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed = disnake.Embed(
+                    title=f"SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}",
+                    description=display_level,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="LEVEL", value=self.level)
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
                                     self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
@@ -2087,26 +2219,37 @@ class Sokoban_Buttons(disnake.ui.View):
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                 native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+                result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                    f"{coin_name}** to Tip balance!"
                 if self.free_game is True:
-                    result = f'You got no reward. Waiting to refresh your paid plays (24h max).'
+                    result = "You got no reward. Waiting to refresh your paid plays (24h max)."
                 if self.free_game is True:
-                    await self.db.sql_game_free_add(str(self.level), str(self.ctx.author.id), 'WIN',
-                                                    str(self.ctx.guild.id), 'SOKOBAN',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        str(self.level), str(self.ctx.author.id), 'WIN',
+                        str(self.ctx.guild.id), 'SOKOBAN',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 else:
-                    reward = await self.db.sql_game_add(str(self.level), str(self.ctx.author.id), coin_name, 'WIN',
-                                                        amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN',
-                                                        int(time.time()) - self.time_start, SERVER_BOT)
+                    reward = await self.db.sql_game_add(
+                        str(self.level), str(self.ctx.author.id), coin_name, 'WIN',
+                        amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
 
                 duration = seconds_str(int(time.time()) - self.time_start)
                 await self.message.reply(
-                    content=f'Level {self.level} completed. You have spent time: **{duration}**\n{result}', view=None)
+                    content=f"Level {self.level} completed. You have spent time: "\
+                        f"**{duration}**\n{result}",
+                    view=None
+                )
             else:
                 display_level = self.display_level(self.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}',
-                                      description=f'{display_level}', timestamp=datetime.now())
-                embed.add_field(name="LEVEL", value=f'{self.level}')
+                embed = disnake.Embed(
+                    title=f"SOKOBAN GAME {self.ctx.author.name}#{self.ctx.author.discriminator}",
+                    description=display_level,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="LEVEL", value=self.level)
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
                                     self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
@@ -2136,7 +2279,7 @@ class Sokoban_Buttons(disnake.ui.View):
             if isinstance(child, disnake.ui.Button):
                 child.disabled = True
         await self.message.edit(view=self)
-        await self.message.reply(f'{self.ctx.author.mention}, you gave up the current game.')
+        await self.message.reply(f"{self.ctx.author.mention}, you gave up the current game.")
         self.game_over = True
         await interaction.response.defer()
 
@@ -2182,8 +2325,11 @@ class Games(commands.Cog):
         if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+                    f"{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} "\
+                    f"/ {ctx.guild.id} which is not ENABLE."
+                )
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. "\
+                "Please request Guild owner to enable by `/SETTING GAME`"
             await ctx.edit_original_message(content=msg)
             return
         try:
@@ -2223,8 +2369,9 @@ class Games(commands.Cog):
         free_game = False
         won = False
 
-        count_played = await self.db.sql_game_count_user(str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT,
-                                                         False)
+        count_played = await self.db.sql_game_count_user(
+            str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT, False
+        )
         if count_played and count_played >= self.bot.config['game']['max_daily_play']:
             free_game = True
 
@@ -2241,7 +2388,7 @@ class Games(commands.Cog):
         view = BlackJackButtons(ctx, self.bot, free_game, timeout=10.0)
         try:
             await ctx.edit_original_message(content=f"{ctx.author.mention}, new Blackjack! tap button...")
-            view.message = await ctx.channel.send(content=f'{ctx.author.mention} ```{game_text}```', view=view)
+            view.message = await ctx.channel.send(content=f"{ctx.author.mention} ```{game_text}```", view=view)
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             pass
 
@@ -2265,7 +2412,9 @@ class Games(commands.Cog):
         if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                    f"{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} "\
+                    f"which is not ENABLE."
+                )
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
             await ctx.edit_original_message(content=msg)
             return
@@ -2356,15 +2505,17 @@ class Games(commands.Cog):
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
         native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
-        result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+        result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** "\
+            "to Tip balance!"
         if free_game is True:
             if won:
-                result = f'You won! but this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
+                result = f"You won! but this is a free game without **reward**! "\
+                    "Waiting to refresh your paid plays (24h max)."
             else:
-                result = f'You lose! Good luck later!'
+                result = "You lose! Good luck later!"
         else:
             if not won:
-                result = f'You lose! Good luck later!'
+                result = "You lose! Good luck later!"
 
         embed = disnake.Embed(title="TIPBOT FREE SLOT ({} REWARD)".format("WITHOUT" if free_game else "WITH"),
                               description="Anyone can freely play!", color=0x00ff00)
@@ -2410,7 +2561,9 @@ class Games(commands.Cog):
         if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                    f"{ctx.author.name} / {ctx.author.id} tried **/game** in "\
+                    f"{ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
+                )
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
             await ctx.edit_original_message(content=msg)
             return
@@ -2465,8 +2618,10 @@ class Games(commands.Cog):
         view = Maze_Buttons(ctx, self.bot, free_game, timeout=15.0)
         try:
             await ctx.edit_original_message(content=f"{ctx.author.mention}, New Maze Game! tap button...")
-            view.message = await ctx.channel.send(content=f'{ctx.author.mention} New Maze:\n```{view.maze_created}```',
-                                                  view=view)
+            view.message = await ctx.channel.send(
+                content=f"{ctx.author.mention} New Maze:\n```{view.maze_created}```",
+                view=view
+            )
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             pass
 
@@ -2490,7 +2645,9 @@ class Games(commands.Cog):
         if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                    f"{ctx.author.name} / {ctx.author.id} tried **/game** in "\
+                    f"{ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
+                )
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
             await ctx.edit_original_message(content=msg)
             return
@@ -2553,8 +2710,7 @@ class Games(commands.Cog):
 
     * The player loses if they got 7 or 11 for their points.'''
         time_start = int(time.time())
-        await ctx.edit_original_message(content=f'{ctx.author.mention},```{game_text}```')
-
+        await ctx.edit_original_message(content=f"{ctx.author.mention},```{game_text}```")
         if ctx.author.id not in self.bot.GAME_DICE_IN_PROGRESS:
             self.bot.GAME_DICE_IN_PROGRESS.append(ctx.author.id)
 
@@ -2568,7 +2724,8 @@ class Games(commands.Cog):
                 dice2 = random.randint(1, 6)
                 dice_time += 1
                 msg = await ctx.channel.send(
-                    f'#{dice_time} {ctx.author.mention} your dices: **{dice1}** and **{dice2}**')
+                    f"#{dice_time} {ctx.author.mention} your dices: **{dice1}** and **{dice2}**"
+                )
                 if sum_dice == 0:
                     # first dice
                     sum_dice = dice1 + dice2
@@ -2585,7 +2742,7 @@ class Games(commands.Cog):
                         game_over = True
                         break
                 if game_over is False:
-                    msg2 = await msg.reply(f'{ctx.author.mention} re-throwing dices...')
+                    msg2 = await msg.reply(f"{ctx.author.mention} re-throwing dices...")
                     await msg2.add_reaction(EMOJI_HOURGLASS_NOT_DONE)
                     await asyncio.sleep(0.5)
             # game end, check win or lose
@@ -2597,15 +2754,17 @@ class Games(commands.Cog):
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                 native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                result = f'You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+                result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                    f"{coin_name}** to Tip balance!"
                 if free_game is True:
                     if won:
-                        result = f'You won! but this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
+                        result = "You won! but this is a free game without **reward**! "\
+                            "Waiting to refresh your paid plays (24h max)."
                     else:
-                        result = f'You lose!'
+                        result = "You lose!"
                 else:
                     if not won:
-                        result = f'You lose!'
+                        result = "You lose!"
                 # Start reward
                 if free_game is False:
                     try:
@@ -2665,7 +2824,7 @@ class Games(commands.Cog):
 
                 if ctx.author.id in self.bot.GAME_DICE_IN_PROGRESS:
                     self.bot.GAME_DICE_IN_PROGRESS.remove(ctx.author.id)
-                await msg.reply(f'{ctx.author.mention} **Dice: ** You threw dices **{dice_time}** times. {result}')
+                await msg.reply(f"{ctx.author.mention} **Dice: ** You threw dices **{dice_time}** times. {result}")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
@@ -2696,8 +2855,11 @@ class Games(commands.Cog):
         if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+                    f"{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / "\
+                    f"{ctx.guild.id} which is not ENABLE."
+                )
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. "\
+                "Please request Guild owner to enable by `/SETTING GAME`"
             await ctx.edit_original_message(content=msg)
             return
         try:
@@ -2753,7 +2915,7 @@ class Games(commands.Cog):
         game_text = '''Snail Race, Fast-paced snail racing action!'''
         # We do not always show credit
         try:
-            await ctx.edit_original_message(content=f'{ctx.author.mention},```{game_text}```')
+            await ctx.edit_original_message(content=f"{ctx.author.mention},```{game_text}```")
         except Exception:
             return
 
@@ -2787,12 +2949,14 @@ class Games(commands.Cog):
                 start_line = 'START' + (' ' * (FINISH_LINE - len('START')) + 'FINISH') + '\n'
                 start_line += '|' + (' ' * (FINISH_LINE - len('|')) + '|')
                 try:
-                    msg_racing = await ctx.channel.send(f'{start_line_mention}```{start_line}```')
+                    msg_racing = await ctx.channel.send(f"{start_line_mention}```{start_line}```")
                 except Exception:
                     if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
                         self.bot.GAME_INTERACTIVE_PROGRESS.remove(ctx.author.id)
                     await self.botLogChan.send(
-                        f'{ctx.author.name} / {ctx.author.id} **GAME SNAIL** failed to send message in {ctx.guild.name} / {ctx.guild.id}')
+                        f"{ctx.author.name} / {ctx.author.id} **GAME SNAIL** failed to send message "\
+                        f"in {ctx.guild.name} / {ctx.guild.id}"
+                    )
                     return
 
                 # sleep
@@ -2804,7 +2968,7 @@ class Games(commands.Cog):
                     list_snails += '@v'
                     snailProgress[snailName] = 0
                 try:
-                    await msg_racing.edit(content=f'{start_line_mention}```{start_line}\n{list_snails}```')
+                    await msg_racing.edit(content=f"{start_line_mention}```{start_line}\n{list_snails}```")
                 except Exception:
                     if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
                         self.bot.GAME_INTERACTIVE_PROGRESS.remove(ctx.author.id)
@@ -2838,14 +3002,19 @@ class Games(commands.Cog):
                                 result = ''
                                 if free_game is False:
                                     if won:
-                                        result = f'You won **snail#{str(your_snail)}**! {ctx.author.mention} got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** to Tip balance!'
+                                        result = f"You won **snail#{str(your_snail)}**! {ctx.author.mention} "\
+                                            f"got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                            f"{coin_name}** to Tip balance!"
                                     else:
-                                        result = f'You lose! **snail{randomSnailName}** is the winner!!! You bet for **snail#{str(your_snail)}**'
+                                        result = f"You lose! **snail{randomSnailName}** is the winner!!! "\
+                                            f"You bet for **snail#{str(your_snail)}**"
                                 else:
                                     if won:
-                                        result = f'You won! **snail#{str(your_snail)}** but this is a free game without **reward**! Waiting to refresh your paid plays (24h max).'
+                                        result = f"You won! **snail#{str(your_snail)}** but this is a free game "\
+                                            f"without **reward**! Waiting to refresh your paid plays (24h max)."
                                     else:
-                                        result = f'You lose! **snail{randomSnailName}** is the winner!!! You bet for **snail#{str(your_snail)}**'
+                                        result = f"You lose! **snail{randomSnailName}** is the winner!!! "\
+                                            f"You bet for **snail#{str(your_snail)}**"
 
                                 if free_game is False:
                                     try:
@@ -2902,7 +3071,7 @@ class Games(commands.Cog):
                                         traceback.print_exc(file=sys.stdout)
                                         await logchanbot(traceback.format_exc())
 
-                                await msg_racing.reply(f'{ctx.author.mention} **Snail Racing** {result}')
+                                await msg_racing.reply(f"{ctx.author.mention} **Snail Racing** {result}")
                                 if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
                                     self.bot.GAME_INTERACTIVE_PROGRESS.remove(ctx.author.id)
                                 return
@@ -2922,7 +3091,7 @@ class Games(commands.Cog):
                         list_snails += ('.' * snailProgress[snailName]) + '@v'
                         list_snails += '\n'
                     try:
-                        await msg_racing.edit(content=f'{start_line_mention}```{start_line}\n{list_snails}```')
+                        await msg_racing.edit(content=f"{start_line_mention}```{start_line}\n{list_snails}```")
                     except Exception:
                         if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
                             self.bot.GAME_INTERACTIVE_PROGRESS.remove(ctx.author.id)
@@ -2961,8 +3130,11 @@ class Games(commands.Cog):
         if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+                    f"{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / "\
+                    f"{ctx.guild.id} which is not ENABLE."
+                )
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. "\
+                "Please request Guild owner to enable by `/SETTING GAME`"
             await ctx.edit_original_message(content=msg)
             return
         try:
@@ -3017,7 +3189,7 @@ class Games(commands.Cog):
         try:
             await ctx.edit_original_message(content=f"{ctx.author.mention}, new 2048 Game! tap button...")
             view.message = await ctx.channel.send(
-                content=f'{ctx.author.mention}```GAME 2048\n{view.board}```Your score: **{0}**', view=view)
+                content=f"{ctx.author.mention}```GAME 2048\n{view.board}```Your score: **{0}**", view=view)
         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
             return
 
@@ -3041,7 +3213,8 @@ class Games(commands.Cog):
         if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.'
+                    f"{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / "\
+                    f"{ctx.guild.id} which is not ENABLE."
                 )
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. "\
                 "Please request Guild owner to enable by `/SETTING GAME`"
@@ -3101,7 +3274,10 @@ class Games(commands.Cog):
             crate_display = '🟫'
             # goal_display = ':negative_squared_cross_mark:'
             goal_display = '❎'
-            game_text = f'''```Push the solid crates {crate_display} onto the {goal_display}. You can only push, you cannot pull. Re-act with direction to move up-left-down-right, respectively. You can also reload game level.```'''
+            game_text = f"```Push the solid crates {crate_display} onto the {goal_display}. "\
+                "You can only push, you cannot pull. "\
+                "Re-act with direction to move up-left-down-right, respectively."\
+                " You can also reload game level.```"
             await ctx.channel.send(content=game_text)
 
             # get max level user already played.
@@ -3125,9 +3301,12 @@ class Games(commands.Cog):
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, new Sokoban Game! tap button...")
                 view.currentLevel = view.load_level(get_level['template_str'])
                 display_level = view.display_level(view.currentLevel)
-                embed = disnake.Embed(title=f'SOKOBAN GAME {ctx.author.name}#{ctx.author.discriminator}',
-                                      description=f'{display_level}', timestamp=datetime.now())
-                embed.add_field(name="LEVEL", value=f'{level}')
+                embed = disnake.Embed(
+                    title=f"SOKOBAN GAME {ctx.author.name}#{ctx.author.discriminator}",
+                    description=display_level,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="LEVEL", value=level)
                 embed.add_field(name="OTHER LINKS",
                                 value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
                                     self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],

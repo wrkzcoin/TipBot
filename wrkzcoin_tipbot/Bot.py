@@ -122,9 +122,11 @@ def openRedis():
 async def log_to_channel(log_type: str, content: str) -> None:
     # log_type: withdraw, other: general
     try:
-        url = bot.config['discord']['webhook_url']
+        url = bot.config['discord']['webhook_default_url']
         if log_type == "withdraw":
-            url = bot.config['discord']['withdraw_web_hook']
+            url = bot.config['discord']['withdraw_webhook']
+        elif log_type == "vote":
+            url = bot.config['discord']['vote_webhook']
 
         webhook = DiscordWebhook(
             url=url,
@@ -138,7 +140,7 @@ async def logchanbot(content: str):
     if "Requested object not found" in content:
         return
     try:
-        webhook = DiscordWebhook(url=bot.config['discord']['webhook_url'],
+        webhook = DiscordWebhook(url=bot.config['discord']['webhook_default_url'],
                                  content=f'{disnake.utils.escape_markdown(content)}')
         webhook.execute()
     except Exception as e:

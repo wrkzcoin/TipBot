@@ -8,7 +8,7 @@ from decimal import Decimal
 
 import disnake
 import store
-from Bot import SERVER_BOT, num_format_coin
+from Bot import SERVER_BOT, num_format_coin, log_to_channel
 from aiohttp import web
 from cogs.wallet import Faucet
 from cogs.wallet import WalletAPI
@@ -53,13 +53,6 @@ class DiscordBotList(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def vote_logchan(self, content: str):
-        try:
-            webhook = DiscordWebhook(url=self.bot.config['discordbotlist']['discordbotlist_votehook'], content=content)
-            webhook.execute()
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-
     async def webserver(self):
         async def handler_get(request):
             return web.Response(text="Hello, world")
@@ -82,8 +75,10 @@ class DiscordBotList(commands.Cog):
                                 # Check if user just vote less than 1h. Sometimes top.gg just push too fast multiple times.
                                 check_last_vote = await self.check_last_bot_vote(user_vote, "discordbotlist", bot_id)
                                 if check_last_vote is not None and int(time.time()) - check_last_vote['date_voted'] < 3600:
-                                    await self.vote_logchan(
-                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{bot_id}> type `{type_vote}` but less than 1h.'
+                                    await log_to_channel(
+                                        "vote",
+                                        f"[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{bot_id}> "\
+                                        f"type `{type_vote}` but less than 1h."
                                     )
                                     return web.Response(text="Thank you!")
                             except Exception:
@@ -92,7 +87,8 @@ class DiscordBotList(commands.Cog):
                                                                      voter)
                             if insert_vote:
                                 try:
-                                    await self.vote_logchan(
+                                    await log_to_channel(
+                                        "vote",
                                         f"[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{bot_id}> type `{type_vote}` "\
                                         "in discordbotlist.com."
                                     )
@@ -151,8 +147,10 @@ class DiscordBotList(commands.Cog):
                                             )
                                             total_balance = userdata_balance['adjust']
                                             if total_balance <= amount:
-                                                await self.vote_logchan(
-                                                    f'[{SERVER_BOT}] vote reward for but TipBot for {coin_name} but empty!!!'
+                                                await log_to_channel(
+                                                    "vote",
+                                                    f"[{SERVER_BOT}] vote reward for but TipBot for "\
+                                                    f"{coin_name} but empty!!!"
                                                 )
                                                 return web.Response(text="Thank you!")
                                             else:
@@ -204,8 +202,10 @@ class DiscordBotList(commands.Cog):
                                                         try:
                                                             await member.send(msg)
                                                         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
-                                                            await self.vote_logchan(
-                                                                f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.'
+                                                            await log_to_channel(
+                                                                "vote",
+                                                                f"[{SERVER_BOT}] Failed to thank message to "\
+                                                                f"<@{user_vote}>."
                                                             )
                                                         try:
                                                             channel = self.bot.get_channel(self.reward_channel)
@@ -239,15 +239,18 @@ class DiscordBotList(commands.Cog):
                                             try:
                                                 await member.send(msg)
                                             except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
-                                                await self.vote_logchan(
-                                                    f'[{SERVER_BOT}] Failed to inform message to <@{user_vote}>.')
+                                                await log_to_channel(
+                                                    "vote",
+                                                    f"[{SERVER_BOT}] Failed to inform message to <@{user_vote}>."
+                                                )
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
                             return web.Response(text="Thank you!")
                     else:
-                        await self.vote_logchan(
-                            f'[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{self.bot.user.id}> type `{type_vote}` "\
-                            "but not true from discordbotlist.com.'
+                        await log_to_channel(
+                            "vote",
+                            f"[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{self.bot.user.id}> "\
+                            f"type `{type_vote}` but not true from discordbotlist.com."
                         )
                         return web.Response(text="Thank you but not discordbotlist.com!")
             except Exception:

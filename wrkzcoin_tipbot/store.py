@@ -83,7 +83,7 @@ async def openConnection_node_monitor():
 async def logchanbot(content: str):
     try:
         webhook = DiscordWebhook(
-            url=config['discord']['webhook_url'],
+            url=config['discord']['webhook_default_url'],
             content=disnake.utils.escape_markdown(content)
         )
         webhook.execute()

@@ -1792,7 +1792,9 @@ class Economy(commands.Cog):
                 error = disnake.Embed(title=":exclamation: Error", description=" :warning: You need to mention the user you want this info for!", color=0xe51e1e)
                 await ctx.edit_original_message(content=None, embed=error)
         else:
-            await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, internal error.')
+            await ctx.edit_original_message(
+                content=f"{EMOJI_RED_NO} {ctx.author.mention}, internal error."
+            )
 
     async def eco_items(self, ctx):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking backpack items.."
@@ -1985,7 +1987,10 @@ class Economy(commands.Cog):
                 energy_loss = exp_gained * 2
                 insert_item = await self.db.economy_insert_planting(str(ctx.author.id), str(ctx.guild.id), exp_gained, energy_loss)
                 if insert_item:
-                    msg = await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted a tree. You gained `{str(exp_gained)}` planting experience and used `{str(energy_loss)}` energy.')
+                    msg = await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted a tree. "\
+                            f"You gained `{str(exp_gained)}` planting experience and used `{str(energy_loss)}` energy."
+                        )
             else:
                 # Not tree and not max, let's plant
                 # Using tractor, loss same energy but gain more experience
@@ -1998,11 +2003,19 @@ class Economy(commands.Cog):
                         selected_crop = each_item
                         break
                 crop_name = "`" + selected_crop['plant_name'] + "` " + selected_crop['plant_emoji']
-                insert_item = await self.db.economy_farm_insert_crop(selected_crop['id'], str(ctx.author.id), str(ctx.guild.id), 
-                                                                   selected_crop['duration_harvest']+int(time.time()), selected_crop['number_of_item'],
-                                                                   selected_crop['credit_per_item'], exp_gained, energy_loss, will_plant)
+                insert_item = await self.db.economy_farm_insert_crop(
+                    selected_crop['id'], str(ctx.author.id), str(ctx.guild.id), 
+                    selected_crop['duration_harvest']+int(time.time()), selected_crop['number_of_item'],
+                    selected_crop['credit_per_item'], exp_gained, energy_loss, will_plant
+                )
                 if insert_item:
-                    await ctx.edit_original_message(content=f'{with_tractor}{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted `{will_plant}` {crop_name} in your farm. You gained `{str(exp_gained*will_plant)}` planting experience and used `{str(energy_loss)}` energy. You have {str(check_planting_nos+will_plant)} crop(s) in your farm now.')
+                    await ctx.edit_original_message(
+                        content=f"{with_tractor}{EMOJI_INFORMATION} {ctx.author.mention} Nice! "\
+                            f"You have planted `{will_plant}` {crop_name} in your farm. "\
+                            f"You gained `{str(exp_gained*will_plant)}` planting experience "\
+                            f"and used `{str(energy_loss)}` energy. "\
+                            f"You have {str(check_planting_nos+will_plant)} crop(s) in your farm now."
+                        )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -2051,9 +2064,13 @@ class Economy(commands.Cog):
                             qty_collect += self.bot.config['economy']['raw_milk_per_cow']
                             id_collecting.append(each_cow['id'])
                     if total_can_collect > 0:
-                        insert_collecting = await self.db.economy_dairy_collecting(str(ctx.author.id), id_collecting, qty_collect, self.bot.config['economy']['credit_raw_milk_liter'])
+                        insert_collecting = await self.db.economy_dairy_collecting(
+                            str(ctx.author.id), id_collecting, qty_collect, 
+                            self.bot.config['economy']['credit_raw_milk_liter']
+                        )
                         if insert_collecting:
-                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, nice! You have collected `{qty_collect}` liters of milk from `{total_can_collect}` cow(s).'
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, nice! "\
+                                f"You have collected `{qty_collect}` liters of milk from `{total_can_collect}` cow(s)."
                             await ctx.edit_original_message(content=msg)
                     else:
                         msg = f"{ctx.author.mention}, you need to wait a bit longer. It\'s not time yet."
@@ -2079,9 +2096,12 @@ class Economy(commands.Cog):
                             qty_collect += self.bot.config['economy']['egg_per_chicken']
                             id_collecting.append(each_chicken['id'])
                     if total_can_collect > 0:
-                        insert_collecting = await self.db.economy_egg_collecting(str(ctx.author.id), id_collecting, qty_collect, self.bot.config['economy']['credit_egg'])
+                        insert_collecting = await self.db.economy_egg_collecting(
+                            str(ctx.author.id), id_collecting, qty_collect, self.bot.config['economy']['credit_egg']
+                        )
                         if insert_collecting:
-                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, nice! You have collected `{qty_collect}` egg(s) from `{total_can_collect}` chicken(s).'
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, nice! "\
+                                f"You have collected `{qty_collect}` egg(s) from `{total_can_collect}` chicken(s)."
                             await ctx.edit_original_message(content=msg)
                     else:
                         msg = f"{ctx.author.mention}, you need to wait a bit longer. It\'s not time yet."
@@ -2107,9 +2127,12 @@ class Economy(commands.Cog):
                             qty_collect += self.db.eco_salt_qty_per_field
                             id_collecting.append(each_field['id'])
                     if total_can_collect > 0:
-                        insert_collecting = await self.db.economy_salt_collecting(str(ctx.author.id), id_collecting, qty_collect, self.eco_salt_credit_per_kg)
+                        insert_collecting = await self.db.economy_salt_collecting(
+                            str(ctx.author.id), id_collecting, qty_collect, self.eco_salt_credit_per_kg
+                        )
                         if insert_collecting:
-                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, nice! You have collected `{qty_collect}` kg of salt from `{total_can_collect}` field(s).'
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, nice! "\
+                                f"You have collected `{qty_collect}` kg of salt from `{total_can_collect}` field(s)."
                             await ctx.edit_original_message(content=msg)
                     else:
                         msg = f"{ctx.author.mention}, you need to wait a bit longer. It\'s not time yet."
@@ -2674,7 +2697,9 @@ class Economy(commands.Cog):
             total_exp = round(total_exp, 2)
             if will_fishing > 0: 
                 await asyncio.sleep(0.1)
-                insert_item = await self.db.economy_insert_fishing_multiple(selected_item_list, total_energy_loss, total_exp, str(ctx.author.id))
+                insert_item = await self.db.economy_insert_fishing_multiple(
+                    selected_item_list, total_energy_loss, total_exp, str(ctx.author.id)
+                )
                 if numb_caught > 0:
                     item_info_list = []
                     total_weight = 0.0
@@ -2684,10 +2709,18 @@ class Economy(commands.Cog):
                             total_weight += each_fish['fish_weight']
                     item_info = "\n".join(item_info_list)
                     item_info_with_weight = item_info + "\nTotal: {:.2f}kg".format(total_weight)
-                    await ctx.edit_original_message(content=f'{with_boat}{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have caught `{numb_caught}` fish: ```{item_info_with_weight}```You used `{will_fishing}` bait(s). You gained `{str(total_exp)}` fishing experience and used `{str(total_energy_loss)}` energy.')
+                    await ctx.edit_original_message(
+                        content=f"{with_boat}{EMOJI_INFORMATION} {ctx.author.mention} Nice! "\
+                            f"You have caught `{numb_caught}` fish: ```{item_info_with_weight}```"\
+                            f"You used `{will_fishing}` bait(s). You gained `{str(total_exp)}` "\
+                            f"fishing experience and used `{str(total_energy_loss)}` energy."
+                        )
                 else:
                     # Not caught
-                    await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention}, you didn’t catch anything. Better luck next time! You used `{str(total_energy_loss)}` energy!')
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention}, you didn’t catch anything. "\
+                            f"Better luck next time! You used `{str(total_energy_loss)}` energy!"
+                        )
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no fish."
                 await ctx.edit_original_message(content=msg)
@@ -2745,9 +2778,15 @@ class Economy(commands.Cog):
             leaf_kg = math.floor(self.bot.config['economy']['leaf_per_volume'] * timber_volume) + 1
             energy_loss = int(timber_volume/5) + 10
             try:
-                insert_woodcut = await self.db.economy_insert_woodcutting(str(ctx.author.id), str(ctx.guild.id), timber_volume, leaf_kg, energy_loss)
+                insert_woodcut = await self.db.economy_insert_woodcutting(
+                    str(ctx.author.id), str(ctx.guild.id), timber_volume, leaf_kg, energy_loss
+                )
                 if insert_woodcut:
-                    await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} You cut a tree. You got `{timber_volume}m3` of timber, `{leaf_kg}kg` of leaves. You used `{energy_loss}` energy.')
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention} You cut a tree. "\
+                            f"You got `{timber_volume}m3` of timber, `{leaf_kg}kg` of leaves. "\
+                            f"You used `{energy_loss}` energy."
+                    )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
@@ -2809,7 +2848,11 @@ class Economy(commands.Cog):
                             item_info += " with {:,.2f} refillable energy".format(selected_item['item_energy'])
                         if selected_item['item_gem'] and selected_item['item_gem'] > 0:
                             item_info += " with {:,.0f} gem(s)".format(selected_item['item_gem'])
-                        await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have found a box and with {item_info} inside. You put it into your backpack.')
+                        await ctx.edit_original_message(
+                            content=f"{EMOJI_INFORMATION} {ctx.author.mention} Nice! "\
+                                f"You have found a box and with {item_info} inside. "\
+                                "You put it into your backpack."
+                        )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
@@ -2817,7 +2860,10 @@ class Economy(commands.Cog):
                 #economy_insert_secret_findings(item_id: int, user_id: str, guild_id: str, item_health: float, item_energy: float, item_gem: int, can_use: bool=True):
                 insert_item = await self.db.economy_insert_secret_findings(8, str(ctx.author.id), str(ctx.guild.id), 0, 0, 0, False)
                 if insert_item:
-                    await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} You found an empty box. Good luck next time!')
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention} "\
+                            "You found an empty box. Good luck next time!"
+                    )
         except Exception:
             traceback.print_exc(file=sys.stdout)
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
@@ -2992,7 +3038,10 @@ class Economy(commands.Cog):
                                 await logchanbot(traceback.format_exc())
                             # End negative check
                             if get_last_act['reward_amount'] > total_balance:
-                                await logchanbot(str(get_last_act['guild_id']) + f' runs out of balance for coin {coin_name}. Stop rewarding.')
+                                await logchanbot(
+                                    str(get_last_act['guild_id']) + f" runs out of balance for coin {coin_name}. "\
+                                        "Stop rewarding."
+                                )
                                 msg = f"{EMOJI_ERROR} {ctx.author.mention}, this guild runs out of balance to give reward."
                                 await ctx.edit_original_message(content=msg)
                                 return
@@ -3044,8 +3093,14 @@ class Economy(commands.Cog):
                                             del self.bot.user_balance_cache[key_coin]
                                     except Exception:
                                         pass
-                                    reward = await store.sql_user_balance_mv_single(get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), get_last_act['reward_amount'], coin_name, 'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
-                                    await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} ```{completed_task}```')
+                                    reward = await store.sql_user_balance_mv_single(
+                                        get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), 
+                                        str(ctx.channel.id), get_last_act['reward_amount'], coin_name, 
+                                        'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd, None
+                                    )
+                                    await ctx.edit_original_message(
+                                        content=f"{EMOJI_INFORMATION} {ctx.author.mention} ```{completed_task}```"
+                                    )
                                 else:
                                     msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."
                                     await ctx.edit_original_message(content=msg)
@@ -3087,7 +3142,10 @@ class Economy(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "NO":
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/economy** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                await self.botLogChan.send(
+                    f"{ctx.author.name} / {ctx.author.id} tried **/economy** in "\
+                    f"{ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
+                )
             msg = f"{ctx.author.mention}, economy game is not available in this guild yet. Please request TipBot dev team if you want to add with your customization."
             await ctx.response.send_message(msg)
         elif serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "YES" and serverinfo['economy_channel'] and int(serverinfo['economy_channel']) != ctx.channel.id:

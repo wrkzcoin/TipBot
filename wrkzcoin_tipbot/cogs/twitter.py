@@ -767,7 +767,8 @@ class Twitter(commands.Cog):
                 # 2] Check if link is already in and active
                 check_sub_link = await self.get_list_subscribe(str(ctx.guild.id))
                 if len(check_sub_link) >= serverinfo['max_twitter_subscription']:
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your guild `{ctx.guild.name}` has maximum number of subscription already to twitter. If you need more, please contact TipBpt's dev."
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your guild `{ctx.guild.name}` has maximum "\
+                        "number of subscription already to twitter. If you need more, please contact TipBot's dev."
                     await ctx.edit_original_message(content=msg)
                     return
                 if len(check_sub_link) >= 0:

@@ -11107,10 +11107,10 @@ class Wallet(commands.Cog):
                             claim_interval * 3600 - int(time.time()) + check_claimed['claimed_at'])
                         user_claims = await store.sql_faucet_count_user(str(ctx.author.id))
                         number_user_claimed = '{:,.0f}'.format(user_claims)
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you just claimed within last {claim_interval}h. "\
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you just claimed within last {claim_interval}h. "\
                             f"Waiting time {time_waiting} for next **take**. Total user claims: **{total_claimed}** times. "\
                             f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. "\
-                            f"Use /claim to vote TipBot and get reward.{extra_take_text}'
+                            f"Use /claim to vote TipBot and get reward.{extra_take_text}"
                         await ctx.edit_original_message(content=msg)
                         return
         except Exception:

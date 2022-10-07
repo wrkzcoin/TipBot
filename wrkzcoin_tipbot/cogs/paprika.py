@@ -472,15 +472,20 @@ class Paprika(commands.Cog):
     ):
         get_pap = await self.paprika_coin(ctx, coin, range_choice)
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.fetch_paprika_pricelist.is_running():
+                self.fetch_paprika_pricelist.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.fetch_paprika_pricelist.start()
-
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.fetch_paprika_pricelist.is_running():
+                self.fetch_paprika_pricelist.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.fetch_paprika_pricelist.stop()
+        self.fetch_paprika_pricelist.cancel()
 
 
 def setup(bot):

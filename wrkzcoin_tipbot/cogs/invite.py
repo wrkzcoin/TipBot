@@ -9,7 +9,7 @@ class Invite(commands.Cog):
         self.bot = bot
         self.utils = Utils(self.bot)
 
-    @commands.slash_command(description="Get TipBpt's invite link.")
+    @commands.slash_command(description="Get TipBot's invite link.")
     async def invite(self, ctx):
         await ctx.response.send_message(f"**[INVITE LINK]**: {self.bot.config['discord']['invite_link']}", ephemeral=False)
         try:

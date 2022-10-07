@@ -507,14 +507,20 @@ class TalkDrop(commands.Cog):
     ):
         await self.async_talkdrop(ctx, amount, token, channel, from_when, end, minimum_message)
 
-    async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.talkdrop_check.start()
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.talkdrop_check.is_running():
+                self.talkdrop_check.start()
 
+    async def cog_load(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.talkdrop_check.is_running():
+                self.talkdrop_check.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.talkdrop_check.stop()
+        self.talkdrop_check.cancel()
         
 
 def setup(bot):

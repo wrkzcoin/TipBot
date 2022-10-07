@@ -2927,16 +2927,20 @@ class Tips(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
 
     # End of Tip Normal
-
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.freetip_check.is_running():
+                self.freetip_check.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.freetip_check.start()
-
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.freetip_check.is_running():
+                self.freetip_check.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.freetip_check.stop()
+        self.freetip_check.cancel()
 
 
 def setup(bot):

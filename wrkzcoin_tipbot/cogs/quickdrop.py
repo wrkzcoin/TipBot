@@ -366,15 +366,20 @@ class QuickDrop(commands.Cog):
     ):
         await self.async_quickdrop(ctx, amount, token)
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.quickdrop_check.is_running():
+                self.quickdrop_check.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.quickdrop_check.start()
-
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.quickdrop_check.is_running():
+                self.quickdrop_check.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.quickdrop_check.stop()
+        self.quickdrop_check.cancel()
 
 
 def setup(bot):

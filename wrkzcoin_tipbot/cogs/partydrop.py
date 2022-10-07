@@ -560,14 +560,20 @@ class PartyDrop(commands.Cog):
     ):
         await self.async_partydrop(ctx, min_amount, sponsor_amount, token, duration)
 
-    async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.party_check.start()
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.party_check.is_running():
+                self.party_check.start()
 
+    async def cog_load(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.party_check.is_running():
+                self.party_check.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.party_check.stop()
+        self.party_check.cancel()
 
 
 def setup(bot):

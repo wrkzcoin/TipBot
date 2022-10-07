@@ -370,7 +370,8 @@ class GShop(commands.Cog):
         try:
             # if enable_role_shop is on/off
             if serverinfo and serverinfo['enable_role_shop'] == 0:
-                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, role shop is disable in this Guild. Contact TipBpt\'s dev.'
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, role shop is disable in this Guild. "\
+                    f"Contact TipBot\'s dev."
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(f"[GSHOP] User `{str(ctx.author.id)}` in Guild `{str(ctx.guild.id)}` tried with /gshop which disable in their Guild.")
                 return
@@ -379,18 +380,20 @@ class GShop(commands.Cog):
 
         item_info = await self.get_guild_role_shop_by_item_id(item_id, str(ctx.guild.id))
         if item_info is None:
-            msg = f'{ctx.author.mention}, item_id `{item_id}` not exist!'
+            msg = f"{ctx.author.mention}, item_id `{item_id}` not exist!"
             await ctx.edit_original_message(content=msg)
         else:
             delete_item = await self.delete_guild_role_shop(item_id, str(ctx.guild.id), str(ctx.author.id))
             if delete_item is True:
-                msg = f'{ctx.author.mention}, successfully removed listing `{item_id}` from this guild!'
+                msg = f"{ctx.author.mention}, successfully removed listing `{item_id}` from this guild!"
                 await ctx.edit_original_message(content=msg)
-                await logchanbot(f"[GSHOP] server {str(ctx.guild.id)}, user `{str(ctx.author.id)}` removed item `{item_id}`.")
+                await logchanbot(
+                    f"[GSHOP] server {str(ctx.guild.id)}, user `{str(ctx.author.id)}` removed item `{item_id}`."
+                )
                 if ctx.author.id != ctx.guild.owner.id:
                     await ctx.guild.owner.send(f"User `{str(ctx.author.id)}` just removed listing item `{item_id}` from Guild `{str(ctx.guild.id)} / {ctx.guild.name}`.")
             else:
-                msg = f'{ctx.author.mention}, internal error when deleting! Please report!'
+                msg = f"{ctx.author.mention}, internal error when deleting! Please report!"
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(f"[GSHOP] server {str(ctx.guild.id)}, user `{str(ctx.author.id)}` failed to remove item `{item_id}`.")
 
@@ -420,7 +423,8 @@ class GShop(commands.Cog):
         try:
             # if enable_role_shop is on/off
             if serverinfo and serverinfo['enable_role_shop'] == 0:
-                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, role shop is disable in this Guild. Contact TipBpt\'s dev.'
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, role shop is disable in this Guild. "\
+                    "Contact TipBot's dev."
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(f"[GSHOP] User `{str(ctx.author.id)}` in Guild `{str(ctx.guild.id)}` tried with /gshop which disable in their Guild.")
                 return
@@ -432,12 +436,12 @@ class GShop(commands.Cog):
             item_id = item_id.lower()
             item_info = await self.get_guild_role_shop_by_item_id(item_id, str(ctx.guild.id))
             if item_info is None:
-                msg = f'{ctx.author.mention}, item_id `{item_id}` not exist!'
+                msg = f"{ctx.author.mention}, item_id `{item_id}` not exist!"
                 await ctx.edit_original_message(content=msg)
             else:
                 # Check if out of stock
                 if item_info['already_ordered'] >= item_info['max_slot']:
-                    msg = f'{ctx.author.mention}, item_id `{item_id}` is out of stock already!'
+                    msg = f"{ctx.author.mention}, item_id `{item_id}` is out of stock already!"
                     await ctx.edit_original_message(content=msg)
                     return
                 # check if user has that role already
@@ -469,29 +473,40 @@ class GShop(commands.Cog):
                 try:
                     role = disnake.utils.get(ctx.guild.roles, id=int(item_info['role_id']))
                     if role is None:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I can not find role `{role_name}`, please try again later or report to Guild owner!'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I can not find role `{role_name}`, "\
+                            f"please try again later or report to Guild owner!"
                         await ctx.edit_original_message(content=msg)
-                        await logchanbot(f"[GSHOP] server {str(ctx.guild.id)}, can not find role `{role_name}`.")
+                        await logchanbot(
+                            f"[GSHOP] server {str(ctx.guild.id)}, can not find role `{role_name}`."
+                        )
                         return
                     elif role and not role.is_assignable():
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, role `{role.name}` is no assignable by TipBot or TipBot has no permission to do! Please report to Guild owner!'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, role `{role.name}` is no assignable "\
+                            "by TipBot or TipBot has no permission to do! Please report to Guild owner!"
                         await ctx.edit_original_message(content=msg)
                         return
                     elif role and role in member.roles:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have role `{role.name}` already. Purchase item_id `{item_id}` denied!'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have role `{role.name}` already. "\
+                            f"Purchase item_id `{item_id}` denied!"
                         await ctx.edit_original_message(content=msg)
-                        await logchanbot(f"[GSHOP] denied purchasing `{role.name}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}` by user `{str(ctx.author.id)}` (He/she has it already).")
+                        await logchanbot(
+                            f"[GSHOP] denied purchasing `{role.name}` in Guild `{str(ctx.guild.id)} / "\
+                            f"{ctx.guild.name}` by user `{str(ctx.author.id)}` (He/she has it already)."
+                        )
                         return
                     # re-check if role can kick/ban
                     role_dict = dict(role.permissions)
                     if role_dict['kick_members'] is True or role_dict['ban_members'] is True or role_dict['manage_channels'] is True:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot purchase role which can kick/ban users!'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot purchase role which can kick/ban users!"
                         await ctx.edit_original_message(content=msg)
-                        await logchanbot(f"[GSHOP] denied purchasing `{role.name}` which can kick/ban users in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`.")
+                        await logchanbot(
+                            f"[GSHOP] denied purchasing `{role.name}` which can kick/ban users "\
+                            f"in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`."
+                        )
                         return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error!'
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error!"
                     await ctx.edit_original_message(content=msg)
                     return
                 # Check if user's having that item and still not expired yet.
@@ -499,36 +514,46 @@ class GShop(commands.Cog):
                 if check_item is True:
                     # check if user role removed for some reason.
                     if role in member.roles:
-                        msg = f'{ctx.author.mention}, you still have item_id `{item_id}` and not expired yet!'
+                        msg = f"{ctx.author.mention}, you still have item_id `{item_id}` and not expired yet!"
                         await ctx.edit_original_message(content=msg)
                     else:
                         await member.add_roles(role)
-                        msg = f'{ctx.author.mention}, you still have item_id `{item_id}` and not expired yet but role is not with you. We added `{role.name}` back to you.'
+                        msg = f"{ctx.author.mention}, you still have item_id `{item_id}` and not expired yet "\
+                            f"but role is not with you. We added `{role.name}` back to you."
                         await ctx.edit_original_message(content=msg)
-                        await logchanbot(f"[GSHOP] added role `{role.name}` back to User `{str(ctx.author.id)}` Guild `{str(ctx.guild.id)} / {ctx.guild.name}`. Item `{item_id}` not expired yet.")
+                        await logchanbot(
+                            f"[GSHOP] added role `{role.name}` back to User `{str(ctx.author.id)}` "\
+                            f"Guild `{str(ctx.guild.id)} / {ctx.guild.name}`. Item `{item_id}` not expired yet."
+                        )
                     return
 
                 # Check if stocks already
                 if item_info and item_info['max_slot'] <= item_info['already_ordered']:
-                    msg = f'{ctx.author.mention}, item_id `{item_id}` is out of stock already!'
+                    msg = f"{ctx.author.mention}, item_id `{item_id}` is out of stock already!"
                     await ctx.edit_original_message(content=msg)
                 else:
                     # still have stock
                     # check balance
-                    userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                                           height, deposit_confirm_depth, SERVER_BOT)
+                    userdata_balance = await store.sql_user_balance_single(
+                        str(ctx.author.id), coin_name, wallet_address, type_coin,
+                        height, deposit_confirm_depth, SERVER_BOT
+                    )
                     actual_balance = float(userdata_balance['adjust'])
                 if amount > actual_balance:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do purchase `{role.name}` which cost **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do purchase "\
+                        f"`{role.name}` which cost **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                        f"{token_display}**."
                     await ctx.edit_original_message(content=msg)
                 else:
                     # purchase and add to database
                     renewed_date = int(time.time()) + item_info['duration']
                     expired_date = renewed_date
-                    purchase = await self.guild_role_ordered(item_info['id'], json.dumps(item_info), item_info['item_id'], str(ctx.guild.id),
-                                                             item_info['role_id'], amount, coin_name, coin_decimal,
-                                                             str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator),
-                                                             renewed_date, expired_date, 0)
+                    purchase = await self.guild_role_ordered(
+                        item_info['id'], json.dumps(item_info), item_info['item_id'], str(ctx.guild.id),
+                        item_info['role_id'], amount, coin_name, coin_decimal,
+                        str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator),
+                        renewed_date, expired_date, 0
+                    )
                     if purchase is True:
                         # 1) Deduct balance
                         # 2) Assign Role
@@ -571,7 +596,8 @@ class GShop(commands.Cog):
                             await member.add_roles(role)
                             duration = seconds_str_days(item_info['duration'])
                             cost = "{} {}".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name)
-                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, successfully purchased item `{item_id}` for `{cost}` with role `{role.name}` for period {duration}!'
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully purchased item "\
+                                f"`{item_id}` for `{cost}` with role `{role.name}` for period {duration}!"
                             await ctx.edit_original_message(content=msg)
                             # Try DM guild owner
                             await logchanbot(f"[GSHOP] user `{str(ctx.author.id)}` has successfully purchased `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`. Guild's credit added: `{cost}`.")
@@ -581,10 +607,10 @@ class GShop(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
                         else:
                             await logchanbot(f"[GSHOP] failed to move balance of purchase role `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}` by user `{str(ctx.author.id)}`.")
-                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error. Please report!'
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error. Please report!"
                             await ctx.edit_original_message(content=msg)
                     else:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error. Please report!'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error. Please report!"
                         await ctx.edit_original_message(content=msg)
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -632,7 +658,7 @@ class GShop(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.edit_original_message(content=msg)
             return
         # End token name check
@@ -641,9 +667,13 @@ class GShop(commands.Cog):
         bot_user = ctx.guild.get_member(int(self.bot.user.id))
         bot_role_dict = dict(bot_user.guild_permissions)
         if bot_role_dict['manage_roles'] is False:
-            msg = f'{ctx.author.mention}, TipBot doesn\'t has permission `manage_roles`! Please adjust permission and try again!'
+            msg = f"{ctx.author.mention}, TipBot doesn't has permission `manage_roles`! "\
+                "Please adjust permission and try again!"
             await ctx.edit_original_message(content=msg)
-            await logchanbot(f"[GSHOP] User `{str(ctx.author.id)}` tried to add sell role in `{str(ctx.guild.id)}` but TipBot has no `manage_roles` permission!")
+            await logchanbot(
+                f"[GSHOP] User `{str(ctx.author.id)}` tried to add sell role in `{str(ctx.guild.id)}` "\
+                "but TipBot has no `manage_roles` permission!"
+            )
             return
 
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -674,30 +704,34 @@ class GShop(commands.Cog):
                 if per_unit and per_unit > 0:
                     amount = float(Decimal(amount) / Decimal(per_unit))
                 else:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\
+                        "Try with different method."
                     await ctx.edit_original_message(content=msg)
                     return
         else:
             amount = amount.replace(",", "")
             amount = text_to_num(amount)
             if amount is None:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount."
                 await ctx.edit_original_message(content=msg)
                 return
 
         if amount <= 0:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please put amount correctly!'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please put amount correctly!"
             await ctx.edit_original_message(content=msg)
             return
 
         if amount > max_tip or amount < min_tip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} amount cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} amount cannot be bigger than "\
+                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
+                f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
         stocks = int(stocks)
         if stocks < self.max_ordered_min or stocks > self.max_ordered_max:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, `stocks` must be between {str(self.max_ordered_min)} and {str(self.max_ordered_max)}!'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, `stocks` must be between "\
+                f"{str(self.max_ordered_min)} and {str(self.max_ordered_max)}!"
             await ctx.edit_original_message(content=msg)
             return
 
@@ -705,12 +739,13 @@ class GShop(commands.Cog):
         try:
             role = disnake.utils.get(ctx.guild.roles, name=role_name.name)
             if not role.is_assignable():
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, role `{role_name.name}` is no assignable by TipBot or TipBot has no permission to do!'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, role `{role_name.name}` is no assignable "\
+                    "by TipBot or TipBot has no permission to do!"
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error!'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error!"
             await ctx.edit_original_message(content=msg)
             return
 
@@ -719,17 +754,23 @@ class GShop(commands.Cog):
         try:
             # if enable_role_shop is on/off
             if serverinfo and serverinfo['enable_role_shop'] == 0:
-                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, role shop is disable in this Guild. Contact TipBpt\'s dev.'
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, role shop is disable in this Guild. "\
+                    f"Contact TipBot's dev."
                 await ctx.edit_original_message(content=msg)
-                await logchanbot(f"[GSHOP] User `{str(ctx.author.id)}` in Guild `{str(ctx.guild.id)}` tried with /gshop which disable in their Guild.")
+                await logchanbot(
+                    f"[GSHOP] User `{str(ctx.author.id)}` in Guild `{str(ctx.guild.id)}` "\
+                    f"tried with /gshop which disable in their Guild."
+                )
                 return
             # Check max if set in guild
             if serverinfo and len(get_guild_items) >= serverinfo['max_role_shop_items'] and ctx.author.id != self.bot.config['discord']['owner_id']:
-                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are maximum number of role items listed already!'
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there are maximum number of "\
+                    "role items listed already!"
                 await ctx.edit_original_message(content=msg)
                 return
             elif serverinfo is None and len(get_guild_items) >= self.max_default_guild_item and ctx.author.id != self.bot.config['discord']['owner_id']:
-                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are maximum number of role items listed already!'
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there are maximum number of role "\
+                    "items listed already!"
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(f"[GSHOP] server {str(ctx.guild.id)} has no data in discord_server.")
                 return
@@ -739,13 +780,14 @@ class GShop(commands.Cog):
         item_id = item_id.lower()
         check_exist = await self.check_exist_role_item_id(item_id, str(ctx.guild.id))
         if check_exist is True:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, duplicated data `{item_id}`. Try with a different token or different `stocks` OR delete item_id `{item_id}`!'
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, duplicated data `{item_id}`. "\
+                f"Try with a different token or different `stocks` OR delete item_id `{item_id}`!"
             await ctx.edit_original_message(content=msg)
             return
 
         duration = int(duration.replace("d", "")) * 86400
         if duration < 86400 or duration > self.max_duration:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error!'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error!"
             await ctx.edit_original_message(content=msg)
             return
 
@@ -753,9 +795,12 @@ class GShop(commands.Cog):
         try:
             role_dict = dict(role.permissions)
             if role_dict['kick_members'] is True or role_dict['ban_members'] is True or role_dict['manage_channels'] is True:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot sell role which can kick/ban users!'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot sell role which can kick/ban users!"
                 await ctx.edit_original_message(content=msg)
-                await logchanbot(f"[GSHOP] wanted to list role `{role.name}` which can kick/ban users in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`.")
+                await logchanbot(
+                    f"[GSHOP] wanted to list role `{role.name}` which can kick/ban "\
+                    "users in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`."
+                )
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -767,15 +812,17 @@ class GShop(commands.Cog):
             str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator)
         )
         if add_listing is True:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, new item listed item_id: `{item_id}`.'
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, new item listed item_id: `{item_id}`."
             await ctx.edit_original_message(content=msg)
             await logchanbot(f"[GSHOP] new item added `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`.")
             if ctx.author.id != ctx.guild.owner.id:
                 await ctx.guild.owner.send(f"User `{str(ctx.author.id)}` just add a listing item `{item_id}` to sell in Guild `{str(ctx.guild.id)} / {ctx.guild.name}` for role `{role.name}`.")
         else:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error!'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error!"
             await ctx.edit_original_message(content=msg)
-            await logchanbot(f"[GSHOP] item added failed `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`.")
+            await logchanbot(
+                f"[GSHOP] item added failed `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`."
+            )
 
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
@@ -790,7 +837,6 @@ class GShop(commands.Cog):
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /gshop loading..."
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/gshop rolelist", int(time.time())))
@@ -802,16 +848,21 @@ class GShop(commands.Cog):
         try:
             # if enable_role_shop is on/off
             if serverinfo and serverinfo['enable_role_shop'] == 0:
-                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, role shop is disable in this Guild. Contact TipBpt\'s dev.'
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, role shop is disable in this Guild. "\
+                    "Contact TipBot\'s dev."
                 await ctx.edit_original_message(content=msg)
-                await logchanbot(f"[GSHOP] User `{str(ctx.author.id)}` in Guild `{str(ctx.guild.id)}` tried with /gshop which disable in their Guild.")
+                await logchanbot(
+                    f"[GSHOP] User `{str(ctx.author.id)}` in Guild `{str(ctx.guild.id)}` tried with "\
+                    f"/gshop which disable in their Guild."
+                )
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
         get_guild_items = await self.get_guild_role_shop_items(str(ctx.guild.id))
         if len(get_guild_items) == 0:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, there is no role to buy yet! Check again later or request Guild\'s admin.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no role to buy yet! "\
+                f"Check again later or request Guild\'s admin."
             await ctx.edit_original_message(content=msg)
         else:
             embed = disnake.Embed(
@@ -824,13 +875,20 @@ class GShop(commands.Cog):
                                 value="Role: {}\nCost: {} {}\nAvailable/Total: {}/{}".format(each['role_name'], num_format_coin(each['real_amount'], each['token_name'], each['token_decimal'], False), each['token_name'], each['max_slot'] - each['already_ordered'], each['max_slot']), inline=False)
             await ctx.edit_original_message(content=None, embed=embed)
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.role_ordered_check.is_running():
+                self.role_ordered_check.start()
+
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.role_ordered_check.start()
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.role_ordered_check.is_running():
+                self.role_ordered_check.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.role_ordered_check.stop()
+        self.role_ordered_check.cancel()
 
 
 def setup(bot):

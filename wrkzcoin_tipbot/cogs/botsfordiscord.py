@@ -8,7 +8,7 @@ from decimal import Decimal
 
 import disnake
 import store
-from Bot import SERVER_BOT, num_format_coin
+from Bot import SERVER_BOT, num_format_coin, log_to_channel
 from aiohttp import web
 from cogs.wallet import Faucet
 from cogs.wallet import WalletAPI
@@ -55,13 +55,6 @@ class BFDBotVote(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def vote_logchan(self, content: str):
-        try:
-            webhook = DiscordWebhook(url=self.bot.config['botsfordiscord']['botsfordiscord_votehook'], content=content)
-            webhook.execute()
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-
     async def webserver(self):
         async def handler_get(request):
             return web.Response(text="Hello, world")
@@ -85,8 +78,11 @@ class BFDBotVote(commands.Cog):
                                 check_last_vote = await self.check_last_bot_vote(user_vote, "botsfordiscord")
                                 if check_last_vote is not None and int(time.time()) - check_last_vote[
                                     'date_voted'] < 3600:
-                                    await self.vote_logchan(
-                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{vote_to}> type `{type_vote}` but less than 1h.')
+                                    await log_to_channel(
+                                        "vote",
+                                        f"[{SERVER_BOT}] A user <@{user_vote}> voted for bot "\
+                                        f"<@{vote_to}> type `{type_vote}` but less than 1h."
+                                    )
                                     return web.Response(text="Thank you!")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -96,7 +92,8 @@ class BFDBotVote(commands.Cog):
 
                             if insert_vote:
                                 try:
-                                    await self.vote_logchan(
+                                    await log_to_channel(
+                                        "vote",
                                         f"[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{vote_to}> type `{type_vote}` "\
                                         "in botsfordiscord.com."
                                     )
@@ -154,13 +151,16 @@ class BFDBotVote(commands.Cog):
                                                     )
                                                     # height can be None
                                                     userdata_balance = await store.sql_user_balance_single(
-                                                        str(self.bot.config['discord']['bot_id']), coin_name, wallet_address,
-                                                        type_coin, height, deposit_confirm_depth, SERVER_BOT
+                                                        str(self.bot.config['discord']['bot_id']), 
+                                                        coin_name, wallet_address, type_coin, height, 
+                                                        deposit_confirm_depth, SERVER_BOT
                                                     )
                                                     total_balance = userdata_balance['adjust']
                                                     if total_balance <= amount:
-                                                        await self.vote_logchan(
-                                                            f'[{SERVER_BOT}] vote reward for but TipBot for {coin_name} but empty!!!'
+                                                        await log_to_channel(
+                                                            "vote",
+                                                            f"[{SERVER_BOT}] vote reward for but "\
+                                                            f"TipBot for {coin_name} but empty!!!"
                                                         )
                                                         return web.Response(text="Thank you!")
                                                     else:
@@ -218,8 +218,9 @@ class BFDBotVote(commands.Cog):
                                                                 except (
                                                                     disnake.errors.NotFound, disnake.errors.Forbidden
                                                                 ) as e:
-                                                                    await self.vote_logchan(
-                                                                        f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.'
+                                                                    await log_to_channel(
+                                                                        "vote",
+                                                                        f"[{SERVER_BOT}] Failed to thank message to <@{user_vote}>."
                                                                     )
                                                                 try:
                                                                     channel = self.bot.get_channel(self.reward_channel)
@@ -259,8 +260,9 @@ class BFDBotVote(commands.Cog):
                                                     try:
                                                         await member.send(msg)
                                                     except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
-                                                        await self.vote_logchan(
-                                                            f'[{SERVER_BOT}] Failed to inform message to <@{user_vote}>.'
+                                                        await log_to_channel(
+                                                            "vote",
+                                                            f"[{SERVER_BOT}] Failed to inform message to <@{user_vote}>."
                                                         )
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
@@ -270,9 +272,10 @@ class BFDBotVote(commands.Cog):
                         else:
                             return web.Response(text="Unknown! Thank you!")
                     else:
-                        await self.vote_logchan(
-                            f'[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{self.bot.user.id}> type `{type_vote}` "\
-                            "but not true from botsfordiscord.com.'
+                        await log_to_channel(
+                            "vote",
+                            f"[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{self.bot.user.id}> type `{type_vote}` "\
+                            "but not true from botsfordiscord.com."
                         )
                         return web.Response(text="Thank you but not botsfordiscord!")
             except Exception:

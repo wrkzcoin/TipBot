@@ -105,7 +105,7 @@ class Pools(commands.Cog):
             try:
                 redis_utils.openRedis()
                 try:
-                    link = self.bot.config['miningpoolstat']['coinapi']("COIN_NAME", coin.lower())
+                    link = self.bot.config['miningpoolstat']['coinapi'].replace("COIN_NAME", coin.lower())
                     print(f"Fetching {link}")
                     async with aiohttp.ClientSession() as cs:
                         async with cs.get(link, timeout=self.bot.config['miningpoolstat']['timeout']) as r:
@@ -485,15 +485,20 @@ class Pools(commands.Cog):
         coin_name = coin.upper()
         await self.get_pools(ctx, coin_name)
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.get_miningpool_coinlist.is_running():
+                self.get_miningpool_coinlist.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.get_miningpool_coinlist.start()
-
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.get_miningpool_coinlist.is_running():
+                self.get_miningpool_coinlist.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.get_miningpool_coinlist.stop()
+        self.get_miningpool_coinlist.cancel()
         
 
 def setup(bot):

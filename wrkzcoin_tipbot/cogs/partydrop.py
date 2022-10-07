@@ -20,8 +20,6 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
 from disnake.ext import commands, tasks
-from config import config
-
 from cogs.utils import Utils
 
 class PartyButton(disnake.ui.View):
@@ -315,11 +313,13 @@ class PartyDrop(commands.Cog):
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                   SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name,
-                                                                      type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -337,8 +337,9 @@ class PartyDrop(commands.Cog):
         
         # Check min_amount
         if not min_amount.isdigit() and min_amount.upper() == "ALL":
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                   type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
             min_amount = float(userdata_balance['adjust'])
         # If $ is in min_amount, let's convert to coin/token
         elif "$" in min_amount[-1] or "$" in min_amount[0]:  # last is $
@@ -376,8 +377,9 @@ class PartyDrop(commands.Cog):
 
         # Check sponsor_amount
         if not sponsor_amount.isdigit() and sponsor_amount.upper() == "ALL":
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                   type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
             sponsor_amount = float(userdata_balance['adjust'])
         # If $ is in sponsor_amount, let's convert to coin/token
         elif "$" in sponsor_amount[-1] or "$" in sponsor_amount[0]:  # last is $
@@ -448,8 +450,10 @@ class PartyDrop(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.author.id), coin_name, wallet_address, type_coin,
+            height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
 
         if min_amount > max_tip or min_amount < min_tip:
@@ -509,12 +513,14 @@ class PartyDrop(commands.Cog):
             msg = await ctx.channel.send(content=None, embed=embed, view=view)
             view.message = msg
             view.channel_interact = ctx.channel.id
-            party = await store.insert_partydrop_create(coin_name, contract, str(ctx.author.id),
-                                                        owner_displayname, str(view.message.id),
-                                                        str(ctx.guild.id), str(ctx.channel.id), 
-                                                        min_amount, sponsor_amount, total_in_usd,
-                                                        equivalent_usd, per_unit, coin_decimal, 
-                                                        party_end, "ONGOING")
+            party = await store.insert_partydrop_create(
+                coin_name, contract, str(ctx.author.id),
+                owner_displayname, str(view.message.id),
+                str(ctx.guild.id), str(ctx.channel.id), 
+                min_amount, sponsor_amount, total_in_usd,
+                equivalent_usd, per_unit, coin_decimal, 
+                party_end, "ONGOING"
+            )
             await ctx.edit_original_message(content="/partydrop created 👇")
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -553,7 +559,6 @@ class PartyDrop(commands.Cog):
         duration: str
     ):
         await self.async_partydrop(ctx, min_amount, sponsor_amount, token, duration)
-
 
     async def cog_load(self):
         await self.bot.wait_until_ready()

@@ -10,8 +10,6 @@ import store
 from Bot import logchanbot
 from disnake.ext import commands, tasks
 from cogs.utils import Utils
-
-
 # https://www.coingecko.com/en/api/documentation
 
 
@@ -38,7 +36,6 @@ class CoinGecko(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("coingecko " + str(traceback.format_exc()))
         return []
-
 
     @tasks.loop(seconds=60.0)
     async def fetch_gecko_coinlist(self):
@@ -91,7 +88,6 @@ class CoinGecko(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-
     @tasks.loop(seconds=1200.0)
     async def fetch_gecko_pricelist(self):
         time_lap = 600 # seconds
@@ -132,7 +128,9 @@ class CoinGecko(commands.Cog):
                                             await store.openConnection()
                                             async with store.pool.acquire() as conn:
                                                 async with conn.cursor() as cur:
-                                                    sql = """ UPDATE coin_coingecko_list SET `price_usd`=%s, `price_time`=%s, `price_date`=%s WHERE `id`=%s """
+                                                    sql = """ UPDATE coin_coingecko_list 
+                                                    SET `price_usd`=%s, `price_time`=%s, `price_date`=%s 
+                                                    WHERE `id`=%s """
                                                     await cur.executemany(sql, update_list)
                                                     await conn.commit()
 
@@ -151,22 +149,29 @@ class CoinGecko(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.fetch_gecko_coinlist.is_running():
+                self.fetch_gecko_coinlist.start()
+            if not self.fetch_gecko_pricelist.is_running():
+                self.fetch_gecko_pricelist.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.fetch_gecko_coinlist.start()
-        self.fetch_gecko_pricelist.start()
-
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.fetch_gecko_coinlist.is_running():
+                self.fetch_gecko_coinlist.start()
+            if not self.fetch_gecko_pricelist.is_running():
+                self.fetch_gecko_pricelist.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.fetch_gecko_coinlist.stop()
-        self.fetch_gecko_pricelist.stop()
+        self.fetch_gecko_coinlist.cancel()
+        self.fetch_gecko_pricelist.cancel()
 
 
 def setup(bot):

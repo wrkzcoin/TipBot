@@ -80,7 +80,6 @@ async def openConnection_node_monitor():
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
         traceback.print_exc(file=sys.stdout)
 
-
 async def logchanbot(content: str):
     try:
         webhook = DiscordWebhook(
@@ -147,24 +146,25 @@ async def sql_addinfo_by_server(server_id: str, servername: str, prefix: str, de
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if rejoin:
-                    sql = """ INSERT INTO `discord_server` (`serverid`, `servername`, `prefix`, `default_coin`, `status`)
-                              VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY 
-                              UPDATE 
-                              `servername`=VALUES(`servername`),
-                              `prefix`=VALUES(`prefix`), 
-                              `default_coin`=VALUES(`default_coin`), 
-                              `status`=VALUES(`status`)
-                              """
+                    sql = """ INSERT INTO `discord_server` 
+                    (`serverid`, `servername`, `prefix`, `default_coin`, `status`)
+                    VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY 
+                    UPDATE 
+                    `servername`=VALUES(`servername`),
+                    `prefix`=VALUES(`prefix`), 
+                    `default_coin`=VALUES(`default_coin`), 
+                    `status`=VALUES(`status`)
+                    """
                     await cur.execute(sql, (server_id, servername[:28], prefix, default_coin, "REJOINED",))
                     await conn.commit()
                 else:
                     sql = """ INSERT INTO `discord_server` (`serverid`, `servername`, `prefix`, `default_coin`)
-                              VALUES (%s, %s, %s, %s) ON DUPLICATE KEY  
-                              UPDATE 
-                              `servername`=VALUES(`servername`),
-                              `prefix`=VALUES(`prefix`), 
-                              `default_coin`=VALUES(`default_coin`)
-                              """
+                    VALUES (%s, %s, %s, %s) ON DUPLICATE KEY  
+                    UPDATE 
+                    `servername`=VALUES(`servername`),
+                    `prefix`=VALUES(`prefix`), 
+                    `default_coin`=VALUES(`default_coin`)
+                    """
                     await cur.execute(sql, (server_id, servername[:28], prefix, default_coin))
                     await conn.commit()
     except Exception as e:
@@ -978,13 +978,16 @@ async def get_monit_scanning_net_name_update_height(net_name: str, new_height: i
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def trx_get_block_number(timeout: int = 64):
+async def trx_get_block_number(url: str, timeout: int = 64):
     height = 0
-    tron_node = await handle_best_node("TRX")
-    url = tron_node + "wallet/getnowblock"
+    url = url + "wallet/getnowblock"
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers={'Content-Type': 'application/json'}, timeout=timeout) as response:
+            async with session.get(
+                url,
+                headers={'Content-Type': 'application/json'},
+                timeout=timeout
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -1853,7 +1856,7 @@ async def sql_updating_pending_move_deposit_erc20(
     return 0
 
 async def trx_check_minimum_deposit(
-    coin: str, type_coin: str, contract: str, coin_decimal: int,
+    url: str, coin: str, type_coin: str, contract: str, coin_decimal: int,
     min_move_deposit: float, min_gas_tx: float, fee_limit_trx: float, gas_ticker: str,
     move_gas_amount: float, chainId: str, real_deposit_fee: float, time_lap: int = 0
 ):
@@ -1889,7 +1892,7 @@ async def trx_check_minimum_deposit(
 
             deposited_balance = float(
                 await trx_wallet_getbalance(
-                    each_address['balance_wallet_address'], token_name, coin_decimal, type_coin, contract
+                    url, each_address['balance_wallet_address'], token_name, coin_decimal, type_coin, contract
                 )
             )
             if deposited_balance is None or deposited_balance == 0:
@@ -1905,10 +1908,9 @@ async def trx_check_minimum_deposit(
                     # gas TRX is 6 coin_decimal
                     real_deposited_balance = deposited_balance - min_gas_tx
                     try:
-                        tron_node = await handle_best_node("TRX")
                         _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
                                                    timeout=Timeout(timeout=30, connect=20, read=20))
-                        TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
+                        TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
                         txb = (
                             TronClient.trx.transfer(each_address['balance_wallet_address'], config['trc']['MainAddress'],
                                                     int(real_deposited_balance * 10 ** 6))
@@ -1960,8 +1962,9 @@ async def trx_check_minimum_deposit(
                             # Check balance and Transfer gas to it
                             try:
                                 # Gas decimal is 6 for TRX
-                                gas_balance = await trx_wallet_getbalance(each_address['balance_wallet_address'], "TRX",
-                                                                          6, type_coin, contract)
+                                gas_balance = await trx_wallet_getbalance(
+                                    url, each_address['balance_wallet_address'], "TRX", 6, type_coin, contract
+                                )
                                 if gas_balance < min_gas_tx:
                                     txb_gas = (
                                         TronClient.trx.transfer(config['trc']['MainAddress'],
@@ -2014,12 +2017,16 @@ async def trx_check_minimum_deposit(
                             _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
                                                        timeout=Timeout(timeout=30, connect=20, read=20))
                             TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
-                            balance = await trx_wallet_getbalance(each_address['balance_wallet_address'], token_name,
-                                                                  coin_decimal, type_coin, contract)
+                            balance = await trx_wallet_getbalance(
+                                url, each_address['balance_wallet_address'], token_name,
+                                coin_decimal, type_coin, contract
+                            )
                             # Check balance and Transfer gas to it
                             try:
-                                gas_balance = await trx_wallet_getbalance(each_address['balance_wallet_address'],
-                                                                          token_name, coin_decimal, type_coin, contract)
+                                gas_balance = await trx_wallet_getbalance(
+                                    url, each_address['balance_wallet_address'],
+                                    token_name, coin_decimal, type_coin, contract
+                                )
                                 if gas_balance < min_gas_tx:
                                     txb_gas = (
                                         TronClient.trx.transfer(config['trc']['MainAddress'],
@@ -2071,9 +2078,11 @@ async def trx_check_minimum_deposit(
         msg_deposit += "TOKEN {}: No deposit address.\n".format(token_name)
     return msg_deposit
 
-async def sql_check_pending_move_deposit_trc20(net_name: str, deposit_confirm_depth: int, option: str = 'PENDING'):
+async def sql_check_pending_move_deposit_trc20(
+    url: str, net_name: str, deposit_confirm_depth: int, option: str = 'PENDING'
+):
     global pool
-    topBlock = await trx_get_block_number(timeout=64)
+    topBlock = await trx_get_block_number(url, timeout=64)
     if topBlock is None:
         await logchanbot('Can not get top block for {}.'.format(net_name))
         return
@@ -2087,7 +2096,7 @@ async def sql_check_pending_move_deposit_trc20(net_name: str, deposit_confirm_de
                 #    print("Checking tx: {}... for {}".format(each_tx['txn'][0:10], net_name))
                 #    print("topBlock: {}, Conf Depth: {}, Tx Block Numb: {}".format(topBlock, deposit_confirm_depth , tx_block_number))
                 if topBlock - deposit_confirm_depth > tx_block_number:
-                    check_tx = await trx_get_tx_info(each_tx['txn'])
+                    check_tx = await trx_get_tx_info(url, each_tx['txn'])
                     if check_tx:
                         confirming_tx = await trx_update_confirming_move_tx(each_tx['txn'], topBlock - tx_block_number,
                                                                             'CONFIRMED')
@@ -2098,13 +2107,12 @@ async def sql_check_pending_move_deposit_trc20(net_name: str, deposit_confirm_de
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("store " +str(traceback.format_exc()))
 
-async def trx_get_tx_info(tx: str):
+async def trx_get_tx_info(url: str, tx: str):
     timeout = 64
     try:
-        tron_node = await handle_best_node("TRX")
         _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
                                    timeout=Timeout(timeout=30, connect=20, read=20))
-        TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
+        TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
         getTx = await TronClient.get_transaction(tx)
         await TronClient.close()
         if getTx['ret'][0]['contractRet'] != "SUCCESS":
@@ -2117,21 +2125,20 @@ async def trx_get_tx_info(tx: str):
         traceback.print_exc(file=sys.stdout)
     return False
 
-async def trx_wallet_getbalance(address: str, coin: str, coin_decimal: int, type_coin: str, contract: str = None):
+async def trx_wallet_getbalance(url: str, address: str, coin: str, coin_decimal: int, type_coin: str, contract: str = None):
     token_name = coin.upper()
     balance = 0.0
     try:
-        tron_node = await handle_best_node("TRX")
         _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
                                    timeout=Timeout(timeout=30, connect=20, read=20))
-        TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
+        TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
         if contract is None or token_name == "TRX":
             try:
                 balance = await TronClient.get_account_balance(address)
             except AddressNotFound:
                 balance = 0.0
             except httpx.ConnectTimeout:
-                print(f"httpx.ConnectTimeout with {tron_node}")
+                print(f"httpx.ConnectTimeout with {url}")
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
         else:

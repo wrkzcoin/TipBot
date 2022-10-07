@@ -167,7 +167,6 @@ class Coininfo(commands.Cog):
         else:
             await ctx.edit_original_message(content=f'{ctx.author.mention}, error loading. check back later.')
 
-
     @commands.slash_command(
         usage="coinlist",
         description="List of all coins supported by TipBot."

@@ -35,8 +35,11 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         async with aiohttp.ClientSession() as session:
-            async with session.get(bot_settings['api_best_node_trx'], headers={'Content-Type': 'application/json'},
-                                   timeout=5.0) as response:
+            async with session.get(
+                bot_settings['api_best_node_trx'],
+                headers={'Content-Type': 'application/json'},
+                timeout=5.0
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -47,7 +50,6 @@ class EthScan(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
-
 
     @tasks.loop(seconds=10.0)
     async def fetch_bsc_node(self):
@@ -73,7 +75,6 @@ class EthScan(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
 
-
     @tasks.loop(seconds=10.0)
     async def fetch_sol_node(self):
         # Check if task recently run @bot_task_logs
@@ -97,7 +98,6 @@ class EthScan(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
-
 
     @tasks.loop(seconds=10.0)
     async def fetch_matic_node(self):
@@ -123,7 +123,6 @@ class EthScan(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
 
-
     @tasks.loop(seconds=10.0)
     async def fetch_celo_node(self):
         # Check if task recently run @bot_task_logs
@@ -147,7 +146,6 @@ class EthScan(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
-
 
     @tasks.loop(seconds=10.0)
     async def fetch_ftm_node(self):
@@ -173,7 +171,6 @@ class EthScan(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
 
-
     @tasks.loop(seconds=10.0)
     async def fetch_avax_node(self):
         # Check if task recently run @bot_task_logs
@@ -197,7 +194,6 @@ class EthScan(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
-
 
     @tasks.loop(seconds=10.0)
     async def fetch_xdai_node(self):
@@ -223,7 +219,6 @@ class EthScan(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
 
-
     @tasks.loop(seconds=10.0)
     async def fetch_one_node(self):
         # Check if task recently run @bot_task_logs
@@ -247,7 +242,6 @@ class EthScan(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
-
 
     @tasks.loop(seconds=10.0)
     async def fetch_tezos_node(self):
@@ -276,7 +270,6 @@ class EthScan(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
-
 
     @tasks.loop(seconds=10.0)
     async def fetch_near_node(self):
@@ -456,7 +449,6 @@ class EthScan(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
 
-
     # Token contract only, not user's address
     @tasks.loop(seconds=30.0)
     async def pull_trc20_scanning(self):
@@ -478,7 +470,6 @@ class EthScan(commands.Cog):
         await asyncio.sleep(10.0)
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
-
 
     # Token contract only, not user's address
     @tasks.loop(seconds=30.0)
@@ -516,14 +507,14 @@ class EthScan(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
 
-
     async def get_all_contracts(self, type_token: str):
         # type_token: ERC-20, TRC-20
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `coin_settings` WHERE `type`=%s AND `contract` IS NOT NULL AND `net_name` IS NOT NULL """
+                    sql = """ SELECT * FROM `coin_settings` 
+                    WHERE `type`=%s AND `contract` IS NOT NULL AND `net_name` IS NOT NULL """
                     await cur.execute(sql, (type_token,))
                     result = await cur.fetchall()
                     if result and len(result) > 0: return result
@@ -537,7 +528,8 @@ class EthScan(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `coin_ethscan_setting` WHERE `enable`=%s """
+                    sql = """ SELECT * FROM `coin_ethscan_setting` 
+                    WHERE `enable`=%s """
                     await cur.execute(sql, (1,))
                     result = await cur.fetchall()
                     net_names = {}
@@ -555,7 +547,8 @@ class EthScan(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `coin_ethscan_setting` SET `contracts`=%s WHERE `net_name`=%s LIMIT 1 """
+                    sql = """ UPDATE `coin_ethscan_setting` 
+                    SET `contracts`=%s WHERE `net_name`=%s LIMIT 1 """
                     await cur.execute(sql, (",".join(contracts), net_name))
                     await conn.commit()
                     return True
@@ -584,8 +577,10 @@ class EthScan(commands.Cog):
             local_height = await store.erc_get_block_number(url)
             try:
                 if local_height and local_height > 0:
-                    redis_utils.redis_conn.set(f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{net_name}",
-                                               str(local_height))
+                    redis_utils.redis_conn.set(
+                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{net_name}",
+                        str(local_height)
+                    )
                 else:
                     return
             except Exception:
@@ -662,9 +657,10 @@ class EthScan(commands.Cog):
                                                                 str(int(each['blockNumber'], 16))] = blockTime
                                                     except Exception:
                                                         traceback.print_exc(file=sys.stdout)
-                                                key = "{}_{}_{}_{}".format(each['address'],
-                                                                           int(each['blockNumber'], 16),
-                                                                           each['transactionHash'], from_addr, to_addr)
+                                                key = "{}_{}_{}_{}".format(
+                                                    each['address'], int(each['blockNumber'], 16),
+                                                    each['transactionHash'], from_addr, to_addr
+                                                )
 
                                                 def lower_txes(txHash_unique):
                                                     return [x.lower() for x in txHash_unique]
@@ -694,23 +690,21 @@ class EthScan(commands.Cog):
                                             update_height = await store.get_monit_scanning_net_name_update_height(
                                                 net_name, to_block)
                                             if update_height is None:
-                                                print(
-                                                    f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
+                                                print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
                                         elif len(rows) == 0:
                                             # Update height to DB
                                             update_height = await store.get_monit_scanning_net_name_update_height(
                                                 net_name, to_block)
                                             if update_height is None:
-                                                print(
-                                                    f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
+                                                print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
                                         ##return records
                                     elif len(records) == 0:
                                         # Update height to DB
-                                        update_height = await store.get_monit_scanning_net_name_update_height(net_name,
-                                                                                                              to_block)
+                                        update_height = await store.get_monit_scanning_net_name_update_height(
+                                            net_name, to_block
+                                        )
                                         if update_height is None:
-                                            print(
-                                                f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
+                                            print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
                             elif response.status == 400:
                                 await asyncio.sleep(3.0)
                                 return
@@ -738,14 +732,16 @@ class EthScan(commands.Cog):
             # Get latest fetching
             last_timestamp = await store.get_latest_stored_scanning_height_erc(net_name, contract)
 
-            local_height = await store.trx_get_block_number(timeout)
+            local_height = await store.trx_get_block_number(self.bot.erc_node_list['TRX'], timeout)
             if local_height == 0:
                 await asyncio.sleep(5.0)
                 return
 
             try:
-                redis_utils.redis_conn.set(f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{net_name}",
-                                           str(local_height))
+                redis_utils.redis_conn.set(
+                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{net_name}",
+                    str(local_height)
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("ethscan fetch_txes_trc " + str(traceback.format_exc()))
@@ -793,9 +789,11 @@ class EthScan(commands.Cog):
                                                 except Exception:
                                                     traceback.print_exc(file=sys.stdout)
                                                     continue
-                                                key = "{}_{}_{}_{}".format(each['contract_address'],
-                                                                           each['block_number'], each['transaction_id'],
-                                                                           from_addr, to_addr)
+                                                key = "{}_{}_{}_{}".format(
+                                                    each['contract_address'],
+                                                    each['block_number'], each['transaction_id'],
+                                                    from_addr, to_addr
+                                                )
 
                                                 def lower_txes(txHash_unique):
                                                     return [x.lower() for x in txHash_unique]
@@ -831,17 +829,15 @@ class EthScan(commands.Cog):
                                             update_height = await store.get_monit_scanning_net_name_update_height(
                                                 net_name, to_block, coin_name)
                                             if update_height is None:
-                                                print(
-                                                    f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
+                                                print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
                                         ##return records
                                     elif len(records) == 0:
                                         # Update height to DB
-                                        update_height = await store.get_monit_scanning_net_name_update_height(net_name,
-                                                                                                              to_block,
-                                                                                                              coin_name)
+                                        update_height = await store.get_monit_scanning_net_name_update_height(
+                                            net_name,  to_block, coin_name
+                                        )
                                         if update_height is None:
-                                            print(
-                                                f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
+                                            print(f"to_block {str(to_block)} No tx for `erc_contract_scan` for net_name {net_name}")
                             elif response.status == 400:
                                 await asyncio.sleep(5.0)
                                 return
@@ -852,85 +848,111 @@ class EthScan(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.fetch_bsc_node.is_running():
+                self.fetch_bsc_node.start()
+            if not self.fetch_sol_node.is_running():
+                self.fetch_sol_node.start()
+            if not self.fetch_trx_node.is_running():
+                self.fetch_trx_node.start()
+            if not self.fetch_matic_node.is_running():
+                self.fetch_matic_node.start()
+            if not self.fetch_celo_node.is_running():
+                self.fetch_celo_node.start()
+            if not self.fetch_ftm_node.is_running():
+                self.fetch_ftm_node.start()
+            if not self.fetch_avax_node.is_running():
+                self.fetch_avax_node.start()
+            if not self.fetch_xdai_node.is_running():
+                self.fetch_xdai_node.start()
+            if not self.fetch_one_node.is_running():
+                self.fetch_one_node.start()
+            if not self.fetch_tezos_node.is_running():
+                self.fetch_tezos_node.start()
+            if not self.fetch_near_node.is_running():
+                self.fetch_near_node.start()
+            if not self.fetch_xrp_node.is_running():
+                self.fetch_xrp_node.start()
+            if not self.fetch_zil_node.is_running():
+                self.fetch_zil_node.start()
+            if not self.fetch_vet_node.is_running():
+                self.fetch_vet_node.start()
+            if not self.fetch_nova_node.is_running():
+                self.fetch_nova_node.start()
+            if not self.fetch_eth_node.is_running():
+                self.fetch_eth_node.start()
+
+            # scan
+            if not self.pull_trc20_scanning.is_running():
+                self.pull_trc20_scanning.start()
+            if not self.remove_all_tx_ethscan.is_running():
+                self.remove_all_tx_ethscan.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        # BSC best node
-        self.fetch_bsc_node.start()
-        # SOL best node
-        self.fetch_sol_node.start()
-        # TRX best node
-        self.fetch_trx_node.start()
-        # MATIC best node
-        self.fetch_matic_node.start()
-        # CELO best node
-        self.fetch_celo_node.start()
-        # FTM best node
-        self.fetch_ftm_node.start()
-        # AVAX best node
-        self.fetch_avax_node.start()
-        # XDAI best node
-        self.fetch_xdai_node.start()
-        # ONE best node
-        self.fetch_one_node.start()
-        # XTZ best node
-        self.fetch_tezos_node.start()
-        # NEAR best node
-        self.fetch_near_node.start()
-        # XRP best node
-        self.fetch_xrp_node.start()
-        # ZIL best node
-        self.fetch_zil_node.start()
-        # VET best node
-        self.fetch_vet_node.start()
-        # NOVA best node
-        self.fetch_nova_node.start()
-        # ETH best node
-        self.fetch_eth_node.start()
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.fetch_bsc_node.is_running():
+                self.fetch_bsc_node.start()
+            if not self.fetch_sol_node.is_running():
+                self.fetch_sol_node.start()
+            if not self.fetch_trx_node.is_running():
+                self.fetch_trx_node.start()
+            if not self.fetch_matic_node.is_running():
+                self.fetch_matic_node.start()
+            if not self.fetch_celo_node.is_running():
+                self.fetch_celo_node.start()
+            if not self.fetch_ftm_node.is_running():
+                self.fetch_ftm_node.start()
+            if not self.fetch_avax_node.is_running():
+                self.fetch_avax_node.start()
+            if not self.fetch_xdai_node.is_running():
+                self.fetch_xdai_node.start()
+            if not self.fetch_one_node.is_running():
+                self.fetch_one_node.start()
+            if not self.fetch_tezos_node.is_running():
+                self.fetch_tezos_node.start()
+            if not self.fetch_near_node.is_running():
+                self.fetch_near_node.start()
+            if not self.fetch_xrp_node.is_running():
+                self.fetch_xrp_node.start()
+            if not self.fetch_zil_node.is_running():
+                self.fetch_zil_node.start()
+            if not self.fetch_vet_node.is_running():
+                self.fetch_vet_node.start()
+            if not self.fetch_nova_node.is_running():
+                self.fetch_nova_node.start()
+            if not self.fetch_eth_node.is_running():
+                self.fetch_eth_node.start()
 
-        self.pull_trc20_scanning.start()
-        self.pull_erc20_scanning.start()
-        self.remove_all_tx_ethscan.start()
-
+            # scan
+            if not self.pull_trc20_scanning.is_running():
+                self.pull_trc20_scanning.start()
+            if not self.remove_all_tx_ethscan.is_running():
+                self.remove_all_tx_ethscan.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        # BSC best node
-        self.fetch_bsc_node.stop()
-        # SOL best node
-        self.fetch_sol_node.stop()
-        # TRX best node
-        self.fetch_trx_node.stop()
-        # MATIC best node
-        self.fetch_matic_node.stop()
-        # CELO best node
-        self.fetch_celo_node.stop()
-        # FTM best node
-        self.fetch_ftm_node.stop()
-        # AVAX best node
-        self.fetch_avax_node.stop()
-        # XDAI best node
-        self.fetch_xdai_node.stop()
-        # ONE best node
-        self.fetch_one_node.stop()
-        # XTZ best node
-        self.fetch_tezos_node.stop()
-        # NEAR best node
-        self.fetch_near_node.stop()
-        # XRP best node
-        self.fetch_xrp_node.stop()
-        # ZIL best node
-        self.fetch_zil_node.stop()
-        # VET best node
-        self.fetch_vet_node.stop()
-        # NOVA best node
-        self.fetch_nova_node.stop()
-        # ETH best node
-        self.fetch_eth_node.stop()
+        self.fetch_bsc_node.cancel()
+        self.fetch_sol_node.cancel()
+        self.fetch_trx_node.cancel()
+        self.fetch_matic_node.cancel()
+        self.fetch_celo_node.cancel()
+        self.fetch_ftm_node.cancel()
+        self.fetch_avax_node.cancel()
+        self.fetch_xdai_node.cancel()
+        self.fetch_one_node.cancel()
+        self.fetch_tezos_node.cancel()
+        self.fetch_near_node.cancel()
+        self.fetch_xrp_node.cancel()
+        self.fetch_zil_node.cancel()
+        self.fetch_vet_node.cancel()
+        self.fetch_nova_node.cancel()
+        self.fetch_eth_node.cancel()
 
-        self.pull_trc20_scanning.stop()
-        self.pull_erc20_scanning.stop()
-        self.remove_all_tx_ethscan.stop()
+        self.pull_trc20_scanning.cancel()
+        self.pull_erc20_scanning.cancel()
+        self.remove_all_tx_ethscan.cancel()
 
 
 def setup(bot):

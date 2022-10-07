@@ -58,11 +58,13 @@ class BotBalance(commands.Cog):
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(member.id), coin_name, net_name, type_coin,
-                                                                   SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(member.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(member.id), coin_name, net_name, type_coin,
-                                                                      SERVER_BOT, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(member.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -78,9 +80,9 @@ class BotBalance(commands.Cog):
             embed.set_author(name=member.name, icon_url=member.display_avatar)
             try:
                 # height can be None
-                userdata_balance = await store.sql_user_balance_single(str(member.id), coin_name, wallet_address,
-                                                                       type_coin, height, deposit_confirm_depth,
-                                                                       SERVER_BOT)
+                userdata_balance = await store.sql_user_balance_single(
+                    str(member.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
                 total_balance = userdata_balance['adjust']
                 equivalent_usd = ""
                 if usd_equivalent_enable == 1:

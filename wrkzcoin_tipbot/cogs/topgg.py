@@ -11,7 +11,6 @@ import time
 from datetime import datetime
 
 import store
-from config import config
 
 from Bot import SERVER_BOT, num_format_coin
 from cogs.wallet import Faucet
@@ -22,7 +21,7 @@ class TopGGVote(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
-        self.reward_channel = 522190259333890058
+        self.reward_channel = self.bot.config['bot_vote_link']['reward_channel']
 
     async def guild_find_by_key(self, guild_id: str):
         try:
@@ -68,7 +67,8 @@ class TopGGVote(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ INSERT IGNORE INTO guild_vote (`user_id`, `directory`, `guild_id`, `type`, `date_voted`) VALUES (%s, %s, %s, %s, %s) """
+                    sql = """ INSERT IGNORE INTO guild_vote (`user_id`, `directory`, `guild_id`, `type`, `date_voted`) 
+                    VALUES (%s, %s, %s, %s, %s) """
                     await cur.execute(sql, (user_id, directory, guild_id, type_vote, date_vote))
                     await conn.commit()
                     return True
@@ -82,7 +82,9 @@ class TopGGVote(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ SELECT * FROM `guild_vote` WHERE `user_id`=%s AND `directory`=%s AND `guild_id`=%s ORDER BY `date_voted` DESC LIMIT 1 """
+                    sql = """ SELECT * FROM `guild_vote` 
+                    WHERE `user_id`=%s AND `directory`=%s AND `guild_id`=%s 
+                    ORDER BY `date_voted` DESC LIMIT 1 """
                     await cur.execute(sql, (user_id, directory, guild_id))
                     result = await cur.fetchone()
                     if result: return result
@@ -96,7 +98,8 @@ class TopGGVote(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `directory`, `bot_id`, `type`, `date_voted`) VALUES (%s, %s, %s, %s, %s) """
+                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `directory`, `bot_id`, `type`, `date_voted`) 
+                    VALUES (%s, %s, %s, %s, %s) """
                     await cur.execute(sql, (user_id, directory, bot_id, type_vote, date_vote))
                     await conn.commit()
                     return True
@@ -110,7 +113,8 @@ class TopGGVote(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ SELECT * FROM `bot_vote` WHERE `user_id`=%s AND `directory`=%s ORDER BY `date_voted` DESC LIMIT 1 """
+                    sql = """ SELECT * FROM `bot_vote` WHERE `user_id`=%s AND `directory`=%s 
+                    ORDER BY `date_voted` DESC LIMIT 1 """
                     await cur.execute(sql, (user_id, directory))
                     result = await cur.fetchone()
                     if result: return result
@@ -193,12 +197,13 @@ class TopGGVote(commands.Cog):
                                     contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                                     usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name),
                                                                     "usd_equivalent_enable")
-                                    user_from = await self.wallet_api.sql_get_userwallet(guild_id, coin_name, net_name,
-                                                                                         type_coin, SERVER_BOT, 0)
+                                    user_from = await self.wallet_api.sql_get_userwallet(
+                                        guild_id, coin_name, net_name, type_coin, SERVER_BOT, 0
+                                    )
                                     if user_from is None:
-                                        user_from = await self.wallet_api.sql_register_user(guild_id, coin_name,
-                                                                                            net_name, type_coin,
-                                                                                            SERVER_BOT, 0)
+                                        user_from = await self.wallet_api.sql_register_user(
+                                            guild_id, coin_name, net_name, type_coin, SERVER_BOT, 0
+                                        )
                                     wallet_address = user_from['balance_wallet_address']
                                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                         wallet_address = user_from['paymentid']
@@ -207,11 +212,10 @@ class TopGGVote(commands.Cog):
 
                                     height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                                     # height can be None
-                                    userdata_balance = await store.sql_user_balance_single(guild_id, coin_name,
-                                                                                           wallet_address, type_coin,
-                                                                                           height,
-                                                                                           deposit_confirm_depth,
-                                                                                           SERVER_BOT)
+                                    userdata_balance = await store.sql_user_balance_single(
+                                        guild_id, coin_name, wallet_address, type_coin,
+                                        height, deposit_confirm_depth, SERVER_BOT
+                                    )
                                     total_balance = userdata_balance['adjust']
                                     if total_balance < amount + extra_amount:
                                         # Alert guild owner
@@ -252,11 +256,10 @@ class TopGGVote(commands.Cog):
                                                     del self.bot.user_balance_cache[key_coin]
                                             except Exception:
                                                 pass
-                                            tip = await store.sql_user_balance_mv_single(guild_id, user_vote, "TOPGG",
-                                                                                         "VOTE", amount + extra_amount, coin_name,
-                                                                                         "GUILDVOTE", coin_decimal,
-                                                                                         SERVER_BOT, contract,
-                                                                                         amount_in_usd, None)
+                                            tip = await store.sql_user_balance_mv_single(
+                                                guild_id, user_vote, "TOPGG", "VOTE", amount + extra_amount, coin_name,
+                                                "GUILDVOTE", coin_decimal, SERVER_BOT, contract, amount_in_usd, None
+                                            )
                                             if member is not None:
                                                 extra_msg = ""
                                                 if extra_amount > 0:
@@ -347,7 +350,8 @@ class TopGGVote(commands.Cog):
                             if insert_vote:
                                 try:
                                     await self.vote_logchan(
-                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{vote_to}> type `{type_vote}` in top.gg.')
+                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{vote_to}> type `{type_vote}` in top.gg.'
+                                    )
                                     if int(vote_to) == self.bot.config['discord']['bot_id']:
                                         # It's TipBot
                                         try:
@@ -371,10 +375,9 @@ class TopGGVote(commands.Cog):
                                                         amount = each_coin['reward_amount']
                                                         break
                                                 if coin_name is not None:
-                                                    insert_reward = await faucet.insert_reward(user_vote, "topgg",
-                                                                                               amount, coin_name,
-                                                                                               int(time.time()),
-                                                                                               SERVER_BOT)
+                                                    insert_reward = await faucet.insert_reward(
+                                                        user_vote, "topgg", amount, coin_name, int(time.time()), SERVER_BOT
+                                                    )
                                                     # Check balance of bot
                                                     net_name = getattr(getattr(self.bot.coin_list, coin_name),
                                                                        "net_name")
@@ -455,7 +458,9 @@ class TopGGVote(commands.Cog):
                                                                 contract, amount_in_usd, None
                                                             )
                                                             if member is not None:
-                                                                msg = f"Thank you for voting for our TipBot at <{self.bot.config['bot_vote_link']['topgg']}>. You just got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. Check with `/claim` for voting list at other websites."
+                                                                msg = f"Thank you for voting for our TipBot at <{self.bot.config['bot_vote_link']['topgg']}>. "\
+                                                                    f"You just got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
+                                                                    f"Check with `/claim` for voting list at other websites."
                                                                 try:
                                                                     await member.send(msg)
                                                                 except (
@@ -508,7 +513,11 @@ class TopGGVote(commands.Cog):
         app.router.add_post('/{tail:.*}', handler_post)
         runner = web.AppRunner(app)
         await runner.setup()
-        self.site = web.TCPSite(runner, '127.0.0.1', 19902)
+        self.site = web.TCPSite(
+            runner,
+            self.bot.config['bot_vote_link']['binding_ip'],
+            self.bot.config['bot_vote_link']['topgg_port']
+        )
         await self.bot.wait_until_ready()
         await self.site.start()
 

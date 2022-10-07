@@ -21,7 +21,6 @@ import store
 from Bot import logchanbot, SERVER_BOT, EMOJI_RED_NO, RowButtonRowCloseAnyMessage, EMOJI_INFORMATION
 from PIL import Image
 from cairosvg import svg2png
-from config import config
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
@@ -339,7 +338,6 @@ class Tb(commands.Cog):
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/tb praise", int(time.time())))
@@ -370,7 +368,6 @@ class Tb(commands.Cog):
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/tb shoot", int(time.time())))
@@ -432,7 +429,6 @@ class Tb(commands.Cog):
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/tb fistbump", int(time.time())))

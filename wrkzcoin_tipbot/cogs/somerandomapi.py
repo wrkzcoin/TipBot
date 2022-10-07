@@ -54,8 +54,10 @@ class SomeRandomAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return 0
 
-    async def add_animal_db(self, image_url: str, local_path: str, sha256: str, requested_by_uid: str,
-                            requested_by_name: str, jsondump: str):
+    async def add_animal_db(
+        self, image_url: str, local_path: str, sha256: str, requested_by_uid: str,
+        requested_by_name: str, jsondump: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:

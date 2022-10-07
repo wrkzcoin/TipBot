@@ -20,7 +20,6 @@ import functools
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_CHECKMARK, SERVER_BOT, EMOJI_INFORMATION
 import store
 from cogs.utils import Utils
-from config import config
 
 
 class Tool(commands.Cog):
@@ -33,7 +32,9 @@ class Tool(commands.Cog):
         # TTS path
         self.tts_path = "./tts/"
 
-    async def sql_add_tts(self, user_id: str, user_name: str, msg_content: str, lang: str, tts_mp3: str, user_server: str='DISCORD'):
+    async def sql_add_tts(
+        self, user_id: str, user_name: str, msg_content: str, lang: str, tts_mp3: str, user_server: str='DISCORD'
+    ):
         user_server = user_server.upper()
         try:
             await store.openConnection()
@@ -48,14 +49,17 @@ class Tool(commands.Cog):
             await logchanbot("tools " +str(traceback.format_exc()))
         return False
 
-    async def sql_add_trans_tts(self, user_id: str, user_name: str, original: str, translated: str, to_lang: str, media_file: str, user_server: str='DISCORD'):
+    async def sql_add_trans_tts(
+        self, user_id: str, user_name: str, original: str, translated: str, to_lang: str, media_file: str, user_server: str='DISCORD'
+    ):
         user_server = user_server.upper()
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `discord_trans_tts` (`user_id`, `user_name`, `original`, `translated`, `to_lang`, `time`, `media_file`, `user_server`)
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO `discord_trans_tts` (`user_id`, `user_name`, `original`, `translated`, 
+                    `to_lang`, `time`, `media_file`, `user_server`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (user_id, user_name, original, translated, to_lang, int(time.time()), media_file, user_server))
                     await conn.commit()
                     return True

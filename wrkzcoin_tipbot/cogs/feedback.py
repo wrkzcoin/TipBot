@@ -44,8 +44,10 @@ class FeedbackAdd(disnake.ui.Modal):
                          components=components)
 
     # Feedback
-    async def sql_feedback_add(self, user_id: str, user_name: str, feedback_id: str, topic: str, feedback_text: str,
-                               howto_contact_back: str):
+    async def sql_feedback_add(
+        self, user_id: str, user_name: str, feedback_id: str, topic: str, feedback_text: str,
+        howto_contact_back: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -77,12 +79,14 @@ class FeedbackAdd(disnake.ui.Modal):
 
         # We have enough data, let's add
         feedback_id = str(uuid.uuid4())
-        add = await self.sql_feedback_add(str(inter.author.id),
-                                          '{}#{}'.format(inter.author.name, inter.author.discriminator), feedback_id,
-                                          topic, desc_id, contact_id)
+        add = await self.sql_feedback_add(
+            str(inter.author.id), '{}#{}'.format(inter.author.name, inter.author.discriminator), 
+            feedback_id, topic, desc_id, contact_id
+        )
         if add:
             await inter.response.send_message(
-                f'{inter.author.mention} Thank you for your feedback / inquiry. Your feedback ref: **{feedback_id}**')
+                f'{inter.author.mention} Thank you for your feedback / inquiry. Your feedback ref: **{feedback_id}**'
+            )
             try:
                 await logchanbot(
                     f'[FEEDBACK] A user {inter.author.mention} / {inter.author.name}#{inter.author.discriminator} has submitted a feedback {feedback_id}')

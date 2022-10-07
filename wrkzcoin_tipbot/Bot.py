@@ -119,6 +119,20 @@ def openRedis():
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
+async def log_to_channel(channel_id: int, content: str) -> None:
+    try:
+        channel = bot.get_channel(channel_id)
+        if channel:
+            await channel.send(content)
+        else:
+            webhook = DiscordWebhook(
+                url=bot.config['discord']['webhook_url'],
+                content=f'{disnake.utils.escape_markdown(content)}'
+            )
+            webhook.execute()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
 async def logchanbot(content: str):
     if "Requested object not found" in content:
         return
@@ -170,6 +184,7 @@ bot.GAME_SLOT_IN_PROGRESS = []
 bot.GAME_MAZE_IN_PROCESS = []
 bot.GAME_DICE_IN_PROGRESS = []
 bot.GAME_RAFFLE_QUEUE = []
+bot.LOG_CHAN = bot.config['discord']['logchan']
 
 bot.erc_node_list = {
     "FTM": bot.config['default_endpoints']['ftm'],

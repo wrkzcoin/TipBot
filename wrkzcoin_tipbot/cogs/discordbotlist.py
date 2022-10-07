@@ -21,7 +21,7 @@ class DiscordBotList(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
-        self.reward_channel = 522190259333890058
+        self.reward_channel = self.bot.config['bot_vote_link']['reward_channel']
 
     async def insert_bot_vote(self, user_id: str, directory: str, bot_id: str, type_vote: str, voter: str):
         try:
@@ -29,7 +29,8 @@ class DiscordBotList(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `name`, `directory`, `bot_id`, `type`, `date_voted`) VALUES (%s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT IGNORE INTO `bot_vote` (`user_id`, `name`, `directory`, `bot_id`, `type`, `date_voted`) 
+                    VALUES (%s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (user_id, voter, directory, bot_id, type_vote, date_vote))
                     await conn.commit()
                     return True
@@ -43,7 +44,8 @@ class DiscordBotList(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ SELECT * FROM `bot_vote` WHERE `user_id`=%s AND `directory`=%s AND `bot_id`=%s ORDER BY `date_voted` DESC LIMIT 1 """
+                    sql = """ SELECT * FROM `bot_vote` WHERE `user_id`=%s AND `directory`=%s AND `bot_id`=%s 
+                    ORDER BY `date_voted` DESC LIMIT 1 """
                     await cur.execute(sql, (user_id, directory, bot_id))
                     result = await cur.fetchone()
                     if result: return result
@@ -79,10 +81,10 @@ class DiscordBotList(commands.Cog):
                             try:
                                 # Check if user just vote less than 1h. Sometimes top.gg just push too fast multiple times.
                                 check_last_vote = await self.check_last_bot_vote(user_vote, "discordbotlist", bot_id)
-                                if check_last_vote is not None and int(time.time()) - check_last_vote[
-                                    'date_voted'] < 3600:
+                                if check_last_vote is not None and int(time.time()) - check_last_vote['date_voted'] < 3600:
                                     await self.vote_logchan(
-                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{bot_id}> type `{type_vote}` but less than 1h.')
+                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{bot_id}> type `{type_vote}` but less than 1h.'
+                                    )
                                     return web.Response(text="Thank you!")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -91,7 +93,9 @@ class DiscordBotList(commands.Cog):
                             if insert_vote:
                                 try:
                                     await self.vote_logchan(
-                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{bot_id}> type `{type_vote}` in discordbotlist.com.')
+                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{bot_id}> type `{type_vote}` "\
+                                        "in discordbotlist.com.'
+                                    )
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
 
@@ -116,21 +120,23 @@ class DiscordBotList(commands.Cog):
                                                 amount = each_coin['reward_amount']
                                                 break
                                         if coin_name is not None:
-                                            insert_reward = await faucet.insert_reward(user_vote, "discordbotlist",
-                                                                                       amount, coin_name,
-                                                                                       int(time.time()), SERVER_BOT)
+                                            insert_reward = await faucet.insert_reward(
+                                                user_vote, "discordbotlist", amount, coin_name,
+                                                int(time.time()), SERVER_BOT
+                                            )
                                             # Check balance of bot
                                             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                                             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-                                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                            "deposit_confirm_depth")
+                                            deposit_confirm_depth = getattr(
+                                                getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth"
+                                            )
                                             user_from = await self.wallet_api.sql_get_userwallet(
-                                                str(self.bot.config['discord']['bot_id']), coin_name, net_name, type_coin, SERVER_BOT,
-                                                0)
+                                                str(self.bot.config['discord']['bot_id']), coin_name, net_name, type_coin, SERVER_BOT, 0
+                                            )
                                             if user_from is None:
                                                 user_from = await self.wallet_api.sql_register_user(
-                                                    str(self.bot.config['discord']['bot_id']), coin_name, net_name, type_coin,
-                                                    SERVER_BOT, 0)
+                                                    str(self.bot.config['discord']['bot_id']), coin_name, net_name, type_coin, SERVER_BOT, 0
+                                                )
                                             wallet_address = user_from['balance_wallet_address']
                                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                                 wallet_address = user_from['paymentid']
@@ -141,36 +147,39 @@ class DiscordBotList(commands.Cog):
                                             # height can be None
                                             userdata_balance = await store.sql_user_balance_single(
                                                 str(self.bot.config['discord']['bot_id']), coin_name, wallet_address, type_coin,
-                                                height, deposit_confirm_depth, SERVER_BOT)
+                                                height, deposit_confirm_depth, SERVER_BOT
+                                            )
                                             total_balance = userdata_balance['adjust']
                                             if total_balance <= amount:
                                                 await self.vote_logchan(
-                                                    f'[{SERVER_BOT}] vote reward for but TipBot for {coin_name} but empty!!!')
+                                                    f'[{SERVER_BOT}] vote reward for but TipBot for {coin_name} but empty!!!'
+                                                )
                                                 return web.Response(text="Thank you!")
                                             else:
                                                 # move reward
                                                 try:
-                                                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                           "decimal")
-                                                    contract = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                       "contract")
+                                                    coin_decimal = getattr(
+                                                        getattr(self.bot.coin_list, coin_name), "decimal"
+                                                    )
+                                                    contract = getattr(
+                                                        getattr(self.bot.coin_list, coin_name), "contract"
+                                                    )
                                                     usd_equivalent_enable = getattr(
-                                                        getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                                                        getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable"
+                                                    )
                                                     amount_in_usd = 0.0
                                                     if usd_equivalent_enable == 1:
                                                         native_token_name = getattr(
-                                                            getattr(self.bot.coin_list, coin_name), "native_token_name")
+                                                            getattr(self.bot.coin_list, coin_name), "native_token_name"
+                                                        )
                                                         coin_name_for_price = coin_name
                                                         if native_token_name:
                                                             coin_name_for_price = native_token_name
                                                         if coin_name_for_price in self.bot.token_hints:
-                                                            id = self.bot.token_hints[coin_name_for_price][
-                                                                'ticker_name']
+                                                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
                                                             per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
                                                         else:
-                                                            per_unit = \
-                                                            self.bot.coin_paprika_symbol_list[coin_name_for_price][
-                                                                'price_usd']
+                                                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                                                         if per_unit and per_unit > 0:
                                                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                                                     try:
@@ -188,16 +197,22 @@ class DiscordBotList(commands.Cog):
                                                         "VOTE", amount, coin_name, "BOTVOTE", coin_decimal, SERVER_BOT, contract,
                                                         amount_in_usd, None)
                                                     if member is not None:
-                                                        msg = f"Thank you for voting for our TipBot at <{self.bot.config['bot_vote_link']['discordbotlist']}>. You got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. Check with `/claim` for voting list at other websites."
+                                                        msg = f"Thank you for voting for our TipBot at "\
+                                                            f"<{self.bot.config['bot_vote_link']['discordbotlist']}>. "\
+                                                            f"You got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                            f"{coin_name}. Check with `/claim` for voting list at other websites."
                                                         try:
                                                             await member.send(msg)
                                                         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
                                                             await self.vote_logchan(
-                                                                f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.')
+                                                                f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.'
+                                                            )
                                                         try:
                                                             channel = self.bot.get_channel(self.reward_channel)
-                                                            embed = disnake.Embed(title="NEW BOT VOTE!",
-                                                                                  timestamp=datetime.now())
+                                                            embed = disnake.Embed(
+                                                                title="NEW BOT VOTE!",
+                                                                timestamp=datetime.now()
+                                                            )
                                                             embed.add_field(name="User",
                                                                             value="<@{}>".format(user_vote),
                                                                             inline=True)
@@ -217,7 +232,10 @@ class DiscordBotList(commands.Cog):
                                     else:
                                         # User didn't put any prefer coin. Message him he could reward
                                         if member is not None:
-                                            msg = f"Thank you for voting for our TipBot at <{self.bot.config['bot_vote_link']['discordbotlist']}>. You can get a reward! Know more by `/claim` or `/claim token_name` to set your preferred coin/token reward."
+                                            msg = f"Thank you for voting for our TipBot at "\
+                                                f"<{self.bot.config['bot_vote_link']['discordbotlist']}>. "\
+                                                f"You can get a reward! Know more by `/claim` or `/claim token_name` "\
+                                                f"to set your preferred coin/token reward."
                                             try:
                                                 await member.send(msg)
                                             except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
@@ -228,7 +246,9 @@ class DiscordBotList(commands.Cog):
                             return web.Response(text="Thank you!")
                     else:
                         await self.vote_logchan(
-                            f'[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{self.bot.user.id}> type `{type_vote}` but not true from discordbotlist.com.')
+                            f'[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{self.bot.user.id}> type `{type_vote}` "\
+                            "but not true from discordbotlist.com.'
+                        )
                         return web.Response(text="Thank you but not discordbotlist.com!")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -238,17 +258,16 @@ class DiscordBotList(commands.Cog):
         app.router.add_post('/{tail:.*}', handler_post)
         runner = web.AppRunner(app)
         await runner.setup()
-        self.site = web.TCPSite(runner, '127.0.0.1', 19904)
+        self.site = web.TCPSite(
+            runner,
+            self.bot.config['bot_vote_link']['binding_ip'],
+            self.bot.config['bot_vote_link']['discordbotlist_port']
+        )
         await self.bot.wait_until_ready()
         await self.site.start()
 
     async def cog_load(self):
-        # Automatically called when the cog is loaded
-        # with the added benefit of being async!
-
-        # Ensure the task is started when the cog is loaded,
-        # and only after the bot is ready.
-        await self.bot.wait_until_ready()
+        pass
 
     def cog_unload(self):
         asyncio.ensure_future(self.site.stop())

@@ -170,9 +170,13 @@ class Guild(commands.Cog):
                                     try:
                                         member = get_guild.get_member( int(member_id) )
                                         if (member and member in get_guild.members and role and hasattr(member, "roles") and role in member.roles) or (role is None and member and member in get_guild.members):
-                                            user_to = await self.wallet_api.sql_get_userwallet(str(member_id), coin_name, net_name, type_coin, SERVER_BOT, 0)
+                                            user_to = await self.wallet_api.sql_get_userwallet(
+                                                str(member_id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                                            )
                                             if user_to is None:
-                                                user_to = await self.wallet_api.sql_register_user(str(member_id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0)
+                                                user_to = await self.wallet_api.sql_register_user(
+                                                    str(member_id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                                                )
                                             try:
                                                 list_receivers.append(str(member_id))
                                                 list_receiver_names.append("{}#{}".format(member.name, member.discriminator))
@@ -214,7 +218,12 @@ class Guild(commands.Cog):
                                         if last_drop_recheck is not None and int(time.time()) - last_drop_recheck['spread_time'] < 60:
                                             continue
                                         # add to DB
-                                        await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], coin_name, coin_decimal, each_drop['tiptalk_amount'], each_drop['tiptalk_amount']/len(list_receivers), len(list_receivers), json.dumps(list_receivers), json.dumps(list_receiver_names), int(time.time()) )
+                                        await self.insert_new_activedrop_guild(
+                                            each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'],
+                                            coin_name, coin_decimal, each_drop['tiptalk_amount'],
+                                            each_drop['tiptalk_amount']/len(list_receivers), len(list_receivers),
+                                            json.dumps(list_receivers), json.dumps(list_receiver_names), int(time.time())
+                                        )
 
                                         try:
                                             key_coin = each_drop['serverid'] + "_" + coin_name + "_" + SERVER_BOT
@@ -261,7 +270,6 @@ class Guild(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
-
 
     @tasks.loop(seconds=60.0)
     async def check_raffle_status(self):
@@ -452,7 +460,6 @@ class Guild(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
-
 
     async def raffle_update_id(self, raffle_id: int, status: str, coin: str=None, list_winner=None, list_amounts=None, list_entries=None, amount_each: float=None, coin_decimal: int=None, unit_price_usd: float=None, contract: str=None, guild_id: str=None, channel_id: str=None):
         # list_winner = 3

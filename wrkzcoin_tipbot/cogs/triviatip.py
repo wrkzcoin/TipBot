@@ -16,7 +16,6 @@ from disnake.app_commands import Option
 from disnake.enums import ButtonStyle
 from disnake.enums import OptionType
 from disnake.ext import commands
-from config import config
 
 from cogs.utils import Utils
 
@@ -221,11 +220,13 @@ class TriviaTips(commands.Cog):
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                   SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name,
-                                                                      type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -244,8 +245,9 @@ class TriviaTips(commands.Cog):
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
             all_amount = True
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                   type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
             amount = float(userdata_balance['adjust'])
         # If $ is in amount, let's convert to coin/token
         elif "$" in amount[-1] or "$" in amount[0]:  # last is $
@@ -354,8 +356,10 @@ class TriviaTips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.author.id), coin_name, wallet_address, type_coin,
+            height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
 
         if amount > max_tip or amount < min_tip:
@@ -406,13 +410,15 @@ class TriviaTips(commands.Cog):
                 view = TriviaButton(ctx, answers, index_answer, duration_s, self.bot.coin_list)
                 view.message = await ctx.original_message()
                 # Insert to trivia ongoing list
-                insert_trivia = await store.insert_discord_triviatip(coin_name, contract, str(ctx.author.id),
-                                                                     owner_displayname, str(view.message.id),
-                                                                     rand_q['question'], rand_q['id'],
-                                                                     rand_q['correct_answer'], str(ctx.guild.id),
-                                                                     str(ctx.channel.id), amount, total_in_usd,
-                                                                     equivalent_usd, per_unit, coin_decimal, trivia_end,
-                                                                     net_name, "ONGOING")
+                insert_trivia = await store.insert_discord_triviatip(
+                    coin_name, contract, str(ctx.author.id),
+                    owner_displayname, str(view.message.id),
+                    rand_q['question'], rand_q['id'],
+                    rand_q['correct_answer'], str(ctx.guild.id),
+                    str(ctx.channel.id), amount, total_in_usd,
+                    equivalent_usd, per_unit, coin_decimal, trivia_end,
+                    net_name, "ONGOING"
+                )
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -424,13 +430,15 @@ class TriviaTips(commands.Cog):
                 view = TriviaButton(ctx, answers, index_answer, duration_s, self.bot.coin_list)
                 view.message = await ctx.original_message()
                 # Insert to trivia ongoing list
-                insert_trivia = await store.insert_discord_triviatip(coin_name, contract, str(ctx.author.id),
-                                                                     owner_displayname, str(view.message.id),
-                                                                     rand_q['question'], rand_q['id'],
-                                                                     rand_q['correct_answer'], str(ctx.guild.id),
-                                                                     str(ctx.channel.id), amount, total_in_usd,
-                                                                     equivalent_usd, per_unit, coin_decimal, trivia_end,
-                                                                     net_name, "ONGOING")
+                insert_trivia = await store.insert_discord_triviatip(
+                    coin_name, contract, str(ctx.author.id),
+                    owner_displayname, str(view.message.id),
+                    rand_q['question'], rand_q['id'],
+                    rand_q['correct_answer'], str(ctx.guild.id),
+                    str(ctx.channel.id), amount, total_in_usd,
+                    equivalent_usd, per_unit, coin_decimal, trivia_end,
+                    net_name, "ONGOING"
+                )
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
             except Exception:
                 traceback.print_exc(file=sys.stdout)

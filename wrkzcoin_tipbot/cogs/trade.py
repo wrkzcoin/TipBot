@@ -11,8 +11,6 @@ from disnake.app_commands import Option, OptionChoice
 
 # ascii table
 from terminaltables import AsciiTable
-
-from config import config
 import store
 from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, \
     EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, RowButtonRowCloseAnyMessage, human_format, \
@@ -179,11 +177,13 @@ class Trade(commands.Cog):
             return
         # Check if both coin has trade enable
         if getattr(getattr(self.bot.coin_list, sell_ticker), "enable_trade") != 1:
-            msg = f"{ctx.author.mention}, invalid trade ticker `{sell_ticker}`. They may not be enable for trade. Check with TipBot dev team."
+            msg = f"{ctx.author.mention}, invalid trade ticker `{sell_ticker}`. They may not be enable for trade. "\
+                "Check with TipBot dev team."
             await ctx.edit_original_message(content=msg)
             return
         if getattr(getattr(self.bot.coin_list, buy_ticker), "enable_trade") != 1:
-            msg = f"{ctx.author.mention}, invalid trade ticker `{buy_ticker}`. They may not be enable for trade. Check with TipBot dev team."
+            msg = f"{ctx.author.mention}, invalid trade ticker `{buy_ticker}`. They may not be enable for trade. "\
+                "Check with TipBot dev team."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -260,10 +260,12 @@ class Trade(commands.Cog):
             fee_buy = round(self.bot.config['trade']['Trade_Margin'] * buy_amount, 8)
             if fee_sell == 0: fee_sell = 0.00000010
             if fee_buy == 0: fee_buy = 0.00000010
-            order_add = await store.sql_store_openorder(sell_ticker, coin_decimal_sell, sell_amount,
-                                                        sell_amount - fee_sell, str(ctx.author.id), buy_ticker,
-                                                        coin_decimal_buy, buy_amount, buy_amount - fee_buy,
-                                                        sell_div_get, SERVER_BOT)
+            order_add = await store.sql_store_openorder(
+                sell_ticker, coin_decimal_sell, sell_amount,
+                sell_amount - fee_sell, str(ctx.author.id), buy_ticker,
+                coin_decimal_buy, buy_amount, buy_amount - fee_buy,
+                sell_div_get, SERVER_BOT
+            )
             if order_add:
                 get_message = "New open order created: #**{}**```Selling: {} {}\nFor: {} {}\nFee: {} {}```".format(
                     order_add,
@@ -282,7 +284,8 @@ class Trade(commands.Cog):
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. "\
+                        "Please request Guild owner to enable by `/SETTING TRADE`'
                     await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
@@ -292,14 +295,16 @@ class Trade(commands.Cog):
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 return
 
-    @market.sub_command(usage="market sell <sell_amount> <sell_ticker> <buy_amount> <buy_ticker>",
-                        options=[
-                            Option('sell_amount', 'Enter amount of coin to sell', OptionType.string, required=True),
-                            Option('sell_ticker', 'Enter coin ticker/name to sell', OptionType.string, required=True),
-                            Option('buy_amount', 'Enter amount of coin to buy', OptionType.string, required=True),
-                            Option('buy_ticker', 'Enter coin ticker/name to buy', OptionType.string, required=True)
-                        ],
-                        description="Make an opened sell of a coin for another coin.")
+    @market.sub_command(
+        usage="market sell <sell_amount> <sell_ticker> <buy_amount> <buy_ticker>",
+        options=[
+            Option('sell_amount', 'Enter amount of coin to sell', OptionType.string, required=True),
+            Option('sell_ticker', 'Enter coin ticker/name to sell', OptionType.string, required=True),
+            Option('buy_amount', 'Enter amount of coin to buy', OptionType.string, required=True),
+            Option('buy_ticker', 'Enter coin ticker/name to buy', OptionType.string, required=True)
+        ],
+        description="Make an opened sell of a coin for another coin."
+    )
     async def sell(
         self,
         ctx,
@@ -324,7 +329,8 @@ class Trade(commands.Cog):
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. "\
+                        "Please request Guild owner to enable by `/SETTING TRADE`'
                     await ctx.edit_original_message(content=msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
@@ -336,11 +342,13 @@ class Trade(commands.Cog):
 
         create_order = await self.make_open_order(ctx, sell_amount, sell_ticker, buy_amount, buy_ticker)
 
-    @market.sub_command(usage="market myorder [coin]",
-                        options=[
-                            Option('ticker', 'ticker', OptionType.string, required=False)
-                        ],
-                        description="Check your opened orders.")
+    @market.sub_command(
+        usage="market myorder [coin]",
+        options=[
+            Option('ticker', 'ticker', OptionType.string, required=False)
+        ],
+        description="Check your opened orders."
+    )
     async def myorder(
         self,
         ctx,
@@ -348,7 +356,6 @@ class Trade(commands.Cog):
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, market loading..."
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/market myorder", int(time.time())))
@@ -361,7 +368,8 @@ class Trade(commands.Cog):
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. "\
+                    "Please request Guild owner to enable by `/SETTING TRADE`'
                     await ctx.edit_original_message(content=msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
@@ -398,15 +406,13 @@ class Trade(commands.Cog):
                             ['PAIR', 'Selling', 'For', 'Order #']
                         ]
                         for order_item in get_open_order:
-                            table_data.append([order_item['pair_name'],
-                                               num_format_coin(order_item['amount_sell'], order_item['coin_sell'],
-                                                               getattr(
-                                                                   getattr(self.bot.coin_list, order_item['coin_sell']),
-                                                                   "decimal"), False) + order_item['coin_sell'],
-                                               num_format_coin(order_item['amount_get_after_fee'],
-                                                               order_item['coin_get'], getattr(
-                                                       getattr(self.bot.coin_list, order_item['coin_get']), "decimal"),
-                                                               False) + order_item['coin_get'], order_item['order_id']])
+                            table_data.append([
+                                order_item['pair_name'], num_format_coin(order_item['amount_sell'], order_item['coin_sell'],
+                                getattr(getattr(self.bot.coin_list, order_item['coin_sell']), "decimal"), False) + order_item['coin_sell'],
+                                num_format_coin(order_item['amount_get_after_fee'], order_item['coin_get'],
+                                getattr(getattr(self.bot.coin_list, order_item['coin_get']), "decimal"), False) + order_item['coin_get'],
+                                order_item['order_id']
+                            ])
                         table = AsciiTable(table_data)
                         # table.inner_column_border = False
                         # table.outer_border = False

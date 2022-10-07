@@ -9,8 +9,6 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 import aiohttp
 import json
-
-from config import config
 from Bot import logchanbot, RowButtonRowCloseAnyMessage, SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE
 import store
 import redis_utils

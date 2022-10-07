@@ -49,9 +49,11 @@ class DatabaseGames:
             await logchanbot(traceback.format_exc())
         return None
 
-    async def sql_game_add(self, game_result: str, played_user: str, coin_name: str, win_lose: str, won_amount: float,
-                           decimal: int, played_server: str, game_type: str, duration: int = 0,
-                           user_server: str = 'DISCORD'):
+    async def sql_game_add(
+        self, game_result: str, played_user: str, coin_name: str, win_lose: str, won_amount: float,
+        decimal: int, played_server: str, game_type: str, duration: int = 0,
+        user_server: str = 'DISCORD'
+    ):
         game_result = game_result.replace("\t", "")
         user_server = user_server.upper()
         try:
@@ -69,8 +71,10 @@ class DatabaseGames:
             await logchanbot(traceback.format_exc())
         return None
 
-    async def sql_game_free_add(self, game_result: str, played_user: str, win_lose: str, played_server: str,
-                                game_type: str, duration: int = 0, user_server: str = 'DISCORD'):
+    async def sql_game_free_add(
+        self, game_result: str, played_user: str, win_lose: str, played_server: str,
+        game_type: str, duration: int = 0, user_server: str = 'DISCORD'
+    ):
         game_result = game_result.replace("\t", "")
         user_server = user_server.upper()
         try:
@@ -119,8 +123,10 @@ class DatabaseGames:
             await logchanbot(traceback.format_exc())
         return None
 
-    async def sql_game_count_user(self, user_id: str, last_duration: int, user_server: str = 'DISCORD',
-                                  free: bool = False):
+    async def sql_game_count_user(
+        self, user_id: str, last_duration: int, user_server: str = 'DISCORD',
+        free: bool = False
+    ):
         lap_duration = int(time.time()) - last_duration
         user_server = user_server.upper()
         try:
@@ -231,11 +237,13 @@ class BlackJackButtons(disnake.ui.View):
             return
 
         try:
-            msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(interaction.author.mention,
-                                                                                   self.get_display['dealer_header'],
-                                                                                   self.get_display['dealer'],
-                                                                                   self.get_display['player_header'],
-                                                                                   self.get_display['player'])
+            msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(
+                interaction.author.mention,
+                self.get_display['dealer_header'],
+                self.get_display['dealer'],
+                self.get_display['player_header'],
+                self.get_display['player']
+            )
             button.disabled = True
             self.stand_button.disabled = False
             self.hit_button.disabled = False
@@ -282,8 +290,9 @@ class BlackJackButtons(disnake.ui.View):
                         self.dealerHand.append(new_card)
                         await asyncio.sleep(2)
                         await dealer_msg.edit(
-                            content='{} **BLACKJACK** Dealer drew a {} of {}'.format(interaction.author.mention, rank,
-                                                                                     suit))
+                            content='{} **BLACKJACK** Dealer drew a {} of {}'.format(
+                                interaction.author.mention, rank, suit)
+                            )
 
                         if blackjack_getCardValue(self.dealerHand) > 21:
                             self.game_over = True  # The dealer has busted.
@@ -311,11 +320,13 @@ class BlackJackButtons(disnake.ui.View):
                 result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
 
             dealer_get_display = blackjack_displayHands(self.playerHand, self.dealerHand, True)
-            msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(interaction.author.mention,
-                                                                                   dealer_get_display['dealer_header'],
-                                                                                   dealer_get_display['dealer'],
-                                                                                   dealer_get_display['player_header'],
-                                                                                   dealer_get_display['player'])
+            msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(
+                interaction.author.mention,
+                dealer_get_display['dealer_header'],
+                dealer_get_display['dealer'],
+                dealer_get_display['player_header'],
+                dealer_get_display['player']
+            )
             await self.message.edit(content=msg, view=None)
             if dealerValue > 21:
                 won = True
@@ -369,11 +380,13 @@ class BlackJackButtons(disnake.ui.View):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
-                                                                     str(interaction.guild.id),
-                                                                     str(interaction.channel.id), amount, coin_name,
-                                                                     "GAME", coin_decimal, SERVER_BOT, contract,
-                                                                     amount_in_usd, None)
+                        tip = await store.sql_user_balance_mv_single(
+                            self.bot.user.id, str(interaction.user.id),
+                            str(interaction.guild.id),
+                            str(interaction.channel.id), amount, coin_name,
+                            "GAME", coin_decimal, SERVER_BOT, contract,
+                            amount_in_usd, None
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -389,11 +402,13 @@ class BlackJackButtons(disnake.ui.View):
             # End reward
         else:
             dealer_get_display = blackjack_displayHands(self.playerHand, self.dealerHand, False)
-            msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(interaction.author.mention,
-                                                                                   dealer_get_display['dealer_header'],
-                                                                                   dealer_get_display['dealer'],
-                                                                                   dealer_get_display['player_header'],
-                                                                                   dealer_get_display['player'])
+            msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(
+                interaction.author.mention,
+                dealer_get_display['dealer_header'],
+                dealer_get_display['dealer'],
+                dealer_get_display['player_header'],
+                dealer_get_display['player']
+            )
             await self.message.edit(content=msg, view=self)
 
     @disnake.ui.button(label="☝️ Hit", style=ButtonStyle.red)
@@ -412,11 +427,13 @@ class BlackJackButtons(disnake.ui.View):
         self.playerHand.append(new_card)
 
         dealer_get_display = blackjack_displayHands(self.playerHand, self.dealerHand, False)
-        msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(interaction.author.mention,
-                                                                               dealer_get_display['dealer_header'],
-                                                                               dealer_get_display['dealer'],
-                                                                               dealer_get_display['player_header'],
-                                                                               dealer_get_display['player'])
+        msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(
+            interaction.author.mention,
+            dealer_get_display['dealer_header'],
+            dealer_get_display['dealer'],
+            dealer_get_display['player_header'],
+            dealer_get_display['player']
+        )
 
         if blackjack_getCardValue(self.playerHand) >= 21:
             # The player has busted:
@@ -439,8 +456,9 @@ class BlackJackButtons(disnake.ui.View):
                     self.dealerHand.append(new_card)
                     await asyncio.sleep(1)
                     await dealer_msg.edit(
-                        content='{} **BLACKJACK** Dealer drew a {} of {}'.format(interaction.author.mention, rank,
-                                                                                 suit))
+                        content='{} **BLACKJACK** Dealer drew a {} of {}'.format(
+                            interaction.author.mention, rank, suit)
+                        )
 
                     if blackjack_getCardValue(self.dealerHand) > 21:
                         self.game_over = True  # The dealer has busted.
@@ -464,11 +482,13 @@ class BlackJackButtons(disnake.ui.View):
                 result = f'You do not get any reward because it is a free game! Waiting to refresh your paid plays (24h max).'
 
             dealer_get_display = blackjack_displayHands(self.playerHand, self.dealerHand, True)
-            msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(interaction.author.mention,
-                                                                                   dealer_get_display['dealer_header'],
-                                                                                   dealer_get_display['dealer'],
-                                                                                   dealer_get_display['player_header'],
-                                                                                   dealer_get_display['player'])
+            msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(
+                interaction.author.mention,
+                dealer_get_display['dealer_header'],
+                dealer_get_display['dealer'],
+                dealer_get_display['player_header'],
+                dealer_get_display['player']
+            )
             await self.message.edit(content=msg, view=None)
             if dealerValue > 21:
                 won = True
@@ -522,11 +542,12 @@ class BlackJackButtons(disnake.ui.View):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
-                                                                     str(interaction.guild.id),
-                                                                     str(interaction.channel.id), amount, coin_name,
-                                                                     "GAME", coin_decimal, SERVER_BOT, contract,
-                                                                     amount_in_usd, None)
+                        tip = await store.sql_user_balance_mv_single(
+                            self.bot.user.id, str(interaction.user.id),
+                            str(interaction.guild.id), str(interaction.channel.id),
+                            amount, coin_name, "GAME", coin_decimal, SERVER_BOT, contract,
+                            amount_in_usd, None
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -542,11 +563,13 @@ class BlackJackButtons(disnake.ui.View):
             # End reward
         else:
             dealer_get_display = blackjack_displayHands(self.playerHand, self.dealerHand, False)
-            msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(interaction.author.mention,
-                                                                                   dealer_get_display['dealer_header'],
-                                                                                   dealer_get_display['dealer'],
-                                                                                   dealer_get_display['player_header'],
-                                                                                   dealer_get_display['player'])
+            msg = '{} **BLACKJACK**\n```DEALER: {}\n{}\nPLAYER:  {}\n{}```'.format(
+                interaction.author.mention,
+                dealer_get_display['dealer_header'],
+                dealer_get_display['dealer'],
+                dealer_get_display['player_header'],
+                dealer_get_display['player']
+            )
             await self.message.edit(content=msg, view=self)
 
 
@@ -637,10 +660,12 @@ class Maze_Buttons(disnake.ui.View):
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(json.dumps(remap_keys(self.maze_data)),
-                                                        str(interaction.author.id), coin_name, 'WIN' if won else 'LOSE',
-                                                        amount, coin_decimal, str(interaction.guild.id), 'MAZE',
-                                                        int(time.time()) - self.time_start, SERVER_BOT)
+                    reward = await self.db.sql_game_add(
+                        json.dumps(remap_keys(self.maze_data)),
+                        str(interaction.author.id), coin_name, 'WIN' if won else 'LOSE',
+                        amount, coin_decimal, str(interaction.guild.id), 'MAZE',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -671,11 +696,13 @@ class Maze_Buttons(disnake.ui.View):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
-                                                                     str(interaction.guild.id),
-                                                                     str(interaction.channel.id), amount, coin_name,
-                                                                     "GAME", coin_decimal, SERVER_BOT, contract,
-                                                                     amount_in_usd, None)
+                        tip = await store.sql_user_balance_mv_single(
+                            self.bot.user.id, str(interaction.user.id),
+                            str(interaction.guild.id),
+                            str(interaction.channel.id), amount, coin_name,
+                            "GAME", coin_decimal, SERVER_BOT, contract,
+                            amount_in_usd, None
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -2430,7 +2457,7 @@ class Games(commands.Cog):
             return
 
         count_played = await self.db.sql_game_count_user(
-            str(ctx.author.id), self.bot.config['game'].['duration_24h'], SERVER_BOT, False
+            str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT, False
         )
         if count_played and count_played >= self.bot.config['game']['max_daily_play']:
             free_game = True
@@ -2582,10 +2609,12 @@ class Games(commands.Cog):
                 # Start reward
                 if free_game is False:
                     try:
-                        reward = await self.db.sql_game_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2),
-                                                            str(ctx.author.id), coin_name, 'WIN' if won else 'LOSE',
-                                                            amount, coin_decimal, str(ctx.guild.id), 'DICE',
-                                                            int(time.time()) - time_start, SERVER_BOT)
+                        reward = await self.db.sql_game_add('{}:{}:{}:{}'.format(
+                            dice_time, sum_dice, dice1, dice2),
+                            str(ctx.author.id), coin_name, 'WIN' if won else 'LOSE',
+                            amount, coin_decimal, str(ctx.guild.id), 'DICE',
+                            int(time.time()) - time_start, SERVER_BOT
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -2615,10 +2644,12 @@ class Games(commands.Cog):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(ctx.user.id),
-                                                                     str(ctx.guild.id), str(ctx.channel.id), amount,
-                                                                     coin_name, "GAME", coin_decimal, SERVER_BOT,
-                                                                     contract, amount_in_usd, None)
+                        tip = await store.sql_user_balance_mv_single(
+                            self.bot.user.id, str(ctx.user.id),
+                            str(ctx.guild.id), str(ctx.channel.id), amount,
+                            coin_name, "GAME", coin_decimal, SERVER_BOT,
+                            contract, amount_in_usd, None
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -2853,12 +2884,11 @@ class Games(commands.Cog):
                                                 del self.bot.user_balance_cache[key_coin]
                                         except Exception:
                                             pass
-                                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(ctx.user.id),
-                                                                                     str(ctx.guild.id),
-                                                                                     str(ctx.channel.id), amount,
-                                                                                     coin_name, "GAME", coin_decimal,
-                                                                                     SERVER_BOT, contract,
-                                                                                     amount_in_usd, None)
+                                        tip = await store.sql_user_balance_mv_single(
+                                            self.bot.user.id, str(ctx.user.id), str(ctx.guild.id),
+                                            str(ctx.channel.id), amount, coin_name, "GAME", coin_decimal,
+                                            SERVER_BOT, contract, amount_in_usd, None
+                                        )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                         await logchanbot(traceback.format_exc())
@@ -2999,7 +3029,6 @@ class Games(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, game loading..."
         await ctx.response.send_message(msg)
         await self.bot_log()
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/game sokoban", int(time.time())))
@@ -3012,8 +3041,10 @@ class Games(commands.Cog):
         if serverinfo and 'enable_game' in serverinfo and serverinfo['enable_game'] == "NO":
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+                    f'{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.'
+                )
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. "\
+                "Please request Guild owner to enable by `/SETTING GAME`"
             await ctx.edit_original_message(content=msg)
             return
         try:

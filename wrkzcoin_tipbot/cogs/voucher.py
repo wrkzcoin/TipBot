@@ -12,7 +12,6 @@ import store
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, EMOJI_INFORMATION, num_format_coin, text_to_num, is_ascii
 from PIL import Image, ImageDraw, ImageFont
 from cogs.wallet import WalletAPI
-from config import config
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
@@ -51,9 +50,11 @@ class Voucher(commands.Cog):
             await logchanbot("voucher " +str(traceback.format_exc()))
         return None
 
-    async def sql_send_to_voucher(self, user_id: str, user_name: str, amount: float, reserved_fee: float, comment: str,
-                                  secret_string: str, voucher_image_name: str, coin: str, coin_decimal: int,
-                                  contract: str, per_unit_usd: float, user_server: str = 'DISCORD'):
+    async def sql_send_to_voucher(
+        self, user_id: str, user_name: str, amount: float, reserved_fee: float, comment: str,
+        secret_string: str, voucher_image_name: str, coin: str, coin_decimal: int,
+        contract: str, per_unit_usd: float, user_server: str = 'DISCORD'
+    ):
         coin_name = coin.upper()
         currentTs = int(time.time())
         tiptype = "VOUCHER"
@@ -106,8 +107,10 @@ class Voucher(commands.Cog):
             await logchanbot("voucher " +str(traceback.format_exc()))
         return None
 
-    async def sql_voucher_get_user(self, user_id: str, user_server: str = 'DISCORD', last: int = 10,
-                                   already_claimed: str = 'YESNO'):
+    async def sql_voucher_get_user(
+        self, user_id: str, user_server: str = 'DISCORD', last: int = 10,
+        already_claimed: str = 'YESNO'
+    ):
         user_server = user_server.upper()
         already_claimed = already_claimed.upper()
         try:
@@ -154,7 +157,6 @@ class Voucher(commands.Cog):
         coin: str,
         comment: str = None
     ):
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
         await ctx.response.send_message(msg, ephemeral=True)
 
@@ -237,9 +239,10 @@ class Voucher(commands.Cog):
             all_amount = False
             if not amount.isdigit() and amount.upper() == "ALL":
                 all_amount = True
-                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                       type_coin, height, deposit_confirm_depth,
-                                                                       SERVER_BOT)
+                userdata_balance = await store.sql_user_balance_single(
+                    str(ctx.author.id), coin_name, wallet_address, type_coin, 
+                    height, deposit_confirm_depth, SERVER_BOT
+                )
                 amount = float(userdata_balance['adjust'])
             # If $ is in amount, let's convert to coin/token
             elif "$" in amount[-1] or "$" in amount[0]:  # last is $
@@ -294,8 +297,10 @@ class Voucher(commands.Cog):
             else:
                 per_unit_usd = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
 
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.author.id), coin_name, wallet_address, type_coin,
+            height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = userdata_balance['adjust']
         if actual_balance <= 0:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please check your **{token_display}** balance.'
@@ -406,14 +411,14 @@ class Voucher(commands.Cog):
                         if ctx.author.id not in self.bot.TX_IN_PROCESS:
                             self.bot.TX_IN_PROCESS.append(ctx.author.id)
                             try:
-                                voucher_make = await self.sql_send_to_voucher(str(ctx.author.id),
-                                                                              '{}#{}'.format(ctx.author.name,
-                                                                                             ctx.author.discriminator),
-                                                                              voucher_each, fee_voucher_amount,
-                                                                              comment_str, secret_string,
-                                                                              unique_filename + ".png", coin_name,
-                                                                              coin_decimal, contract, per_unit_usd,
-                                                                              SERVER_BOT)
+                                voucher_make = await self.sql_send_to_voucher(
+                                    str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                    voucher_each, fee_voucher_amount,
+                                    comment_str, secret_string,
+                                    unique_filename + ".png", coin_name,
+                                    coin_decimal, contract, per_unit_usd,
+                                    SERVER_BOT
+                                )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                                 await logchanbot("voucher " +str(traceback.format_exc()))
@@ -429,11 +434,13 @@ class Voucher(commands.Cog):
 
                     if voucher_make:
                         try:
-                            await ctx.author.send(f'New Voucher Link ({i + 1} of {voucher_numb}): {qrstring}\n'
-                                                  '```'
-                                                  f'Amount: {num_format_coin(voucher_each, coin_name, coin_decimal, False)} {coin_name}\n'
-                                                  f'Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, coin_name, coin_decimal, False)} {coin_name}\n'
-                                                  f'Voucher comment: {comment_str}```')
+                            await ctx.author.send(
+                                f'New Voucher Link ({i + 1} of {voucher_numb}): {qrstring}\n'
+                                '```'
+                                f'Amount: {num_format_coin(voucher_each, coin_name, coin_decimal, False)} {coin_name}\n'
+                                f'Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, coin_name, coin_decimal, False)} {coin_name}\n'
+                                f'Voucher comment: {comment_str}```'
+                            )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                     else:
@@ -512,13 +519,13 @@ class Voucher(commands.Cog):
                     if ctx.author.id not in self.bot.TX_IN_PROCESS:
                         self.bot.TX_IN_PROCESS.append(ctx.author.id)
                         try:
-                            voucher_make = await self.sql_send_to_voucher(str(ctx.author.id),
-                                                                          '{}#{}'.format(ctx.author.name,
-                                                                                         ctx.author.discriminator),
-                                                                          voucher_each, fee_voucher_amount, comment_str,
-                                                                          secret_string, unique_filename + ".png",
-                                                                          coin_name, coin_decimal, contract,
-                                                                          per_unit_usd, SERVER_BOT)
+                            voucher_make = await self.sql_send_to_voucher(
+                                str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                voucher_each, fee_voucher_amount, comment_str,
+                                secret_string, unique_filename + ".png",
+                                coin_name, coin_decimal, contract,
+                                per_unit_usd, SERVER_BOT
+                            )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                             await logchanbot("voucher " +str(traceback.format_exc()))
@@ -534,11 +541,13 @@ class Voucher(commands.Cog):
 
                 if voucher_make:
                     try:
-                        msg = await ctx.author.send(f'New Voucher Link: {qrstring}\n'
-                                                    '```'
-                                                    f'Amount: {num_format_coin(voucher_each, coin_name, coin_decimal, False)} {coin_name}\n'
-                                                    f'Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, coin_name, coin_decimal, False)} {coin_name}\n'
-                                                    f'Voucher comment: {comment_str}```')
+                        msg = await ctx.author.send(
+                            f'New Voucher Link: {qrstring}\n'
+                            '```'
+                            f'Amount: {num_format_coin(voucher_each, coin_name, coin_decimal, False)} {coin_name}\n'
+                            f'Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, coin_name, coin_decimal, False)} {coin_name}\n'
+                            f'Voucher comment: {comment_str}```'
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot("voucher " +str(traceback.format_exc()))
@@ -564,10 +573,8 @@ class Voucher(commands.Cog):
         self,
         ctx
     ):
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
         await ctx.response.send_message(msg, ephemeral=True)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/voucher unclaim", int(time.time())))
@@ -610,7 +617,6 @@ class Voucher(commands.Cog):
         self,
         ctx
     ):
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
         await ctx.response.send_message(msg, ephemeral=True)
 
@@ -638,7 +644,6 @@ class Voucher(commands.Cog):
                 await logchanbot("voucher " +str(traceback.format_exc()))
         else:
             await ctx.edit_original_message(content=f'{ctx.author.mention}, you did not create any voucher yet.')
-        return
 
     @voucher.sub_command(
         usage="voucher claim",
@@ -648,10 +653,8 @@ class Voucher(commands.Cog):
         self,
         ctx
     ):
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
         await ctx.response.send_message(msg, ephemeral=True)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/voucher claim", int(time.time())))
@@ -697,7 +700,6 @@ class Voucher(commands.Cog):
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
         await ctx.response.send_message(msg, ephemeral=True)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/voucher getclaim", int(time.time())))
@@ -734,7 +736,6 @@ class Voucher(commands.Cog):
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking voucher..."
         await ctx.response.send_message(msg, ephemeral=True)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/voucher listcoins", int(time.time())))

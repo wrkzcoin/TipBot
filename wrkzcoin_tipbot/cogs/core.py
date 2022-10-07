@@ -19,7 +19,6 @@ class Core(commands.Cog):
         self.bot = bot
         self.utils = Utils(self.bot)
 
-
     # Setting command
     @commands.has_permissions(manage_channels=True)
     @commands.guild_only()
@@ -64,7 +63,6 @@ class Core(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     @commands.slash_command(
         usage="uptime",
         description="Tells how long the bot has been running."
@@ -74,7 +72,6 @@ class Core(commands.Cog):
         ctx
     ):
         return await self.async_uptime(ctx)
-
 
     async def async_help(self, ctx, cmd):
         all_slash_cmds = [cmd for cmd in self.bot.all_slash_commands]
@@ -488,7 +485,6 @@ You can withdraw with command `/withdraw amount coin address`. We recommend you 
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-
 
     @commands.slash_command(
         usage="help [command]",

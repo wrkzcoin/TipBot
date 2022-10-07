@@ -19,7 +19,6 @@ class DexScan(commands.Cog):
         self.bot = bot
         self.utils = Utils(self.bot)
 
-
     async def dex_get_list(self):
         try:
             await store.openConnection()
@@ -33,7 +32,9 @@ class DexScan(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return []
 
-    async def getPrice_generic(self, rpc: str, contract: str, wrapped_main_token: str, usdt_contract: str, lp_usdt_with_main_token: str, lp_token_main_token: str):
+    async def getPrice_generic(
+        self, rpc: str, contract: str, wrapped_main_token: str, usdt_contract: str, lp_usdt_with_main_token: str, lp_token_main_token: str
+    ):
         erc20_abi = json.loads('[{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"payable":true,"stateMutability":"payable","type":"fallback"},{"anonymous":false,"inputs":[{"indexed":true,"name":"owner","type":"address"},{"indexed":true,"name":"spender","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"from","type":"address"},{"indexed":true,"name":"to","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Transfer","type":"event"}]')
 
         web3 = Web3(Web3.HTTPProvider(rpc))
@@ -63,7 +64,9 @@ class DexScan(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def dex_insert_price(self, token_name: str, chain_id: str, net_name: str, contract: str, source_from: str, price):
+    async def dex_insert_price(
+        self, token_name: str, chain_id: str, net_name: str, contract: str, source_from: str, price
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -77,7 +80,6 @@ class DexScan(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("dexscan " +str(traceback.format_exc()))
         return False
-
 
     @tasks.loop(seconds=10.0)
     async def dex_price_loop(self):
@@ -126,15 +128,20 @@ class DexScan(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.dex_price_loop.is_running():
+                self.dex_price_loop.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.dex_price_loop.start()
-
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.dex_price_loop.is_running():
+                self.dex_price_loop.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.dex_price_loop.stop()
+        self.dex_price_loop.cancel()
 
 
 def setup(bot):

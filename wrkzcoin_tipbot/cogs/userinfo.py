@@ -134,11 +134,13 @@ class Userinfo(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.guild_only()
-    @commands.slash_command(usage="userinfo <member>",
-                            options=[
-                                Option("user", "Enter user", OptionType.user, required=False)
-                            ],
-                            description="Get user information.")
+    @commands.slash_command(
+        usage="userinfo <member>",
+        options=[
+            Option("user", "Enter user", OptionType.user, required=False)
+        ],
+        description="Get user information."
+    )
     async def userinfo(
         self,
         ctx,

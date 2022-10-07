@@ -20,7 +20,7 @@ import store
 from Bot import num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, \
     EMOJI_MONEYFACE, NOTIFICATION_OFF_CMD, EMOJI_SPEAK, EMOJI_BELL, EMOJI_BELL_SLASH, EMOJI_HOURGLASS_NOT_DONE, \
     EMOJI_INFORMATION, EMOJI_PARTY, SERVER_BOT, seconds_str, text_to_num, truncate
-from config import config
+
 from cogs.wallet import WalletAPI
 from cogs.utils import Utils
 
@@ -125,11 +125,13 @@ class FreeTip_Button(disnake.ui.View):
                     pass
             elif len(attend_list) > 0:
                 # re-check balance
-                get_deposit = await self.wallet_api.sql_get_userwallet(get_freetip['from_userid'], coin_name, net_name,
-                                                                       type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    get_freetip['from_userid'], coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
                 if get_deposit is None:
-                    get_deposit = await self.wallet_api.sql_register_user(get_freetip['from_userid'], coin_name,
-                                                                          net_name, type_coin, SERVER_BOT, 0, 0)
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        get_freetip['from_userid'], coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                    )
 
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -138,9 +140,10 @@ class FreeTip_Button(disnake.ui.View):
                     wallet_address = get_deposit['destination_tag']
 
                 height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                userdata_balance = await store.sql_user_balance_single(get_freetip['from_userid'], coin_name,
-                                                                       wallet_address, type_coin, height,
-                                                                       deposit_confirm_depth, SERVER_BOT)
+                userdata_balance = await store.sql_user_balance_single(
+                    get_freetip['from_userid'], coin_name, wallet_address, 
+                    type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
                 actual_balance = float(userdata_balance['adjust'])
 
                 if actual_balance < 0 and get_owner:
@@ -181,11 +184,13 @@ class FreeTip_Button(disnake.ui.View):
                                     del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tips = await store.sql_user_balance_mv_multiple(get_freetip['from_userid'], attend_list_id,
-                                                                        get_freetip['guild_id'],
-                                                                        get_freetip['channel_id'], float(amountDiv),
-                                                                        coin_name, "FREETIP", coin_decimal, SERVER_BOT,
-                                                                        contract, float(amount_in_usd), None)
+                        tips = await store.sql_user_balance_mv_multiple(
+                            get_freetip['from_userid'], attend_list_id,
+                            get_freetip['guild_id'],
+                            get_freetip['channel_id'], float(amountDiv),
+                            coin_name, "FREETIP", coin_decimal, SERVER_BOT,
+                            contract, float(amount_in_usd), None
+                        )
                         # If tip, update status
                         change_status = await store.discord_freetip_update(get_freetip['message_id'], "COMPLETED")
                         # Edit embed
@@ -269,9 +274,11 @@ class FreeTip_Button(disnake.ui.View):
                     content="You are the owner of airdrop id: {}".format(str(interaction.message.id)), ephemeral=True)
                 return
             # Check if user in
-            check_if_in = await store.check_if_freetip_collector_in(str(interaction.message.id),
-                                                                    get_message['from_userid'],
-                                                                    str(interaction.author.id))
+            check_if_in = await store.check_if_freetip_collector_in(
+                str(interaction.message.id),
+                get_message['from_userid'],
+                str(interaction.author.id)
+            )
             if check_if_in:
                 # await interaction.response.send_message(content="You already joined this airdrop id: {}".format(str(interaction.message.id)), ephemeral=True)
                 await interaction.response.defer()
@@ -291,11 +298,11 @@ class FreeTip_Button(disnake.ui.View):
                             self.ttlcache[key] = key
                     except Exception:
                         pass
-                    insert_airdrop = await store.insert_freetip_collector(str(interaction.message.id),
-                                                                          get_message['from_userid'],
-                                                                          str(interaction.author.id),
-                                                                          "{}#{}".format(interaction.author.name,
-                                                                                         interaction.author.discriminator))
+                    insert_airdrop = await store.insert_freetip_collector(
+                        str(interaction.message.id),
+                        get_message['from_userid'], str(interaction.author.id),
+                        "{}#{}".format(interaction.author.name, interaction.author.discriminator)
+                    )
                     msg = "Sucessfully joined airdrop id: {}".format(str(interaction.message.id))
                     await interaction.response.defer()
                     await interaction.response.send_message(content=msg, ephemeral=True)
@@ -557,11 +564,13 @@ class Tips(commands.Cog):
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+            )
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -580,8 +589,9 @@ class Tips(commands.Cog):
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
             all_amount = True
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                   type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
             amount = float(userdata_balance['adjust'])
         # If $ is in amount, let's convert to coin/token
         elif "$" in amount[-1] or "$" in amount[0]:  # last is $
@@ -726,8 +736,9 @@ class Tips(commands.Cog):
             await logchanbot("tips " +str(traceback.format_exc()))
 
         notifyList = await store.sql_get_tipnotify()
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.author.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
 
         if amount > max_tip or amount < min_tip:
@@ -770,11 +781,13 @@ class Tips(commands.Cog):
         if rand_user is not None:
             if ctx.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)
-            user_to = await self.wallet_api.sql_get_userwallet(str(rand_user.id), coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+            user_to = await self.wallet_api.sql_get_userwallet(
+                str(rand_user.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if user_to is None:
-                user_to = await self.wallet_api.sql_register_user(str(rand_user.id), coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0)
+                user_to = await self.wallet_api.sql_register_user(
+                    str(rand_user.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
 
             try:
                 try:
@@ -787,9 +800,11 @@ class Tips(commands.Cog):
                         del self.bot.user_balance_cache[key_coin]
                 except Exception:
                     pass
-                tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(rand_user.id), str(ctx.guild.id),
-                                                             str(ctx.channel.id), amount, coin_name, "RANDTIP",
-                                                             coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
+                tip = await store.sql_user_balance_mv_single(
+                    str(ctx.author.id), str(rand_user.id), str(ctx.guild.id),
+                    str(ctx.channel.id), amount, coin_name, "RANDTIP",
+                    coin_decimal, SERVER_BOT, contract, amount_in_usd, None
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("tips " +str(traceback.format_exc()))
@@ -913,11 +928,13 @@ class Tips(commands.Cog):
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
 
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+            )
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -936,8 +953,10 @@ class Tips(commands.Cog):
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
             all_amount = True
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                   type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address,
+                type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
             amount = float(userdata_balance['adjust'])
         # If $ is in amount, let's convert to coin/token
         elif "$" in amount[-1] or "$" in amount[0]:  # last is $
@@ -1022,8 +1041,10 @@ class Tips(commands.Cog):
             return
 
         notifyList = await store.sql_get_tipnotify()
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.author.id), coin_name, wallet_address, type_coin,
+            height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
 
         if amount > max_tip or amount < min_tip:
@@ -1075,14 +1096,16 @@ class Tips(commands.Cog):
                 try:
                     view = FreeTip_Button(ctx, self.bot, duration_s)
                     view.message = await ctx.original_message()
-                    insert_freetip = await store.insert_discord_freetip(coin_name, contract, str(ctx.author.id),
-                                                                        "{}#{}".format(ctx.author.name,
-                                                                                       ctx.author.discriminator),
-                                                                        str(view.message.id), comment_str,
-                                                                        str(ctx.guild.id), str(ctx.channel.id), amount,
-                                                                        total_in_usd, equivalent_usd, per_unit,
-                                                                        coin_decimal, int(time.time()) + duration_s,
-                                                                        "ONGOING")
+                    insert_freetip = await store.insert_discord_freetip(
+                        coin_name, contract, str(ctx.author.id),
+                        "{}#{}".format(ctx.author.name,
+                                        ctx.author.discriminator),
+                        str(view.message.id), comment_str,
+                        str(ctx.guild.id), str(ctx.channel.id), amount,
+                        total_in_usd, equivalent_usd, per_unit,
+                        coin_decimal, int(time.time()) + duration_s,
+                        "ONGOING"
+                    )
                     await ctx.edit_original_message(content=None, embed=embed, view=view)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -1164,11 +1187,13 @@ class Tips(commands.Cog):
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
 
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+            )
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -1187,8 +1212,10 @@ class Tips(commands.Cog):
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
             all_amount = True
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                   type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address,
+                type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
             amount = float(userdata_balance['adjust'])
         # If $ is in amount, let's convert to coin/token
         elif "$" in amount[-1] or "$" in amount[0]:  # last is $
@@ -1237,8 +1264,10 @@ class Tips(commands.Cog):
             return
 
         notifyList = await store.sql_get_tipnotify()
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.author.id), coin_name, wallet_address, type_coin,
+            height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
 
         if amount > max_tip or amount < min_tip:
@@ -1343,10 +1372,12 @@ class Tips(commands.Cog):
                             del self.bot.user_balance_cache[key_coin]
                 except Exception:
                     pass
-                tips = await store.sql_user_balance_mv_multiple(str(ctx.author.id), memids, str(ctx.guild.id),
-                                                                str(ctx.channel.id), float(amountDiv), coin_name,
-                                                                "TIPALL", coin_decimal, SERVER_BOT, contract,
-                                                                float(amount_in_usd), None)
+                tips = await store.sql_user_balance_mv_multiple(
+                    str(ctx.author.id), memids, str(ctx.guild.id),
+                    str(ctx.channel.id), float(amountDiv), coin_name,
+                    "TIPALL", coin_decimal, SERVER_BOT, contract,
+                    float(amount_in_usd), None
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("tips " +str(traceback.format_exc()))
@@ -1566,17 +1597,20 @@ class Tips(commands.Cog):
                                     await ctx.channel.send(msg)
                                     # tip all user who are in the list
                                     try:
-                                        await self.multiple_tip_talker(ctx, amount, coin_name,
-                                                                       getattr(self.bot.coin_list, coin_name),
-                                                                       message_talker, False)
+                                        await self.multiple_tip_talker(
+                                            ctx, amount, coin_name,
+                                            getattr(self.bot.coin_list, coin_name),
+                                            message_talker, False
+                                        )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                 return
                             elif num_user > 0:
-                                message_talker = await store.sql_get_messages(str(ctx.guild.id), str(ctx.channel.id), 0,
-                                                                              num_user + 1)
+                                message_talker = await store.sql_get_messages(
+                                    str(ctx.guild.id), str(ctx.channel.id), 0, num_user + 1
+                                )
                                 if len(message_talker) == 0:
                                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, there is not sufficient user to count.'
                                     await ctx.edit_original_message(content=msg)
@@ -1600,18 +1634,18 @@ class Tips(commands.Cog):
                                         traceback.print_exc(file=sys.stdout)
                                     # tip all user who are in the list
                                     try:
-                                        await self.multiple_tip_talker(ctx, amount, coin_name,
-                                                                       getattr(self.bot.coin_list, coin_name),
-                                                                       message_talker, False)
+                                        await self.multiple_tip_talker(
+                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name), message_talker, False
+                                        )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                 else:
                                     try:
-                                        await self.multiple_tip_talker(ctx, amount, coin_name,
-                                                                       getattr(self.bot.coin_list, coin_name),
-                                                                       message_talker, False)
+                                        await self.multiple_tip_talker(
+                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name), message_talker, False
+                                        )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
                                     except Exception:
@@ -1665,17 +1699,18 @@ class Tips(commands.Cog):
                                 await ctx.edit_original_message(content=msg)
                                 return
                             else:
-                                message_talker = await store.sql_get_messages(str(ctx.guild.id), str(ctx.channel.id),
-                                                                              time_given, None)
+                                message_talker = await store.sql_get_messages(
+                                    str(ctx.guild.id), str(ctx.channel.id), time_given, None
+                                )
                                 if len(message_talker) == 0:
                                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, there is no active talker in such period.'
                                     await ctx.edit_original_message(content=msg)
                                     return
                                 else:
                                     try:
-                                        await self.multiple_tip_talker(ctx, amount, coin_name,
-                                                                       getattr(self.bot.coin_list, coin_name),
-                                                                       message_talker, False)
+                                        await self.multiple_tip_talker(
+                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name), message_talker, False
+                                        )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
                                     except Exception:
@@ -1829,9 +1864,9 @@ class Tips(commands.Cog):
                                     await ctx.channel.send(msg)
                                     # tip all user who are in the list
                                     try:
-                                        await self.multiple_tip_talker(ctx, amount, coin_name,
-                                                                       getattr(self.bot.coin_list, coin_name),
-                                                                       message_talker, True)
+                                        await self.multiple_tip_talker(
+                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name), message_talker, True
+                                        )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
                                     except Exception:
@@ -1864,18 +1899,18 @@ class Tips(commands.Cog):
                                         traceback.print_exc(file=sys.stdout)
                                     # tip all user who are in the list
                                     try:
-                                        await self.multiple_tip_talker(ctx, amount, coin_name,
-                                                                       getattr(self.bot.coin_list, coin_name),
-                                                                       message_talker, True)
+                                        await self.multiple_tip_talker(
+                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name), message_talker, True
+                                        )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                 else:
                                     try:
-                                        await self.multiple_tip_talker(ctx, amount, coin_name,
-                                                                       getattr(self.bot.coin_list, coin_name),
-                                                                       message_talker, True)
+                                        await self.multiple_tip_talker(
+                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name), message_talker, True
+                                        )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
                                     except Exception:
@@ -1928,16 +1963,19 @@ class Tips(commands.Cog):
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please give try time inteval between 5mn to 30d.'
                                 await ctx.edit_original_message(content=msg)
                             else:
-                                message_talker = await store.sql_get_messages(str(ctx.guild.id), str(ctx.channel.id),
-                                                                              time_given, None)
+                                message_talker = await store.sql_get_messages(
+                                    str(ctx.guild.id), str(ctx.channel.id), time_given, None
+                                )
                                 if len(message_talker) == 0:
                                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, there is no active talker in such period.'
                                     await ctx.edit_original_message(content=msg)
                                 else:
                                     try:
-                                        await self.multiple_tip_talker(ctx, amount, coin_name,
-                                                                       getattr(self.bot.coin_list, coin_name),
-                                                                       message_talker, True)
+                                        await self.multiple_tip_talker(
+                                            ctx, amount, coin_name,
+                                            getattr(self.bot.coin_list, coin_name),
+                                            message_talker, True
+                                        )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
                                     except Exception:
@@ -2087,8 +2125,9 @@ class Tips(commands.Cog):
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
                             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name),
-                                                            "usd_equivalent_enable")
+                            usd_equivalent_enable = getattr(
+                                getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable"
+                            )
 
                             # token_info = getattr(self.bot.coin_list, coin_name)
                             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
@@ -2096,12 +2135,13 @@ class Tips(commands.Cog):
                             list_coin_decimal[coin_name] = coin_decimal
                             list_contract[coin_name] = contract
                             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name,
-                                                                                   net_name, type_coin, SERVER_BOT, 0)
+                            get_deposit = await self.wallet_api.sql_get_userwallet(
+                                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                            )
                             if get_deposit is None:
-                                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name,
-                                                                                      net_name, type_coin, SERVER_BOT,
-                                                                                      0, 0)
+                                get_deposit = await self.wallet_api.sql_register_user(
+                                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                                )
 
                             wallet_address = get_deposit['balance_wallet_address']
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -2110,10 +2150,10 @@ class Tips(commands.Cog):
                                 wallet_address = get_deposit['destination_tag']
 
                             if not amount.isdigit() and amount.upper() == "ALL":
-                                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name,
-                                                                                       wallet_address, type_coin,
-                                                                                       height, deposit_confirm_depth,
-                                                                                       SERVER_BOT)
+                                userdata_balance = await store.sql_user_balance_single(
+                                    str(ctx.author.id), coin_name, wallet_address, type_coin,
+                                    height, deposit_confirm_depth, SERVER_BOT
+                                )
                                 amount = float(userdata_balance['adjust'])
                             # If $ is in amount, let's convert to coin/token
                             elif "$" in amount[-1] or "$" in amount[0]:  # last is $
@@ -2156,25 +2196,23 @@ class Tips(commands.Cog):
                                     has_amount_error = True
                                     break
                                 else:
-                                    get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id),
-                                                                                           coin_name, net_name,
-                                                                                           type_coin, SERVER_BOT, 0)
+                                    get_deposit = await self.wallet_api.sql_get_userwallet(
+                                        str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                                    )
                                     if get_deposit is None:
-                                        get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id),
-                                                                                              coin_name, net_name,
-                                                                                              type_coin, SERVER_BOT, 0,
-                                                                                              0)
+                                        get_deposit = await self.wallet_api.sql_register_user(
+                                            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                                        )
 
                                     wallet_address = get_deposit['balance_wallet_address']
                                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                         wallet_address = get_deposit['paymentid']
                                     elif type_coin in ["XRP"]:
                                         wallet_address = get_deposit['destination_tag']
-                                    userdata_balance = await store.sql_user_balance_single(str(ctx.author.id),
-                                                                                           coin_name, wallet_address,
-                                                                                           type_coin, height,
-                                                                                           deposit_confirm_depth,
-                                                                                           SERVER_BOT)
+                                    userdata_balance = await store.sql_user_balance_single(
+                                        str(ctx.author.id), coin_name, wallet_address,
+                                        type_coin, height, deposit_confirm_depth, SERVER_BOT
+                                    )
                                     actual_balance = float(userdata_balance['adjust'])
                                     # Check min. max.
                                     if amount <= 0:
@@ -2269,11 +2307,10 @@ class Tips(commands.Cog):
                                         del self.bot.user_balance_cache[key_coin]
                             except Exception:
                                 pass
-                            tips = await store.sql_user_balance_mv_multiple(str(ctx.author.id), list_member_ids,
-                                                                            str(ctx.guild.id), str(ctx.channel.id), v,
-                                                                            k, tip_type, list_coin_decimal[k],
-                                                                            SERVER_BOT, list_contract[k],
-                                                                            float(list_amount_in_usd[k]), None)
+                            tips = await store.sql_user_balance_mv_multiple(
+                                str(ctx.author.id), list_member_ids, str(ctx.guild.id), str(ctx.channel.id), v,
+                                k, tip_type, list_coin_decimal[k], SERVER_BOT, list_contract[k],
+                                float(list_amount_in_usd[k]), None)
                             passed_tips.append("{} {}".format(
                                 num_format_coin(v * len(list_member_ids), k, list_coin_decimal[k], False), k))
                             each_tips.append("{} {}".format(num_format_coin(v, k, list_coin_decimal[k], False), k))
@@ -2359,11 +2396,14 @@ class Tips(commands.Cog):
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(id_tipper), coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            str(id_tipper), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(id_tipper), coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0, 1 if if_guild else 0)
+            get_deposit = await self.wallet_api.sql_register_user(
+                str(id_tipper), coin_name, net_name, type_coin,
+                SERVER_BOT, 0, 1 if if_guild else 0
+            )
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -2372,8 +2412,10 @@ class Tips(commands.Cog):
             wallet_address = get_deposit['destination_tag']
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-        userdata_balance = await store.sql_user_balance_single(id_tipper, coin_name, wallet_address, type_coin, height,
-                                                               deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            id_tipper, coin_name, wallet_address, type_coin, height,
+            deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
         # Check if tx in progress
         if int(id_tipper) in self.bot.TX_IN_PROCESS:
@@ -2385,8 +2427,10 @@ class Tips(commands.Cog):
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
             all_amount = True
-            userdata_balance = await store.sql_user_balance_single(id_tipper, coin_name, wallet_address, type_coin,
-                                                                   height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                id_tipper, coin_name, wallet_address, type_coin,
+                height, deposit_confirm_depth, SERVER_BOT
+            )
             amount = float(userdata_balance['adjust'])
         # If $ is in amount, let's convert to coin/token
         elif "$" in amount[-1] or "$" in amount[0]:  # last is $
@@ -2525,12 +2569,12 @@ class Tips(commands.Cog):
                         del self.bot.user_balance_cache[key_coin]
             except Exception:
                 pass
-            tips = await store.sql_user_balance_mv_multiple(id_tipper, memids, str(ctx.guild.id), str(ctx.channel.id),
-                                                            amount, coin_name, tip_type, coin_decimal, SERVER_BOT,
-                                                            contract, float(amount_in_usd),
-                                                            "By {}#{} / {}".format(ctx.author.name,
-                                                                                   ctx.author.discriminator,
-                                                                                   ctx.author.id) if if_guild else None)  # if_guild, put extra message as who execute command
+            tips = await store.sql_user_balance_mv_multiple(
+                id_tipper, memids, str(ctx.guild.id), str(ctx.channel.id),
+                amount, coin_name, tip_type, coin_decimal, SERVER_BOT,
+                contract, float(amount_in_usd),
+                "By {}#{} / {}".format(ctx.author.name,  ctx.author.discriminator, ctx.author.id) if if_guild else None
+            )  # if_guild, put extra message as who execute command
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("tips " +str(traceback.format_exc()))
@@ -2593,10 +2637,13 @@ class Tips(commands.Cog):
         min_tip = float(coin_dict['real_min_tip'])
         max_tip = float(coin_dict['real_max_tip'])
 
-        get_deposit = await self.wallet_api.sql_get_userwallet(id_tipper, coin_name, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            id_tipper, coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(id_tipper, coin_name, net_name, type_coin, SERVER_BOT,
-                                                                  0, 1 if if_guild else 0)
+            get_deposit = await self.wallet_api.sql_register_user(
+                id_tipper, coin_name, net_name, type_coin, SERVER_BOT, 0, 1 if if_guild else 0
+            )
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -2615,8 +2662,9 @@ class Tips(commands.Cog):
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
             all_amount = True
-            userdata_balance = await store.sql_user_balance_single(id_tipper, coin_name, wallet_address, type_coin,
-                                                                   height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                id_tipper, coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
             amount = float(userdata_balance['adjust'])
         # If $ is in amount, let's convert to coin/token
         elif "$" in amount[-1] or "$" in amount[0]:  # last is $
@@ -2683,11 +2731,13 @@ class Tips(commands.Cog):
             try:
                 member = self.bot.get_user(int(member_id))
                 if member and member in ctx.guild.members and ctx.author.id != member.id:
-                    user_to = await self.wallet_api.sql_get_userwallet(str(member_id), coin_name, net_name, type_coin,
-                                                                       SERVER_BOT, 0)
+                    user_to = await self.wallet_api.sql_get_userwallet(
+                        str(member_id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
                     if user_to is None:
-                        user_to = await self.wallet_api.sql_register_user(str(member_id), coin_name, net_name,
-                                                                          type_coin, SERVER_BOT, 0, 0)
+                        user_to = await self.wallet_api.sql_register_user(
+                            str(member_id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                        )
                     try:
                         list_receivers.append(str(member_id))
                     except Exception:
@@ -2788,12 +2838,12 @@ class Tips(commands.Cog):
                         del self.bot.user_balance_cache[key_coin]
             except Exception:
                 pass
-            tiptalk = await store.sql_user_balance_mv_multiple(id_tipper, list_receivers, str(ctx.guild.id),
-                                                               str(ctx.channel.id), amount, coin_name, "TIPTALK",
-                                                               coin_decimal, SERVER_BOT, contract, float(amount_in_usd),
-                                                               "By {}#{} / {}".format(ctx.author.name,
-                                                                                      ctx.author.discriminator,
-                                                                                      ctx.author.id) if if_guild else None)  # if_guild, put extra message as who execute command
+            tiptalk = await store.sql_user_balance_mv_multiple(
+                id_tipper, list_receivers, str(ctx.guild.id), str(ctx.channel.id), amount, coin_name, "TIPTALK",
+                coin_decimal, SERVER_BOT, contract, float(amount_in_usd),
+                "By {}#{} / {}".format(ctx.author.name, ctx.author.discriminator, 
+                ctx.author.id) if if_guild else None
+            )  # if_guild, put extra message as who execute command
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("tips " +str(traceback.format_exc()))

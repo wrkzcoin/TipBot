@@ -113,7 +113,8 @@ class CoinMap(commands.Cog):
                 await ctx.edit_original_message(content=self.bot.config['coin360']['static_coin360_link'] + map_image)
             else:
                 await ctx.edit_original_message(
-                    content=f'{EMOJI_RED_NO} {ctx.author.mention}, internal error during fetch image.')
+                    content=f'{EMOJI_RED_NO} {ctx.author.mention}, internal error during fetch image.'
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

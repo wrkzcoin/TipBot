@@ -1,4 +1,5 @@
 import numexpr
+import traceback, sys
 import time
 from Bot import EMOJI_INFORMATION, EMOJI_ERROR, SERVER_BOT
 from disnake.app_commands import Option

@@ -6,7 +6,6 @@ import time
 import disnake
 from Bot import EMOJI_INFORMATION, logchanbot, SERVER_BOT
 from cogs.wallet import WalletAPI
-from config import config
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands

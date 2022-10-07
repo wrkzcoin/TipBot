@@ -27,12 +27,13 @@ from cogs.utils import Utils
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, seconds_str, \
     RowButtonRowCloseAnyMessage, SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE, DEFAULT_TICKER, text_to_num
 from cogs.wallet import WalletAPI
-from config import config
 
 
 # Tip
-async def add_memetip(meme_id: str, owner_userid: str, from_userid: str, guild_id: str, channel_id: str,
-                      real_amount: float, coin: str, token_decimal: int, contract: str, real_amount_usd: float):
+async def add_memetip(
+    meme_id: str, owner_userid: str, from_userid: str, guild_id: str, channel_id: str,
+    real_amount: float, coin: str, token_decimal: int, contract: str, real_amount_usd: float
+):
     try:
         token_name = coin.upper()
         currentTs = int(time.time())
@@ -88,7 +89,7 @@ class MemeTipReport(disnake.ui.Modal):
         self.meme_id = meme_id
         self.owner_userid = owner_userid
         self.get_meme = get_meme
-        self.meme_channel_upload = 965814338294267925
+        self.meme_channel_upload = self.bot.config['discord']['meme_upload_channel_log']
         components = [
             disnake.ui.TextInput(
                 label="Your contact",
@@ -181,7 +182,7 @@ class TipOtherCoin(disnake.ui.Modal):
         self.meme_id = meme_id
         self.owner_userid = owner_userid
         self.get_meme = get_meme
-        self.meme_tip_channel = 965926811622047804  # memetip
+        self.meme_tip_channel = self.bot.config['discord']['meme_tip_channel']  # memetip
         components = [
             disnake.ui.TextInput(
                 label="Amount",
@@ -244,11 +245,13 @@ class TipOtherCoin(disnake.ui.Modal):
         min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), coin_name, net_name,
-                                                               type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(interaction.author.id), coin_name, net_name,
-                                                                  type_coin, SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(
+                str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+            )
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -263,8 +266,10 @@ class TipOtherCoin(disnake.ui.Modal):
             return
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-        userdata_balance = await store.sql_user_balance_single(str(interaction.author.id), coin_name, wallet_address,
-                                                               type_coin, height, deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            str(interaction.author.id), coin_name, wallet_address,
+            type_coin, height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
         if amount <= 0:
             msg = f'{EMOJI_RED_NO} {interaction.author.mention}, please get more {token_display}.'
@@ -297,23 +302,28 @@ class TipOtherCoin(disnake.ui.Modal):
 
         if interaction.author.id not in self.bot.TX_IN_PROCESS:
             self.bot.TX_IN_PROCESS.append(interaction.author.id)
-        user_to = await self.wallet_api.sql_get_userwallet(self.owner_userid, coin_name, net_name, type_coin,
-                                                           SERVER_BOT, 0)
+        user_to = await self.wallet_api.sql_get_userwallet(
+            self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if user_to is None:
-            user_to = await self.wallet_api.sql_register_user(self.owner_userid, coin_name, net_name, type_coin,
-                                                              SERVER_BOT, 0)
+            user_to = await self.wallet_api.sql_register_user(
+                self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
         try:
             guild_id = "DM"
             channel_id = "DM"
             if hasattr(interaction, "guild") and hasattr(interaction.guild, "id"):
                 guild_id = interaction.guild.id
                 channel_id = interaction.channel.id
-            tip = await add_memetip(self.meme_id, self.owner_userid, str(interaction.author.id), guild_id, channel_id,
-                                    amount, coin_name, coin_decimal, contract, amount_in_usd)
+            tip = await add_memetip(
+                self.meme_id, self.owner_userid, str(interaction.author.id), guild_id, channel_id,
+                amount, coin_name, coin_decimal, contract, amount_in_usd
+            )
             if tip > 0:
                 try:
-                    msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(self.meme_id,
-                                                                                                    amount, coin_name)
+                    msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(
+                        self.meme_id, amount, coin_name
+                    )
                     get_meme_owner = self.bot.get_user(int(self.owner_userid))
                     await get_meme_owner.send(content=msg)
                 except Exception:
@@ -352,8 +362,8 @@ class MemeTip_Button(disnake.ui.View):
         self.ctx = ctx
         self.meme_id = meme_id
         self.owner_userid = owner_userid
-        self.meme_tip_channel = 965926811622047804  # memetip
-        self.meme_web_path = "https://tipbot-static.wrkz.work/discordtip_v2_meme/"
+        self.meme_tip_channel = self.bot.config['discord']['meme_tip_channel']  # memetip
+        self.meme_web_path = self.bot.config['discord']['meme_web_path']
         self.get_meme = get_meme
 
     async def on_timeout(self):
@@ -390,11 +400,13 @@ class MemeTip_Button(disnake.ui.View):
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), coin_name, net_name,
-                                                                   type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(interaction.author.id), coin_name, net_name,
-                                                                      type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -409,9 +421,10 @@ class MemeTip_Button(disnake.ui.View):
                 return
 
             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-            userdata_balance = await store.sql_user_balance_single(str(interaction.author.id), coin_name,
-                                                                   wallet_address, type_coin, height,
-                                                                   deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(interaction.author.id), coin_name, wallet_address,
+                type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
             actual_balance = float(userdata_balance['adjust'])
             if amount <= 0:
                 msg = f'{EMOJI_RED_NO} {interaction.author.mention}, please get more {token_display}.'
@@ -444,11 +457,13 @@ class MemeTip_Button(disnake.ui.View):
 
             if interaction.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(interaction.author.id)
-            user_to = await self.wallet_api.sql_get_userwallet(self.owner_userid, coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+            user_to = await self.wallet_api.sql_get_userwallet(
+                self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if user_to is None:
-                user_to = await self.wallet_api.sql_register_user(self.owner_userid, coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0)
+                user_to = await self.wallet_api.sql_register_user(
+                    self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
             try:
                 guild_id = "DM"
                 channel_id = "DM"
@@ -459,9 +474,9 @@ class MemeTip_Button(disnake.ui.View):
                                         channel_id, amount, coin_name, coin_decimal, contract, amount_in_usd)
                 if tip > 0:
                     try:
-                        msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(self.meme_id,
-                                                                                                        amount,
-                                                                                                        coin_name)
+                        msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(
+                            self.meme_id, amount, coin_name
+                        )
                         get_meme_owner = self.bot.get_user(int(self.owner_userid))
                         await get_meme_owner.send(content=msg)
                     except Exception:
@@ -518,11 +533,13 @@ class MemeTip_Button(disnake.ui.View):
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), coin_name, net_name,
-                                                                   type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(interaction.author.id), coin_name, net_name,
-                                                                      type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -537,9 +554,10 @@ class MemeTip_Button(disnake.ui.View):
                 return
 
             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-            userdata_balance = await store.sql_user_balance_single(str(interaction.author.id), coin_name,
-                                                                   wallet_address, type_coin, height,
-                                                                   deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(interaction.author.id), coin_name, wallet_address, 
+                type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
             actual_balance = float(userdata_balance['adjust'])
             if amount <= 0:
                 msg = f'{EMOJI_RED_NO} {interaction.author.mention}, please get more {token_display}.'
@@ -572,24 +590,28 @@ class MemeTip_Button(disnake.ui.View):
 
             if interaction.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(interaction.author.id)
-            user_to = await self.wallet_api.sql_get_userwallet(self.owner_userid, coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+            user_to = await self.wallet_api.sql_get_userwallet(
+                self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if user_to is None:
-                user_to = await self.wallet_api.sql_register_user(self.owner_userid, coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0)
+                user_to = await self.wallet_api.sql_register_user(
+                    self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
             try:
                 guild_id = "DM"
                 channel_id = "DM"
                 if hasattr(interaction, "guild") and hasattr(interaction.guild, "id"):
                     guild_id = interaction.guild.id
                     channel_id = interaction.channel.id
-                tip = await add_memetip(self.meme_id, self.owner_userid, str(interaction.author.id), guild_id,
-                                        channel_id, amount, coin_name, coin_decimal, contract, amount_in_usd)
+                tip = await add_memetip(
+                    self.meme_id, self.owner_userid, str(interaction.author.id), guild_id,
+                    channel_id, amount, coin_name, coin_decimal, contract, amount_in_usd
+                )
                 if tip > 0:
                     try:
-                        msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(self.meme_id,
-                                                                                                        amount,
-                                                                                                        coin_name)
+                        msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(
+                            self.meme_id, amount, coin_name
+                        )
                         get_meme_owner = self.bot.get_user(int(self.owner_userid))
                         await get_meme_owner.send(content=msg)
                     except Exception:
@@ -646,11 +668,13 @@ class MemeTip_Button(disnake.ui.View):
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), coin_name, net_name,
-                                                                   type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(interaction.author.id), coin_name, net_name,
-                                                                      type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -665,9 +689,10 @@ class MemeTip_Button(disnake.ui.View):
                 return
 
             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-            userdata_balance = await store.sql_user_balance_single(str(interaction.author.id), coin_name,
-                                                                   wallet_address, type_coin, height,
-                                                                   deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(interaction.author.id), coin_name, wallet_address, type_coin, height,
+                deposit_confirm_depth, SERVER_BOT
+            )
             actual_balance = float(userdata_balance['adjust'])
             if amount <= 0:
                 msg = f'{EMOJI_RED_NO} {interaction.author.mention}, please get more {token_display}.'
@@ -700,11 +725,13 @@ class MemeTip_Button(disnake.ui.View):
 
             if interaction.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(interaction.author.id)
-            user_to = await self.wallet_api.sql_get_userwallet(self.owner_userid, coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+            user_to = await self.wallet_api.sql_get_userwallet(
+                self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if user_to is None:
-                user_to = await self.wallet_api.sql_register_user(self.owner_userid, coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0)
+                user_to = await self.wallet_api.sql_register_user(
+                    self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
             try:
                 guild_id = "DM"
                 channel_id = "DM"
@@ -715,9 +742,9 @@ class MemeTip_Button(disnake.ui.View):
                                         channel_id, amount, coin_name, coin_decimal, contract, amount_in_usd)
                 if tip > 0:
                     try:
-                        msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(self.meme_id,
-                                                                                                        amount,
-                                                                                                        coin_name)
+                        msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(
+                            self.meme_id, amount, coin_name
+                        )
                         get_meme_owner = self.bot.get_user(int(self.owner_userid))
                         await get_meme_owner.send(content=msg)
                     except Exception:
@@ -774,11 +801,13 @@ class MemeTip_Button(disnake.ui.View):
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(interaction.author.id), coin_name, net_name,
-                                                                   type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(interaction.author.id), coin_name, net_name,
-                                                                      type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -793,9 +822,10 @@ class MemeTip_Button(disnake.ui.View):
                 return
 
             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-            userdata_balance = await store.sql_user_balance_single(str(interaction.author.id), coin_name,
-                                                                   wallet_address, type_coin, height,
-                                                                   deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(interaction.author.id), coin_name, wallet_address,
+                type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
             actual_balance = float(userdata_balance['adjust'])
             if amount <= 0:
                 msg = f'{EMOJI_RED_NO} {interaction.author.mention}, please get more {token_display}.'
@@ -828,11 +858,13 @@ class MemeTip_Button(disnake.ui.View):
 
             if interaction.author.id not in self.bot.TX_IN_PROCESS:
                 self.bot.TX_IN_PROCESS.append(interaction.author.id)
-            user_to = await self.wallet_api.sql_get_userwallet(self.owner_userid, coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+            user_to = await self.wallet_api.sql_get_userwallet(
+                self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if user_to is None:
-                user_to = await self.wallet_api.sql_register_user(self.owner_userid, coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0)
+                user_to = await self.wallet_api.sql_register_user(
+                    self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
             try:
                 guild_id = "DM"
                 channel_id = "DM"
@@ -843,9 +875,9 @@ class MemeTip_Button(disnake.ui.View):
                                         channel_id, amount, coin_name, coin_decimal, contract, amount_in_usd)
                 if tip > 0:
                     try:
-                        msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(self.meme_id,
-                                                                                                        amount,
-                                                                                                        coin_name)
+                        msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(
+                            self.meme_id, amount, coin_name
+                        )
                         get_meme_owner = self.bot.get_user(int(self.owner_userid))
                         await get_meme_owner.send(content=msg)
                     except Exception:
@@ -901,8 +933,7 @@ class MemeReview_Button(disnake.ui.View):
         self.ctx = ctx
         self.meme_id = meme_id
         self.owner_userid = owner_userid
-        self.meme_channel_upload = 965814338294267925
-
+        self.meme_channel_upload = self.bot.config['discord']['meme_upload_channel_log']
 
     async def on_timeout(self):
         original_message = await self.ctx.original_message()
@@ -916,7 +947,6 @@ class MemeReview_Button(disnake.ui.View):
             await interaction.response.send_message(
                 content=f"{interaction.author.mention}, that's not your reviewed item.")
             return
-
         try:
             meme_db = MemePls(self.bot)
             toggle = await meme_db.meme_toggle_status(self.meme_id, 1, interaction.author.id, int(time.time()))
@@ -978,19 +1008,22 @@ class MemePls(commands.Cog):
         self.enable_logchan = True
         self.meme_accept = ["image/jpeg", "image/gif", "image/png"]
         self.meme_storage = "./discordtip_v2_meme/"
-        self.meme_web_path = "https://tipbot-static.wrkz.work/discordtip_v2_meme/"
-        self.meme_channel_upload = 965814338294267925
-        self.meme_reviewer = [386761001808166912]
+        self.meme_web_path = self.bot.config['discord']['meme_web_path']
+        self.meme_channel_upload = self.bot.config['discord']['meme_upload_channel_log']
+        self.meme_reviewer = self.bot.config['discord']['meme_reviewer']
 
-    async def save_uploaded(self, key: str, owner_userid: str, owner_name: str, guild_id: str, channel_id: str,
-                            caption: str, original_name: str, saved_name: str, file_type: str, sha256: str,
-                            uploaded_date: int):
+    async def save_uploaded(
+        self, key: str, owner_userid: str, owner_name: str, guild_id: str, channel_id: str,
+        caption: str, original_name: str, saved_name: str, file_type: str, sha256: str,
+        uploaded_date: int
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO meme_uploaded (`key`, `owner_userid`, `owner_name`, `guild_id`, `channel_id`, `caption`, `original_name`, `saved_name`, `file_type`, `sha256`, `uploaded_date`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO meme_uploaded (`key`, `owner_userid`, `owner_name`, `guild_id`, 
+                    `channel_id`, `caption`, `original_name`, `saved_name`, `file_type`, `sha256`, `uploaded_date`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (
                         key, owner_userid, owner_name, guild_id, channel_id, caption, original_name, saved_name,
                         file_type,
@@ -1128,8 +1161,10 @@ class MemePls(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return 0
 
-    async def meme_update_view(self, meme_id: str, owner_userid: str, called_by: str, guild_id: str, channel_id: str,
-                               inc: int = 1):
+    async def meme_update_view(
+        self, meme_id: str, owner_userid: str, called_by: str, guild_id: str, channel_id: str,
+        inc: int = 1
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -1152,7 +1187,6 @@ class MemePls(commands.Cog):
     async def meme_view_here(self, ctx):
         await self.bot_log()
         await ctx.response.send_message(f"{ctx.author.mention}, checking random meme...")
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/memepls view here", int(time.time())))
@@ -1166,7 +1200,8 @@ class MemePls(commands.Cog):
                 if serverinfo and serverinfo['enable_memepls'] == "NO":
                     if self.enable_logchan:
                         await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried /memepls in {ctx.guild.name} / {ctx.guild.id} which is disable.')
+                            f'{ctx.author.name} / {ctx.author.id} tried /memepls in {ctx.guild.name} / {ctx.guild.id} which is disable.'
+                        )
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, /memepls in this guild is disable. You can enable by `/setting memepls`."
                     await ctx.edit_original_message(content=msg)
                     return

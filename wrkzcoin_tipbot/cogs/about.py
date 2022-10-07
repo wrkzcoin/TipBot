@@ -61,8 +61,10 @@ class About(commands.Cog):
             description = "Total guild(s): `{}` Total member(s): `{}`\n" \
                 "Unique: `{}` Bots: `{}`\n" \
                 "Online: `{}`\n\n" \
-                "**Usage**: CPU: `{} %` Memory: `{} MiB`".format(guilds, total_members, total_unique, total_bots,
-                                                             total_online, round(cpu_usage, 1), round(memory_usage, 1))
+                "**Usage**: CPU: `{} %` Memory: `{} MiB`".format(
+                    guilds, total_members, total_unique, total_bots,
+                    total_online, round(cpu_usage, 1), round(memory_usage, 1)
+            )
             ts = datetime.fromtimestamp(int(psutil.Process().create_time()))
         except Exception:
             traceback.print_exc(file=sys.stdout)

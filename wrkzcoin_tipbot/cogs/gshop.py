@@ -190,15 +190,19 @@ class GShop(commands.Cog):
             await logchanbot("gshop " +str(traceback.format_exc()))
         return None
 
-    async def add_guild_role_shop(self, item_id: str, guild_id: str, role_id: str, role_name: str,
-                                  duration: int, token_name: str, token_decimal: int, real_amount: float,
-                                  max_slot: int, already_ordered: int, created_date: int, created_by_uid: str,
-                                  created_by_uname: str):
+    async def add_guild_role_shop(
+        self, item_id: str, guild_id: str, role_id: str, role_name: str,
+        duration: int, token_name: str, token_decimal: int, real_amount: float,
+        max_slot: int, already_ordered: int, created_date: int, created_by_uid: str,
+        created_by_uname: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                        sql = """ INSERT INTO `discord_guild_role_shop` (`item_id`, `guild_id`, `role_id`, `role_name`, `duration`, `token_name`, `token_decimal`, `real_amount`, `max_slot`, `already_ordered`, `created_date`, `created_by_uid`, `created_by_uname`) 
+                        sql = """ INSERT INTO `discord_guild_role_shop` (`item_id`, `guild_id`, 
+                        `role_id`, `role_name`, `duration`, `token_name`, `token_decimal`, `real_amount`,
+                        `max_slot`, `already_ordered`, `created_date`, `created_by_uid`, `created_by_uname`) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                         """
                         add_arg = [item_id, guild_id, role_id, role_name, 
@@ -213,7 +217,9 @@ class GShop(commands.Cog):
             await logchanbot("gshop " +str(traceback.format_exc()))
         return False
 
-    async def delete_guild_role_shop(self, item_id: str, guild_id: str, deleted_by_uid: str):
+    async def delete_guild_role_shop(
+        self, item_id: str, guild_id: str, deleted_by_uid: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -298,10 +304,12 @@ class GShop(commands.Cog):
             await logchanbot("gshop " +str(traceback.format_exc()))
         return False
 
-    async def guild_role_ordered(self, role_shop_id: int, role_shop_json: str, item_id: str, guild_id: str, role_id: str,
-                                 acc_real_amount: float, token_name: str, token_decimal: int,
-                                 ordered_by_uid: str, ordered_by_uname: str, renewed_date: int,
-                                 expired_date: int, is_expired: int):
+    async def guild_role_ordered(
+        self, role_shop_id: int, role_shop_json: str, item_id: str, guild_id: str, role_id: str,
+        acc_real_amount: float, token_name: str, token_decimal: int,
+        ordered_by_uid: str, ordered_by_uname: str, renewed_date: int,
+        expired_date: int, is_expired: int
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -351,7 +359,6 @@ class GShop(commands.Cog):
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /gshop loading..."
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/gshop delete", int(time.time())))
@@ -554,9 +561,11 @@ class GShop(commands.Cog):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        move_balance = await store.sql_user_balance_mv_single(str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id),
-                                                                              str(ctx.channel.id), amount, coin_name, "GSHOP",
-                                                                              coin_decimal, SERVER_BOT, contract, real_amount_usd, None)
+                        move_balance = await store.sql_user_balance_mv_single(
+                            str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id),
+                            str(ctx.channel.id), amount, coin_name, "GSHOP",
+                            coin_decimal, SERVER_BOT, contract, real_amount_usd, None
+                        )
                         if move_balance is True:
                             # Assign role
                             await member.add_roles(role)
@@ -751,10 +760,12 @@ class GShop(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        add_listing = await self.add_guild_role_shop(item_id, str(ctx.guild.id), role_name.id, 
-                                                     role_name.name, duration, coin_name,
-                                                     coin_decimal, amount, stocks, 0, int(time.time()),
-                                                     str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator))
+        add_listing = await self.add_guild_role_shop(
+            item_id, str(ctx.guild.id), role_name.id, 
+            role_name.name, duration, coin_name,
+            coin_decimal, amount, stocks, 0, int(time.time()),
+            str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator)
+        )
         if add_listing is True:
             msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, new item listed item_id: `{item_id}`.'
             await ctx.edit_original_message(content=msg)
@@ -765,7 +776,6 @@ class GShop(commands.Cog):
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error!'
             await ctx.edit_original_message(content=msg)
             await logchanbot(f"[GSHOP] item added failed `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`.")
-
 
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
@@ -814,11 +824,9 @@ class GShop(commands.Cog):
                                 value="Role: {}\nCost: {} {}\nAvailable/Total: {}/{}".format(each['role_name'], num_format_coin(each['real_amount'], each['token_name'], each['token_decimal'], False), each['token_name'], each['max_slot'] - each['already_ordered'], each['max_slot']), inline=False)
             await ctx.edit_original_message(content=None, embed=embed)
 
-
     async def cog_load(self):
         await self.bot.wait_until_ready()
         self.role_ordered_check.start()
-
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.

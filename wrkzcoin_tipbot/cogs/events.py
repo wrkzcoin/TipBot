@@ -38,13 +38,16 @@ class Events(commands.Cog):
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
     # Update stats
-    async def insert_new_stats(self, num_server: int, num_online: int, num_users: int, num_bots: int, num_tips: int,
-                               date: int):
+    async def insert_new_stats(
+        self, num_server: int, num_online: int, num_users: int, 
+        num_bots: int, num_tips: int, date: int
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_stats (`num_server`, `num_online`, `num_users`, `num_bots`, `num_tips`, `date`) VALUES (%s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO discord_stats (`num_server`, `num_online`, `num_users`, `num_bots`, `num_tips`, `date`) 
+                    VALUES (%s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (num_server, num_online, num_users, num_bots, num_tips, date))
                     await conn.commit()
         except Exception:
@@ -65,20 +68,26 @@ class Events(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("events " +str(traceback.format_exc()))
         return None
-
     # End Update stats
 
     # Trivia / Math
-    async def insert_mathtip_responder(self, message_id: str, guild_id: str, from_userid: str, responder_id: str,
-                                       responder_name: str, result: str):
+    async def insert_mathtip_responder(
+        self, message_id: str, guild_id: str, from_userid: str, responder_id: str,
+        responder_name: str, result: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT IGNORE INTO discord_mathtip_responder (`message_id`, `guild_id`, `from_userid`, `responder_id`, `responder_name`, `from_and_responder_uniq`, `result`, `inserted_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (message_id, guild_id, from_userid, responder_id, responder_name,
-                                            "{}-{}-{}".format(message_id, from_userid, responder_id), result,
-                                            int(time.time())))
+                    sql = """ INSERT IGNORE INTO discord_mathtip_responder 
+                    (`message_id`, `guild_id`, `from_userid`, `responder_id`, `responder_name`, 
+                    `from_and_responder_uniq`, `result`, `inserted_time`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (
+                        message_id, guild_id, from_userid, responder_id, responder_name,
+                        "{}-{}-{}".format(message_id, from_userid, responder_id), result,
+                        int(time.time()))
+                    )
                     await conn.commit()
                     return True
         except Exception:
@@ -86,13 +95,16 @@ class Events(commands.Cog):
             await logchanbot("events " +str(traceback.format_exc()))
         return False
 
-    async def check_if_mathtip_responder_in(self, message_id: str, from_userid: str, responder_id: str):
+    async def check_if_mathtip_responder_in(
+        self, message_id: str, from_userid: str, responder_id: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     swap_in = 0.0
-                    sql = """ SELECT * FROM `discord_mathtip_responder` WHERE `message_id`=%s AND `from_userid`=%s AND `responder_id`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `discord_mathtip_responder` 
+                    WHERE `message_id`=%s AND `from_userid`=%s AND `responder_id`=%s LIMIT 1 """
                     await cur.execute(sql, (message_id, from_userid, responder_id))
                     result = await cur.fetchone()
                     if result and len(result) > 0: return True
@@ -106,7 +118,8 @@ class Events(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_mathtip_tmp` WHERE `message_id`=%s """
+                    sql = """ SELECT * FROM `discord_mathtip_tmp` 
+                    WHERE `message_id`=%s """
                     await cur.execute(sql, (msg_id))
                     result = await cur.fetchone()
                     if result: return result
@@ -121,7 +134,8 @@ class Events(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     swap_in = 0.0
-                    sql = """ SELECT * FROM `discord_triviatip_tmp` WHERE `message_id`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `discord_triviatip_tmp` 
+                    WHERE `message_id`=%s LIMIT 1 """
                     await cur.execute(sql, (message_id))
                     result = await cur.fetchone()
                     if result: return result
@@ -130,13 +144,18 @@ class Events(commands.Cog):
             await logchanbot("events " +str(traceback.format_exc()))
         return None
 
-    async def insert_trivia_responder(self, message_id: str, guild_id: str, question_id: str, from_userid: str,
-                                      responder_id: str, responder_name: str, result: str):
+    async def insert_trivia_responder(
+        self, message_id: str, guild_id: str, question_id: str, from_userid: str,
+        responder_id: str, responder_name: str, result: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT IGNORE INTO discord_triviatip_responder (`message_id`, `guild_id`, `question_id`, `from_userid`, `responder_id`, `responder_name`, `from_and_responder_uniq`, `result`, `inserted_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT IGNORE INTO discord_triviatip_responder 
+                    (`message_id`, `guild_id`, `question_id`, `from_userid`, `responder_id`, 
+                    `responder_name`, `from_and_responder_uniq`, `result`, `inserted_time`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (
                     message_id, guild_id, question_id, from_userid, responder_id, responder_name,
                     "{}-{}-{}".format(message_id, from_userid, responder_id), result, int(time.time())))
@@ -147,13 +166,17 @@ class Events(commands.Cog):
             await logchanbot("events " +str(traceback.format_exc()))
         return False
 
-    async def check_if_trivia_responder_in(self, message_id: str, from_userid: str, responder_id: str):
+    async def check_if_trivia_responder_in(
+        self, message_id: str, from_userid: str, responder_id: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     swap_in = 0.0
-                    sql = """ SELECT * FROM `discord_triviatip_responder` WHERE `message_id`=%s AND `from_userid`=%s AND `responder_id`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `discord_triviatip_responder` 
+                    WHERE `message_id`=%s AND `from_userid`=%s 
+                    AND `responder_id`=%s LIMIT 1 """
                     await cur.execute(sql, (message_id, from_userid, responder_id))
                     result = await cur.fetchone()
                     if result and len(result) > 0: return True
@@ -161,15 +184,17 @@ class Events(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("events " +str(traceback.format_exc()))
         return False
-
     # End Trivia / Math
 
-    async def get_discord_bot_message(self, message_id: str, is_deleted: str = "NO"):
+    async def get_discord_bot_message(
+        self, message_id: str, is_deleted: str = "NO"
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_bot_message_owner` WHERE `message_id`=%s AND `is_deleted`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `discord_bot_message_owner` 
+                    WHERE `message_id`=%s AND `is_deleted`=%s LIMIT 1 """
                     await cur.execute(sql, (message_id, is_deleted))
                     result = await cur.fetchone()
                     if result: return result
@@ -183,7 +208,9 @@ class Events(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `discord_bot_message_owner` SET `is_deleted`=%s, `date_deleted`=%s WHERE `message_id`=%s AND `owner_id`=%s LIMIT 1 """
+                    sql = """ UPDATE `discord_bot_message_owner` 
+                    SET `is_deleted`=%s, `date_deleted`=%s 
+                    WHERE `message_id`=%s AND `owner_id`=%s LIMIT 1 """
                     await cur.execute(sql, ("YES", int(time.time()), message_id, owner_id))
                     await conn.commit()
                     return True
@@ -197,11 +224,12 @@ class Events(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_messages (`serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, 
-                               `message_author`, `message_id`, `message_time`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE 
-                              `message_time`=VALUES(`message_time`)
-                              """
+                    sql = """ INSERT INTO discord_messages (`serverid`, `server_name`, `channel_id`, 
+                    `channel_name`, `user_id`, `message_author`, `message_id`, `message_time`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) 
+                    ON DUPLICATE KEY UPDATE
+                        `message_time`=VALUES(`message_time`)
+                    """
                     await cur.executemany(sql, list_message)
                     return cur.rowcount
         except Exception:
@@ -213,7 +241,8 @@ class Events(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ DELETE FROM discord_messages WHERE `message_id`=%s AND `user_id`=%s LIMIT 1 """
+                    sql = """ DELETE FROM discord_messages 
+                    WHERE `message_id`=%s AND `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, (message_id, user_id))
                     await conn.commit()
         except Exception:
@@ -246,7 +275,6 @@ class Events(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-
     @tasks.loop(seconds=60.0)
     async def reload_coin_paprika(self):
         time_lap = 60  # seconds
@@ -265,7 +293,6 @@ class Events(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-
     @tasks.loop(seconds=60.0)
     async def reload_coingecko(self):
         time_lap = 60  # seconds
@@ -283,7 +310,6 @@ class Events(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
-
 
     @tasks.loop(seconds=3600.0)
     async def update_discord_stats(self):
@@ -309,7 +335,6 @@ class Events(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-
     async def get_coin_setting(self):
         try:
             await store.openConnection()
@@ -317,7 +342,8 @@ class Events(commands.Cog):
                 async with conn.cursor() as cur:
                     coin_list = {}
                     coin_list_name = []
-                    sql = """ SELECT * FROM `coin_settings` WHERE `enable`=1 """
+                    sql = """ SELECT * FROM `coin_settings` 
+                    WHERE `enable`=1 """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -336,7 +362,8 @@ class Events(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list_name = []
-                    sql = """ SELECT `coin_name` FROM `coin_settings` WHERE `enable`=1 """
+                    sql = """ SELECT `coin_name` 
+                    FROM `coin_settings` WHERE `enable`=1 """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -396,7 +423,8 @@ class Events(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `coin_paprika_list` WHERE `enable`=1 """
+                    sql = """ SELECT * FROM `coin_paprika_list` 
+                    WHERE `enable`=1 """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -441,7 +469,8 @@ class Events(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT `coin_name` FROM `coin_settings` WHERE `enable`=1 AND `enable_faucet`=%s """
+                    sql = """ SELECT `coin_name` FROM `coin_settings` 
+                    WHERE `enable`=1 AND `enable_faucet`=%s """
                     await cur.execute(sql, (1))
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -498,19 +527,6 @@ class Events(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print('Logged in as')
-        print(self.bot.user.name)
-        print(self.bot.user.id)
-        print('------')
-        self.bot.start_time = datetime.datetime.now()
-        game = disnake.Game(name="Starts with /")
-        await self.bot.change_presence(status=disnake.Status.online, activity=game)
-        botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-        await botLogChan.send(f'I am back :)')
-
     @commands.Cog.listener()
     async def on_message(self, message):
         # should ignore webhook message
@@ -520,14 +536,17 @@ class Events(commands.Cog):
         if hasattr(message, "channel") and hasattr(message.channel, "id") and message.webhook_id:
             return
 
-        if hasattr(message, "channel") and hasattr(message.channel,
-                                                   "id") and message.author.bot == False and message.author != self.bot.user:
+        if hasattr(message, "channel") and hasattr(message.channel, "id") and\
+             message.author.bot == False and message.author != self.bot.user:
             if message.id not in self.message_id_list:
                 try:
-                    self.bot.message_list.append((str(message.guild.id), message.guild.name, str(message.channel.id),
-                                                  message.channel.name, str(message.author.id),
-                                                  "{}#{}".format(message.author.name, message.author.discriminator),
-                                                  str(message.id), int(time.time())))
+                    self.bot.message_list.append((
+                        str(message.guild.id), message.guild.name, str(message.channel.id),
+                        message.channel.name, str(message.author.id),
+                        "{}#{}".format(message.author.name, message.author.discriminator),
+                        str(message.id), int(time.time())
+                        )
+                    )
                     self.message_id_list.append(message.id)
                 except Exception:
                     pass
@@ -554,8 +573,8 @@ class Events(commands.Cog):
         if hasattr(message, "channel") and hasattr(message.channel, "id") and message.webhook_id:
             return
 
-        if hasattr(message, "channel") and hasattr(message.channel,
-                                                   "id") and message.author.bot == False and message.author != self.bot.user:
+        if hasattr(message, "channel") and hasattr(message.channel, "id") and\
+             message.author.bot == False and message.author != self.bot.user:
             if message.id in self.message_id_list:
                 self.is_saving_message = True
                 # saving_message
@@ -628,7 +647,9 @@ class Events(commands.Cog):
                 if get_message and int(get_message['from_userid']) == inter.author.id:
                     await inter.edit_original_message(content=f"QuickDrop ID {str(inter.message.id)}: You are the owner of the drop!")
                     await logchanbot(
-                        f"[QUICKDROP] owner want to collect quick drop in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
+                        f"[QUICKDROP] owner want to collect quick drop in guild {inter.guild.name} / {inter.guild.id} "\
+                        f"by {inter.author.name}#{inter.author.discriminator}!"
+                    )
                     return
 
                 if get_message is None:
@@ -653,9 +674,11 @@ class Events(commands.Cog):
                     except Exception:
                         pass
                     # Update quickdrop table
-                    quick = await store.update_quickdrop_id(str(inter.message.id), "COMPLETED", 
-                                                            str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator),
-                                                            int(time.time()))
+                    quick = await store.update_quickdrop_id(
+                        str(inter.message.id), "COMPLETED", 
+                        str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator),
+                        int(time.time())
+                    )
                     if quick:
                         try:
                             key_coin = get_message['from_userid'] + "_" + get_message['token_name'] + "_" + SERVER_BOT
@@ -667,11 +690,13 @@ class Events(commands.Cog):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tip = await store.sql_user_balance_mv_single(get_message['from_userid'], str(inter.author.id), get_message['guild_id'],
-                                                                     get_message['channel_id'], get_message['real_amount'], 
-                                                                     get_message['token_name'], "QUICKDROP",
-                                                                     get_message['token_decimal'], SERVER_BOT, 
-                                                                     get_message['contract'], get_message['real_amount_usd'], None)
+                        tip = await store.sql_user_balance_mv_single(
+                            get_message['from_userid'], str(inter.author.id), get_message['guild_id'],
+                            get_message['channel_id'], get_message['real_amount'], 
+                            get_message['token_name'], "QUICKDROP",
+                            get_message['token_decimal'], SERVER_BOT, 
+                            get_message['contract'], get_message['real_amount_usd'], None
+                        )
                         if tip:
                             notifyList = await store.sql_get_tipnotify()
                             if inter.author.id not in notifyList:
@@ -716,7 +741,9 @@ class Events(commands.Cog):
                 if get_message is None:
                     await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: Failed to collect!")
                     await logchanbot(
-                        f"[ERROR TALKDROP] Failed to collect in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
+                        f"[ERROR TALKDROP] Failed to collect in guild {inter.guild.name} / "\
+                        f"{inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!"
+                    )
                     return
                 else:
                     # Cache it first
@@ -743,13 +770,22 @@ class Events(commands.Cog):
                         await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: You are already in the list!")
                         return
                     # If user is not in talk list
-                    num_message = await store.talkdrop_check_user(get_message['guild_id'], get_message['talked_in_channel'], 
-                                                                  str(inter.author.id), get_message['talked_from_when'])
+                    num_message = await store.talkdrop_check_user(
+                        get_message['guild_id'], get_message['talked_in_channel'], 
+                        str(inter.author.id), get_message['talked_from_when']
+                    )
                     if num_message < get_message['minimum_message']:
                         required_msg = get_message['minimum_message']
-                        await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: You don't have enough message in channel <#{get_message['talked_in_channel']}>. Requires {str(required_msg)} and having {str(num_message)}.")
+                        await inter.edit_original_message(
+                            content=f"Talkdrop ID {str(inter.message.id)}: You don't have enough message in "\
+                                f"channel <#{get_message['talked_in_channel']}>. Requires {str(required_msg)} "\
+                                f"and having {str(num_message)}."
+                            )
                         await logchanbot(
-                            f"[TALKDROP] guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator} shortage of number of message. Requires {str(required_msg)} and having {str(num_message)}!")
+                            f"[TALKDROP] guild {inter.guild.name} / {inter.guild.id} by "\
+                            f"{inter.author.name}#{inter.author.discriminator} shortage of number of message. "\
+                            f"Requires {str(required_msg)} and having {str(num_message)}!"
+                        )
                         return
                     else:
                         # Add him to there
@@ -811,7 +847,9 @@ class Events(commands.Cog):
                         else:
                             await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: Internal error!")
                             await logchanbot(
-                                f"[ERROR TALKDROP] Failed to add in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
+                                f"[ERROR TALKDROP] Failed to add in guild {inter.guild.name} / {inter.guild.id} "\
+                                f"by {inter.author.name}#{inter.author.discriminator}!"
+                            )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif inter.message.author == self.bot.user and inter.component.custom_id.startswith("partydrop_tipbot"):
@@ -845,11 +883,13 @@ class Events(commands.Cog):
                     token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                     deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
 
-                    get_deposit = await self.wallet_api.sql_get_userwallet(str(inter.author.id), coin_name, net_name, type_coin,
-                                                                           SERVER_BOT, 0)
+                    get_deposit = await self.wallet_api.sql_get_userwallet(
+                        str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
                     if get_deposit is None:
-                        get_deposit = await self.wallet_api.sql_register_user(str(inter.author.id), coin_name, net_name, type_coin,
-                                                                              SERVER_BOT, 0, 0)
+                        get_deposit = await self.wallet_api.sql_register_user(
+                            str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                        )
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                         wallet_address = get_deposit['paymentid']
@@ -925,9 +965,11 @@ class Events(commands.Cog):
                             return
                         else:
                             self.bot.TX_IN_PROCESS.append(inter.author.id)
-                        attend = await store.attend_party(str(inter.message.id), str(inter.author.id), 
-                                                          "{}#{}".format(inter.author.name, inter.author.discriminator),
-                                                          new_amount, get_message['token_name'], get_message['token_decimal'])
+                        attend = await store.attend_party(
+                            str(inter.message.id), str(inter.author.id), 
+                            "{}#{}".format(inter.author.name, inter.author.discriminator),
+                            new_amount, get_message['token_name'], get_message['token_decimal']
+                        )
                         if inter.author.id in self.bot.TX_IN_PROCESS:
                             self.bot.TX_IN_PROCESS.remove(inter.author.id)
                         if attend is True:
@@ -970,9 +1012,8 @@ class Events(commands.Cog):
                             return
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-        elif hasattr(inter,
-                     "message") and inter.message.author == self.bot.user and inter.component.custom_id.startswith(
-                "trivia_answers_"):
+        elif hasattr(inter, "message") and inter.message.author == self.bot.user \
+            and inter.component.custom_id.startswith("trivia_answers_"):
             try:
                 msg = "Nothing to do!"
                 get_message = None
@@ -987,15 +1028,17 @@ class Events(commands.Cog):
                 if get_message is None:
                     await inter.response.send_message(content="Failed for Trivia Button Click!")
                     await logchanbot(
-                        f"[ERROR TRIVIA] Failed to click Trivia Tip in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
+                        f"[ERROR TRIVIA] Failed to click Trivia Tip in guild {inter.guild.name} / "\
+                        f"{inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
                     return
 
                 if get_message and int(get_message['from_userid']) == inter.author.id:
                     ## await inter.response.send_message(content="You are the owner of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
                     return
                 # Check if user in
-                check_if_in = await self.check_if_trivia_responder_in(str(inter.message.id), get_message['from_userid'],
-                                                                      str(inter.author.id))
+                check_if_in = await self.check_if_trivia_responder_in(
+                    str(inter.message.id), get_message['from_userid'], str(inter.author.id)
+                )
                 if check_if_in:
                     # await inter.response.send_message(content="You already answer of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
                     await inter.response.defer()
@@ -1017,14 +1060,11 @@ class Events(commands.Cog):
                         result = "WRONG"
                         if inter.component.label == get_message['button_correct_answer']:
                             result = "RIGHT"
-                        insert_triviatip = await self.insert_trivia_responder(str(inter.message.id),
-                                                                              get_message['guild_id'],
-                                                                              get_message['question_id'],
-                                                                              get_message['from_userid'],
-                                                                              str(inter.author.id),
-                                                                              "{}#{}".format(inter.author.name,
-                                                                                             inter.author.discriminator),
-                                                                              result)
+                        insert_triviatip = await self.insert_trivia_responder(
+                            str(inter.message.id), get_message['guild_id'], get_message['question_id'],
+                            get_message['from_userid'], str(inter.author.id),
+                            "{}#{}".format(inter.author.name, inter.author.discriminator), result
+                        )
                         msg = "You answered to trivia id: {}".format(str(inter.message.id))
                         await inter.response.defer()
                         await inter.response.send_message(content=msg, ephemeral=True)
@@ -1036,9 +1076,8 @@ class Events(commands.Cog):
                 )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-        elif hasattr(inter,
-                     "message") and inter.message.author == self.bot.user and inter.component.custom_id.startswith(
-                "mathtip_answers_"):
+        elif hasattr(inter, "message") and inter.message.author == self.bot.user \
+            and inter.component.custom_id.startswith("mathtip_answers_"):
             try:
                 msg = "Nothing to do!"
                 try:
@@ -1052,15 +1091,18 @@ class Events(commands.Cog):
                 if get_message is None:
                     await inter.response.send_message(content="Failed for Math Tip Button Click!")
                     await logchanbot(
-                        f"[ERROR MATHTIP] Failed to click Math Tip in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
+                        f"[ERROR MATHTIP] Failed to click Math Tip in guild {inter.guild.name} / {inter.guild.id} "\
+                        f"by {inter.author.name}#{inter.author.discriminator}!"
+                    )
                     return
 
                 if get_message and int(get_message['from_userid']) == inter.author.id:
                     ## await inter.response.send_message(content="You are the owner of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
                     return
                 # Check if user in
-                check_if_in = await self.check_if_mathtip_responder_in(str(inter.message.id),
-                                                                       get_message['from_userid'], str(inter.author.id))
+                check_if_in = await self.check_if_mathtip_responder_in(
+                    str(inter.message.id), get_message['from_userid'], str(inter.author.id)
+                )
                 if check_if_in:
                     # await inter.response.send_message(content="You already answer of trivia id: {}".format(str(inter.message.id)), ephemeral=True)
                     await inter.response.defer()
@@ -1082,13 +1124,11 @@ class Events(commands.Cog):
                         result = "WRONG"
                         if float(inter.component.label) == float(get_message['eval_answer']):
                             result = "RIGHT"
-                        insert_triviatip = await self.insert_mathtip_responder(str(inter.message.id),
-                                                                               get_message['guild_id'],
-                                                                               get_message['from_userid'],
-                                                                               str(inter.author.id),
-                                                                               "{}#{}".format(inter.author.name,
-                                                                                              inter.author.discriminator),
-                                                                               result)
+                        insert_triviatip = await self.insert_mathtip_responder(
+                            str(inter.message.id), get_message['guild_id'], get_message['from_userid'],
+                            str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator),
+                            result
+                        )
                         msg = "You answered to trivia id: {}".format(str(inter.message.id))
                         await inter.response.defer()
                         await inter.response.send_message(content=msg, ephemeral=True)
@@ -1132,11 +1172,13 @@ class Events(commands.Cog):
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                get_deposit = await self.wallet_api.sql_get_userwallet(str(inter.author.id), coin_name, net_name,
-                                                                       type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
                 if get_deposit is None:
-                    get_deposit = await self.wallet_api.sql_register_user(str(inter.author.id), coin_name, net_name,
-                                                                          type_coin, SERVER_BOT, 0)
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
 
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
@@ -1147,9 +1189,10 @@ class Events(commands.Cog):
 
                 height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 # height can be None
-                userdata_balance = await store.sql_user_balance_single(str(inter.author.id), coin_name, wallet_address,
-                                                                       type_coin, height, deposit_confirm_depth,
-                                                                       SERVER_BOT)
+                userdata_balance = await store.sql_user_balance_single(
+                    str(inter.author.id), coin_name, wallet_address,
+                    type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
                 total_balance = userdata_balance['adjust']
 
                 # Negative check
@@ -1170,8 +1213,9 @@ class Events(commands.Cog):
                 else:
                     # Else, go on and Insert work to DB
                     add_energy = get_food_id['gained_energy']
-                    get_userinfo = await db.economy_get_user(str(inter.author.id), '{}#{}'.format(inter.author.name,
-                                                                                                  inter.author.discriminator))
+                    get_userinfo = await db.economy_get_user(str(inter.author.id), '{}#{}'.format(
+                        inter.author.name, inter.author.discriminator)
+                    )
 
                     if get_userinfo['energy_current'] + add_energy > get_userinfo['energy_total']:
                         add_energy = get_userinfo['energy_total'] - get_userinfo['energy_current']
@@ -1189,12 +1233,14 @@ class Events(commands.Cog):
                     except Exception:
                         pass
                     # Not to duplicate
-                    insert_eating = await db.economy_insert_eating(str(inter.author.id), str(inter.guild.id),
-                                                                   get_food_id['cost_coin_name'],
-                                                                   get_food_id['cost_expense_amount'],
-                                                                   get_food_id['fee_ratio'] * get_food_id[
-                                                                       'cost_expense_amount'],
-                                                                   coin_decimal, contract, add_energy)
+                    insert_eating = await db.economy_insert_eating(
+                        str(inter.author.id), str(inter.guild.id),
+                        get_food_id['cost_coin_name'],
+                        get_food_id['cost_expense_amount'],
+                        get_food_id['fee_ratio'] * get_food_id[
+                            'cost_expense_amount'],
+                        coin_decimal, contract, add_energy
+                    )
 
                     paid_money = '{} {}'.format(
                         num_format_coin(get_food_id['cost_expense_amount'], get_food_id['cost_coin_name'], coin_decimal,
@@ -1231,8 +1277,9 @@ class Events(commands.Cog):
                 all_work_in_guild = {}
                 get_worklist_guild = await db.economy_get_guild_worklist(str(inter.guild.id), False)
                 if get_worklist_guild and len(get_worklist_guild) > 0:
-                    get_userinfo = await db.economy_get_user(str(inter.author.id), '{}#{}'.format(inter.author.name,
-                                                                                                  inter.author.discriminator))
+                    get_userinfo = await db.economy_get_user(str(inter.author.id), '{}#{}'.format(
+                        inter.author.name, inter.author.discriminator)
+                    )
                     for each_work in get_worklist_guild:
                         all_work_in_guild[each_work['work_emoji']] = each_work['work_id']
 
@@ -1246,14 +1293,15 @@ class Events(commands.Cog):
                     coin_name = get_work_id['reward_coin_name']
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
 
-                    insert_activity = await db.economy_insert_activity(str(inter.author.id), str(inter.guild.id),
-                                                                       all_work_in_guild[name],
-                                                                       get_work_id['duration_in_second'], coin_name,
-                                                                       get_work_id['reward_expense_amount'],
-                                                                       get_work_id['reward_expense_amount'] *
-                                                                       get_work_id['fee_ratio'], coin_decimal,
-                                                                       add_energy, get_work_id['health_loss'],
-                                                                       get_work_id['energy_loss'])
+                    insert_activity = await db.economy_insert_activity(
+                        str(inter.author.id), str(inter.guild.id), all_work_in_guild[name],
+                        get_work_id['duration_in_second'], coin_name,
+                        get_work_id['reward_expense_amount'],
+                        get_work_id['reward_expense_amount'] *
+                        get_work_id['fee_ratio'], coin_decimal,
+                        add_energy, get_work_id['health_loss'],
+                        get_work_id['energy_loss']
+                    )
                     if insert_activity:
                         additional_text = " You can claim in: `{}`.".format(
                             seconds_str(get_work_id['duration_in_second']))
@@ -1376,10 +1424,12 @@ class Events(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        add_server_info = await store.sql_addinfo_by_server(str(guild.id), guild.name, self.bot.config['discord']['prefixCmd'], "WRKZ",
-                                                            True)
+        add_server_info = await store.sql_addinfo_by_server(
+            str(guild.id), guild.name, self.bot.config['discord']['prefixCmd'], "WRKZ", True
+        )
         await self.botLogChan.send(
-            f'Bot joins a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. Total guilds: {len(self.bot.guilds)}.')
+            f'Bot joins a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. Total guilds: {len(self.bot.guilds)}.'
+        )
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
@@ -1423,23 +1473,47 @@ class Events(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         add_server_info = await store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
         await self.botLogChan.send(
-            f'Bot was removed from guild {guild.name} / {guild.id}. Total guilds: {len(self.bot.guilds)}')
+            f'Bot was removed from guild {guild.name} / {guild.id}. Total guilds: {len(self.bot.guilds)}'
+        )
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print('Logged in as')
+        print(self.bot.user.name)
+        print(self.bot.user.id)
+        print('------')
+        self.bot.start_time = datetime.datetime.now()
+        game = disnake.Game(name="Starts with /")
+        await self.bot.change_presence(status=disnake.Status.online, activity=game)
+        botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
+        await botLogChan.send(f'I am back :)')
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.process_saving_message.is_running():
+                self.process_saving_message.start()
+            if not self.reload_coin_paprika.is_running():
+                self.reload_coin_paprika.start()
+            if not self.reload_coingecko.is_running():
+                self.reload_coingecko.start()
+            if not self.update_discord_stats.is_running():
+                self.update_discord_stats.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.process_saving_message.start()
-        self.reload_coin_paprika.start()
-        self.reload_coingecko.start()
-        self.update_discord_stats.start()
-
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.process_saving_message.is_running():
+                self.process_saving_message.start()
+            if not self.reload_coin_paprika.is_running():
+                self.reload_coin_paprika.start()
+            if not self.reload_coingecko.is_running():
+                self.reload_coingecko.start()
+            if not self.update_discord_stats.is_running():
+                self.update_discord_stats.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.process_saving_message.stop()
-        self.reload_coin_paprika.stop()
-        self.reload_coingecko.stop()
-        self.update_discord_stats.stop()
+        self.process_saving_message.cancel()
+        self.reload_coin_paprika.cancel()
+        self.reload_coingecko.cancel()
+        self.update_discord_stats.cancel()
 
 
 def setup(bot):

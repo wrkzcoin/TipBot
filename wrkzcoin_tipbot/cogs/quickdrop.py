@@ -20,7 +20,6 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
 from disnake.ext import commands, tasks
-from config import config
 
 from cogs.utils import Utils
 
@@ -195,11 +194,13 @@ class QuickDrop(commands.Cog):
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                   SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name,
-                                                                      type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -217,8 +218,10 @@ class QuickDrop(commands.Cog):
         try:
             # Check amount
             if not amount.isdigit() and amount.upper() == "ALL":
-                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                       type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                userdata_balance = await store.sql_user_balance_single(
+                    str(ctx.author.id), coin_name, wallet_address,
+                    type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
                 amount = float(userdata_balance['adjust'])
             # If $ is in amount, let's convert to coin/token
             elif "$" in amount[-1] or "$" in amount[0]:  # last is $
@@ -274,8 +277,10 @@ class QuickDrop(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
 
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                                   height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin,
+                height, deposit_confirm_depth, SERVER_BOT
+            )
             actual_balance = float(userdata_balance['adjust'])
 
             if amount > max_tip or amount < min_tip:
@@ -326,12 +331,14 @@ class QuickDrop(commands.Cog):
                 msg = await ctx.channel.send(content=None, embed=embed, view=view)
                 view.message = msg
                 view.channel_interact = ctx.channel.id
-                quick = await store.insert_quickdrop_create(coin_name, contract, str(ctx.author.id),
-                                                            owner_displayname, str(view.message.id),
-                                                            str(ctx.guild.id), str(ctx.channel.id), 
-                                                            amount, total_in_usd,
-                                                            equivalent_usd, per_unit, coin_decimal, 
-                                                            drop_end, "ONGOING")
+                quick = await store.insert_quickdrop_create(
+                    coin_name, contract, str(ctx.author.id),
+                    owner_displayname, str(view.message.id),
+                    str(ctx.guild.id), str(ctx.channel.id), 
+                    amount, total_in_usd,
+                    equivalent_usd, per_unit, coin_decimal, 
+                    drop_end, "ONGOING"
+                )
                 await ctx.delete_original_message()
             except Exception:
                 traceback.print_exc(file=sys.stdout)

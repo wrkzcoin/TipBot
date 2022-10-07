@@ -93,8 +93,8 @@ class DiscordBotList(commands.Cog):
                             if insert_vote:
                                 try:
                                     await self.vote_logchan(
-                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{bot_id}> type `{type_vote}` "\
-                                        "in discordbotlist.com.'
+                                        f"[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{bot_id}> type `{type_vote}` "\
+                                        "in discordbotlist.com."
                                     )
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)

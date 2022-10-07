@@ -119,17 +119,18 @@ def openRedis():
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-async def log_to_channel(channel_id: int, content: str) -> None:
+async def log_to_channel(log_type: str, content: str) -> None:
+    # log_type: withdraw, other: general
     try:
-        channel = bot.get_channel(channel_id)
-        if channel:
-            await channel.send(content)
-        else:
-            webhook = DiscordWebhook(
-                url=bot.config['discord']['webhook_url'],
-                content=f'{disnake.utils.escape_markdown(content)}'
-            )
-            webhook.execute()
+        url = bot.config['discord']['webhook_url']
+        if log_type == "withdraw":
+            url = bot.config['discord']['withdraw_web_hook']
+
+        webhook = DiscordWebhook(
+            url=url,
+            content=f'{disnake.utils.escape_markdown(content)}'
+        )
+        webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 

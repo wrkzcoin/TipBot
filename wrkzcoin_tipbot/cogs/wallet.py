@@ -4504,7 +4504,7 @@ class Wallet(commands.Cog):
                                                 except Exception:
                                                     traceback.print_exc(file=sys.stdout)
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'], 
+                                                        "withdraw", 
                                                         "wallet monitoring_tweet_command " + str(traceback.format_exc())
                                                     )
 
@@ -4520,7 +4520,7 @@ class Wallet(commands.Cog):
                                                         traceback.print_exc(file=sys.stdout)
                                                     try:
                                                         await log_to_channel(
-                                                            self.bot.config['discord']['withdraw_channel_id'], 
+                                                            "withdraw", 
                                                             f"[{user_server}] A user {tw_user} sucessfully withdrew "\
                                                             f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                             f"{token_display}{equivalent_usd}"
@@ -4538,7 +4538,7 @@ class Wallet(commands.Cog):
                                                 except Exception:
                                                     traceback.print_exc(file=sys.stdout)
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                        "withdraw",
                                                         "wallet monitoring_tweet_command " + str(traceback.format_exc())
                                                     )
 
@@ -4549,7 +4549,7 @@ class Wallet(commands.Cog):
                                                     response = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                        "withdraw",
                                                         f"[{user_server}] User {tw_user} sucessfully withdrew "\
                                                         f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                         f"{token_display}{equivalent_usd}"
@@ -4576,7 +4576,7 @@ class Wallet(commands.Cog):
                                                             response = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`{fee_txt}'
                                                             await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                             await log_to_channel(
-                                                                self.bot.config['discord']['withdraw_channel_id'],
+                                                                "withdraw",
                                                                 f"User {tw_user} successfully withdrew "\
                                                                 f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                                 f"{token_display}{equivalent_usd}."
@@ -4584,7 +4584,7 @@ class Wallet(commands.Cog):
                                                             continue
                                                         else:
                                                             await log_to_channel(
-                                                                self.bot.config['discord']['withdraw_channel_id'],
+                                                                "withdraw",
                                                                 f"[{user_server}] A user {tw_user} failed to withdraw "\
                                                                 f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                                 f"{token_display}{equivalent_usd}."
@@ -4592,7 +4592,7 @@ class Wallet(commands.Cog):
                                                     except Exception:
                                                         traceback.print_exc(file=sys.stdout)
                                                         await log_to_channel(
-                                                            self.bot.config['discord']['withdraw_channel_id'],
+                                                            "withdraw",
                                                             "wallet monitoring_tweet_command " + str(traceback.format_exc())
                                                         )
                                             elif type_coin == "CHIA":
@@ -4608,7 +4608,7 @@ class Wallet(commands.Cog):
                                                     await update_bot_response(each_msg['text'], response,
                                                                               each_msg['id'])
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                        "withdraw",
                                                         f"[{user_server}] User {tw_user} successfully withdrew "\
                                                         f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                         f"{token_display}{equivalent_usd}."
@@ -4616,7 +4616,7 @@ class Wallet(commands.Cog):
                                                     continue
                                                 else:
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                        "withdraw",
                                                         f"[{user_server}] User {tw_user} failed to withdraw "\
                                                         f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                         f"{token_display}{equivalent_usd}."
@@ -4643,7 +4643,7 @@ class Wallet(commands.Cog):
                                                         f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                        "withdraw",
                                                         f"[{user_server}] A user {tw_user} successfully withdrew "\
                                                         f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                         f"{token_display}{equivalent_usd}."
@@ -4651,7 +4651,7 @@ class Wallet(commands.Cog):
                                                     continue
                                                 else:
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                        "withdraw",
                                                         f"[{user_server}] [FAILED] A user {tw_user} failed to withdraw "\
                                                         f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                         f"{token_display}{equivalent_usd}."
@@ -4683,7 +4683,7 @@ class Wallet(commands.Cog):
                                                             f"`{tx_hash}`{fee_txt}"
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
-                                                            self.bot.config['discord']['withdraw_channel_id'],
+                                                            "withdraw",
                                                             f"[{user_server}] User {tw_user} successfully withdrew "\
                                                             f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                             f"{token_display}{equivalent_usd}."
@@ -4695,7 +4695,7 @@ class Wallet(commands.Cog):
                                                         response = f'Internal error, please try again later!'
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
-                                                            self.bot.config['discord']['withdraw_channel_id'],
+                                                            "withdraw",
                                                             f"[{user_server}] [FAILED] User {tw_user} failed to withdraw "\
                                                             f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                             f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
@@ -4705,7 +4705,7 @@ class Wallet(commands.Cog):
                                                         response = f'Internal error, please try again later!'
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
-                                                            self.bot.config['discord']['withdraw_channel_id'],
+                                                            "withdraw",
                                                             f"[{user_server}] [FAILED] User {tw_user} failed to withdraw "\
                                                             f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                             f"{token_display}{equivalent_usd}."
@@ -4734,7 +4734,7 @@ class Wallet(commands.Cog):
                                                                         f"You need to have at least a reserved `{fee_limit} {GAS_COIN}`."
                                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                                     await log_to_channel(
-                                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                                        "withdraw",
                                                                         f"[{user_server}] User {tw_user} want to withdraw asset "\
                                                                         f"{coin_name} but having only {actual_balance} {GAS_COIN}."
                                                                     )
@@ -4742,7 +4742,7 @@ class Wallet(commands.Cog):
                                                             else:
                                                                 response = 'Invalid main token, please report!'
                                                                 await log_to_channel(
-                                                                    self.bot.config['discord']['withdraw_channel_id'],
+                                                                    "withdraw",
                                                                     f"[{user_server}] [BUG] {tw_user} invalid main token for {coin_name}."
                                                                 )
                                                                 await update_bot_response(each_msg['text'], response, each_msg['id'])
@@ -4751,7 +4751,7 @@ class Wallet(commands.Cog):
                                                         traceback.print_exc(file=sys.stdout)
                                                         response = 'I cannot check balance, please try again later!'
                                                         await log_to_channel(
-                                                            self.bot.config['discord']['withdraw_channel_id'],
+                                                            "withdraw",
                                                             f"[{user_server}] A user {tw_user} failed to check balance gas coin for "\
                                                             f"asset transfer..."
                                                         )
@@ -4781,7 +4781,7 @@ class Wallet(commands.Cog):
                                                             f"`{tx_hash}`{fee_txt}"
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
-                                                            self.bot.config['discord']['withdraw_channel_id'],
+                                                            "withdraw",
                                                             f"[{user_server}] User {tw_user} successfully withdrew "\
                                                             f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                             f"{token_display}{equivalent_usd}."
@@ -4792,7 +4792,7 @@ class Wallet(commands.Cog):
                                                         message = send_tx['message']
                                                         response = f'Internal error, please try again later!'
                                                         await log_to_channel(
-                                                            self.bot.config['discord']['withdraw_channel_id'],
+                                                            "withdraw",
                                                             f"[{user_server}] [FAILED] Uer {tw_user} failed to withdraw "\
                                                             f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                             f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
@@ -4801,7 +4801,7 @@ class Wallet(commands.Cog):
                                                         response = f'Internal error, please try again later!'
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
-                                                            self.bot.config['discord']['withdraw_channel_id'],
+                                                            "withdraw",
                                                             f"[{user_server}] [FAILED] A user {tw_user} failed to withdraw "\
                                                             f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                             f"{token_display}{equivalent_usd}."
@@ -4820,7 +4820,7 @@ class Wallet(commands.Cog):
                                                     response = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                        "withdraw",
                                                         f"[{user_server}] A user {tw_user} successfully withdrew "\
                                                         f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                         f"{token_display}{equivalent_usd}."
@@ -4828,7 +4828,7 @@ class Wallet(commands.Cog):
                                                     continue
                                                 else:
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                        "withdraw",
                                                         f"[{user_server}] [FAILED] A user {tw_user} failed to withdraw "\
                                                         f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                         f"{token_display}{equivalent_usd}."
@@ -4844,7 +4844,7 @@ class Wallet(commands.Cog):
                                                     response = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                        "withdraw",
                                                         f"[{user_server}] User {tw_user} successfully withdrew "\
                                                         f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                         f"{token_display}{equivalent_usd}."
@@ -4852,7 +4852,7 @@ class Wallet(commands.Cog):
                                                     continue
                                                 else:
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                        "withdraw",
                                                         f"[{user_server}] [FAILED] A user {tw_user} failed to "\
                                                         f"withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                                         f"{token_display}{equivalent_usd}."
@@ -4876,14 +4876,14 @@ class Wallet(commands.Cog):
                                                     response = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                        "withdraw",
                                                         f"[{user_server}] User {tw_user} successfully executed withdraw "\
                                                         f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}."
                                                     )
                                                     continue
                                                 else:
                                                     await log_to_channel(
-                                                        self.bot.config['discord']['withdraw_channel_id'],
+                                                        "withdraw",
                                                         f"[{user_server}] User {tw_user} failed to execute to withdraw "\
                                                         f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}."
                                                     )  # ctx
@@ -9908,7 +9908,7 @@ class Wallet(commands.Cog):
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 "wallet /withdraw " + str(traceback.format_exc())
                             )
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
@@ -9929,7 +9929,7 @@ class Wallet(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
                         try:
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} / "\
                                 f"{ctx.author.mention} sucessfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}"
@@ -9940,7 +9940,7 @@ class Wallet(commands.Cog):
                         msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
                         await ctx.edit_original_message(content=msg)
                         await log_to_channel(
-                            self.bot.config['discord']['withdraw_channel_id'],
+                            "withdraw",
                             f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                             f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                             f"{token_display}{equivalent_usd}."
@@ -9958,7 +9958,7 @@ class Wallet(commands.Cog):
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'], 
+                                "withdraw", 
                                 "wallet /withdraw " + str(traceback.format_exc())
                             )
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
@@ -9982,7 +9982,7 @@ class Wallet(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
                         try:
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} / "\
                                 f"{ctx.author.mention} sucessfully withdrew "\
                                 f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}"
@@ -9995,7 +9995,7 @@ class Wallet(commands.Cog):
                             f"{token_display}{equivalent_usd} to `{address}`."
                         await ctx.edit_original_message(content=msg)
                         await log_to_channel(
-                            self.bot.config['discord']['withdraw_channel_id'],
+                            "withdraw",
                             f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                             f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                             f"{token_display}{equivalent_usd}."
@@ -10022,7 +10022,7 @@ class Wallet(commands.Cog):
                                         f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`{fee_txt}"
                                     await ctx.edit_original_message(content=msg)
                                     await log_to_channel(
-                                        self.bot.config['discord']['withdraw_channel_id'],
+                                        "withdraw",
                                         f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                         f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                         f"{token_display}{equivalent_usd}."
@@ -10033,7 +10033,7 @@ class Wallet(commands.Cog):
                                         f"{token_display}{equivalent_usd} to `{address}`."
                                     await ctx.edit_original_message(content=msg)
                                     await log_to_channel(
-                                        self.bot.config['discord']['withdraw_channel_id'],
+                                        "withdraw",
                                         f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                         f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                         f"{token_display}{equivalent_usd}."
@@ -10041,7 +10041,7 @@ class Wallet(commands.Cog):
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                                 await log_to_channel(
-                                    self.bot.config['discord']['withdraw_channel_id'],
+                                    "withdraw",
                                     "wallet /withdraw " + str(traceback.format_exc())
                                 )
                             self.bot.TX_IN_PROCESS.remove(ctx.author.id)
@@ -10061,7 +10061,7 @@ class Wallet(commands.Cog):
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
                                 num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10076,7 +10076,7 @@ class Wallet(commands.Cog):
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10103,7 +10103,7 @@ class Wallet(commands.Cog):
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
                                 num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10118,7 +10118,7 @@ class Wallet(commands.Cog):
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10151,7 +10151,7 @@ class Wallet(commands.Cog):
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
                                 num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10166,7 +10166,7 @@ class Wallet(commands.Cog):
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10213,7 +10213,7 @@ class Wallet(commands.Cog):
                                 num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name
                             )
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10228,7 +10228,7 @@ class Wallet(commands.Cog):
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10259,7 +10259,7 @@ class Wallet(commands.Cog):
                                 fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
                                     num_format_coin(fee, coin_name, coin_decimal, False), coin_name)
                                 await log_to_channel(
-                                    self.bot.config['discord']['withdraw_channel_id'],
+                                    "withdraw",
                                     f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                     f"{token_display}{equivalent_usd}."
@@ -10272,7 +10272,7 @@ class Wallet(commands.Cog):
                                 code = send_tx['code']
                                 message = send_tx['message']
                                 await log_to_channel(
-                                    self.bot.config['discord']['withdraw_channel_id'],
+                                    "withdraw",
                                     f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                     f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
@@ -10281,7 +10281,7 @@ class Wallet(commands.Cog):
                                 await ctx.edit_original_message(content=msg)
                             else:
                                 await log_to_channel(
-                                    self.bot.config['discord']['withdraw_channel_id'],
+                                    "withdraw",
                                     f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                     f"{token_display}{equivalent_usd}."
@@ -10314,7 +10314,7 @@ class Wallet(commands.Cog):
                                                 f"reserved `{fee_limit} {GAS_COIN}`."
                                             await ctx.edit_original_message(content=msg)
                                             await log_to_channel(
-                                                self.bot.config['discord']['withdraw_channel_id'],
+                                                "withdraw",
                                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                                 f"want to withdraw asset {coin_name} but having only {actual_balance} {GAS_COIN}."
                                             )
@@ -10323,7 +10323,7 @@ class Wallet(commands.Cog):
                                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid main token, please report!'
                                         await ctx.edit_original_message(content=msg)
                                         await log_to_channel(
-                                            self.bot.config['discord']['withdraw_channel_id'],
+                                            "withdraw",
                                             f"[BUG] {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                             f"invalid main token for {coin_name}."
                                         )
@@ -10333,7 +10333,7 @@ class Wallet(commands.Cog):
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, cannot check balance, please try again later!'
                                 await ctx.edit_original_message(content=msg)
                                 await log_to_channel(
-                                    self.bot.config['discord']['withdraw_channel_id'],
+                                    "withdraw",
                                     f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     "failed to check balance gas coin for asset transfer..."
                                 )
@@ -10359,7 +10359,7 @@ class Wallet(commands.Cog):
                                 fee_txt = "\nWithdrew fee/node: `{} {}`{}.".format(
                                     num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name, gas_coin_msg)
                                 await log_to_channel(
-                                    self.bot.config['discord']['withdraw_channel_id'],
+                                    "withdraw",
                                     f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                     f"{token_display}{equivalent_usd}."
@@ -10370,7 +10370,7 @@ class Wallet(commands.Cog):
                                 code = send_tx['code']
                                 message = send_tx['message']
                                 await log_to_channel(
-                                    self.bot.config['discord']['withdraw_channel_id'],
+                                    "withdraw",
                                     f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                     f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
@@ -10379,7 +10379,7 @@ class Wallet(commands.Cog):
                                 await ctx.edit_original_message(content=msg)
                             else:
                                 await log_to_channel(
-                                    self.bot.config['discord']['withdraw_channel_id'],
+                                    "withdraw",
                                     f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                     f"{token_display}{equivalent_usd}."
@@ -10418,7 +10418,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10429,7 +10429,7 @@ class Wallet(commands.Cog):
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10461,7 +10461,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10472,7 +10472,7 @@ class Wallet(commands.Cog):
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10503,7 +10503,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10514,7 +10514,7 @@ class Wallet(commands.Cog):
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10545,7 +10545,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10556,7 +10556,7 @@ class Wallet(commands.Cog):
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10585,7 +10585,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10594,7 +10594,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10619,7 +10619,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10630,7 +10630,7 @@ class Wallet(commands.Cog):
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10654,7 +10654,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10665,7 +10665,7 @@ class Wallet(commands.Cog):
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10694,7 +10694,7 @@ class Wallet(commands.Cog):
                                 f"Transaction hash: `{send_tx}`{fee_txt}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully "\
                                 f"withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}."
                             )
@@ -10702,7 +10702,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.'
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10734,7 +10734,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully executed withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
@@ -10745,7 +10745,7 @@ class Wallet(commands.Cog):
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
-                                self.bot.config['discord']['withdraw_channel_id'],
+                                "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to execute to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."

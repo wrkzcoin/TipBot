@@ -12,7 +12,9 @@ from aiohttp import web
 from aiomysql.cursors import DictCursor
 
 import redis_utils
-from config import config
+from config import load_config
+
+config = load_config()
 
 
 class DBStore():
@@ -24,9 +26,11 @@ class DBStore():
     async def openConnection(self):
         try:
             if self.pool is None:
-                self.pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4,
-                                                       user=config.mysql.user, password=config.mysql.password,
-                                                       db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
+                self.pool = await aiomysql.create_pool(
+                    host=config['mysql']['host'], port=3306, minsize=1, maxsize=2,
+                    user=config['mysql']['user'], password=config['mysql']['password'],
+                    db=config['mysql']['db'], cursorclass=DictCursor, autocommit=True
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -48,8 +52,9 @@ class DBStore():
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM coin_settings WHERE `enable_trade`=%s """
-                    await cur.execute(sql, 1)
+                    sql = """ SELECT * FROM coin_settings 
+                    WHERE `enable_trade`=%s AND `enable`=%s """
+                    await cur.execute(sql, (1, 1))
                     result = await cur.fetchall()
                     return result
         except Exception:
@@ -366,20 +371,22 @@ class DBStore():
                     try:
                         if type_coin in ["ERC-20", "TRC-20"]:
                             height = int(redis_utils.redis_conn.get(
-                                f'{config.redis.prefix + config.redis.daemon_height}{net_name}').decode())
+                                f"{config['redis']['prefix'] + config['redis']['daemon_height']}{net_name}").decode()
+                            )
                         else:
                             height = int(redis_utils.redis_conn.get(
-                                f'{config.redis.prefix + config.redis.daemon_height}{coin_name}').decode())
+                                f"{config['redis']['prefix'] + config['redis']['daemon_height']}{coin_name}").decode()
+                            )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     all_coins.append(
                         [c['coin_name'], height, c['deposit_confirm_depth'], tip, deposit, withdraw, twitter, telegram,
-                         tip_info, withdraw_info, explorer_link])
+                         tip_info, withdraw_info, explorer_link]
+                    )
                 result = {'data': all_coins}
                 return web.json_response(result, status=200)
         else:
             return await respond_bad_request_404()
-
 
 # some bg1
 async def bg_1(app):
@@ -388,16 +395,13 @@ async def bg_1(app):
         await asyncio.sleep(10.0)
         pass
 
-
 async def respond_bad_request():
     text = "Bad Request"
     return web.Response(text=text, status=400)
 
-
 async def respond_bad_request_404():
     text = "Bad Request"
     return web.Response(text=text, status=404)
-
 
 async def respond_internal_error():
     text = 'Internal Server Error'
@@ -406,7 +410,6 @@ async def respond_internal_error():
 
 # async def start_background_tasks(app):
 #    app['market_live'] = asyncio.create_task(bg_1(app))
-
 
 async def cleanup_background_tasks(app):
     app['market_live'].cancel()

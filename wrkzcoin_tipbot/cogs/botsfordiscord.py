@@ -97,8 +97,8 @@ class BFDBotVote(commands.Cog):
                             if insert_vote:
                                 try:
                                     await self.vote_logchan(
-                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{vote_to}> type `{type_vote}` "\
-                                        "in botsfordiscord.com.'
+                                        f"[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{vote_to}> type `{type_vote}` "\
+                                        "in botsfordiscord.com."
                                     )
                                     if int(vote_to) == self.bot.config['discord']['bot_id']:
                                         # It's TipBot

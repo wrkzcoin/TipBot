@@ -77,7 +77,6 @@ class About(commands.Cog):
             get_tipping_count = await self.get_tipping_count()
             if get_tipping_count:
                 botdetails.add_field(name="Tips", value='{:,.0f}'.format(get_tipping_count['nos_tipping']), inline=True)
-                botdetails.add_field(name="Wallets", value='{:,.0f}'.format(get_tipping_count['nos_user']), inline=True)
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:

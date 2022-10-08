@@ -148,15 +148,16 @@ class TopGGVote(commands.Cog):
                                     'date_voted'] < 3600 and type_vote != "test":
                                     await log_to_channel(
                                         "vote",
-                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted for guild `{guild_id}` type `{type_vote}` but less than 1h.')
+                                        f'[{SERVER_BOT}] User <@{user_vote}> voted for guild `{guild_id}` type `{type_vote}` but less than 1h.')
                                     return web.Response(text="Thank you!")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
 
                             # Insert in DB no matter what
                             try:
-                                insert_vote = await self.insert_guild_vote(full_payload['user'], "topgg",
-                                                                           full_payload['guild'], full_payload['type'])
+                                insert_vote = await self.insert_guild_vote(
+                                    full_payload['user'], "topgg", full_payload['guild'], full_payload['type']
+                                )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
 
@@ -257,14 +258,21 @@ class TopGGVote(commands.Cog):
                                             if member is not None:
                                                 extra_msg = ""
                                                 if extra_amount > 0:
-                                                    extra_msg = " You have a guild's role that give you additional bonus **" + num_format_coin(extra_amount, coin_name, coin_decimal, False) + " " + coin_name + "**."
-                                                msg = f"Thank you for voting for guild `{guild.name}` at top.gg. You got a reward {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}.{extra_msg}"
+                                                    extra_msg = " You have a guild's role that give you additional "\
+                                                        f"bonus **" + num_format_coin(extra_amount, coin_name, coin_decimal, False) \
+                                                        + " " + coin_name + "**."
+                                                msg = f"Thank you for voting for guild `{guild.name}` at top.gg. "\
+                                                    f"You got a reward {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} "\
+                                                    f"{coin_name}.{extra_msg}"
                                                 try:
                                                     await member.send(msg)
                                                     guild_owner = self.bot.get_user(guild.owner.id)
                                                     try:
                                                         await guild_owner.send(
-                                                            f'User `{user_vote}` voted for your guild {guild.name} at top.gg. They got a reward {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}.')
+                                                            f"User `{user_vote}` voted for your guild {guild.name} "\
+                                                            f"at top.gg. They got a reward "\
+                                                            f"{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}."
+                                                        )
                                                     except Exception:
                                                         pass
                                                     # Log channel if there is
@@ -295,7 +303,9 @@ class TopGGVote(commands.Cog):
                                                         traceback.print_exc(file=sys.stdout)
                                                         await log_to_channel(
                                                             "vote",
-                                                            f'[{SERVER_BOT}] Failed to send message to reward channel in guild: `{guild_id}` / {guild.name}.')
+                                                            f"[{SERVER_BOT}] Failed to send message to "\
+                                                            f"reward channel in guild: `{guild_id}` / {guild.name}."
+                                                        )
                                                 except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
                                                     await log_to_channel(
                                                         "vote",
@@ -306,14 +316,18 @@ class TopGGVote(commands.Cog):
                                     try:
                                         await log_to_channel(
                                             "vote",
-                                            f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `{guild_id}` type `{type_vote}` in top.gg.')
+                                            f"[{SERVER_BOT}] User <@{user_vote}> voted a guild `{guild_id}` / "\
+                                            f"{guild.name} type `{type_vote}` in top.gg."
+                                        )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                 else:
                                     try:
                                         await log_to_channel(
                                             "vote",
-                                            f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `{guild_id}` type `{type_vote}` in top.gg but I am not in that server or I can\'t find bot channel.')
+                                            f"[{SERVER_BOT}] User <@{user_vote}> voted a guild `{guild_id}` / "\
+                                            f"type `{type_vote}` in top.gg but I am not in that server or I can't find bot channel."
+                                        )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                 return web.Response(text="Thank you!")
@@ -321,7 +335,9 @@ class TopGGVote(commands.Cog):
                                 try:
                                     await log_to_channel(
                                         "vote",
-                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted a guild `{guild_id}` type `{type_vote}` in top.gg but I am not in that guild or I cannot find it. Given key: `{key}`')
+                                        f'[{SERVER_BOT}] User <@{user_vote}> voted a guild `{guild_id}` type `{type_vote}` "\
+                                        f"in top.gg but I am not in that guild or I cannot find it. Given key: `{key}`'
+                                    )
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
                                 return web.Response(text="No such server by this key! Or not up to date!")
@@ -337,18 +353,21 @@ class TopGGVote(commands.Cog):
                                 if check_last_vote is not None and int(time.time()) - check_last_vote['date_voted'] < 3600:
                                     await log_to_channel(
                                         "vote",
-                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{vote_to}> type `{type_vote}` but less than 1h.')
+                                        f"[{SERVER_BOT}] User <@{user_vote}> voted for bot <@{vote_to}> "\
+                                        f"type `{type_vote}` but less than 1h."
+                                    )
                                     return web.Response(text="Thank you!")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
-                            insert_vote = await self.insert_bot_vote(full_payload['user'], "topgg", full_payload['bot'],
-                                                                     full_payload['type'])
-
+                            insert_vote = await self.insert_bot_vote(
+                                full_payload['user'], "topgg", full_payload['bot'], full_payload['type']
+                            )
                             if insert_vote:
                                 try:
                                     await log_to_channel(
                                         "vote",
-                                        f'[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{vote_to}> type `{type_vote}` in top.gg.'
+                                        f"[{SERVER_BOT}] User <@{user_vote}> voted a bot "\
+                                        f"<@{vote_to}> type `{type_vote}` in top.gg."
                                     )
                                     if int(vote_to) == self.bot.config['discord']['bot_id']:
                                         # It's TipBot
@@ -505,7 +524,7 @@ class TopGGVote(commands.Cog):
                     else:
                         await log_to_channel(
                             "vote",
-                            f'[{SERVER_BOT}] A user <@{user_vote}> voted type `{type_vote}` but not true from top.gg.')
+                            f"[{SERVER_BOT}] User <@{user_vote}> voted type `{type_vote}` but not true from top.gg.")
                         return web.Response(text="Thank you but not topgg!")
             except Exception:
                 traceback.print_exc(file=sys.stdout)

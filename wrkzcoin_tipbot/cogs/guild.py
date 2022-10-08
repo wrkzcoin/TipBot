@@ -448,9 +448,14 @@ class Guild(commands.Cog):
                                                     await user_found.send(embed=embed)
                                                 except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
                                                     traceback.print_exc(file=sys.stdout)
-                                                    await logchanbot(f"[Discord]/Raffle can not message to {user_found.name}#{user_found.discriminator} about winning raffle.")
+                                                    await logchanbot(
+                                                        f"[{SERVER_BOT}]/Raffle can not message to "\
+                                                        f"{user_found.name}#{user_found.discriminator} about winning raffle."
+                                                    )
                                             else:
-                                                await logchanbot('[Discord]/Raffle Can not find entry id: {}'.format(each_entry))
+                                                await logchanbot(
+                                                    f"[{SERVER_BOT}]/Raffle Can not find entry id: {str(each_entry)}"
+                                                )
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
                                             await logchanbot("guild " +str(traceback.format_exc()))
@@ -2557,10 +2562,12 @@ class Guild(commands.Cog):
                 return
 
             try:
-                adjust_feature_role = await self.guild_update_featurerole(str(ctx.guild.id), str(role.id),
-                                                                          faucet_multiplied, guild_vote_multiplied,
-                                                                          faucet_cut_time_percent, str(ctx.author.id),
-                                                                          "{}#{}".format(ctx.author.name, ctx.author.discriminator))
+                adjust_feature_role = await self.guild_update_featurerole(
+                    str(ctx.guild.id), str(role.id),
+                    faucet_multiplied, guild_vote_multiplied,
+                    faucet_cut_time_percent, str(ctx.author.id),
+                    "{}#{}".format(ctx.author.name, ctx.author.discriminator)
+                )
                 if adjust_feature_role is True:
                     msg = f"{ctx.author.mention}, featurerole `{role.name}` updated.\n"\
                     f"**Previous values**:\nFaucet (x): {prev_faucet}\nFaucet cutting time: {prev_cut}\nGuild Vote (x): {prev_vote}\n\n"\
@@ -2792,15 +2799,23 @@ class Guild(commands.Cog):
                                     extra_msg = " You have a guild's role that give you additional bonus **" + num_format_coin(extra_amount, coin_name, coin_decimal, False) + " " + coin_name + "**."
                                 msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} from `{ctx.guild.name}`.{extra_msg} Other reward command `/take` and `/claim`. Invite me to your guild? Click on my name and "Add to Server".'
                                 await ctx.edit_original_message(content=msg)
-                                await logchanbot(f'[Discord] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name} in guild {ctx.guild.name}/{ctx.guild.id}.')
+                                await logchanbot(
+                                    f"[{SERVER_BOT}] User {ctx.author.name}#{ctx.author.discriminator} "\
+                                    f"claimed guild /faucet {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)}"\
+                                    f" {coin_name} in guild {ctx.guild.name}/{ctx.guild.id}."
+                                )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                         if ctx.guild.id in self.bot.TX_IN_PROCESS:
                             self.bot.TX_IN_PROCESS.remove(ctx.guild.id)
             else:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, this guild `{ctx.guild.name}` has no guild\'s faucet.'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, this guild `{ctx.guild.name}` has no guild's faucet. "\
+                    f"You can ask Guild'owner to deposit to Guild with `/guild deposit` and create it with `/guild faucetclaim`."
                 await ctx.edit_original_message(content=msg)
-                await logchanbot(f'[Discord] [ERROR] User {ctx.author.name}#{ctx.author.discriminator} claimed guild /faucet in guild {ctx.guild.name}/{ctx.guild.id}.')
+                await logchanbot(
+                    f"[{SERVER_BOT}] [ERROR] User {ctx.author.name}#{ctx.author.discriminator} "\
+                    f"claimed guild /faucet in guild {ctx.guild.name}/{ctx.guild.id}."
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("guild " +str(traceback.format_exc()))

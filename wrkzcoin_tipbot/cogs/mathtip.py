@@ -186,18 +186,24 @@ class MathTips(commands.Cog):
         # Check if there is many airdrop/mathtip/triviatip
         try:
             count_ongoing = await store.discord_freetip_ongoing(str(ctx.author.id), "ONGOING")
-            if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != self.bot.config['discord']['owner_id']:
-                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. Please wait for them to complete first!'
+            if count_ongoing >= self.max_ongoing_by_user and \
+                ctx.author.id != self.bot.config['discord']['owner_id']:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. "\
+                    f"Please wait for them to complete first!"
                 await ctx.edit_original_message(content=msg)
                 return
             count_ongoing = await store.discord_freetip_ongoing_guild(str(ctx.guild.id), "ONGOING")
             # Check max if set in guild
-            if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and ctx.author.id != self.bot.config['discord']['owner_id']:
-                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
+            if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and\
+                 ctx.author.id != self.bot.config['discord']['owner_id']:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops"\
+                    f" or tips in this guild. Please wait for them to complete first!"
                 await ctx.edit_original_message(content=msg)
                 return
-            elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != self.bot.config['discord']['owner_id']:
-                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
+            elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and\
+                 ctx.author.id != self.bot.config['discord']['owner_id']:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or"\
+                    f" tips in this guild. Please wait for them to complete first!"
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(f"[MATHTIP] server {str(ctx.guild.id)} has no data in discord_server.")
                 return
@@ -242,7 +248,8 @@ class MathTips(commands.Cog):
         if not amount.isdigit() and amount.upper() == "ALL":
             all_amount = True
             userdata_balance = await store.sql_user_balance_single(
-                str(ctx.author.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+                str(ctx.author.id), coin_name, wallet_address, type_coin, 
+                height, deposit_confirm_depth, SERVER_BOT
             )
             amount = float(userdata_balance['adjust'])
         # If $ is in amount, let's convert to coin/token
@@ -250,7 +257,8 @@ class MathTips(commands.Cog):
             # Check if conversion is allowed for this coin.
             amount = amount.replace(",", "").replace("$", "")
             if usd_equivalent_enable == 0:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not "\
+                    f"enabled for this `{coin_name}`."
                 await ctx.edit_original_message(content=msg)
                 return
             else:
@@ -267,7 +275,8 @@ class MathTips(commands.Cog):
                 if per_unit and per_unit > 0:
                     amount = float(Decimal(amount) / Decimal(per_unit))
                 else:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\
+                        f"Try with different method."
                     await ctx.edit_original_message(content=msg)
                     return
         else:
@@ -334,7 +343,8 @@ class MathTips(commands.Cog):
             duration_s = default_duration
             # Just info, continue
         elif duration_s < self.math_duration_min or duration_s > self.math_duration_max:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid duration. Please use between {str(self.math_duration_min)}s to {str(self.math_duration_max)}s.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid duration. "\
+                f"Please use between {str(self.math_duration_min)}s to {str(self.math_duration_max)}s."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -404,16 +414,21 @@ class MathTips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.author.id), coin_name, wallet_address, type_coin,
+            height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
 
         if amount > max_tip or amount < min_tip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger "\
+                f"than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
+                f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a math tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a math tip of "\
+                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 

@@ -90,6 +90,62 @@ from cogs.utils import Utils
 
 Account.enable_unaudited_hdwallet_features()
 
+# TODO: update
+async def address_pre_validation_check(
+    address: str, coin_name: str, type_coin: str
+):
+    if type_coin == "ERC-20":
+        return is_hex_address(address)
+    elif type_coin == "TRC-20":
+        try:
+            url = "https://api.trongrid.io/wallet/validateaddress"
+            data = {"address": address}
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    url, json=data,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=timeout
+                ) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data is not None:
+                            return decoded_data['result']
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+    elif type_coin == "XLM":
+        pass
+    elif type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+        pass
+    elif type_coin == "BTC":
+        pass
+    elif type_coin == "NANO":
+        pass
+    elif type_coin == "CHIA":
+        pass
+    elif type_coin == "HNT":
+        pass
+    elif type_coin == "ADA":
+        pass
+    elif type_coin in ["SOL", "SPL"]:
+        pass
+    elif type_coin == "XTZ":
+        pass
+    elif type_coin == "NEO":
+        pass
+    elif type_coin == "NEAR":
+        pass
+    elif type_coin == "XRP":
+        pass
+    elif type_coin == "ZIL":
+        pass
+    elif type_coin == "VET":
+        pass
+    elif type_coin == "VITE":
+        pass
+    return False
 
 async def near_get_status(url: str, timeout: int=16):
     try:
@@ -11103,12 +11159,21 @@ class Wallet(commands.Cog):
                 check_claimed = await store.sql_faucet_checkuser(str(ctx.author.id), SERVER_BOT)
                 if check_claimed is not None:
                     if int(time.time()) - check_claimed['claimed_at'] <= claim_interval * 3600:
-                        time_waiting = seconds_str(
-                            claim_interval * 3600 - int(time.time()) + check_claimed['claimed_at'])
+                        # time_waiting = seconds_str(
+                        #   claim_interval * 3600 - int(time.time()) + check_claimed['claimed_at']
+                        # )
                         user_claims = await store.sql_faucet_count_user(str(ctx.author.id))
                         number_user_claimed = '{:,.0f}'.format(user_claims)
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you just claimed within last {claim_interval}h. "\
-                            f"Waiting time {time_waiting} for next **take**. Total user claims: **{total_claimed}** times. "\
+                        time_waiting = disnake.utils.format_dt(
+                            claim_interval * 3600 + check_claimed['claimed_at'],
+                            style='R'
+                        )
+                        last_claim_at = disnake.utils.format_dt(
+                            check_claimed['claimed_at'],
+                            style='f'
+                        )
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed on {last_claim_at}. "\
+                            f"Waiting time {time_waiting} for next `/take`. Total user claims: **{total_claimed}** times. "\
                             f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. "\
                             f"Use /claim to vote TipBot and get reward.{extra_take_text}"
                         await ctx.edit_original_message(content=msg)
@@ -11140,10 +11205,15 @@ class Wallet(commands.Cog):
                 faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.author.id), False, SERVER_BOT)
                 if faucet_penalty and not info:
                     if half_claim_interval * 3600 - int(time.time()) + int(faucet_penalty['penalty_at']) > 0:
-                        time_waiting = seconds_str(
-                            half_claim_interval * 3600 - int(time.time()) + int(faucet_penalty['penalty_at']))
+                        # time_waiting = seconds_str(
+                        #    half_claim_interval * 3600 - int(time.time()) + int(faucet_penalty['penalty_at'])
+                        # )
+                        time_waiting = disnake.utils.format_dt(
+                            half_claim_interval * 3600 + int(faucet_penalty['penalty_at']),
+                            style='R'
+                        )
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel within "\
-                            f"last {str(half_claim_interval)}h. Waiting time {time_waiting} for next **take** "\
+                            f"last {str(half_claim_interval)}h. Waiting time {time_waiting} for next `/take` "\
                             f"and be sure to be the right channel set by the guild. Use /claim "\
                             f"to vote TipBot and get reward.{extra_take_text}'
                         await ctx.edit_original_message(content=msg)

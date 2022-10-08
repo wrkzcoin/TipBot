@@ -77,7 +77,7 @@ class DiscordBotList(commands.Cog):
                                 if check_last_vote is not None and int(time.time()) - check_last_vote['date_voted'] < 3600:
                                     await log_to_channel(
                                         "vote",
-                                        f"[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{bot_id}> "\
+                                        f"[{SERVER_BOT}] User <@{user_vote}> voted for bot <@{bot_id}> "\
                                         f"type `{type_vote}` but less than 1h."
                                     )
                                     return web.Response(text="Thank you!")
@@ -89,7 +89,7 @@ class DiscordBotList(commands.Cog):
                                 try:
                                     await log_to_channel(
                                         "vote",
-                                        f"[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{bot_id}> type `{type_vote}` "\
+                                        f"[{SERVER_BOT}] User <@{user_vote}> voted a bot <@{bot_id}> type `{type_vote}` "\
                                         "in discordbotlist.com."
                                     )
                                 except Exception:
@@ -249,7 +249,7 @@ class DiscordBotList(commands.Cog):
                     else:
                         await log_to_channel(
                             "vote",
-                            f"[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{self.bot.user.id}> "\
+                            f"[{SERVER_BOT}] User <@{user_vote}> voted for bot <@{self.bot.user.id}> "\
                             f"type `{type_vote}` but not true from discordbotlist.com."
                         )
                         return web.Response(text="Thank you but not discordbotlist.com!")

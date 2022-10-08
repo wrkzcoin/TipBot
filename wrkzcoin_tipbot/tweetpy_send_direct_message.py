@@ -11,7 +11,9 @@ import json
 from discord_webhook import DiscordWebhook
 
 from cogs.wallet import WalletAPI
-from config import config
+from config import load_config
+
+config = load_config()
 
 pool = None
 sleep_no_records = 60
@@ -21,7 +23,10 @@ prefix_command_dm = ('deposit', 'balance', 'withdraw', 'donate', 'help')
 
 def logchanbot(content: str):
     try:
-        webhook = DiscordWebhook(url=os.environ.get('debug_tipbot_webhook'), content=content[0:1000])
+        webhook = DiscordWebhook(
+            url=config['discord']['twitter_webhook'],
+            content=content[0:1000]
+        )
         webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -31,9 +36,11 @@ async def openConnection():
     global pool
     try:
         if pool is None:
-            pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4,
-                                              user=config.mysql.user, password=config.mysql.password,
-                                              db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
+            pool = await aiomysql.create_pool(
+                host=config['mysql']['host'], port=3306, minsize=1, maxsize=2,
+                user=config['mysql']['user'], password=config['mysql']['password'],
+                db=config['mysql']['db'], cursorclass=DictCursor, autocommit=True
+            )
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -59,7 +66,7 @@ async def update_reply(message_id: str, replied_text: str, replied_json_dump: st
 # Let's run balance update by a separate process
 async def fetch_bot_dm():
     global pool
-    time_lap = 30  # seconds
+    time_lap = 15  # seconds
 
     def api_send_direct_message(recipient_id: int, text: str):
         consumer_key = os.environ.get('tweet_py_consumer_key')
@@ -92,7 +99,7 @@ async def fetch_bot_dm():
                     result = await cur.fetchall()
                     i = 0
                     if result and len(result) > 0:
-                        if len(result) > 15:
+                        if len(result) > 0:
                             msg = "[TWITTER] - send_direct_message has {} messages to respond.".format(len(result))
                             logchanbot(msg)
                         for each_msg in result:
@@ -123,7 +130,8 @@ async def fetch_bot_dm():
             traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(time_lap)
 
-
-loop = asyncio.get_event_loop()
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 loop.run_until_complete(fetch_bot_dm())
 loop.close()
+

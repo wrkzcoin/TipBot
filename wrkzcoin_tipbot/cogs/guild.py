@@ -2658,7 +2658,7 @@ class Guild(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
             if serverinfo and serverinfo['enable_faucet'] == "NO":
                 if self.enable_logchan:
-                    await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/faucet** in {ctx.guild.name} / {ctx.guild.id} which is disable.')
+                    await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried `/faucet` in {ctx.guild.name} / {ctx.guild.id} which is disable.')
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **/faucet** in this guild is disable."
                 await ctx.edit_original_message(content=msg)
                 return
@@ -2712,9 +2712,18 @@ class Guild(commands.Cog):
                 if cutting_duration > 0:
                     extra_msg = " You have active guild's role(s) that cut /faucet's waiting time by: **{}**.".format(seconds_str_days(cutting_duration))
                 if get_last_claim is not None and int(time.time()) - get_last_claim['date'] < duration - cutting_duration:
-                    last_duration = seconds_str(int(time.time()) - get_last_claim['date'])
-                    waiting_time = seconds_str(duration - cutting_duration - int(time.time()) + get_last_claim['date'])
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you just claimed in this guild `{ctx.guild.name}` last {last_duration} ago. Waiting time {waiting_time}.{extra_msg}"
+                    # last_duration = seconds_str(int(time.time()) - get_last_claim['date'])
+                    last_duration = disnake.utils.format_dt(
+                        get_last_claim['date'],
+                        style='f'
+                    )
+                    # waiting_time = seconds_str(duration - cutting_duration - int(time.time()) + get_last_claim['date'])
+                    waiting_time = disnake.utils.format_dt(
+                        duration - cutting_duration + get_last_claim['date'],
+                        style='R'
+                    )
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed in this guild "\
+                        f"`{ctx.guild.name}` on {last_duration}. Waiting time {waiting_time}.{extra_msg}"
                     await ctx.edit_original_message(content=msg)
                     return
                 else:

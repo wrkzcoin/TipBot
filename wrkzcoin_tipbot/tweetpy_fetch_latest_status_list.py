@@ -9,17 +9,22 @@ import tweepy
 from discord_webhook import DiscordWebhook
 
 import store
+from config import load_config
+
+config = load_config()
 
 sleep_no_records = 60
 
 
 def logchanbot(content: str):
     try:
-        webhook = DiscordWebhook(url=os.environ.get('debug_tipbot_webhook'), content=content[0:1000])
+        webhook = DiscordWebhook(
+            url=config['discord']['twitter_webhook'],
+            content=content[0:1000]
+        )
         webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-
 
 # Let's run balance update by a separate process
 async def fetch_latest_status_list():
@@ -41,8 +46,10 @@ async def fetch_latest_status_list():
             traceback.print_exc(file=sys.stdout)
         return []
 
-    async def list_rt_update(rt_by_uids: str, rt_counts: int, guild_id: str, tweet_link: str,
-                             expired_date: int):  # id_num
+    async def list_rt_update(
+        rt_by_uids: str, rt_counts: int, guild_id: str, tweet_link: str,
+        expired_date: int
+    ):  # id_num
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -59,7 +66,9 @@ async def fetch_latest_status_list():
                         if len(given_ids) > 0:
                             for each in given_ids:
                                 if int(each) not in ids_ins:
-                                    data_rows.append((guild_id, tweet_link, str(each), int(time.time()), expired_date))
+                                    data_rows.append((
+                                        guild_id, tweet_link, str(each), int(time.time()), expired_dat
+                                    ))
                     else:
                         for each in given_ids:
                             data_rows.append((guild_id, tweet_link, str(each), int(time.time()), expired_date))
@@ -151,12 +160,13 @@ async def fetch_latest_status_list():
                                     if fetch_rt is not None and len(fetch_rt) > 0 and len(fetch_rt) > \
                                             existing_list[str(each_status_json['id'])]['rt_counts']:
                                         # Update
-                                        update = await list_rt_update(json.dumps(fetch_rt),
-                                                                      each_status_json['retweet_count'],
-                                                                      existing_list[str(each_status_json['id'])][
-                                                                          'guild_id'],
-                                                                      twitter_status_id[str(each_status_json['id'])],
-                                                                      expired_date[str(each_status_json['id'])])
+                                        update = await list_rt_update(
+                                            json.dumps(fetch_rt),
+                                            each_status_json['retweet_count'],
+                                            existing_list[str(each_status_json['id'])]['guild_id'],
+                                            twitter_status_id[str(each_status_json['id'])],
+                                            expired_date[str(each_status_json['id'])]
+                                        )
                                     else:
                                         await asyncio.sleep(5.0)
                             except Exception as e:
@@ -169,7 +179,7 @@ async def fetch_latest_status_list():
             traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(time_lap)
 
-
-loop = asyncio.get_event_loop()
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 loop.run_until_complete(fetch_latest_status_list())
 loop.close()

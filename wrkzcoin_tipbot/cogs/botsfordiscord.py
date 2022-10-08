@@ -80,7 +80,7 @@ class BFDBotVote(commands.Cog):
                                     'date_voted'] < 3600:
                                     await log_to_channel(
                                         "vote",
-                                        f"[{SERVER_BOT}] A user <@{user_vote}> voted for bot "\
+                                        f"[{SERVER_BOT}] User <@{user_vote}> voted for bot "\
                                         f"<@{vote_to}> type `{type_vote}` but less than 1h."
                                     )
                                     return web.Response(text="Thank you!")
@@ -94,7 +94,7 @@ class BFDBotVote(commands.Cog):
                                 try:
                                     await log_to_channel(
                                         "vote",
-                                        f"[{SERVER_BOT}] A user <@{user_vote}> voted a bot <@{vote_to}> type `{type_vote}` "\
+                                        f"[{SERVER_BOT}] User <@{user_vote}> voted a bot <@{vote_to}> type `{type_vote}` "\
                                         "in botsfordiscord.com."
                                     )
                                     if int(vote_to) == self.bot.config['discord']['bot_id']:
@@ -274,7 +274,7 @@ class BFDBotVote(commands.Cog):
                     else:
                         await log_to_channel(
                             "vote",
-                            f"[{SERVER_BOT}] A user <@{user_vote}> voted for bot <@{self.bot.user.id}> type `{type_vote}` "\
+                            f"[{SERVER_BOT}] User <@{user_vote}> voted for bot <@{self.bot.user.id}> type `{type_vote}` "\
                             "but not true from botsfordiscord.com."
                         )
                         return web.Response(text="Thank you but not botsfordiscord!")

@@ -1689,16 +1689,10 @@ class Tips(commands.Cog):
                         time_string = split_arg[1].lower()
                         time_second = None
                         try:
-                            time_string = time_string.replace(
-                                "years", "y").replace("yrs", "y").replace("yr", "year", "y").replace(
-                                    "months", "mon").replace("month", "mon").replace("mons", "mon").replace(
-                                    "weeks", "w").replace("week", "w")
-
-                            time_string = time_string.replace("day", "d").replace("days", "d").replace(
-                                "hours", "h").replace("hour", "h").replace("hrs", "h").replace("hr", "h")
-
-                            time_string = time_string.replace("minutes", "mn").replace(
-                                "mns", "mn").replace("mins", "mn").replace("min", "mn")
+                            time_string = time_string.replace("years", "y").replace("yrs", "y").replace("yr", "y").replace("year", "y")
+                            time_string = time_string.replace("months", "mon").replace("month", "mon").replace("mons", "mon").replace("weeks", "w").replace("week", "w")
+                            time_string = time_string.replace("day", "d").replace("days", "d").replace("hours", "h").replace("hour", "h").replace("hrs", "h").replace("hr", "h")
+                            time_string = time_string.replace("minutes", "mn").replace("mns", "mn").replace("mins", "mn").replace("min", "mn")
 
                             mult = {'y': 12 * 30 * 24 * 60 * 60, 'mon': 30 * 24 * 60 * 60, 'w': 7 * 24 * 60 * 60,
                                     'd': 24 * 60 * 60, 'h': 60 * 60, 'mn': 60}
@@ -1955,16 +1949,10 @@ class Tips(commands.Cog):
                         time_string = split_arg[1].lower()
                         time_second = None
                         try:
-                            time_string = time_string.replace("years", "y").replace("yrs", "y").replace(
-                                "yr", "y").replace("year", "y").replace("months", "mon").replace(
-                                    "month", "mon").replace("mons", "mon").replace(
-                                        "weeks", "w").replace("week", "w")
-
-                            time_string = time_string.replace("day", "d").replace("days", "d").replace(
-                                "hours", "h").replace("hour", "h").replace("hrs", "h").replace("hr", "h")
-
-                            time_string = time_string.replace("minutes", "mn").replace("mns", "mn").replace(
-                                "mins", "mn").replace("min", "mn")
+                            time_string = time_string.replace("years", "y").replace("yrs", "y").replace("yr", "y").replace("year", "y")
+                            time_string = time_string.replace("months", "mon").replace("month", "mon").replace("mons", "mon").replace("weeks", "w").replace("week", "w")
+                            time_string = time_string.replace("day", "d").replace("days", "d").replace("hours", "h").replace("hour", "h").replace("hrs", "h").replace("hr", "h")
+                            time_string = time_string.replace("minutes", "mn").replace("mns", "mn").replace("mins", "mn").replace("min", "mn")
 
                             mult = {'y': 12 * 30 * 24 * 60 * 60, 'mon': 30 * 24 * 60 * 60, 'w': 7 * 24 * 60 * 60,
                                     'd': 24 * 60 * 60, 'h': 60 * 60, 'mn': 60}

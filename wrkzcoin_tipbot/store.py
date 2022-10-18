@@ -1305,8 +1305,12 @@ async def http_wallet_getbalance(url: str, address: str, contract: str, time_out
         data = '{"jsonrpc":"2.0","method":"eth_getBalance","params":["' + address + '", "latest"],"id":1}'
         try:
             async with aiohttp.ClientSession(connector=TCPConnector(ssl=False)) as session:
-                async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data),
-                                        timeout=time_out) as response:
+                async with session.post(
+                    url,
+                    headers={'Content-Type': 'application/json'},
+                    json=json.loads(data),
+                    timeout=time_out
+                ) as response:
                     if response.status == 200:
                         data = await response.read()
                         try:
@@ -1334,8 +1338,11 @@ async def http_wallet_getbalance(url: str, address: str, contract: str, time_out
         }
         try:
             async with aiohttp.ClientSession(connector=TCPConnector(ssl=False)) as session:
-                async with session.post(url, headers={'Content-Type': 'application/json'}, json=data,
-                                        timeout=time_out) as response:
+                async with session.post(
+                    url, headers={'Content-Type': 'application/json'},
+                    json=data,
+                    timeout=time_out
+                ) as response:
                     if response.status == 200:
                         data = await response.read()
                         data = data.decode('utf-8')
@@ -1348,7 +1355,9 @@ async def http_wallet_getbalance(url: str, address: str, contract: str, time_out
             traceback.print_exc(file=sys.stdout)
     return None
 
-async def check_approved_erc20(user_id: str, contract: str, address: str, user_server: str, network: str):
+async def check_approved_erc20(
+    user_id: str, contract: str, address: str, user_server: str, network: str
+):
     global pool
     try:
         await openConnection()
@@ -1414,8 +1423,9 @@ async def sql_check_minimum_deposit_erc20(
         est_gas_amount = float(gasPrice * estimateGas / 10 ** 18)
         if est_gas_amount > min_gas_tx:
             await logchanbot(
-                "[ERROR GAS {}]: Est. {} > minimum gas {}".format(url, est_gas_amount,
-                                                                  min_gas_tx))
+                "[ERROR GAS {}]: Est. {} > minimum gas {}".format(
+                    url, est_gas_amount, min_gas_tx)
+            )
             return False
         else:
             amount_gas_move = int(move_gas_amount * 10 ** 18)
@@ -1452,7 +1462,9 @@ async def sql_check_minimum_deposit_erc20(
         if len(list_user_addresses) > 0:
             # OK check them one by one, gas token is **18
             for each_address in list_user_addresses:
-                deposited_balance = await http_wallet_getbalance(url, each_address['balance_wallet_address'], None, 64)
+                deposited_balance = await http_wallet_getbalance(
+                    url, each_address['balance_wallet_address'], None, 64
+                )
                 if deposited_balance is None:
                     continue
                 real_deposited_balance = float("%.6f" % (int(deposited_balance) / 10 ** 18))
@@ -1489,8 +1501,10 @@ async def sql_check_minimum_deposit_erc20(
                         if min_gas_tx is None: min_gas_tx = est_gas_amount
                         if est_gas_amount > min_gas_tx:
                             await logchanbot(
-                                "[ERROR GAS {}]: Est. {} > minimum gas {}".format(token_name, est_gas_amount,
-                                                                                  min_gas_tx))
+                                "[ERROR GAS {}]: Est. {} > minimum gas {}".format(
+                                    token_name, est_gas_amount, min_gas_tx
+                                )
+                            )
                             await asyncio.sleep(5.0)
                             continue
 
@@ -1518,16 +1532,17 @@ async def sql_check_minimum_deposit_erc20(
                                 inserted = await sql_move_deposit_for_spendable(
                                     token_name, None, each_address['user_id'], each_address['balance_wallet_address'],
                                     config['eth']['MainAddress'], real_deposited_balance,
-                                    real_deposit_fee, coin_decimal, sent_tx.hex(), each_address['user_server'], net_name
+                                    real_deposit_fee, coin_decimal, sent_tx.hex(), each_address['user_server'],
+                                    net_name
                                 )
                                 await asyncio.sleep(15.0)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                                 # await logchanbot("store " +str(traceback.format_exc()))
                     except Exception as e:
-                        print(
-                            "ERROR TOKEN: {} - from {} to {}".format(token_name, each_address['balance_wallet_address'],
-                                                                     config['eth']['MainAddress']))
+                        print("ERROR TOKEN: {} - from {} to {}".format(
+                            token_name, each_address['balance_wallet_address'], config['eth']['MainAddress'])
+                        )
                         traceback.print_exc(file=sys.stdout)
                         # await logchanbot("store " +str(traceback.format_exc()))
             msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(
@@ -1559,13 +1574,17 @@ async def sql_check_minimum_deposit_erc20(
                 return
 
             for each_address in list_user_addresses:
-                deposited_balance = await http_wallet_getbalance(url, each_address['balance_wallet_address'], contract, 64)
+                deposited_balance = await http_wallet_getbalance(
+                    url, each_address['balance_wallet_address'], contract, 64
+                )
                 if deposited_balance is None:
                     continue
                 real_deposited_balance = deposited_balance / 10 ** coin_decimal
                 if real_deposited_balance >= min_move_deposit:
                     # Check if there is gas remaining to spend there
-                    gas_of_address = await http_wallet_getbalance(url, each_address['balance_wallet_address'], None, 64)
+                    gas_of_address = await http_wallet_getbalance(
+                        url, each_address['balance_wallet_address'], None, 64
+                    )
                     if erc20_approve_spend == 1:
                         # Check if in approved DB
                         check_approved = await check_approved_erc20(
@@ -1592,11 +1611,13 @@ async def sql_check_minimum_deposit_erc20(
                                     continue
                             elif gas_of_address / 10 ** 18 < min_gas_tx and main_balance_gas_sufficient:
                                 send_gas_tx = await send_gas(
-                                    url, chainId, each_address['balance_wallet_address'], move_gas_amount, min_gas_tx
+                                    url, chainId, each_address['balance_wallet_address'], move_gas_amount, 
+                                    min_gas_tx
                                 )
                                 if send_gas_tx:
                                     await logchanbot("[{}] Sent gas {} to to {}".format(
-                                        net_name, move_gas_amount/10**18, each_address['balance_wallet_address']
+                                        net_name, move_gas_amount/10**18, 
+                                        each_address['balance_wallet_address']
                                         )
                                     )
                                 await asyncio.sleep(5.0)
@@ -1664,9 +1685,15 @@ async def sql_check_minimum_deposit_erc20(
                                     traceback.print_exc(file=sys.stdout)
                                     await logchanbot("store " +str(traceback.format_exc()))
                         elif gas_of_address / 10 ** 18 < min_gas_tx and main_balance_gas_sufficient:
-                            send_gas_tx = await send_gas(url, chainId, each_address['balance_wallet_address'], move_gas_amount, min_gas_tx)
+                            send_gas_tx = await send_gas(
+                                url, chainId, each_address['balance_wallet_address'], move_gas_amount, min_gas_tx
+                            )
                             if send_gas_tx:
-                                await logchanbot("[{}] Sent gas {} to to {}".format(net_name, move_gas_amount/10**18, each_address['balance_wallet_address']))
+                                await logchanbot(
+                                    "[{}] Sent gas {} to to {}".format(
+                                        net_name, move_gas_amount/10**18, each_address['balance_wallet_address']
+                                    )
+                                )
                             await asyncio.sleep(5.0)
                         elif gas_of_address / 10 ** 18 < min_gas_tx and main_balance_gas_sufficient == False:
                             print('Main address has no sufficient balance to supply gas {}'.format(each_address['balance_wallet_address']))
@@ -1684,10 +1711,12 @@ async def sql_move_deposit_for_spendable(
                 sql = """ INSERT INTO erc20_move_deposit (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
                           `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `time_insert`, 
                           `user_server`, `network`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql,
-                                  (token_name, contract, user_id, balance_wallet_address, to_main_address, real_amount,
-                                   real_deposit_fee, token_decimal, txn, int(time.time()), user_server.upper(),
-                                   network))
+                await cur.execute(sql, (
+                    token_name, contract, user_id, balance_wallet_address, to_main_address, real_amount,
+                    real_deposit_fee, token_decimal, txn, int(time.time()), user_server.upper(),
+                    network
+                    )
+                )
                 await conn.commit()
                 return True
     except Exception as e:
@@ -1712,7 +1741,6 @@ async def sql_get_pending_move_deposit_erc20(net_name: str):
         await logchanbot("store " +str(traceback.format_exc()))
     return None
 
-
 async def sql_get_tx_info_erc20(url: str, tx: str, timeout: int = 64):
     data = '{"jsonrpc":"2.0", "method": "eth_getTransactionReceipt", "params":["' + tx + '"], "id":1}'
     try:
@@ -1731,7 +1759,6 @@ async def sql_get_tx_info_erc20(url: str, tx: str, timeout: int = 64):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
-
 
 async def sql_check_pending_move_deposit_erc20(
     url: str, net_name: str, deposit_confirm_depth: int,
@@ -1785,7 +1812,9 @@ async def sql_update_confirming_move_tx_erc20(
         await logchanbot("store " +str(traceback.format_exc()))
     return None
 
-async def get_monit_scanning_contract_balance_address_erc20(net_name: str, called_Update: int = 1200):
+async def get_monit_scanning_contract_balance_address_erc20(
+    net_name: str, called_Update: int = 1200
+):
     global pool
     try:
         await openConnection()
@@ -1846,8 +1875,11 @@ async def sql_updating_pending_move_deposit_erc20(
                           SET `notified_confirmation`=%s, `failed_notification`=%s, `time_notified`=%s
                           WHERE `txn`=%s AND `time_notified` IS NULL """
                 await cur.execute(sql, (
-                'YES' if notified_confirmation else 'NO', 'YES' if failed_notification else 'NO', int(time.time()),
-                txn))
+                    'YES' if notified_confirmation else 'NO',
+                    'YES' if failed_notification else 'NO',
+                    int(time.time()), txn
+                    )
+                )
                 await conn.commit()
                 return cur.rowcount
     except Exception as e:
@@ -1912,8 +1944,10 @@ async def trx_check_minimum_deposit(
                                                    timeout=Timeout(timeout=30, connect=20, read=20))
                         TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
                         txb = (
-                            TronClient.trx.transfer(each_address['balance_wallet_address'], config['trc']['MainAddress'],
-                                                    int(real_deposited_balance * 10 ** 6))
+                            TronClient.trx.transfer(
+                                each_address['balance_wallet_address'], config['trc']['MainAddress'],
+                                int(real_deposited_balance * 10 ** 6)
+                            )
                             # .memo("test memo")
                             # .fee_limit(100_000_000)
                             .fee_limit(int(fee_limit_trx * 10 ** 6))
@@ -1937,7 +1971,8 @@ async def trx_check_minimum_deposit(
                             try:
                                 inserted = await trx_move_deposit_for_spendable(
                                     token_name, contract, each_address['user_id'],
-                                    each_address['balance_wallet_address'], config['trc']['MainAddress'], real_deposited_balance,
+                                    each_address['balance_wallet_address'], config['trc']['MainAddress'],
+                                    real_deposited_balance,
                                     real_deposit_fee, coin_decimal, txn_ret['txid'], in_block['blockNumber'],
                                     each_address['user_server']
                                 )
@@ -1951,8 +1986,10 @@ async def trx_check_minimum_deposit(
                     if type_coin == "TRC-20":
                         try:
                             tron_node = await handle_best_node("TRX")
-                            _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
-                                                       timeout=Timeout(timeout=30, connect=20, read=20))
+                            _http_client = AsyncClient(
+                                limits=Limits(max_connections=10, max_keepalive_connections=5),
+                                timeout=Timeout(timeout=30, connect=20, read=20)
+                            )
                             TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
                             cntr = await TronClient.get_contract(contract)
                             precision = await cntr.functions.decimals()
@@ -1967,10 +2004,11 @@ async def trx_check_minimum_deposit(
                                 )
                                 if gas_balance < min_gas_tx:
                                     txb_gas = (
-                                        TronClient.trx.transfer(config['trc']['MainAddress'],
-                                                                each_address['balance_wallet_address'],
-                                                                int(move_gas_amount * 10 ** 6))
-                                        .fee_limit(int(fee_limit_trx * 10 ** 6))
+                                        TronClient.trx.transfer(
+                                            config['trc']['MainAddress'],
+                                            each_address['balance_wallet_address'],
+                                            int(move_gas_amount * 10 ** 6)
+                                        ).fee_limit(int(fee_limit_trx * 10 ** 6))
                                     )
                                     txn_gas = await txb_gas.build()
                                     priv_key_gas = PrivateKey(bytes.fromhex(config['trc']['MainAddress_key']))
@@ -2014,8 +2052,10 @@ async def trx_check_minimum_deposit(
                     elif type_coin == "TRC-10":
                         try:
                             tron_node = await handle_best_node("TRX")
-                            _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
-                                                       timeout=Timeout(timeout=30, connect=20, read=20))
+                            _http_client = AsyncClient(
+                                limits=Limits(max_connections=10, max_keepalive_connections=5),
+                                timeout=Timeout(timeout=30, connect=20, read=20)
+                            )
                             TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
                             balance = await trx_wallet_getbalance(
                                 url, each_address['balance_wallet_address'], token_name,
@@ -2029,10 +2069,11 @@ async def trx_check_minimum_deposit(
                                 )
                                 if gas_balance < min_gas_tx:
                                     txb_gas = (
-                                        TronClient.trx.transfer(config['trc']['MainAddress'],
-                                                                each_address['balance_wallet_address'],
-                                                                int(move_gas_amount * 10 ** coin_decimal))
-                                        .fee_limit(int(fee_limit_trx * 10 ** 6))
+                                        TronClient.trx.transfer(
+                                            config['trc']['MainAddress'],
+                                            each_address['balance_wallet_address'],
+                                            int(move_gas_amount * 10 ** coin_decimal)
+                                        ).fee_limit(int(fee_limit_trx * 10 ** 6))
                                     )
                                     txn_gas = await txb_gas.build()
                                     priv_key_gas = PrivateKey(bytes.fromhex(config['trc']['MainAddress_key']))
@@ -2098,11 +2139,13 @@ async def sql_check_pending_move_deposit_trc20(
                 if topBlock - deposit_confirm_depth > tx_block_number:
                     check_tx = await trx_get_tx_info(url, each_tx['txn'])
                     if check_tx:
-                        confirming_tx = await trx_update_confirming_move_tx(each_tx['txn'], topBlock - tx_block_number,
-                                                                            'CONFIRMED')
+                        confirming_tx = await trx_update_confirming_move_tx(
+                            each_tx['txn'], topBlock - tx_block_number, 'CONFIRMED'
+                        )
                     else:
-                        confirming_tx = await trx_update_confirming_move_tx(each_tx['txn'], topBlock - tx_block_number,
-                                                                            'FAILED')
+                        confirming_tx = await trx_update_confirming_move_tx(
+                            each_tx['txn'], topBlock - tx_block_number, 'FAILED'
+                        )
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("store " +str(traceback.format_exc()))
@@ -2125,7 +2168,9 @@ async def trx_get_tx_info(url: str, tx: str):
         traceback.print_exc(file=sys.stdout)
     return False
 
-async def trx_wallet_getbalance(url: str, address: str, coin: str, coin_decimal: int, type_coin: str, contract: str = None):
+async def trx_wallet_getbalance(
+    url: str, address: str, coin: str, coin_decimal: int, type_coin: str, contract: str = None
+):
     token_name = coin.upper()
     balance = 0.0
     try:
@@ -2158,8 +2203,9 @@ async def trx_wallet_getbalance(url: str, address: str, coin: str, coin_decimal:
             elif type_coin == "TRC-10":
                 try:
                     precision = coin_decimal
-                    balance = await TronClient.get_account_asset_balance(addr=address,
-                                                                         token_id=int(contract)) / 10 ** precision
+                    balance = await TronClient.get_account_asset_balance(
+                        addr=address, token_id=int(contract)
+                    ) / 10 ** precision
                 except (AddressNotFound, UnknownError):
                     balance = 0.0
                 except Exception as e:
@@ -2173,7 +2219,9 @@ async def trx_wallet_getbalance(url: str, address: str, coin: str, coin_decimal:
         balance = 0.0
     return balance
 
-async def trx_update_confirming_move_tx(tx: str, confirmed_depth: int, status: str = 'CONFIRMED'):
+async def trx_update_confirming_move_tx(
+    tx: str, confirmed_depth: int, status: str = 'CONFIRMED'
+):
     global pool
     status = status.upper()
     try:
@@ -2232,7 +2280,9 @@ async def trx_get_pending_move_deposit(option: str = 'PENDING'):
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-async def sql_updating_pending_move_deposit_trc20(notified_confirmation: bool, failed_notification: bool, txn: str):
+async def sql_updating_pending_move_deposit_trc20(
+    notified_confirmation: bool, failed_notification: bool, txn: str
+):
     global pool
     try:
         await openConnection()
@@ -2242,8 +2292,11 @@ async def sql_updating_pending_move_deposit_trc20(notified_confirmation: bool, f
                           SET `notified_confirmation`=%s, `failed_notification`=%s, `time_notified`=%s
                           WHERE `txn`=%s AND `time_notified` IS NULL """
                 await cur.execute(sql, (
-                'YES' if notified_confirmation else 'NO', 'YES' if failed_notification else 'NO', int(time.time()),
-                txn))
+                    'YES' if notified_confirmation else 'NO',
+                    'YES' if failed_notification else 'NO',
+                    int(time.time()), txn
+                    )
+                )
                 await conn.commit()
                 return cur.rowcount
     except Exception as e:
@@ -2340,11 +2393,21 @@ async def insert_discord_mathtip(
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO discord_mathtip_tmp (`token_name`, `contract`, `from_userid`, `from_username`, `message_id`, `eval_content`, `eval_answer`, `wrong_answer_1`, `wrong_answer_2`, `wrong_answer_3`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, `math_endtime`, `network`, `status`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                sql = """ INSERT INTO discord_mathtip_tmp 
+                (`token_name`, `contract`, `from_userid`, `from_username`, `message_id`, 
+                `eval_content`, `eval_answer`, `wrong_answer_1`, `wrong_answer_2`, 
+                `wrong_answer_3`, `guild_id`, `channel_id`, `real_amount`, 
+                `real_amount_usd`, `real_amount_usd_text`, `unit_price_usd`, 
+                `token_decimal`, `message_time`, `math_endtime`, `network`, `status`) 
+                VALUES 
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                 await cur.execute(sql, (
-                token_name, contract, from_userid, from_username, message_id, eval_content, eval_answer, wrong_answer_1,
-                wrong_answer_2, wrong_answer_3, guild_id, channel_id, real_amount, real_amount_usd,
-                real_amount_usd_text, unit_price_usd, token_decimal, int(time.time()), math_endtime, network, status))
+                    token_name, contract, from_userid, from_username, message_id, eval_content, 
+                    eval_answer, wrong_answer_1, wrong_answer_2, wrong_answer_3, guild_id, 
+                    channel_id, real_amount, real_amount_usd, real_amount_usd_text, unit_price_usd, 
+                    token_decimal, int(time.time()), math_endtime, network, status
+                    )
+                )
                 await conn.commit()
                 return True
     except Exception as e:
@@ -2359,10 +2422,12 @@ async def get_discord_mathtip_by_chanid(chan_id: str):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 swap_in = 0.0
-                sql = """ SELECT * FROM `discord_mathtip_tmp` WHERE `channel_id`=%s AND `status`=%s ORDER BY `math_endtime` ASC LIMIT 10 """
+                sql = """ SELECT * FROM `discord_mathtip_tmp` 
+                WHERE `channel_id`=%s AND `status`=%s ORDER BY `math_endtime` ASC LIMIT 10 """
                 await cur.execute(sql, (chan_id, "ONGOING"))
                 result = await cur.fetchall()
-                if result: return result
+                if result:
+                    return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -2374,7 +2439,8 @@ async def discord_mathtip_update(message_id: str, status: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE `discord_mathtip_tmp` SET `status`=%s WHERE `message_id`=%s AND `status`<>%s LIMIT 1 """
+                sql = """ UPDATE `discord_mathtip_tmp` SET `status`=%s 
+                WHERE `message_id`=%s AND `status`<>%s LIMIT 1 """
                 await cur.execute(sql, (status, message_id, status))
                 await conn.commit()
                 return True
@@ -2426,7 +2492,8 @@ async def get_random_q_db(level: str):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 swap_in = 0.0
-                sql = """ SELECT * FROM `trivia_db` WHERE `is_enable`=%s """ + difficulty + """ ORDER BY RAND() LIMIT 1 """
+                sql = """ SELECT * FROM `trivia_db` 
+                WHERE `is_enable`=%s """ + difficulty + """ ORDER BY RAND() LIMIT 1 """
                 await cur.execute(sql, (1))
                 result = await cur.fetchone()
                 if result: return result
@@ -2507,14 +2574,25 @@ async def insert_discord_triviatip(
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO discord_triviatip_tmp (`token_name`, `contract`, `from_userid`, `from_owner_name`, `message_id`, `question_content`, `question_id`, `button_correct_answer`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, `trivia_endtime`, `network`, `status`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                sql = """ INSERT INTO discord_triviatip_tmp 
+                (`token_name`, `contract`, `from_userid`, `from_owner_name`, `message_id`, 
+                `question_content`, `question_id`, `button_correct_answer`, `guild_id`, 
+                `channel_id`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, 
+                `unit_price_usd`, `token_decimal`, `message_time`, `trivia_endtime`, 
+                `network`, `status`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                 await cur.execute(sql, (
-                token_name, contract, from_userid, from_owner_name, message_id, question_content, question_id,
-                button_correct_answer, guild_id, channel_id, real_amount, real_amount_usd, real_amount_usd_text,
-                unit_price_usd, token_decimal, int(time.time()), trivia_endtime, network, status))
+                    token_name, contract, from_userid, from_owner_name, message_id, 
+                    question_content, question_id, button_correct_answer, guild_id, 
+                    channel_id, real_amount, real_amount_usd, real_amount_usd_text,
+                    unit_price_usd, token_decimal, int(time.time()), trivia_endtime,
+                    network, status
+                    )
+                )
                 await conn.commit()
-                sql = """ UPDATE trivia_db SET numb_asked=numb_asked+1 WHERE `id`=%s """
-                await cur.execute(sql, (question_id))
+                sql = """ UPDATE trivia_db 
+                SET numb_asked=numb_asked+1 WHERE `id`=%s """
+                await cur.execute(sql, question_id)
                 await conn.commit()
                 return True
     except Exception as e:
@@ -2528,7 +2606,8 @@ async def discord_triviatip_update(message_id: str, status: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE `discord_triviatip_tmp` SET `status`=%s WHERE `message_id`=%s AND `status`<>%s LIMIT 1 """
+                sql = """ UPDATE `discord_triviatip_tmp` 
+                SET `status`=%s WHERE `message_id`=%s AND `status`<>%s LIMIT 1 """
                 await cur.execute(sql, (status, message_id, status))
                 await conn.commit()
                 return True
@@ -2569,9 +2648,13 @@ async def sql_user_balance_mv_single(
 
                           """
                 await cur.execute(sql, (
-                token_name, contract, from_userid, to_userid, guild_id, channel_id, real_amount, real_amount_usd,
-                token_decimal, tiptype, currentTs, user_server, extra_message, from_userid, token_name, user_server,
-                -real_amount, currentTs, to_userid, token_name, user_server, real_amount, currentTs))
+                    token_name, contract, from_userid, to_userid, guild_id, channel_id, 
+                    real_amount, real_amount_usd, token_decimal, tiptype, currentTs, 
+                    user_server, extra_message, from_userid, token_name, user_server,
+                    -real_amount, currentTs, to_userid, token_name, user_server, 
+                    real_amount, currentTs
+                    )
+                )
                 await conn.commit()
                 return True
     except Exception as e:
@@ -2586,12 +2669,15 @@ async def sql_user_balance_mv_multple_amount(user_dict_tip, tiptype: str, user_s
     currentTs = int(time.time())
     # type_list = []
     for item in user_dict_tip:
-        values_list.append((item['coin'], item['contract'], item['from_user'], item['to_user'], 
-                            item['guild_id'], item['channel_id'], item['amount'], item['decimal'],
-                            tiptype.upper(), currentTs, user_server, item['real_amount_usd'], 
-                            item['extra_message'], item['from_user'], item['coin'], user_server, -item['amount'], 
-                            currentTs, item['to_user'], item['coin'], user_server,
-                            item['amount'], currentTs,))
+        values_list.append((
+            item['coin'], item['contract'], item['from_user'], item['to_user'], 
+            item['guild_id'], item['channel_id'], item['amount'], item['decimal'],
+            tiptype.upper(), currentTs, user_server, item['real_amount_usd'], 
+            item['extra_message'], item['from_user'], item['coin'], user_server, -item['amount'], 
+            currentTs, item['to_user'], item['coin'], user_server,
+            item['amount'], currentTs,
+            )
+        )
 
     if len(values_list) == 0:
         print("sql_user_balance_mv_multiple: got 0 data inserting. return...")
@@ -2636,10 +2722,13 @@ async def sql_user_balance_mv_multiple(
     currentTs = int(time.time())
     # type_list = []
     for item in user_tos:
-        values_list.append((token_name, contract, user_from, item, guild_id, channel_id, amount_each, token_decimal,
-                            tiptype.upper(), currentTs, user_server, real_amount_usd, extra_message, user_from,
-                            token_name, user_server, -amount_each, currentTs, item, token_name, user_server,
-                            amount_each, currentTs,))
+        values_list.append((
+            token_name, contract, user_from, item, guild_id, channel_id, amount_each, token_decimal,
+            tiptype.upper(), currentTs, user_server, real_amount_usd, extra_message, user_from,
+            token_name, user_server, -amount_each, currentTs, item, token_name, user_server,
+            amount_each, currentTs,
+            )
+        )
 
     if len(values_list) == 0:
         print("sql_user_balance_mv_multiple: got 0 data inserting. return...")
@@ -2686,10 +2775,12 @@ async def trx_move_deposit_for_spendable(
                 sql = """ INSERT INTO trc20_move_deposit (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
                           `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `blockNumber`, `time_insert`, 
                           `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql,
-                                  (token_name, contract, user_id, balance_wallet_address, to_main_address, real_amount,
-                                   real_deposit_fee, token_decimal, txn, blockNumber, int(time.time()),
-                                   user_server.upper()))
+                await cur.execute(sql, (
+                    token_name, contract, user_id, balance_wallet_address, to_main_address, real_amount,
+                    real_deposit_fee, token_decimal, txn, blockNumber, int(time.time()),
+                    user_server.upper()
+                    )
+                )
                 await conn.commit()
                 return True
     except Exception as e:
@@ -2785,15 +2876,20 @@ async def sql_get_tipnotify():
         await logchanbot("store " +str(traceback.format_exc()))
 
 # FreeTip
-async def insert_freetip_collector(message_id: str, from_userid: str, collector_id: str, collector_name: str):
+async def insert_freetip_collector(
+    message_id: str, from_userid: str, collector_id: str, collector_name: str
+):
     global pool
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ INSERT IGNORE INTO discord_airdrop_collector (`message_id`, `from_userid`, `collector_id`, `collector_name`, `from_and_collector_uniq`, `inserted_time`) VALUES (%s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (message_id, from_userid, collector_id, collector_name,
-                                        "{}-{}-{}".format(message_id, from_userid, collector_id), int(time.time())))
+                await cur.execute(sql, (
+                    message_id, from_userid, collector_id, collector_name,
+                    "{}-{}-{}".format(message_id, from_userid, collector_id), int(time.time())
+                    )
+                )
                 await conn.commit()
                 return True
     except Exception as e:
@@ -2801,14 +2897,17 @@ async def insert_freetip_collector(message_id: str, from_userid: str, collector_
         await logchanbot("store " +str(traceback.format_exc()))
     return False
 
-async def check_if_freetip_collector_in(message_id: str, from_userid: str, collector_id: str):
+async def check_if_freetip_collector_in(
+    message_id: str, from_userid: str, collector_id: str
+):
     global pool
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 swap_in = 0.0
-                sql = """ SELECT * FROM `discord_airdrop_collector` WHERE `message_id`=%s AND `from_userid`=%s AND `collector_id`=%s LIMIT 1 """
+                sql = """ SELECT * FROM `discord_airdrop_collector` 
+                WHERE `message_id`=%s AND `from_userid`=%s AND `collector_id`=%s LIMIT 1 """
                 await cur.execute(sql, (message_id, from_userid, collector_id))
                 result = await cur.fetchone()
                 if result and len(result) > 0: return True
@@ -2824,7 +2923,8 @@ async def get_freetip_collector_by_id(message_id: str, from_userid: str):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 swap_in = 0.0
-                sql = """ SELECT * FROM `discord_airdrop_collector` WHERE `message_id`=%s AND `from_userid`=%s """
+                sql = """ SELECT * FROM `discord_airdrop_collector` 
+                WHERE `message_id`=%s AND `from_userid`=%s """
                 await cur.execute(sql, (message_id, from_userid))
                 result = await cur.fetchall()
                 if result and len(result) > 0: return result
@@ -2844,11 +2944,17 @@ async def insert_discord_freetip(
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO discord_airdrop_tmp (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, `airdrop_content`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, `airdrop_time`, `status`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                sql = """ INSERT INTO discord_airdrop_tmp (`token_name`, `contract`, 
+                `from_userid`, `from_ownername`, `message_id`, `airdrop_content`, 
+                `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, 
+                `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, 
+                `message_time`, `airdrop_time`, `status`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                 await cur.execute(sql, (
-                token_name, contract, from_userid, from_name, message_id, airdrop_content, guild_id, channel_id,
-                real_amount, real_amount_usd, real_amount_usd_text, unit_price_usd, token_decimal, int(time.time()),
+                    token_name, contract, from_userid, from_name, message_id, 
+                    airdrop_content, guild_id, channel_id, real_amount, 
+                    real_amount_usd, real_amount_usd_text, unit_price_usd, 
+                    token_decimal, int(time.time()),
                 airdrop_time, status))
                 await conn.commit()
                 return True
@@ -2864,10 +2970,12 @@ async def get_active_discord_freetip(lap: int = 60):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 swap_in = 0.0
-                sql = """ SELECT * FROM `discord_airdrop_tmp` WHERE `status`=%s AND `airdrop_time`>%s """
+                sql = """ SELECT * FROM `discord_airdrop_tmp` 
+                WHERE `status`=%s AND `airdrop_time`>%s """
                 await cur.execute(sql, ("ONGOING", int(time.time()) - lap))
                 result = await cur.fetchall()
-                if result and len(result) > 0: return result
+                if result and len(result) > 0:
+                    return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -2882,7 +2990,8 @@ async def get_inactive_discord_freetip(lap: int = 1200):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 swap_in = 0.0
-                sql = """ SELECT * FROM `discord_airdrop_tmp` WHERE `status`=%s AND `airdrop_time`<%s """
+                sql = """ SELECT * FROM `discord_airdrop_tmp` 
+                WHERE `status`=%s AND `airdrop_time`<%s """
                 await cur.execute(sql, ("ONGOING", int(time.time()) - lap))
                 result = await cur.fetchall()
                 if result and len(result) > 0: return result
@@ -2898,10 +3007,12 @@ async def get_discord_freetip_by_msgid(message_id: str):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 swap_in = 0.0
-                sql = """ SELECT * FROM `discord_airdrop_tmp` WHERE `message_id`=%s LIMIT 1 """
+                sql = """ SELECT * FROM `discord_airdrop_tmp` 
+                WHERE `message_id`=%s LIMIT 1 """
                 await cur.execute(sql, (message_id))
                 result = await cur.fetchone()
-                if result: return result
+                if result:
+                    return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
@@ -2912,7 +3023,8 @@ async def discord_freetip_update(message_id: str, status: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE `discord_airdrop_tmp` SET `status`=%s WHERE `message_id`=%s AND `status`<>%s LIMIT 1 """
+                sql = """ UPDATE `discord_airdrop_tmp` 
+                SET `status`=%s WHERE `message_id`=%s AND `status`<>%s LIMIT 1 """
                 await cur.execute(sql, (status, message_id, status))
                 await conn.commit()
                 return True
@@ -2933,9 +3045,12 @@ async def discord_freetip_ongoing(user_id: str, status: str = "ONGOING"):
                                  (SELECT COUNT(*) FROM `discord_quickdrop` WHERE `from_userid`=%s AND `status`=%s) as quickdrop,
                                  (SELECT COUNT(*) FROM `discord_talkdrop_tmp` WHERE `from_userid`=%s AND `status`=%s) as talkdrop
                       """
-                await cur.execute(sql, (user_id, status, user_id, status, 
-                                        user_id, status, user_id, status,
-                                        user_id, status, user_id, status))
+                await cur.execute(sql, (
+                    user_id, status, user_id, status, 
+                    user_id, status, user_id, status,
+                    user_id, status, user_id, status
+                    )
+                )
                 result = await cur.fetchone()
                 if result:
                     return result['airdrop'] + result['mathtip'] + result['triviatip'] + \
@@ -2957,9 +3072,12 @@ async def discord_freetip_ongoing_guild(guild_id: str, status: str = "ONGOING"):
                                  (SELECT COUNT(*) FROM `discord_quickdrop` WHERE `guild_id`=%s AND `status`=%s) as quickdrop,
                                  (SELECT COUNT(*) FROM `discord_talkdrop_tmp` WHERE `guild_id`=%s AND `status`=%s) as talkdrop
                       """
-                await cur.execute(sql, (guild_id, status, guild_id, status, 
-                                        guild_id, status, guild_id, status,
-                                        guild_id, status, guild_id, status))
+                await cur.execute(sql, (
+                    guild_id, status, guild_id, status, 
+                    guild_id, status, guild_id, status,
+                    guild_id, status, guild_id, status
+                    )
+                )
                 result = await cur.fetchone()
                 if result:
                     return result['airdrop'] + result['mathtip'] + result['triviatip'] + \
@@ -3006,15 +3124,16 @@ async def sql_store_openorder(
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ INSERT INTO open_order (`coin_sell`, `coin_sell_decimal`, 
-                          `amount_sell`, `amount_sell_after_fee`, `userid_sell`, `coin_get`, `coin_get_decimal`, 
-                          `amount_get`, `amount_get_after_fee`, `sell_div_get`, `order_created_date`, `pair_name`, 
-                          `status`, `sell_user_server`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (coin_sell, coin_decimal_sell,
-                                        amount_sell, amount_sell_after_fee, userid_sell, coin_get, coin_decimal_buy,
-                                        amount_get, amount_get_after_fee, sell_div_get, float("%.3f" % time.time()),
-                                        coin_sell + "-" + coin_get,
-                                        'OPEN', sell_user_server))
+                `amount_sell`, `amount_sell_after_fee`, `userid_sell`, `coin_get`, `coin_get_decimal`, 
+                `amount_get`, `amount_get_after_fee`, `sell_div_get`, `order_created_date`, `pair_name`, 
+                `status`, `sell_user_server`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                await cur.execute(sql, (
+                    coin_sell, coin_decimal_sell,
+                    amount_sell, amount_sell_after_fee, userid_sell, coin_get, coin_decimal_buy,
+                    amount_get, amount_get_after_fee, sell_div_get, float("%.3f" % time.time()),
+                    coin_sell + "-" + coin_get,
+                    'OPEN', sell_user_server))
                 await conn.commit()
                 return cur.lastrowid
     except Exception as e:
@@ -3120,7 +3239,9 @@ async def sql_match_order_by_sellerid(
         traceback.print_exc(file=sys.stdout)
     return False
 
-async def sql_get_open_order_by_alluser(coin: str, status: str, option: str, limit: int = 50):
+async def sql_get_open_order_by_alluser(
+    coin: str, status: str, option: str, limit: int = 50
+):
     global pool
     coin_name = coin.upper()
     limit_str = ""
@@ -3131,13 +3252,19 @@ async def sql_get_open_order_by_alluser(coin: str, status: str, option: str, lim
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if coin_name != 'ALL' and option.upper() in ["DESC", "ASC"]:
-                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_get`=%s ORDER BY sell_div_get """ + option.upper() + " " + limit_str
+                    sql = """ SELECT * FROM `open_order` 
+                    WHERE `status`=%s AND `coin_get`=%s 
+                    ORDER BY sell_div_get """ + option.upper() + " " + limit_str
                     await cur.execute(sql, (status, coin_name))
                 elif coin_name == 'ALL':
-                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s ORDER BY order_created_date DESC """ + limit_str
+                    sql = """ SELECT * FROM `open_order` 
+                    WHERE `status`=%s 
+                    ORDER BY order_created_date DESC """ + limit_str
                     await cur.execute(sql, (status))
                 else:
-                    sql = """ SELECT * FROM `open_order` WHERE `status`=%s AND `coin_sell`=%s ORDER BY sell_div_get ASC """ + limit_str
+                    sql = """ SELECT * FROM `open_order` 
+                    WHERE `status`=%s AND `coin_sell`=%s 
+                    ORDER BY sell_div_get ASC """ + limit_str
                     await cur.execute(sql, (status, coin_name))
                 result = await cur.fetchall()
                 return result
@@ -3157,14 +3284,16 @@ async def sql_get_open_order_by_alluser_by_coins(
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if coin2.upper() == "ALL":
-                    sql = """ SELECT * FROM open_order WHERE `status`=%s AND `coin_sell`=%s 
-                              ORDER BY sell_div_get """ + option_order + """ LIMIT """ + str(limit)
+                    sql = """ SELECT * FROM open_order 
+                    WHERE `status`=%s AND `coin_sell`=%s 
+                    ORDER BY sell_div_get """ + option_order + """ LIMIT """ + str(limit)
                     await cur.execute(sql, (status, coin1.upper()))
                     result = await cur.fetchall()
                     return result
                 else:
-                    sql = """ SELECT * FROM open_order WHERE `status`=%s AND `coin_sell`=%s AND `coin_get`=%s 
-                              ORDER BY sell_div_get """ + option_order + """ LIMIT """ + str(limit)
+                    sql = """ SELECT * FROM open_order 
+                    WHERE `status`=%s AND `coin_sell`=%s AND `coin_get`=%s 
+                    ORDER BY sell_div_get """ + option_order + """ LIMIT """ + str(limit)
                     await cur.execute(sql, (status, coin1.upper(), coin2.upper()))
                     result = await cur.fetchall()
                     return result
@@ -3218,22 +3347,23 @@ async def sql_cancel_open_order_by_sellerid(userid_sell: str, coin: str = 'ALL')
             async with conn.cursor() as cur:
                 if len(coin) < 6:
                     if coin_name == 'ALL':
-                        sql = """ UPDATE open_order SET `status`=%s, `cancel_date`=%s WHERE `userid_sell`=%s 
-                                  AND `status`=%s """
+                        sql = """ UPDATE open_order SET `status`=%s, `cancel_date`=%s 
+                        WHERE `userid_sell`=%s AND `status`=%s """
                         await cur.execute(sql, ('CANCEL', float("%.3f" % time.time()), userid_sell, 'OPEN'))
                         await conn.commit()
                         return True
                     else:
-                        sql = """ UPDATE open_order SET `status`=%s, `cancel_date`=%s WHERE `userid_sell`=%s 
-                                  AND `status`=%s AND `coin_sell`=%s """
+                        sql = """ UPDATE open_order SET `status`=%s, `cancel_date`=%s 
+                        WHERE `userid_sell`=%s 
+                        AND `status`=%s AND `coin_sell`=%s """
                         await cur.execute(sql, ('CANCEL', float("%.3f" % time.time()), userid_sell, 'OPEN', coin_name))
                         await conn.commit()
                         return True
                 else:
                     try:
                         ref_numb = int(coin)
-                        sql = """ UPDATE open_order SET `status`=%s, `cancel_date`=%s WHERE `userid_sell`=%s 
-                                  AND `status`=%s AND `order_id`=%s """
+                        sql = """ UPDATE open_order SET `status`=%s, `cancel_date`=%s 
+                        WHERE `userid_sell`=%s AND `status`=%s AND `order_id`=%s """
                         await cur.execute(sql, ('CANCEL', float("%.3f" % time.time()), userid_sell, 'OPEN', ref_numb))
                         await conn.commit()
                         return True
@@ -3476,8 +3606,11 @@ async def sql_faucet_add(
                 sql = """ INSERT INTO discord_faucet (`claimed_user`, `coin_name`, `claimed_amount`, 
                           `decimal`, `claimed_at`, `claimed_server`, `user_server`) 
                           VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (claimed_user, coin_name, claimed_amount, decimal,
-                                        int(time.time()), claimed_server, user_server))
+                await cur.execute(sql, (
+                    claimed_user, coin_name, claimed_amount, decimal,
+                    int(time.time()), claimed_server, user_server
+                    )
+                )
                 await conn.commit()
                 return True
     except Exception as e:
@@ -3518,9 +3651,11 @@ async def erc20_approve_spender(
         await logchanbot(traceback.format_exc())
     return None
 
-async def erc20_transfer_token_to_operator(url: str, chainId: int, contract: str, 
-                                           sender_address: str, operator_address: str, 
-                                           operator_seed: str, atomic_amount: int):
+async def erc20_transfer_token_to_operator(
+    url: str, chainId: int, contract: str, 
+    sender_address: str, operator_address: str, 
+    operator_seed: str, atomic_amount: int
+):
     try:
         w3 = Web3(Web3.HTTPProvider(url))
 
@@ -3595,13 +3730,20 @@ async def insert_partydrop_create(
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO `discord_partydrop_tmp` (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, `guild_id`, `channel_id`, `minimum_amount`, `init_amount`, `real_init_amount_usd`, `real_init_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, `partydrop_time`, `status`) 
+                sql = """ INSERT INTO `discord_partydrop_tmp` 
+                (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, 
+                `guild_id`, `channel_id`, `minimum_amount`, `init_amount`, 
+                `real_init_amount_usd`, `real_init_amount_usd_text`, `unit_price_usd`, 
+                `token_decimal`, `message_time`, `partydrop_time`, `status`) 
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (token_name, contract, from_userid, from_ownername, 
-                                        message_id, guild_id, channel_id, minimum_amount, 
-                                        init_amount, real_init_amount_usd, real_init_amount_usd_text, 
-                                        unit_price_usd, token_decimal, int(time.time()), 
-                                        partydrop_time, status))
+                await cur.execute(sql, (
+                    token_name, contract, from_userid, from_ownername, 
+                    message_id, guild_id, channel_id, minimum_amount, 
+                    init_amount, real_init_amount_usd, real_init_amount_usd_text, 
+                    unit_price_usd, token_decimal, int(time.time()), 
+                    partydrop_time, status
+                    )
+                )
                 await conn.commit()
                 return True
     except Exception as e:
@@ -3678,9 +3820,12 @@ async def attend_party(
                 `last_amount`=VALUES(`joined_amount`),
                 `joined_amount`=`joined_amount`+VALUES(`joined_amount`)
                 """
-                await cur.execute(sql, (message_id, attendant_id, attendant_name, 
-                                        joined_amount, token_name, token_decimal, 
-                                        int(time.time())))
+                await cur.execute(sql, (
+                    message_id, attendant_id, attendant_name, 
+                    joined_amount, token_name, token_decimal, 
+                    int(time.time())
+                    )
+                )
                 await conn.commit()
                 return True
     except Exception as e:
@@ -3836,7 +3981,9 @@ async def get_quickdrop_id(message_id: str):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def update_quickdrop_id(message_id: str, status: str, collected_id: str, collected_name: str, collected_date: int):
+async def update_quickdrop_id(
+    message_id: str, status: str, collected_id: str, collected_name: str, collected_date: int
+):
     global pool
     try:
         await openConnection()
@@ -3867,13 +4014,21 @@ async def insert_talkdrop_create(
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO `discord_talkdrop_tmp` (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, `guild_id`, `channel_id`, `talked_in_channel`, `talked_from_when`, `minimum_message`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, `talkdrop_time`, `status`) 
+                sql = """ INSERT INTO `discord_talkdrop_tmp` 
+                (`token_name`, `contract`, `from_userid`, `from_ownername`, 
+                `message_id`, `guild_id`, `channel_id`, `talked_in_channel`, 
+                `talked_from_when`, `minimum_message`, `real_amount`, `real_amount_usd`, 
+                `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, `message_time`, 
+                `talkdrop_time`, `status`) 
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (token_name, contract, from_userid, from_ownername, 
-                                        message_id, guild_id, channel_id, talked_in_channel, talked_from_when, 
-                                        minimum_message, real_amount, real_amount_usd, real_amount_usd_text, 
-                                        unit_price_usd, token_decimal, int(time.time()), 
-                                        talkdrop_time, status))
+                await cur.execute(sql, (
+                    token_name, contract, from_userid, from_ownername, 
+                    message_id, guild_id, channel_id, talked_in_channel, talked_from_when, 
+                    minimum_message, real_amount, real_amount_usd, real_amount_usd_text, 
+                    unit_price_usd, token_decimal, int(time.time()), 
+                    talkdrop_time, status
+                    )
+                )
                 await conn.commit()
                 return True
     except Exception as e:
@@ -3948,7 +4103,9 @@ async def get_talkdrop_id(message_id: str):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def talkdrop_check_user(guild_id: str, channel_id: str, user_id: str, from_when: int):
+async def talkdrop_check_user(
+    guild_id: str, channel_id: str, user_id: str, from_when: int
+):
     global pool
     try:
         await openConnection()
@@ -3982,8 +4139,10 @@ async def checkin_talkdrop_collector(message_id: str, user_id: str):
         traceback.print_exc(file=sys.stdout)
     return False
 
-async def add_talkdrop(message_id: str, from_userid: str, 
-                       collector_id: str, collector_name: float):
+async def add_talkdrop(
+    message_id: str, from_userid: str, 
+    collector_id: str, collector_name: float
+):
     global pool
     try:
         await openConnection()

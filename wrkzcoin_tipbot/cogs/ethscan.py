@@ -62,8 +62,11 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         async with aiohttp.ClientSession() as session:
-            async with session.get(bot_settings['api_best_node_bsc'], headers={'Content-Type': 'application/json'},
-                                   timeout=5.0) as response:
+            async with session.get(
+                bot_settings['api_best_node_bsc'],
+                headers={'Content-Type': 'application/json'},
+                timeout=5.0
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -86,8 +89,11 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         async with aiohttp.ClientSession() as session:
-            async with session.get(bot_settings['api_best_node_sol'], headers={'Content-Type': 'application/json'},
-                                   timeout=5.0) as response:
+            async with session.get(
+                bot_settings['api_best_node_sol'],
+                headers={'Content-Type': 'application/json'},
+                timeout=5.0
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -110,8 +116,11 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         async with aiohttp.ClientSession() as session:
-            async with session.get(bot_settings['api_best_node_matic'], headers={'Content-Type': 'application/json'},
-                                   timeout=5.0) as response:
+            async with session.get(
+                bot_settings['api_best_node_matic'],
+                headers={'Content-Type': 'application/json'},
+                timeout=5.0
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -134,8 +143,11 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         async with aiohttp.ClientSession() as session:
-            async with session.get(bot_settings['api_best_node_celo'], headers={'Content-Type': 'application/json'},
-                                   timeout=5.0) as response:
+            async with session.get(
+                bot_settings['api_best_node_celo'],
+                headers={'Content-Type': 'application/json'},
+                timeout=5.0
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -158,8 +170,11 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         async with aiohttp.ClientSession() as session:
-            async with session.get(bot_settings['api_best_node_ftm'], headers={'Content-Type': 'application/json'},
-                                   timeout=5.0) as response:
+            async with session.get(
+                bot_settings['api_best_node_ftm'],
+                headers={'Content-Type': 'application/json'},
+                timeout=5.0
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -182,8 +197,11 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         async with aiohttp.ClientSession() as session:
-            async with session.get(bot_settings['api_best_node_avax'], headers={'Content-Type': 'application/json'},
-                                   timeout=5.0) as response:
+            async with session.get(
+                bot_settings['api_best_node_avax'],
+                headers={'Content-Type': 'application/json'},
+                timeout=5.0
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -206,13 +224,17 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         async with aiohttp.ClientSession() as session:
-            async with session.get(bot_settings['api_best_node_xdai'], headers={'Content-Type': 'application/json'},
-                                   timeout=5.0) as response:
+            async with session.get(
+                bot_settings['api_best_node_xdai'],
+                headers={'Content-Type': 'application/json'},
+                timeout=5.0
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
                     # XDAI needs to fetch best node from their public
                     self.bot.erc_node_list['XDAI'] = res_data.replace('"', '')
+                    self.bot.erc_node_list['xDai'] = res_data.replace('"', '')
                 else:
                     await logchanbot(f"Can not fetch best node for XDAI.")
         # Update @bot_task_logs
@@ -230,8 +252,11 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         async with aiohttp.ClientSession() as session:
-            async with session.get(bot_settings['api_best_node_one'], headers={'Content-Type': 'application/json'},
-                                   timeout=5.0) as response:
+            async with session.get(
+                bot_settings['api_best_node_one'],
+                headers={'Content-Type': 'application/json'},
+                timeout=5.0
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -258,8 +283,11 @@ class EthScan(commands.Cog):
                 self.bot.erc_node_list['XTZ'] = bot_settings['local_node_xtz']
             else:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(bot_settings['api_best_node_xtz'], headers={'Content-Type': 'application/json'},
-                                           timeout=5.0) as response:
+                    async with session.get(
+                        bot_settings['api_best_node_xtz'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
                         if response.status == 200:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
@@ -286,8 +314,11 @@ class EthScan(commands.Cog):
                 self.bot.erc_node_list['NEAR'] = bot_settings['local_node_near']
             else:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(bot_settings['api_best_node_near'], headers={'Content-Type': 'application/json'},
-                                           timeout=5.0) as response:
+                    async with session.get(
+                        bot_settings['api_best_node_near'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
                         if response.status == 200:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
@@ -314,8 +345,11 @@ class EthScan(commands.Cog):
                 self.bot.erc_node_list['XRP'] = bot_settings['local_node_xrp']
             else:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(bot_settings['api_best_node_xrp'], headers={'Content-Type': 'application/json'},
-                                           timeout=5.0) as response:
+                    async with session.get(
+                        bot_settings['api_best_node_xrp'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
                         if response.status == 200:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
@@ -338,8 +372,11 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         async with aiohttp.ClientSession() as session:
-            async with session.get(bot_settings['api_best_node_zil'], headers={'Content-Type': 'application/json'},
-                                   timeout=5.0) as response:
+            async with session.get(
+                bot_settings['api_best_node_zil'],
+                headers={'Content-Type': 'application/json'},
+                timeout=5.0
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -366,8 +403,11 @@ class EthScan(commands.Cog):
                 self.bot.erc_node_list['VET'] = bot_settings['local_node_vet']
             else:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(bot_settings['api_best_node_vet'], headers={'Content-Type': 'application/json'},
-                                           timeout=5.0) as response:
+                    async with session.get(
+                        bot_settings['api_best_node_vet'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
                         if response.status == 200:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
@@ -390,8 +430,11 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         async with aiohttp.ClientSession() as session:
-            async with session.get(bot_settings['api_best_node_nova'], headers={'Content-Type': 'application/json'},
-                                   timeout=5.0) as response:
+            async with session.get(
+                bot_settings['api_best_node_nova'],
+                headers={'Content-Type': 'application/json'},
+                timeout=5.0
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -418,8 +461,11 @@ class EthScan(commands.Cog):
                 self.bot.erc_node_list['ETH'] = bot_settings['local_node_eth']
             else:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(bot_settings['api_best_node_eth'], headers={'Content-Type': 'application/json'},
-                                           timeout=5.0) as response:
+                    async with session.get(
+                        bot_settings['api_best_node_eth'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
                         if response.status == 200:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
@@ -440,9 +486,12 @@ class EthScan(commands.Cog):
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
         try:
-            remove_old_tx_erc20 = await store.contract_tx_remove_after("ERC-20",
-                                                                       48 * 3600)  # 48hrs , any type will remove from erc20 table
-            remove_old_tx_trc20 = await store.contract_tx_remove_after("TRC-20", 48 * 3600)  # 48hrs
+            remove_old_tx_erc20 = await store.contract_tx_remove_after(
+                "ERC-20", 48 * 3600
+            )  # 48hrs , any type will remove from erc20 table
+            remove_old_tx_trc20 = await store.contract_tx_remove_after(
+                "TRC-20", 48 * 3600
+            )  # 48hrs
         except Exception:
             traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(5.0)

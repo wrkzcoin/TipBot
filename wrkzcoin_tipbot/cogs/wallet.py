@@ -87,6 +87,7 @@ from Bot import num_format_coin, logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_AR
 
 from cogs.utils import MenuPage
 from cogs.utils import Utils
+from cogs.utils import print_color
 
 Account.enable_unaudited_hdwallet_features()
 
@@ -104,7 +105,7 @@ async def address_pre_validation_check(
                 async with session.post(
                     url, json=data,
                     headers={'Content-Type': 'application/json'},
-                    timeout=timeout
+                    timeout=8
                 ) as response:
                     if response.status == 200:
                         res_data = await response.read()
@@ -2737,11 +2738,14 @@ class WalletAPI(commands.Cog):
                             await self.openConnection()
                             async with self.pool.acquire() as conn:
                                 async with conn.cursor() as cur:
-                                    sql = """ INSERT INTO hnt_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
-                                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                    sql = """ INSERT INTO hnt_external_tx 
+                                    (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
+                                    `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                                     await cur.execute(sql, (
-                                    coin_name, user_id, amount, fee, withdraw_fee, coin_decimal, payee,
-                                    int(time.time()), sendTx['result']['hash'], user_server))
+                                        coin_name, user_id, amount, fee, withdraw_fee, coin_decimal, payee,
+                                        int(time.time()), sendTx['result']['hash'], user_server
+                                    ))
                                     await conn.commit()
                                     return sendTx['result']['hash']
                         except Exception:
@@ -2815,11 +2819,14 @@ class WalletAPI(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ INSERT INTO xlm_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        sql = """ INSERT INTO xlm_external_tx 
+                        (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
+                        `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                         await cur.execute(sql, (
-                        coin_name, user_id, amount, fee, withdraw_fee, coin_decimal, to_address, int(time.time()),
-                        response['hash'], user_server))
+                            coin_name, user_id, amount, fee, withdraw_fee, coin_decimal,
+                            to_address, int(time.time()), response['hash'], user_server
+                        ))
                         await conn.commit()
                         return response['hash']
             except Exception:
@@ -2827,8 +2834,10 @@ class WalletAPI(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
         return None
 
-    async def send_external_ada(self, user_id: str, amount: float, coin_decimal: int, user_server: str, coin: str,
-                                withdraw_fee: float, to_address: str, time_out=32):
+    async def send_external_ada(
+        self, user_id: str, amount: float, coin_decimal: int, user_server: str, coin: str,
+        withdraw_fee: float, to_address: str, time_out=32
+    ):
         coin_name = coin.upper()
         try:
             await self.openConnection()
@@ -2866,13 +2875,25 @@ class WalletAPI(commands.Cog):
                                     headers = {
                                         'Content-Type': 'application/json'
                                     }
-                                    data_json = {"passphrase": decrypt_string(result['passphrase']), "payments": [
-                                        {"address": to_address,
-                                         "amount": {"quantity": amount_atomic, "unit": "lovelace"}}],
-                                                 "withdrawal": "self"}
+                                    data_json = {
+                                        "passphrase": decrypt_string(result['passphrase']),
+                                        "payments": [
+                                            {
+                                                "address": to_address,
+                                                "amount": {
+                                                    "quantity": amount_atomic,
+                                                    "unit": "lovelace"
+                                                }
+                                            }
+                                        ],
+                                        "withdrawal": "self"
+                                    }
                                     async with aiohttp.ClientSession() as session:
-                                        async with session.post(url, headers=headers, json=data_json,
-                                                                timeout=timeout) as response:
+                                        async with session.post(
+                                            url, headers=headers,
+                                            json=data_json,
+                                            timeout=timeout
+                                        ) as response:
                                             if response.status == 202:
                                                 res_data = await response.read()
                                                 res_data = res_data.decode('utf-8')
@@ -2894,13 +2915,19 @@ class WalletAPI(commands.Cog):
                                 await self.openConnection()
                                 async with self.pool.acquire() as conn:
                                     async with conn.cursor() as cur:
-                                        sql = """ INSERT INTO `ada_external_tx` (`coin_name`, `asset_name`, `policy_id`, `user_id`, `real_amount`, `real_external_fee`, `network_fee`, `token_decimal`, `to_address`, `input_json`, `output_json`, `hash_id`, `date`, `user_server`) 
-                                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                        sql = """ INSERT INTO `ada_external_tx` 
+                                        (`coin_name`, `asset_name`, `policy_id`, `user_id`, 
+                                        `real_amount`, `real_external_fee`, `network_fee`, 
+                                        `token_decimal`, `to_address`, `input_json`, `output_json`, 
+                                        `hash_id`, `date`, `user_server`) 
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                        """
                                         await cur.execute(sql, (
-                                        coin_name, None, None, user_id, amount, network_fee + withdraw_fee, network_fee,
-                                        coin_decimal, to_address, json.dumps(sending_tx['inputs']),
-                                        json.dumps(sending_tx['outputs']), sending_tx['id'], int(time.time()),
-                                        user_server))
+                                            coin_name, None, None, user_id, amount, network_fee + withdraw_fee, network_fee,
+                                            coin_decimal, to_address, json.dumps(sending_tx['inputs']),
+                                            json.dumps(sending_tx['outputs']), sending_tx['id'], int(time.time()),
+                                            user_server
+                                        ))
                                         await conn.commit()
                                         return sending_tx
         except Exception:
@@ -2945,8 +2972,10 @@ class WalletAPI(commands.Cog):
                             result['wallet_rpc'] + "v2/wallets/" + result['wallet_id'], 32)
                         if fetch_wallet and fetch_wallet['state']['status'] == "ready":
                             # wallet is ready, "syncing" if it is syncing
-                            async def estimate_fee_with_asset(url: str, to_address: str, asset_name: str,
-                                                              policy_id: str, amount_atomic: int, timeout: int = 90):
+                            async def estimate_fee_with_asset(
+                                url: str, to_address: str, asset_name: str,
+                                policy_id: str, amount_atomic: int, timeout: int = 90
+                            ):
                                 try:
                                     headers = {
                                         'Content-Type': 'application/json'
@@ -3013,24 +3042,27 @@ class WalletAPI(commands.Cog):
                                                 pass
                                     data_rows = []
                                     try:
-                                        data_rows.append((coin_name, asset_name, policy_id, user_id, amount,
-                                                          withdraw_fee, network_fee, coin_decimal, to_address,
-                                                          json.dumps(sending_tx['inputs']),
-                                                          json.dumps(sending_tx['outputs']), sending_tx['id'],
-                                                          int(time.time()), user_server))
-                                        if getattr(getattr(self.bot.coin_list, coin_name),
-                                                   "withdraw_use_gas_ticker") == 1:
+                                        data_rows.append((
+                                            coin_name, asset_name, policy_id, user_id, amount,
+                                            withdraw_fee, network_fee, coin_decimal, to_address,
+                                            json.dumps(sending_tx['inputs']),
+                                            json.dumps(sending_tx['outputs']), sending_tx['id'],
+                                            int(time.time()), user_server
+                                        ))
+                                        if getattr(getattr(self.bot.coin_list, coin_name),"withdraw_use_gas_ticker") == 1:
                                             GAS_COIN = getattr(getattr(self.bot.coin_list, coin_name), "gas_ticker")
                                             fee_limit = getattr(getattr(self.bot.coin_list, coin_name), "fee_limit")
                                             fee_limit = fee_limit / 20  # => 2 / 20 = 0.1 ADA # Take care if you adjust fee_limit in DB
                                             # new ADA charge = ADA goes to withdraw wallet + 0.1 ADA
-                                            data_rows.append((GAS_COIN, None, None, user_id,
-                                                              network_fee + fee_limit + ada_fee_atomic / 10 ** 6, 0,
-                                                              network_fee,
-                                                              getattr(getattr(self.bot.coin_list, GAS_COIN), "decimal"),
-                                                              to_address, json.dumps(sending_tx['inputs']),
-                                                              json.dumps(sending_tx['outputs']), sending_tx['id'],
-                                                              int(time.time()), user_server))
+                                            data_rows.append((
+                                                GAS_COIN, None, None, user_id,
+                                                network_fee + fee_limit + ada_fee_atomic / 10 ** 6, 0,
+                                                network_fee,
+                                                getattr(getattr(self.bot.coin_list, GAS_COIN), "decimal"),
+                                                to_address, json.dumps(sending_tx['inputs']),
+                                                json.dumps(sending_tx['outputs']), sending_tx['id'],
+                                                int(time.time()), user_server
+                                            ))
                                         await self.openConnection()
                                         async with self.pool.acquire() as conn:
                                             async with conn.cursor() as cur:
@@ -3083,8 +3115,9 @@ class WalletAPI(commands.Cog):
                         sql = """ INSERT INTO `sol_external_tx` (`coin_name`, `contract`, `user_id`, `real_amount`, `real_external_fee`, `network_fee`, `txn`, `token_decimal`, `to_address`, `date`, `user_server`) 
                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                         await cur.execute(sql, (
-                        coin.upper(), None, user_from, amount, withdraw_fee, tx_fee, send_tx, coin_decimal, to_address,
-                        int(time.time()), user_server))
+                            coin.upper(), None, user_from, amount, withdraw_fee, tx_fee, send_tx, 
+                            coin_decimal, to_address, int(time.time()), user_server
+                        ))
                         await conn.commit()
                         return send_tx
         except Exception:
@@ -3146,7 +3179,9 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    def tezos_move_token_balance(self, url: str, key: str, to_address: str, contract: str, atomic_amount: int, token_id: int=0):
+    def tezos_move_token_balance(
+        self, url: str, key: str, to_address: str, contract: str, atomic_amount: int, token_id: int=0
+    ):
         try:
             token = pytezos.using(shell=url, key=key).contract(contract)
             acc = pytezos.using(shell=url, key=key)
@@ -3158,7 +3193,9 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    def tezos_move_token_balance_fa12(self, url: str, key: str, to_address: str, contract: str, atomic_amount: int, token_id: int=0):
+    def tezos_move_token_balance_fa12(
+        self, url: str, key: str, to_address: str, contract: str, atomic_amount: int, token_id: int=0
+    ):
         try:
             token = pytezos.using(shell=url, key=key).contract(contract)
             acc = pytezos.using(shell=url, key=key)
@@ -3169,8 +3206,10 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def send_external_xtz(self, url: str, key: str, user_from: str, amount: float, to_address: str, coin: str,
-                                coin_decimal: int, withdraw_fee: float, network: str, user_server: str = 'DISCORD'):
+    async def send_external_xtz(
+        self, url: str, key: str, user_from: str, amount: float, to_address: str, coin: str,
+        coin_decimal: int, withdraw_fee: float, network: str, user_server: str = 'DISCORD'
+    ):
         try:
             transaction = functools.partial(self.tezos_move_balance, url, key, to_address, int(amount*10**coin_decimal))
             send_tx = await self.bot.loop.run_in_executor(None, transaction)
@@ -3194,9 +3233,11 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def send_external_xtz_asset(self, url: str, key: str, user_from: str, amount: float, to_address: str, coin: str,
-                                      coin_decimal: int, withdraw_fee: float, network: str, contract: str, token_id: int, 
-                                      token_type: str, user_server: str = 'DISCORD'):
+    async def send_external_xtz_asset(
+        self, url: str, key: str, user_from: str, amount: float, to_address: str, coin: str,
+        coin_decimal: int, withdraw_fee: float, network: str, contract: str, token_id: int, 
+        token_type: str, user_server: str = 'DISCORD'
+    ):
         try:
             if token_type == "FA2":
                 transaction = functools.partial(self.tezos_move_token_balance, url, key, to_address, contract, int(amount*10**coin_decimal), token_id)
@@ -3218,27 +3259,40 @@ class WalletAPI(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ INSERT INTO `tezos_external_tx` (`token_name`, `contract`, `user_id`, `real_amount`, `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, `contents`, `user_server`, `network`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        sql = """ INSERT INTO `tezos_external_tx` 
+                        (`token_name`, `contract`, `user_id`, `real_amount`, `real_external_fee`,
+                        `token_decimal`, `to_address`, `date`, `txn`, `contents`, `user_server`, `network`) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """
                         await cur.execute(sql, (
-                        coin.upper(), contract, user_from, amount, withdraw_fee, coin_decimal, to_address,
-                        int(time.time()), tx_hash, contents, user_server, network))
+                            coin.upper(), contract, user_from, amount, withdraw_fee, coin_decimal, to_address,
+                            int(time.time()), tx_hash, contents, user_server, network
+                        ))
                         await conn.commit()
                         return tx_hash
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def tezos_insert_mv_balance(self, token_name: str, contract: str, user_id: str, balance_wallet_address: str, to_main_address: str, real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str, content: str, time_insert: int, user_server: str, network: str):
+    async def tezos_insert_mv_balance(
+        self, token_name: str, contract: str, user_id: str, balance_wallet_address: str,
+        to_main_address: str, real_amount: float, real_deposit_fee: float, token_decimal: int,
+        txn: str, content: str, time_insert: int, user_server: str, network: str
+    ):
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT IGNORE INTO `tezos_move_deposit` (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
-                              `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `content`, `time_insert`, 
-                              `user_server`, `network`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (token_name, contract, user_id, balance_wallet_address, to_main_address, real_amount, real_deposit_fee, token_decimal, txn, content, time_insert, user_server, network))
+                    sql = """ INSERT IGNORE INTO `tezos_move_deposit` 
+                    (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
+                    `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`,
+                    `content`, `time_insert`, `user_server`, `network`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (
+                        token_name, contract, user_id, balance_wallet_address, to_main_address,
+                        real_amount, real_deposit_fee, token_decimal, txn, content, time_insert,
+                        user_server, network
+                    ))
                     await conn.commit()
                     return True
         except Exception:
@@ -3276,7 +3330,9 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
-    async def tezos_update_mv_deposit_pending(self, txn: str, blockNumber: int, confirmed_depth: int):
+    async def tezos_update_mv_deposit_pending(
+        self, txn: str, blockNumber: int, confirmed_depth: int
+    ):
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
@@ -3291,7 +3347,9 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
-    def near_move_balance(self, url: str, key: str, by_address: str, to_address: str, atomic_amount: int):
+    def near_move_balance(
+        self, url: str, key: str, by_address: str, to_address: str, atomic_amount: int
+    ):
         try:
             near_provider = near_api.providers.JsonProvider(url)
             sender_key_pair = near_api.signer.KeyPair(bytes.fromhex(key))
@@ -3303,7 +3361,9 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    def near_move_balance_token(self, url: str, contract_id: str, key: str, by_address: str, to_address: str, atomic_amount: int):
+    def near_move_balance_token(
+        self, url: str, contract_id: str, key: str, by_address: str, to_address: str, atomic_amount: int
+    ):
         try:
             near_provider = near_api.providers.JsonProvider(url)
             sender_key_pair = near_api.signer.KeyPair(bytes.fromhex(key))
@@ -3332,7 +3392,11 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def near_insert_mv_balance(self, token_name: str, contract: str, user_id: str, balance_wallet_address: str, to_main_address: str, real_amount: float, real_deposit_fee: float, token_decimal: int, txn: str, content: str, time_insert: int, user_server: str, network: str):
+    async def near_insert_mv_balance(
+        self, token_name: str, contract: str, user_id: str, balance_wallet_address: str,
+        to_main_address: str, real_amount: float, real_deposit_fee: float,
+        token_decimal: int, txn: str, content: str, time_insert: int, user_server: str, network: str
+    ):
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
@@ -5201,8 +5265,9 @@ class Wallet(commands.Cog):
             if len(notify_list) > 0:
                 for each_notify in notify_list:
                     try:
-                        key = "notify_new_tx_erc20_{}_{}_{}".format(each_notify['token_name'], each_notify['user_id'],
-                                                                    each_notify['txn'])
+                        key = "notify_new_tx_erc20_{}_{}_{}".format(
+                            each_notify['token_name'], each_notify['user_id'], each_notify['txn']
+                        )
                         if self.ttlcache[key] == key:
                             continue
                         else:
@@ -5212,8 +5277,9 @@ class Wallet(commands.Cog):
                     is_notify_failed = False
                     member = self.bot.get_user(int(each_notify['user_id']))
                     if member:
-                        update_status = await store.sql_updating_pending_move_deposit_erc20(True, is_notify_failed,
-                                                                                            each_notify['txn'])
+                        update_status = await store.sql_updating_pending_move_deposit_erc20(
+                            True, is_notify_failed, each_notify['txn']
+                        )
                         if update_status > 0:
                             msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(
                                 num_format_coin(each_notify['real_amount'], each_notify['token_name'],
@@ -6552,10 +6618,127 @@ class Wallet(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
+    # To use with update_balance_trtl_api()
+    async def update_balance_tasks_trtl_api(self, coin_name: str, debug: bool):
+        if debug is True:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
+        gettopblock = await self.gettopblock(coin_name, time_out=32)
+        height = int(gettopblock['block_header']['height'])
+        try:
+            redis_utils.redis_conn.set(
+                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                str(height)
+            )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        url = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
+        key = getattr(getattr(self.bot.coin_list, coin_name), "header")
+        get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        get_min_deposit_amount = int(
+            getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit") * 10 ** coin_decimal)
+
+        get_transfers = await self.trtl_api_get_transfers(url, key, coin_name, height - 2000, height)
+        list_balance_user = {}
+        if get_transfers and len(get_transfers) >= 1:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name`=%s """
+                    await cur.execute(sql, (coin_name,))
+                    result = await cur.fetchall()
+                    d = [i['txid'] for i in result]
+                    # print('=================='+coin_name+'===========')
+                    # print(d)
+                    # print('=================='+coin_name+'===========')
+                    for tx in get_transfers:
+                        # Could be one block has two or more tx with different payment ID
+                        # add to balance only confirmation depth meet
+                        if len(tx['transfers']) > 0 and height >= int(
+                                tx['blockHeight']) + get_confirm_depth and tx['transfers'][0][
+                            'amount'] >= get_min_deposit_amount and 'paymentID' in tx:
+                            if 'paymentID' in tx and tx['paymentID'] in list_balance_user:
+                                if tx['transfers'][0]['amount'] > 0:
+                                    list_balance_user[tx['paymentID']] += tx['transfers'][0]['amount']
+                            elif 'paymentID' in tx and tx['paymentID'] not in list_balance_user:
+                                if tx['transfers'][0]['amount'] > 0:
+                                    list_balance_user[tx['paymentID']] = tx['transfers'][0]['amount']
+                            try:
+                                if tx['hash'] not in d:
+                                    addresses = tx['transfers']
+                                    address = ''
+                                    for each_add in addresses:
+                                        if len(each_add['address']) > 0:
+                                            address = each_add['address']
+                                            break
+                                    if 'paymentID' in tx and len(tx['paymentID']) > 0:
+                                        try:
+                                            user_paymentId = await store.sql_get_userwallet_by_paymentid(
+                                                tx['paymentID'], coin_name,
+                                                getattr(getattr(self.bot.coin_list, coin_name), "type"))
+                                            u_server = None
+                                            if user_paymentId: u_server = user_paymentId['user_server']
+                                            sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, `time_insert`, `user_server`) 
+                                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                            await cur.execute(sql, (
+                                            coin_name, tx['hash'], tx['paymentID'], tx['blockHeight'],
+                                            tx['timestamp'],
+                                            float(int(tx['transfers'][0]['amount']) / 10 ** coin_decimal),
+                                            float(int(tx['fee']) / 10 ** coin_decimal), coin_decimal,
+                                            address, int(time.time()), u_server))
+                                            await conn.commit()
+                                            # add to notification list also
+                                            sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `height`, `amount`, `fee`, `decimal`, `user_server`) 
+                                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                            await cur.execute(sql, (
+                                            coin_name, tx['hash'], tx['paymentID'], tx['blockHeight'],
+                                            float(int(tx['transfers'][0]['amount']) / 10 ** coin_decimal),
+                                            float(int(tx['fee']) / 10 ** coin_decimal), coin_decimal,
+                                            u_server))
+                                            await conn.commit()
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                        elif len(tx['transfers']) > 0 and height < int(tx['blockHeight']) + \
+                            get_confirm_depth and tx['transfers'][0]['amount'] >= get_min_deposit_amount \
+                                and 'paymentID' in tx:
+                            # add notify to redis and alert deposit. Can be clean later?
+                            if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
+                                key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
+                                key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['hash']
+                                try:
+                                    if redis_utils.redis_conn.llen(key_tx_new) > 0:
+                                        list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
+                                        if list_new_tx and len(list_new_tx) > 0 and tx[
+                                            'hash'].encode() not in list_new_tx:
+                                            redis_utils.redis_conn.lpush(key_tx_new, tx['hash'])
+                                            redis_utils.redis_conn.set(key_tx_json, json.dumps(
+                                                {'coin_name': coin_name, 'txid': tx['hash'],
+                                                    'payment_id': tx['paymentID'], 'height': tx['blockHeight'],
+                                                    'amount': float(int(
+                                                        tx['transfers'][0]['amount']) / 10 ** coin_decimal),
+                                                    'fee': float(int(tx['fee']) / 10 ** coin_decimal),
+                                                    'decimal': coin_decimal}), ex=86400)
+                                    elif redis_utils.redis_conn.llen(key_tx_new) == 0:
+                                        redis_utils.redis_conn.lpush(key_tx_new, tx['hash'])
+                                        redis_utils.redis_conn.set(key_tx_json, json.dumps(
+                                            {'coin_name': coin_name, 'txid': tx['hash'],
+                                                'payment_id': tx['paymentID'], 'height': tx['blockHeight'],
+                                                'amount': float(
+                                                    int(tx['transfers'][0]['amount']) / 10 ** coin_decimal),
+                                                'fee': float(int(tx['fee']) / 10 ** coin_decimal),
+                                                'decimal': coin_decimal}), ex=86400)
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+        if debug is True:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} End check balance {coin_name}", color="green")
+        return True
 
     @tasks.loop(seconds=60.0)
     async def update_balance_trtl_api(self):
-        time_lap = 5  # seconds
+        time_lap = 5  # seconds                    
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "update_balance_trtl_api"
@@ -6564,133 +6747,139 @@ class Wallet(commands.Cog):
             return
         await asyncio.sleep(time_lap)
         try:
-            # async def trtl_api_get_transfers(self, url: str, key: str, coin: str, height_start: int = None, height_end: int = None):
             list_trtl_api = await store.get_coin_settings("TRTL-API")
             if len(list_trtl_api) > 0:
                 list_coins = [each['coin_name'].upper() for each in list_trtl_api]
+                tasks = []
                 for coin_name in list_coins:
-                    # print(f"Check balance {coin_name}")
                     if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1 or getattr(
                             getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
-                        await asyncio.sleep(10.0)
                         continue
-                    gettopblock = await self.gettopblock(coin_name, time_out=32)
-                    height = int(gettopblock['block_header']['height'])
-                    try:
-                        redis_utils.redis_conn.set(
-                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                            str(height)
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
+                    tasks.append(self.update_balance_tasks_trtl_api(coin_name, False))
 
-                    url = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
-                    key = getattr(getattr(self.bot.coin_list, coin_name), "header")
-                    get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                    get_min_deposit_amount = int(
-                        getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit") * 10 ** coin_decimal)
-
-                    get_transfers = await self.trtl_api_get_transfers(url, key, coin_name, height - 2000, height)
-                    list_balance_user = {}
-                    if get_transfers and len(get_transfers) >= 1:
-                        await self.openConnection()
-                        async with self.pool.acquire() as conn:
-                            async with conn.cursor() as cur:
-                                sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name`=%s """
-                                await cur.execute(sql, (coin_name,))
-                                result = await cur.fetchall()
-                                d = [i['txid'] for i in result]
-                                # print('=================='+coin_name+'===========')
-                                # print(d)
-                                # print('=================='+coin_name+'===========')
-                                for tx in get_transfers:
-                                    # Could be one block has two or more tx with different payment ID
-                                    # add to balance only confirmation depth meet
-                                    if len(tx['transfers']) > 0 and height >= int(
-                                            tx['blockHeight']) + get_confirm_depth and tx['transfers'][0][
-                                        'amount'] >= get_min_deposit_amount and 'paymentID' in tx:
-                                        if 'paymentID' in tx and tx['paymentID'] in list_balance_user:
-                                            if tx['transfers'][0]['amount'] > 0:
-                                                list_balance_user[tx['paymentID']] += tx['transfers'][0]['amount']
-                                        elif 'paymentID' in tx and tx['paymentID'] not in list_balance_user:
-                                            if tx['transfers'][0]['amount'] > 0:
-                                                list_balance_user[tx['paymentID']] = tx['transfers'][0]['amount']
-                                        try:
-                                            if tx['hash'] not in d:
-                                                addresses = tx['transfers']
-                                                address = ''
-                                                for each_add in addresses:
-                                                    if len(each_add['address']) > 0:
-                                                        address = each_add['address']
-                                                        break
-                                                if 'paymentID' in tx and len(tx['paymentID']) > 0:
-                                                    try:
-                                                        user_paymentId = await store.sql_get_userwallet_by_paymentid(
-                                                            tx['paymentID'], coin_name,
-                                                            getattr(getattr(self.bot.coin_list, coin_name), "type"))
-                                                        u_server = None
-                                                        if user_paymentId: u_server = user_paymentId['user_server']
-                                                        sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, `time_insert`, `user_server`) 
-                                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                        await cur.execute(sql, (
-                                                        coin_name, tx['hash'], tx['paymentID'], tx['blockHeight'],
-                                                        tx['timestamp'],
-                                                        float(int(tx['transfers'][0]['amount']) / 10 ** coin_decimal),
-                                                        float(int(tx['fee']) / 10 ** coin_decimal), coin_decimal,
-                                                        address, int(time.time()), u_server))
-                                                        await conn.commit()
-                                                        # add to notification list also
-                                                        sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `height`, `amount`, `fee`, `decimal`, `user_server`) 
-                                                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                                                        await cur.execute(sql, (
-                                                        coin_name, tx['hash'], tx['paymentID'], tx['blockHeight'],
-                                                        float(int(tx['transfers'][0]['amount']) / 10 ** coin_decimal),
-                                                        float(int(tx['fee']) / 10 ** coin_decimal), coin_decimal,
-                                                        u_server))
-                                                        await conn.commit()
-                                                    except Exception:
-                                                        traceback.print_exc(file=sys.stdout)
-                                        except Exception:
-                                            traceback.print_exc(file=sys.stdout)
-                                    elif len(tx['transfers']) > 0 and height < int(tx['blockHeight']) + \
-                                        get_confirm_depth and tx['transfers'][0]['amount'] >= get_min_deposit_amount \
-                                            and 'paymentID' in tx:
-                                        # add notify to redis and alert deposit. Can be clean later?
-                                        if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
-                                            key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
-                                            key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['hash']
-                                            try:
-                                                if redis_utils.redis_conn.llen(key_tx_new) > 0:
-                                                    list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
-                                                    if list_new_tx and len(list_new_tx) > 0 and tx[
-                                                        'hash'].encode() not in list_new_tx:
-                                                        redis_utils.redis_conn.lpush(key_tx_new, tx['hash'])
-                                                        redis_utils.redis_conn.set(key_tx_json, json.dumps(
-                                                            {'coin_name': coin_name, 'txid': tx['hash'],
-                                                             'payment_id': tx['paymentID'], 'height': tx['blockHeight'],
-                                                             'amount': float(int(
-                                                                 tx['transfers'][0]['amount']) / 10 ** coin_decimal),
-                                                             'fee': float(int(tx['fee']) / 10 ** coin_decimal),
-                                                             'decimal': coin_decimal}), ex=86400)
-                                                elif redis_utils.redis_conn.llen(key_tx_new) == 0:
-                                                    redis_utils.redis_conn.lpush(key_tx_new, tx['hash'])
-                                                    redis_utils.redis_conn.set(key_tx_json, json.dumps(
-                                                        {'coin_name': coin_name, 'txid': tx['hash'],
-                                                         'payment_id': tx['paymentID'], 'height': tx['blockHeight'],
-                                                         'amount': float(
-                                                             int(tx['transfers'][0]['amount']) / 10 ** coin_decimal),
-                                                         'fee': float(int(tx['fee']) / 10 ** coin_decimal),
-                                                         'decimal': coin_decimal}), ex=86400)
-                                            except Exception:
-                                                traceback.print_exc(file=sys.stdout)
-                                # TODO: update balance cache
+                completed = 0
+                for task in asyncio.as_completed(tasks):
+                    fetch_updates = await task
+                    if fetch_updates is True:
+                        completed += 1
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
+    # To use with update_balance_trtl_service()
+    async def update_balance_tasks_trtl_service(self, coin_name: str, debug: bool):
+        if debug is True:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
+        gettopblock = await self.gettopblock(coin_name, time_out=32)
+        height = int(gettopblock['block_header']['height'])
+        try:
+            redis_utils.redis_conn.set(
+                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                str(height)
+            )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        url = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
+        get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        get_min_deposit_amount = int(
+            getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit") * 10 ** coin_decimal)
+
+        get_transfers = await self.trtl_service_getTransactions(url, coin_name, height - 2000, height)
+        list_balance_user = {}
+        if get_transfers and len(get_transfers) >= 1:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name`=%s """
+                    await cur.execute(sql, (coin_name,))
+                    result = await cur.fetchall()
+                    d = [i['txid'] for i in result]
+                    # print('=================='+coin_name+'===========')
+                    # print(d)
+                    # print('=================='+coin_name+'===========')
+                    for txes in get_transfers:
+                        tx_in_block = txes['transactions']
+                        for tx in tx_in_block:
+                            # Could be one block has two or more tx with different payment ID
+                            # add to balance only confirmation depth meet
+                            if height >= int(tx['blockIndex']) + get_confirm_depth and tx[
+                                'amount'] >= get_min_deposit_amount and 'paymentId' in tx:
+                                if 'paymentId' in tx and tx['paymentId'] in list_balance_user:
+                                    if tx['amount'] > 0: list_balance_user[tx['paymentId']] += tx['amount']
+                                elif 'paymentId' in tx and tx['paymentId'] not in list_balance_user:
+                                    if tx['amount'] > 0: list_balance_user[tx['paymentId']] = tx['amount']
+                                try:
+                                    if tx['transactionHash'] not in d:
+                                        addresses = tx['transfers']
+                                        address = ''
+                                        for each_add in addresses:
+                                            if len(each_add['address']) > 0:
+                                                address = each_add['address']
+                                                break
+                                        if 'paymentId' in tx and len(tx['paymentId']) > 0:
+                                            try:
+                                                user_paymentId = await store.sql_get_userwallet_by_paymentid(
+                                                    tx['paymentId'], coin_name,
+                                                    getattr(getattr(self.bot.coin_list, coin_name), "type"))
+                                                u_server = None
+                                                if user_paymentId: u_server = user_paymentId['user_server']
+                                                sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, `time_insert`, `user_server`) 
+                                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.execute(sql, (
+                                                coin_name, tx['transactionHash'], tx['paymentId'],
+                                                tx['blockIndex'], tx['timestamp'],
+                                                float(tx['amount'] / 10 ** coin_decimal),
+                                                float(tx['fee'] / 10 ** coin_decimal), coin_decimal,
+                                                address, int(time.time()), u_server))
+                                                await conn.commit()
+                                                # add to notification list also
+                                                sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `height`, `amount`, `fee`, `decimal`, `user_server`) 
+                                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.execute(sql, (
+                                                coin_name, tx['transactionHash'], tx['paymentId'],
+                                                tx['blockIndex'], float(tx['amount'] / 10 ** coin_decimal),
+                                                float(tx['fee'] / 10 ** coin_decimal), coin_decimal,
+                                                u_server))
+                                                await conn.commit()
+                                            except Exception:
+                                                traceback.print_exc(file=sys.stdout)
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                            elif height < int(tx['blockIndex']) + get_confirm_depth and tx[
+                                'amount'] >= get_min_deposit_amount and 'paymentId' in tx:
+                                # add notify to redis and alert deposit. Can be clean later?
+                                if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
+                                    key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
+                                    key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['transactionHash']
+                                    try:
+                                        if redis_utils.redis_conn.llen(key_tx_new) > 0:
+                                            list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
+                                            if list_new_tx and len(list_new_tx) > 0 and tx[
+                                                'transactionHash'].encode() not in list_new_tx:
+                                                redis_utils.redis_conn.lpush(key_tx_new,
+                                                                                tx['transactionHash'])
+                                                redis_utils.redis_conn.set(key_tx_json, json.dumps(
+                                                    {'coin_name': coin_name, 'txid': tx['transactionHash'],
+                                                        'payment_id': tx['paymentId'],
+                                                        'height': tx['blockIndex'],
+                                                        'amount': float(tx['amount'] / 10 ** coin_decimal),
+                                                        'fee': tx['fee'], 'decimal': coin_decimal}), ex=86400)
+                                        elif redis_utils.redis_conn.llen(key_tx_new) == 0:
+                                            redis_utils.redis_conn.lpush(key_tx_new, tx['transactionHash'])
+                                            redis_utils.redis_conn.set(key_tx_json, json.dumps(
+                                                {'coin_name': coin_name, 'txid': tx['transactionHash'],
+                                                    'payment_id': tx['paymentId'], 'height': tx['blockIndex'],
+                                                    'amount': float(tx['amount'] / 10 ** coin_decimal),
+                                                    'fee': tx['fee'], 'decimal': coin_decimal}), ex=86400)
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+        if debug is True:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} End check balance {coin_name}", color="green")
+        return True
 
     @tasks.loop(seconds=60.0)
     async def update_balance_trtl_service(self):
@@ -6706,125 +6895,141 @@ class Wallet(commands.Cog):
             list_trtl_service = await store.get_coin_settings("TRTL-SERVICE")
             list_bcn_service = await store.get_coin_settings("BCN")
             if len(list_trtl_service + list_bcn_service) > 0:
+                tasks = []
                 list_coins = [each['coin_name'].upper() for each in list_trtl_service + list_bcn_service]
                 for coin_name in list_coins:
-                    # print(f"Check balance {coin_name}")
                     if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1 or getattr(
                             getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
-                        await asyncio.sleep(10.0)
                         continue
-                    gettopblock = await self.gettopblock(coin_name, time_out=32)
-                    height = int(gettopblock['block_header']['height'])
-                    try:
-                        redis_utils.redis_conn.set(
-                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                            str(height)
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-
-                    url = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
-                    get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                    get_min_deposit_amount = int(
-                        getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit") * 10 ** coin_decimal)
-
-                    get_transfers = await self.trtl_service_getTransactions(url, coin_name, height - 2000, height)
-                    list_balance_user = {}
-                    if get_transfers and len(get_transfers) >= 1:
-                        await self.openConnection()
-                        async with self.pool.acquire() as conn:
-                            async with conn.cursor() as cur:
-                                sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name`=%s """
-                                await cur.execute(sql, (coin_name,))
-                                result = await cur.fetchall()
-                                d = [i['txid'] for i in result]
-                                # print('=================='+coin_name+'===========')
-                                # print(d)
-                                # print('=================='+coin_name+'===========')
-                                for txes in get_transfers:
-                                    tx_in_block = txes['transactions']
-                                    for tx in tx_in_block:
-                                        # Could be one block has two or more tx with different payment ID
-                                        # add to balance only confirmation depth meet
-                                        if height >= int(tx['blockIndex']) + get_confirm_depth and tx[
-                                            'amount'] >= get_min_deposit_amount and 'paymentId' in tx:
-                                            if 'paymentId' in tx and tx['paymentId'] in list_balance_user:
-                                                if tx['amount'] > 0: list_balance_user[tx['paymentId']] += tx['amount']
-                                            elif 'paymentId' in tx and tx['paymentId'] not in list_balance_user:
-                                                if tx['amount'] > 0: list_balance_user[tx['paymentId']] = tx['amount']
-                                            try:
-                                                if tx['transactionHash'] not in d:
-                                                    addresses = tx['transfers']
-                                                    address = ''
-                                                    for each_add in addresses:
-                                                        if len(each_add['address']) > 0:
-                                                            address = each_add['address']
-                                                            break
-                                                    if 'paymentId' in tx and len(tx['paymentId']) > 0:
-                                                        try:
-                                                            user_paymentId = await store.sql_get_userwallet_by_paymentid(
-                                                                tx['paymentId'], coin_name,
-                                                                getattr(getattr(self.bot.coin_list, coin_name), "type"))
-                                                            u_server = None
-                                                            if user_paymentId: u_server = user_paymentId['user_server']
-                                                            sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, `time_insert`, `user_server`) 
-                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                            await cur.execute(sql, (
-                                                            coin_name, tx['transactionHash'], tx['paymentId'],
-                                                            tx['blockIndex'], tx['timestamp'],
-                                                            float(tx['amount'] / 10 ** coin_decimal),
-                                                            float(tx['fee'] / 10 ** coin_decimal), coin_decimal,
-                                                            address, int(time.time()), u_server))
-                                                            await conn.commit()
-                                                            # add to notification list also
-                                                            sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `height`, `amount`, `fee`, `decimal`, `user_server`) 
-                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                                                            await cur.execute(sql, (
-                                                            coin_name, tx['transactionHash'], tx['paymentId'],
-                                                            tx['blockIndex'], float(tx['amount'] / 10 ** coin_decimal),
-                                                            float(tx['fee'] / 10 ** coin_decimal), coin_decimal,
-                                                            u_server))
-                                                            await conn.commit()
-                                                        except Exception:
-                                                            traceback.print_exc(file=sys.stdout)
-                                            except Exception:
-                                                traceback.print_exc(file=sys.stdout)
-                                        elif height < int(tx['blockIndex']) + get_confirm_depth and tx[
-                                            'amount'] >= get_min_deposit_amount and 'paymentId' in tx:
-                                            # add notify to redis and alert deposit. Can be clean later?
-                                            if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
-                                                key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
-                                                key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['transactionHash']
-                                                try:
-                                                    if redis_utils.redis_conn.llen(key_tx_new) > 0:
-                                                        list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
-                                                        if list_new_tx and len(list_new_tx) > 0 and tx[
-                                                            'transactionHash'].encode() not in list_new_tx:
-                                                            redis_utils.redis_conn.lpush(key_tx_new,
-                                                                                         tx['transactionHash'])
-                                                            redis_utils.redis_conn.set(key_tx_json, json.dumps(
-                                                                {'coin_name': coin_name, 'txid': tx['transactionHash'],
-                                                                 'payment_id': tx['paymentId'],
-                                                                 'height': tx['blockIndex'],
-                                                                 'amount': float(tx['amount'] / 10 ** coin_decimal),
-                                                                 'fee': tx['fee'], 'decimal': coin_decimal}), ex=86400)
-                                                    elif redis_utils.redis_conn.llen(key_tx_new) == 0:
-                                                        redis_utils.redis_conn.lpush(key_tx_new, tx['transactionHash'])
-                                                        redis_utils.redis_conn.set(key_tx_json, json.dumps(
-                                                            {'coin_name': coin_name, 'txid': tx['transactionHash'],
-                                                             'payment_id': tx['paymentId'], 'height': tx['blockIndex'],
-                                                             'amount': float(tx['amount'] / 10 ** coin_decimal),
-                                                             'fee': tx['fee'], 'decimal': coin_decimal}), ex=86400)
-                                                except Exception:
-                                                    traceback.print_exc(file=sys.stdout)
-                    # TODO: update user balance
+                    tasks.append(self.update_balance_tasks_trtl_service(coin_name, False))
+            completed = 0
+            for task in asyncio.as_completed(tasks):
+                fetch_updates = await task
+                if fetch_updates is True:
+                    completed += 1
+                
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
+    # To use with update_balance_xmr()
+    async def update_balance_tasks_xmr(self, coin_name: str, debug: bool):
+        if debug is True:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
+        gettopblock = await self.gettopblock(coin_name, time_out=32)
+        height = int(gettopblock['block_header']['height'])
+        try:
+            redis_utils.redis_conn.set(
+                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                str(height)
+            )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        url = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
+        get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        get_min_deposit_amount = int(
+            getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit") * 10 ** coin_decimal)
+
+        payload = {
+            "in": True,
+            "out": True,
+            "pending": False,
+            "failed": False,
+            "pool": False,
+            "filter_by_height": True,
+            "min_height": height - 2000,
+            "max_height": height
+        }
+
+        get_transfers = await self.wallet_api.call_aiohttp_wallet_xmr_bcn(
+            'get_transfers', coin_name, payload=payload
+        )
+        if get_transfers and len(get_transfers) >= 1 and 'in' in get_transfers:
+            try:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name`=%s """
+                        await cur.execute(sql, (coin_name,))
+                        result = await cur.fetchall()
+                        d = [i['txid'] for i in result]
+                        # print('=================='+coin_name+'===========')
+                        # print(d)
+                        # print('=================='+coin_name+'===========')
+                        list_balance_user = {}
+                        for tx in get_transfers['in']:
+                            # add to balance only confirmation depth meet
+                            if height >= int(tx['height']) + get_confirm_depth and tx[
+                                'amount'] >= get_min_deposit_amount and 'payment_id' in tx:
+                                if 'payment_id' in tx and tx['payment_id'] in list_balance_user:
+                                    list_balance_user[tx['payment_id']] += tx['amount']
+                                elif 'payment_id' in tx and tx['payment_id'] not in list_balance_user:
+                                    list_balance_user[tx['payment_id']] = tx['amount']
+                                try:
+                                    if tx['txid'] not in d:
+                                        tx_address = tx['address'] if coin_name != "LTHN" else getattr(
+                                            getattr(self.bot.coin_list, coin_name), "MainAddress")
+                                        user_paymentId = await store.sql_get_userwallet_by_paymentid(
+                                            tx['payment_id'], coin_name,
+                                            getattr(getattr(self.bot.coin_list, coin_name), "type"))
+                                        u_server = None
+                                        if user_paymentId: u_server = user_paymentId['user_server']
+                                        sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `in_out`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, `time_insert`, `user_server`) 
+                                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                        await cur.execute(sql, (
+                                        coin_name, tx['type'].upper(), tx['txid'], tx['payment_id'],
+                                        tx['height'], tx['timestamp'],
+                                        float(tx['amount'] / 10 ** coin_decimal),
+                                        float(tx['fee'] / 10 ** coin_decimal), coin_decimal, tx_address,
+                                        int(time.time()), u_server))
+                                        await conn.commit()
+                                        # add to notification list also
+                                        sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `height`, `amount`, `fee`, `decimal`, `user_server`) 
+                                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                        await cur.execute(sql, (
+                                        coin_name, tx['txid'], tx['payment_id'], tx['height'],
+                                        float(tx['amount'] / 10 ** coin_decimal),
+                                        float(tx['fee'] / 10 ** coin_decimal), coin_decimal, u_server))
+                                        await conn.commit()
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                            elif height < int(tx['height']) + get_confirm_depth and tx[
+                                'amount'] >= get_min_deposit_amount and 'payment_id' in tx:
+                                # add notify to redis and alert deposit. Can be clean later?
+                                if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
+                                    key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
+                                    key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['txid']
+                                    try:
+                                        if redis_utils.redis_conn.llen(key_tx_new) > 0:
+                                            list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
+                                            if list_new_tx and len(list_new_tx) > 0 and tx[
+                                                'txid'].encode() not in list_new_tx:
+                                                redis_utils.redis_conn.lpush(key_tx_new, tx['txid'])
+                                                redis_utils.redis_conn.set(key_tx_json, json.dumps(
+                                                    {'coin_name': coin_name, 'txid': tx['txid'],
+                                                        'payment_id': tx['payment_id'], 'height': tx['height'],
+                                                        'amount': float(tx['amount'] / 10 ** coin_decimal),
+                                                        'fee': float(tx['fee'] / 10 ** coin_decimal),
+                                                        'decimal': coin_decimal}), ex=86400)
+                                        elif redis_utils.redis_conn.llen(key_tx_new) == 0:
+                                            redis_utils.redis_conn.lpush(key_tx_new, tx['txid'])
+                                            redis_utils.redis_conn.set(key_tx_json, json.dumps(
+                                                {'coin_name': coin_name, 'txid': tx['txid'],
+                                                    'payment_id': tx['payment_id'], 'height': tx['height'],
+                                                    'amount': float(tx['amount'] / 10 ** coin_decimal),
+                                                    'fee': float(tx['fee'] / 10 ** coin_decimal),
+                                                    'decimal': coin_decimal}), ex=86400)
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+        if debug is True:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} End check balance {coin_name}", color="green")
+        return True
 
     @tasks.loop(seconds=60.0)
     async def update_balance_xmr(self):
@@ -6840,127 +7045,163 @@ class Wallet(commands.Cog):
             list_xmr_api = await store.get_coin_settings("XMR")
             if len(list_xmr_api) > 0:
                 list_coins = [each['coin_name'].upper() for each in list_xmr_api]
+                tasks = []
                 for coin_name in list_coins:
                     # print(f"Check balance {coin_name}")
                     if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1 or getattr(
                             getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
-                        await asyncio.sleep(10.0)
                         continue
-                    gettopblock = await self.gettopblock(coin_name, time_out=32)
-                    height = int(gettopblock['block_header']['height'])
-                    try:
-                        redis_utils.redis_conn.set(
-                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                            str(height)
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-
-                    url = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
-                    get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                    get_min_deposit_amount = int(
-                        getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit") * 10 ** coin_decimal)
-
-                    payload = {
-                        "in": True,
-                        "out": True,
-                        "pending": False,
-                        "failed": False,
-                        "pool": False,
-                        "filter_by_height": True,
-                        "min_height": height - 2000,
-                        "max_height": height
-                    }
-
-                    get_transfers = await self.wallet_api.call_aiohttp_wallet_xmr_bcn('get_transfers', coin_name,
-                                                                                      payload=payload)
-                    if get_transfers and len(get_transfers) >= 1 and 'in' in get_transfers:
-                        try:
-                            await self.openConnection()
-                            async with self.pool.acquire() as conn:
-                                async with conn.cursor() as cur:
-                                    sql = """ SELECT * FROM `cn_get_transfers` WHERE `coin_name`=%s """
-                                    await cur.execute(sql, (coin_name,))
-                                    result = await cur.fetchall()
-                                    d = [i['txid'] for i in result]
-                                    # print('=================='+coin_name+'===========')
-                                    # print(d)
-                                    # print('=================='+coin_name+'===========')
-                                    list_balance_user = {}
-                                    for tx in get_transfers['in']:
-                                        # add to balance only confirmation depth meet
-                                        if height >= int(tx['height']) + get_confirm_depth and tx[
-                                            'amount'] >= get_min_deposit_amount and 'payment_id' in tx:
-                                            if 'payment_id' in tx and tx['payment_id'] in list_balance_user:
-                                                list_balance_user[tx['payment_id']] += tx['amount']
-                                            elif 'payment_id' in tx and tx['payment_id'] not in list_balance_user:
-                                                list_balance_user[tx['payment_id']] = tx['amount']
-                                            try:
-                                                if tx['txid'] not in d:
-                                                    tx_address = tx['address'] if coin_name != "LTHN" else getattr(
-                                                        getattr(self.bot.coin_list, coin_name), "MainAddress")
-                                                    user_paymentId = await store.sql_get_userwallet_by_paymentid(
-                                                        tx['payment_id'], coin_name,
-                                                        getattr(getattr(self.bot.coin_list, coin_name), "type"))
-                                                    u_server = None
-                                                    if user_paymentId: u_server = user_paymentId['user_server']
-                                                    sql = """ INSERT IGNORE INTO `cn_get_transfers` (`coin_name`, `in_out`, `txid`, `payment_id`, `height`, `timestamp`, `amount`, `fee`, `decimal`, `address`, `time_insert`, `user_server`) 
-                                                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                    await cur.execute(sql, (
-                                                    coin_name, tx['type'].upper(), tx['txid'], tx['payment_id'],
-                                                    tx['height'], tx['timestamp'],
-                                                    float(tx['amount'] / 10 ** coin_decimal),
-                                                    float(tx['fee'] / 10 ** coin_decimal), coin_decimal, tx_address,
-                                                    int(time.time()), u_server))
-                                                    await conn.commit()
-                                                    # add to notification list also
-                                                    sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `height`, `amount`, `fee`, `decimal`, `user_server`) 
-                                                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                                                    await cur.execute(sql, (
-                                                    coin_name, tx['txid'], tx['payment_id'], tx['height'],
-                                                    float(tx['amount'] / 10 ** coin_decimal),
-                                                    float(tx['fee'] / 10 ** coin_decimal), coin_decimal, u_server))
-                                                    await conn.commit()
-                                            except Exception:
-                                                traceback.print_exc(file=sys.stdout)
-                                        elif height < int(tx['height']) + get_confirm_depth and tx[
-                                            'amount'] >= get_min_deposit_amount and 'payment_id' in tx:
-                                            # add notify to redis and alert deposit. Can be clean later?
-                                            if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
-                                                key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
-                                                key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['txid']
-                                                try:
-                                                    if redis_utils.redis_conn.llen(key_tx_new) > 0:
-                                                        list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
-                                                        if list_new_tx and len(list_new_tx) > 0 and tx[
-                                                            'txid'].encode() not in list_new_tx:
-                                                            redis_utils.redis_conn.lpush(key_tx_new, tx['txid'])
-                                                            redis_utils.redis_conn.set(key_tx_json, json.dumps(
-                                                                {'coin_name': coin_name, 'txid': tx['txid'],
-                                                                 'payment_id': tx['payment_id'], 'height': tx['height'],
-                                                                 'amount': float(tx['amount'] / 10 ** coin_decimal),
-                                                                 'fee': float(tx['fee'] / 10 ** coin_decimal),
-                                                                 'decimal': coin_decimal}), ex=86400)
-                                                    elif redis_utils.redis_conn.llen(key_tx_new) == 0:
-                                                        redis_utils.redis_conn.lpush(key_tx_new, tx['txid'])
-                                                        redis_utils.redis_conn.set(key_tx_json, json.dumps(
-                                                            {'coin_name': coin_name, 'txid': tx['txid'],
-                                                             'payment_id': tx['payment_id'], 'height': tx['height'],
-                                                             'amount': float(tx['amount'] / 10 ** coin_decimal),
-                                                             'fee': float(tx['fee'] / 10 ** coin_decimal),
-                                                             'decimal': coin_decimal}), ex=86400)
-                                                except Exception:
-                                                    traceback.print_exc(file=sys.stdout)
-                                    # TODO: update user balance
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
+                    tasks.append(self.update_balance_tasks_xmr(coin_name, False))
+                completed = 0
+                for task in asyncio.as_completed(tasks):
+                    fetch_updates = await task
+                    if fetch_updates is True:
+                        completed += 1
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
+    # to use with update_balance_btc()
+    async def update_balance_tasks_btc(self, coin_name: str, debug: bool):
+        if debug is True:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
+        if getattr(getattr(self.bot.coin_list, coin_name), "use_getinfo_btc") == 1:
+            gettopblock = await self.wallet_api.call_doge('getinfo', coin_name)
+        else:
+            gettopblock = await self.wallet_api.call_doge('getblockchaininfo', coin_name)
+        height = int(gettopblock['blocks'])
+        try:
+            redis_utils.redis_conn.set(
+                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                str(height)
+            )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(1.0)
+            return False
+
+        get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        get_min_deposit_amount = int(
+            getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit") * 10 ** coin_decimal)
+
+        payload = '"*", 100, 0'
+        if coin_name in ["HNS"]:
+            payload = '"default"'
+        get_transfers = await self.wallet_api.call_doge('listtransactions', coin_name, payload=payload)
+        if get_transfers and len(get_transfers) >= 1:
+            try:
+                await self.openConnection()
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """ SELECT * FROM `doge_get_transfers` WHERE `coin_name`=%s AND `category` IN (%s, %s) """
+                        await cur.execute(sql, (coin_name, 'receive', 'send'))
+                        result = await cur.fetchall()
+                        d = [i['txid'] for i in result]
+                        # print('=================='+coin_name+'===========')
+                        # print(d)
+                        # print('=================='+coin_name+'===========')
+                        list_balance_user = {}
+                        for tx in get_transfers:
+                            # add to balance only confirmation depth meet
+                            if get_confirm_depth <= int(tx['confirmations']) and tx[
+                                'amount'] >= get_min_deposit_amount:
+                                if 'address' in tx and tx['address'] in list_balance_user and tx[
+                                    'amount'] > 0:
+                                    list_balance_user[tx['address']] += tx['amount']
+                                elif 'address' in tx and tx['address'] not in list_balance_user and tx[
+                                    'amount'] > 0:
+                                    list_balance_user[tx['address']] = tx['amount']
+                                try:
+                                    if tx['txid'] not in d:
+                                        user_paymentId = await store.sql_get_userwallet_by_paymentid(
+                                            tx['address'], coin_name,
+                                            getattr(getattr(self.bot.coin_list, coin_name), "type"))
+                                        u_server = None
+                                        if user_paymentId: u_server = user_paymentId['user_server']
+                                        if getattr(getattr(self.bot.coin_list, coin_name), "coin_has_pos") == 1:
+                                            # generate from mining
+                                            if tx['category'] == 'receive' and 'generated' not in tx:
+                                                sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`, `user_server`) 
+                                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.execute(sql, (
+                                                coin_name, tx['txid'], tx['blockhash'], tx['address'],
+                                                tx['blocktime'], float(tx['amount']),
+                                                float(tx['fee']) if 'fee' in tx else None,
+                                                tx['confirmations'], tx['category'], int(time.time()),
+                                                u_server))
+                                                await conn.commit()
+                                                # Notify Tx
+                                            if (tx['amount'] > 0) and tx[
+                                                'category'] == 'receive' and 'generated' not in tx:
+                                                sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `amount`, `fee`, `decimal`, `user_server`) 
+                                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.execute(sql, (
+                                                coin_name, tx['txid'], tx['address'], tx['blockhash'],
+                                                float(tx['amount']),
+                                                float(tx['fee']) if 'fee' in tx else None, coin_decimal,
+                                                u_server))
+                                                await conn.commit()
+                                        else:
+                                            # generate from mining
+                                            if tx['category'] == "receive" or tx['category'] == "generate":
+                                                sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`, `user_server`) 
+                                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.execute(sql, (
+                                                coin_name, tx['txid'], tx['blockhash'], tx['address'],
+                                                tx['blocktime'], float(tx['amount']),
+                                                float(tx['fee']) if 'fee' in tx else None,
+                                                tx['confirmations'], tx['category'], int(time.time()),
+                                                u_server))
+                                                await conn.commit()
+                                            # add to notification list also, doge payment_id = address
+                                            if (tx['amount'] > 0) and tx['category'] == 'receive':
+                                                sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `amount`, `fee`, `decimal`, `user_server`) 
+                                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.execute(sql, (
+                                                coin_name, tx['txid'], tx['address'], tx['blockhash'],
+                                                float(tx['amount']),
+                                                float(tx['fee']) if 'fee' in tx else None, coin_decimal,
+                                                u_server))
+                                                await conn.commit()
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                            if get_confirm_depth > int(tx['confirmations']) > 0 \
+                                and tx['amount'] >= get_min_deposit_amount:
+                                if getattr(getattr(self.bot.coin_list, coin_name), "coin_has_pos") == 1 \
+                                    and tx['category'] == 'receive' and 'generated' in tx and tx['amount'] > 0:
+                                    continue
+                                # add notify to redis and alert deposit. Can be clean later?
+                                if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
+                                    key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
+                                    key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['txid']
+                                    try:
+                                        if redis_utils.redis_conn.llen(key_tx_new) > 0:
+                                            list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
+                                            if list_new_tx and len(list_new_tx) > 0 and tx[
+                                                'txid'].encode() not in list_new_tx:
+                                                redis_utils.redis_conn.lpush(key_tx_new, tx['txid'])
+                                                redis_utils.redis_conn.set(key_tx_json, json.dumps(
+                                                    {'coin_name': coin_name, 'txid': tx['txid'],
+                                                        'payment_id': tx['address'],
+                                                        'blockhash': tx['blockhash'], 'amount': tx['amount'],
+                                                        'decimal': coin_decimal}), ex=86400)
+                                        elif redis_utils.redis_conn.llen(key_tx_new) == 0:
+                                            redis_utils.redis_conn.lpush(key_tx_new, tx['txid'])
+                                            redis_utils.redis_conn.set(key_tx_json, json.dumps(
+                                                {'coin_name': coin_name, 'txid': tx['txid'],
+                                                    'payment_id': tx['address'], 'blockhash': tx['blockhash'],
+                                                    'amount': tx['amount'], 'decimal': coin_decimal}),
+                                                                        ex=86400)
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                        # TODO: update balance cache
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+        if debug is True:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} End check balance {coin_name}", color="green")
 
     @tasks.loop(seconds=60.0)
     async def update_balance_btc(self):
@@ -6977,146 +7218,17 @@ class Wallet(commands.Cog):
             list_btc_api = await store.get_coin_settings("BTC")
             if len(list_btc_api) > 0:
                 list_coins = [each['coin_name'].upper() for each in list_btc_api]
+                tasks = []
                 for coin_name in list_coins:
-                    # print(f"Check balance {coin_name}")
                     if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1 or getattr(
                             getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
-                        await asyncio.sleep(10.0)
                         continue
-                    if getattr(getattr(self.bot.coin_list, coin_name), "use_getinfo_btc") == 1:
-                        gettopblock = await self.wallet_api.call_doge('getinfo', coin_name)
-                    else:
-                        gettopblock = await self.wallet_api.call_doge('getblockchaininfo', coin_name)
-                    height = int(gettopblock['blocks'])
-                    try:
-                        redis_utils.redis_conn.set(
-                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                            str(height)
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                        await asyncio.sleep(1.0)
-                        continue
-
-                    get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                    get_min_deposit_amount = int(
-                        getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit") * 10 ** coin_decimal)
-
-                    payload = '"*", 100, 0'
-                    if coin_name in ["HNS"]:
-                        payload = '"default"'
-                    get_transfers = await self.wallet_api.call_doge('listtransactions', coin_name, payload=payload)
-                    if get_transfers and len(get_transfers) >= 1:
-                        try:
-                            await self.openConnection()
-                            async with self.pool.acquire() as conn:
-                                async with conn.cursor() as cur:
-                                    sql = """ SELECT * FROM `doge_get_transfers` WHERE `coin_name`=%s AND `category` IN (%s, %s) """
-                                    await cur.execute(sql, (coin_name, 'receive', 'send'))
-                                    result = await cur.fetchall()
-                                    d = [i['txid'] for i in result]
-                                    # print('=================='+coin_name+'===========')
-                                    # print(d)
-                                    # print('=================='+coin_name+'===========')
-                                    list_balance_user = {}
-                                    for tx in get_transfers:
-                                        # add to balance only confirmation depth meet
-                                        if get_confirm_depth <= int(tx['confirmations']) and tx[
-                                            'amount'] >= get_min_deposit_amount:
-                                            if 'address' in tx and tx['address'] in list_balance_user and tx[
-                                                'amount'] > 0:
-                                                list_balance_user[tx['address']] += tx['amount']
-                                            elif 'address' in tx and tx['address'] not in list_balance_user and tx[
-                                                'amount'] > 0:
-                                                list_balance_user[tx['address']] = tx['amount']
-                                            try:
-                                                if tx['txid'] not in d:
-                                                    user_paymentId = await store.sql_get_userwallet_by_paymentid(
-                                                        tx['address'], coin_name,
-                                                        getattr(getattr(self.bot.coin_list, coin_name), "type"))
-                                                    u_server = None
-                                                    if user_paymentId: u_server = user_paymentId['user_server']
-                                                    if getattr(getattr(self.bot.coin_list, coin_name), "coin_has_pos") == 1:
-                                                        # generate from mining
-                                                        if tx['category'] == 'receive' and 'generated' not in tx:
-                                                            sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`, `user_server`) 
-                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                            await cur.execute(sql, (
-                                                            coin_name, tx['txid'], tx['blockhash'], tx['address'],
-                                                            tx['blocktime'], float(tx['amount']),
-                                                            float(tx['fee']) if 'fee' in tx else None,
-                                                            tx['confirmations'], tx['category'], int(time.time()),
-                                                            u_server))
-                                                            await conn.commit()
-                                                            # Notify Tx
-                                                        if (tx['amount'] > 0) and tx[
-                                                            'category'] == 'receive' and 'generated' not in tx:
-                                                            sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `amount`, `fee`, `decimal`, `user_server`) 
-                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                                                            await cur.execute(sql, (
-                                                            coin_name, tx['txid'], tx['address'], tx['blockhash'],
-                                                            float(tx['amount']),
-                                                            float(tx['fee']) if 'fee' in tx else None, coin_decimal,
-                                                            u_server))
-                                                            await conn.commit()
-                                                    else:
-                                                        # generate from mining
-                                                        if tx['category'] == "receive" or tx['category'] == "generate":
-                                                            sql = """ INSERT IGNORE INTO `doge_get_transfers` (`coin_name`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, `fee`, `confirmations`, `category`, `time_insert`, `user_server`) 
-                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                            await cur.execute(sql, (
-                                                            coin_name, tx['txid'], tx['blockhash'], tx['address'],
-                                                            tx['blocktime'], float(tx['amount']),
-                                                            float(tx['fee']) if 'fee' in tx else None,
-                                                            tx['confirmations'], tx['category'], int(time.time()),
-                                                            u_server))
-                                                            await conn.commit()
-                                                        # add to notification list also, doge payment_id = address
-                                                        if (tx['amount'] > 0) and tx['category'] == 'receive':
-                                                            sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `amount`, `fee`, `decimal`, `user_server`) 
-                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                                                            await cur.execute(sql, (
-                                                            coin_name, tx['txid'], tx['address'], tx['blockhash'],
-                                                            float(tx['amount']),
-                                                            float(tx['fee']) if 'fee' in tx else None, coin_decimal,
-                                                            u_server))
-                                                            await conn.commit()
-                                            except Exception:
-                                                traceback.print_exc(file=sys.stdout)
-                                        if get_confirm_depth > int(tx['confirmations']) > 0 \
-                                            and tx['amount'] >= get_min_deposit_amount:
-                                            if getattr(getattr(self.bot.coin_list, coin_name), "coin_has_pos") == 1 \
-                                                and tx['category'] == 'receive' and 'generated' in tx and tx['amount'] > 0:
-                                                continue
-                                            # add notify to redis and alert deposit. Can be clean later?
-                                            if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
-                                                key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
-                                                key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['txid']
-                                                try:
-                                                    if redis_utils.redis_conn.llen(key_tx_new) > 0:
-                                                        list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0, -1)
-                                                        if list_new_tx and len(list_new_tx) > 0 and tx[
-                                                            'txid'].encode() not in list_new_tx:
-                                                            redis_utils.redis_conn.lpush(key_tx_new, tx['txid'])
-                                                            redis_utils.redis_conn.set(key_tx_json, json.dumps(
-                                                                {'coin_name': coin_name, 'txid': tx['txid'],
-                                                                 'payment_id': tx['address'],
-                                                                 'blockhash': tx['blockhash'], 'amount': tx['amount'],
-                                                                 'decimal': coin_decimal}), ex=86400)
-                                                    elif redis_utils.redis_conn.llen(key_tx_new) == 0:
-                                                        redis_utils.redis_conn.lpush(key_tx_new, tx['txid'])
-                                                        redis_utils.redis_conn.set(key_tx_json, json.dumps(
-                                                            {'coin_name': coin_name, 'txid': tx['txid'],
-                                                             'payment_id': tx['address'], 'blockhash': tx['blockhash'],
-                                                             'amount': tx['amount'], 'decimal': coin_decimal}),
-                                                                                   ex=86400)
-                                                except Exception:
-                                                    traceback.print_exc(file=sys.stdout)
-                                    # TODO: update balance cache
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                    await asyncio.sleep(3.0)
+                    tasks.append(self.update_balance_tasks_btc(coin_name, False))
+                completed = 0
+                for task in asyncio.as_completed(tasks):
+                    fetch_updates = await task
+                    if fetch_updates is True:
+                        completed += 1
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
@@ -7252,6 +7364,129 @@ class Wallet(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
+    # to use with update_balance_chia()
+    async def update_balance_tasks_chia(self, coin_name: str, debug: bool):
+        if debug is True:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
+        gettopblock = await self.gettopblock(coin_name, time_out=32)
+        height = int(gettopblock['height'])
+        try:
+            redis_utils.redis_conn.set(
+                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
+                str(height)
+            )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            return False
+
+        get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        get_min_deposit_amount = int(
+            getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit") * 10 ** coin_decimal)
+
+        payload = {'wallet_id': 1}
+        list_tx = await self.wallet_api.call_xch('get_transactions', coin_name, payload=payload)
+        if 'success' in list_tx and list_tx['transactions'] and len(list_tx['transactions']) > 0:
+            get_transfers = list_tx['transactions']
+            if get_transfers and len(get_transfers) >= 1:
+                try:
+                    await self.openConnection()
+                    async with self.pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            sql = """ SELECT * FROM `xch_get_transfers` WHERE `coin_name`=%s  """
+                            await cur.execute(sql, (coin_name))
+                            result = await cur.fetchall()
+                            d = [i['txid'] for i in result]
+                            dheight = ["{}{}".format(i['height'], i['address']) for i in result]
+                            # print('=================='+coin_name+'===========')
+                            # print(d)
+                            # print('=================='+coin_name+'===========')
+                            list_balance_user = {}
+                            for tx in get_transfers:
+                                if "{}{}".format(tx['confirmed_at_height'], tx['to_address']) in dheight:
+                                    # skip
+                                    continue
+                                # add to balance only confirmation depth meet
+                                if height >= get_confirm_depth + int(tx['confirmed_at_height']) and tx[
+                                    'amount'] >= get_min_deposit_amount:
+                                    if 'to_address' in tx and tx['to_address'] in list_balance_user and tx[
+                                        'amount'] > 0:
+                                        list_balance_user[tx['to_address']] += tx['amount']
+                                    elif 'to_address' in tx and tx[
+                                        'to_address'] not in list_balance_user and tx['amount'] > 0:
+                                        list_balance_user[tx['to_address']] = tx['amount']
+                                    try:
+                                        if tx['name'] not in d:
+                                            # receive
+                                            if len(tx['sent_to']) == 0:
+                                                user_paymentId = await store.sql_get_userwallet_by_paymentid(
+                                                    tx['to_address'], coin_name,
+                                                    getattr(getattr(self.bot.coin_list, coin_name), "type"))
+                                                u_server = None
+                                                if user_paymentId: u_server = user_paymentId['user_server']
+
+                                                sql = """ INSERT IGNORE INTO `xch_get_transfers` (`coin_name`, `txid`, `height`, `timestamp`, `address`, `amount`, `fee`, `decimal`, `time_insert`, `user_server`) 
+                                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.execute(sql, (
+                                                coin_name, tx['name'], tx['confirmed_at_height'],
+                                                tx['created_at_time'],
+                                                tx['to_address'], float(tx['amount'] / 10 ** coin_decimal),
+                                                float(tx['fee_amount'] / 10 ** coin_decimal), coin_decimal,
+                                                int(time.time()), u_server))
+                                                await conn.commit()
+                                            # add to notification list also, doge payment_id = address
+                                            if (tx['amount'] > 0) and len(tx['sent_to']) == 0:
+                                                user_paymentId = await store.sql_get_userwallet_by_paymentid(
+                                                    tx['to_address'], coin_name,
+                                                    getattr(getattr(self.bot.coin_list, coin_name), "type"))
+                                                u_server = None
+                                                if user_paymentId: u_server = user_paymentId['user_server']
+                                                sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `height`, `amount`, `fee`, `decimal`, `user_server`) 
+                                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                                await cur.execute(sql, (
+                                                coin_name, tx['name'], tx['to_address'], tx['name'],
+                                                int(tx['confirmed_at_height']),
+                                                float(tx['amount'] / 10 ** coin_decimal),
+                                                float(tx['fee_amount'] / 10 ** coin_decimal), coin_decimal,
+                                                u_server))
+                                                await conn.commit()
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                if height < get_confirm_depth + int(tx['confirmed_at_height']) and tx[
+                                    'amount'] >= get_min_deposit_amount:
+                                    # add notify to redis and alert deposit. Can be clean later?
+                                    if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
+                                        key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
+                                        key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['name']
+                                        try:
+                                            if redis_utils.redis_conn.llen(key_tx_new) > 0:
+                                                list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0,
+                                                                                            -1)
+                                                if list_new_tx and len(list_new_tx) > 0 and tx[
+                                                    'name'].encode() not in list_new_tx:
+                                                    redis_utils.redis_conn.lpush(key_tx_new, tx['name'])
+                                                    redis_utils.redis_conn.set(key_tx_json, json.dumps(
+                                                        {'coin_name': coin_name, 'txid': tx['name'],
+                                                            'payment_id': tx['to_address'],
+                                                            'height': tx['confirmed_at_height'],
+                                                            'amount': float(tx['amount'] / 10 ** coin_decimal),
+                                                            'decimal': coin_decimal}), ex=86400)
+                                            elif redis_utils.redis_conn.llen(key_tx_new) == 0:
+                                                redis_utils.redis_conn.lpush(key_tx_new, tx['name'])
+                                                redis_utils.redis_conn.set(key_tx_json, json.dumps(
+                                                    {'coin_name': coin_name, 'txid': tx['name'],
+                                                        'payment_id': tx['to_address'],
+                                                        'height': tx['confirmed_at_height'],
+                                                        'amount': float(tx['amount'] / 10 ** coin_decimal),
+                                                        'decimal': coin_decimal}), ex=86400)
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+        if debug is True:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} End check balance {coin_name}", color="green")
+        return True
+
     @tasks.loop(seconds=60.0)
     async def update_balance_chia(self):
         time_lap = 5  # seconds
@@ -7266,133 +7501,22 @@ class Wallet(commands.Cog):
             list_chia_api = await store.get_coin_settings("CHIA")
             if len(list_chia_api) > 0:
                 list_coins = [each['coin_name'].upper() for each in list_chia_api]
+                tasks = []
                 for coin_name in list_coins:
-                    # print(f"Check balance {coin_name}")
                     if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1 or getattr(
                             getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
-                        await asyncio.sleep(10.0)
                         continue
-                    gettopblock = await self.gettopblock(coin_name, time_out=32)
-                    height = int(gettopblock['height'])
-                    try:
-                        redis_utils.redis_conn.set(
-                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                            str(height)
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-
-                    get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                    get_min_deposit_amount = int(
-                        getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit") * 10 ** coin_decimal)
-
-                    payload = {'wallet_id': 1}
-                    list_tx = await self.wallet_api.call_xch('get_transactions', coin_name, payload=payload)
-                    if 'success' in list_tx and list_tx['transactions'] and len(list_tx['transactions']) > 0:
-                        get_transfers = list_tx['transactions']
-                        if get_transfers and len(get_transfers) >= 1:
-                            try:
-                                await self.openConnection()
-                                async with self.pool.acquire() as conn:
-                                    async with conn.cursor() as cur:
-                                        sql = """ SELECT * FROM `xch_get_transfers` WHERE `coin_name`=%s  """
-                                        await cur.execute(sql, (coin_name))
-                                        result = await cur.fetchall()
-                                        d = [i['txid'] for i in result]
-                                        dheight = ["{}{}".format(i['height'], i['address']) for i in result]
-                                        # print('=================='+coin_name+'===========')
-                                        # print(d)
-                                        # print('=================='+coin_name+'===========')
-                                        list_balance_user = {}
-                                        for tx in get_transfers:
-                                            if "{}{}".format(tx['confirmed_at_height'], tx['to_address']) in dheight:
-                                                # skip
-                                                continue
-                                            # add to balance only confirmation depth meet
-                                            if height >= get_confirm_depth + int(tx['confirmed_at_height']) and tx[
-                                                'amount'] >= get_min_deposit_amount:
-                                                if 'to_address' in tx and tx['to_address'] in list_balance_user and tx[
-                                                    'amount'] > 0:
-                                                    list_balance_user[tx['to_address']] += tx['amount']
-                                                elif 'to_address' in tx and tx[
-                                                    'to_address'] not in list_balance_user and tx['amount'] > 0:
-                                                    list_balance_user[tx['to_address']] = tx['amount']
-                                                try:
-                                                    if tx['name'] not in d:
-                                                        # receive
-                                                        if len(tx['sent_to']) == 0:
-                                                            user_paymentId = await store.sql_get_userwallet_by_paymentid(
-                                                                tx['to_address'], coin_name,
-                                                                getattr(getattr(self.bot.coin_list, coin_name), "type"))
-                                                            u_server = None
-                                                            if user_paymentId: u_server = user_paymentId['user_server']
-
-                                                            sql = """ INSERT IGNORE INTO `xch_get_transfers` (`coin_name`, `txid`, `height`, `timestamp`, `address`, `amount`, `fee`, `decimal`, `time_insert`, `user_server`) 
-                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                            await cur.execute(sql, (
-                                                            coin_name, tx['name'], tx['confirmed_at_height'],
-                                                            tx['created_at_time'],
-                                                            tx['to_address'], float(tx['amount'] / 10 ** coin_decimal),
-                                                            float(tx['fee_amount'] / 10 ** coin_decimal), coin_decimal,
-                                                            int(time.time()), u_server))
-                                                            await conn.commit()
-                                                        # add to notification list also, doge payment_id = address
-                                                        if (tx['amount'] > 0) and len(tx['sent_to']) == 0:
-                                                            user_paymentId = await store.sql_get_userwallet_by_paymentid(
-                                                                tx['to_address'], coin_name,
-                                                                getattr(getattr(self.bot.coin_list, coin_name), "type"))
-                                                            u_server = None
-                                                            if user_paymentId: u_server = user_paymentId['user_server']
-                                                            sql = """ INSERT IGNORE INTO `discord_notify_new_tx` (`coin_name`, `txid`, `payment_id`, `blockhash`, `height`, `amount`, `fee`, `decimal`, `user_server`) 
-                                                                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                                            await cur.execute(sql, (
-                                                            coin_name, tx['name'], tx['to_address'], tx['name'],
-                                                            int(tx['confirmed_at_height']),
-                                                            float(tx['amount'] / 10 ** coin_decimal),
-                                                            float(tx['fee_amount'] / 10 ** coin_decimal), coin_decimal,
-                                                            u_server))
-                                                            await conn.commit()
-                                                except Exception:
-                                                    traceback.print_exc(file=sys.stdout)
-                                            if height < get_confirm_depth + int(tx['confirmed_at_height']) and tx[
-                                                'amount'] >= get_min_deposit_amount:
-                                                # add notify to redis and alert deposit. Can be clean later?
-                                                if self.bot.config['notify_new_tx']['enable_new_no_confirm'] == 1:
-                                                    key_tx_new = self.bot.config['redis']['prefix_new_tx'] + 'NOCONFIRM'
-                                                    key_tx_json = self.bot.config['redis']['prefix_new_tx'] + tx['name']
-                                                    try:
-                                                        if redis_utils.redis_conn.llen(key_tx_new) > 0:
-                                                            list_new_tx = redis_utils.redis_conn.lrange(key_tx_new, 0,
-                                                                                                        -1)
-                                                            if list_new_tx and len(list_new_tx) > 0 and tx[
-                                                                'name'].encode() not in list_new_tx:
-                                                                redis_utils.redis_conn.lpush(key_tx_new, tx['name'])
-                                                                redis_utils.redis_conn.set(key_tx_json, json.dumps(
-                                                                    {'coin_name': coin_name, 'txid': tx['name'],
-                                                                     'payment_id': tx['to_address'],
-                                                                     'height': tx['confirmed_at_height'],
-                                                                     'amount': float(tx['amount'] / 10 ** coin_decimal),
-                                                                     'decimal': coin_decimal}), ex=86400)
-                                                        elif redis_utils.redis_conn.llen(key_tx_new) == 0:
-                                                            redis_utils.redis_conn.lpush(key_tx_new, tx['name'])
-                                                            redis_utils.redis_conn.set(key_tx_json, json.dumps(
-                                                                {'coin_name': coin_name, 'txid': tx['name'],
-                                                                 'payment_id': tx['to_address'],
-                                                                 'height': tx['confirmed_at_height'],
-                                                                 'amount': float(tx['amount'] / 10 ** coin_decimal),
-                                                                 'decimal': coin_decimal}), ex=86400)
-                                                    except Exception:
-                                                        traceback.print_exc(file=sys.stdout)
-                                        # TODO: update balance users
-                            except Exception:
-                                traceback.print_exc(file=sys.stdout)
+                    tasks.append(self.update_balance_tasks_chia(coin_name, False))
+                completed = 0
+                for task in asyncio.as_completed(tasks):
+                    fetch_updates = await task
+                    if fetch_updates is True:
+                        completed += 1
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
-
 
     @tasks.loop(seconds=60.0)
     async def update_balance_nano(self):
@@ -7410,7 +7534,6 @@ class Wallet(commands.Cog):
             if len(list_nano) > 0:
                 list_coins = [each['coin_name'].upper() for each in list_nano]
                 for coin_name in list_coins:
-                    # print(f"Check balance {coin_name}")
                     if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1 or getattr(
                             getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
                         await asyncio.sleep(10.0)
@@ -7495,7 +7618,6 @@ class Wallet(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-
     @tasks.loop(seconds=10.0)
     async def update_balance_erc20(self):
         time_lap = 2  # seconds
@@ -7524,18 +7646,21 @@ class Wallet(commands.Cog):
                         traceback.print_exc(file=sys.stdout)
             main_tokens = await self.get_all_contracts("ERC-20", True)
             if len(main_tokens) > 0:
+                tasks = []
                 for each_c in main_tokens:
-                    try:
-                        await store.sql_check_minimum_deposit_erc20(
-                            self.bot.erc_node_list[each_c['net_name']],
-                            each_c['net_name'], each_c['coin_name'], None,
-                            each_c['decimal'], each_c['min_move_deposit'],
-                            each_c['min_gas_tx'], each_c['gas_ticker'],
-                            each_c['move_gas_amount'], each_c['chain_id'],
-                            each_c['real_deposit_fee'], 0, 7200
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
+                    tasks.append(store.sql_check_minimum_deposit_erc20(
+                        self.bot.erc_node_list[each_c['net_name']],
+                        each_c['net_name'], each_c['coin_name'], None,
+                        each_c['decimal'], each_c['min_move_deposit'],
+                        each_c['min_gas_tx'], each_c['gas_ticker'],
+                        each_c['move_gas_amount'], each_c['chain_id'],
+                        each_c['real_deposit_fee'], 0, 7200
+                    ))
+                completed = 0
+                for task in asyncio.as_completed(tasks):
+                    fetch_updates = await task
+                    if fetch_updates:
+                        completed += 1
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
@@ -8562,8 +8687,9 @@ class Wallet(commands.Cog):
                                 if not eachTx['user_id'].isdigit():
                                     continue
                                 try:
-                                    key = "notify_new_tx_{}_{}_{}".format(eachTx['token_name'], eachTx['user_id'],
-                                                                          eachTx['txn'])
+                                    key = "notify_new_tx_{}_{}_{}".format(
+                                        eachTx['token_name'], eachTx['user_id'], eachTx['txn']
+                                    )
                                     if self.ttlcache[key] == key:
                                         continue
                                     else:
@@ -8692,13 +8818,16 @@ class Wallet(commands.Cog):
             net_names = await self.get_all_net_names()
             net_names = list(net_names.keys())
             if len(net_names) > 0:
+                tasks = []
                 for each_name in net_names:
-                    try:
-                        await store.sql_check_pending_move_deposit_erc20(
-                            self.bot.erc_node_list[each_name], each_name, depth, 32
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
+                    tasks.append(store.sql_check_pending_move_deposit_erc20(
+                        self.bot.erc_node_list[each_name], each_name, depth, 32
+                    ))
+                completed = 0
+                for task in asyncio.as_completed(tasks):
+                    fetch_updates = await task
+                    if fetch_updates:
+                        completed += 1
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
@@ -8754,7 +8883,9 @@ class Wallet(commands.Cog):
             if len(net_names) > 0:
                 for each_name in net_names:
                     try:
-                        get_recent_tx = await store.get_monit_scanning_contract_balance_address_erc20(each_name, 7200)
+                        get_recent_tx = await store.get_monit_scanning_contract_balance_address_erc20(
+                            each_name, 7200
+                        )
                         if get_recent_tx and len(get_recent_tx) > 0:
                             tx_update_call = []
                             for each_tx in get_recent_tx:
@@ -8844,9 +8975,11 @@ class Wallet(commands.Cog):
                     await self.openConnection()
                     async with self.pool.acquire() as conn:
                         async with conn.cursor() as cur:
-                            sql = """ INSERT INTO `erc20_external_tx` (`token_name`, `contract`, `user_id`, `real_amount`, 
-                                      `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, 
-                                      `user_server`, `network`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                            sql = """ INSERT INTO `erc20_external_tx` 
+                            (`token_name`, `contract`, `user_id`, `real_amount`, 
+                             `real_external_fee`, `token_decimal`, `to_address`, `date`, `txn`, 
+                            `user_server`, `network`) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                             await cur.execute(sql, (
                                 token_name, contract, user_id, amount, real_withdraw_fee, coin_decimal,
                                 to_address, int(time.time()), sent_tx.hex(), user_server, network)
@@ -8869,8 +9002,10 @@ class Wallet(commands.Cog):
         user_server = user_server.upper()
 
         try:
-            _http_client = AsyncClient(limits=Limits(max_connections=100, max_keepalive_connections=20),
-                                       timeout=Timeout(timeout=10, connect=5, read=5))
+            _http_client = AsyncClient(
+                limits=Limits(max_connections=100, max_keepalive_connections=20),
+                timeout=Timeout(timeout=10, connect=5, read=5
+            ))
             TronClient = AsyncTron(provider=AsyncHTTPProvider(self.bot.erc_node_list['TRX'], client=_http_client))
             if token_name == "TRX":
                 txb = (
@@ -8985,8 +9120,10 @@ class Wallet(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
-    async def trtl_api_get_transfers(self, url: str, key: str, coin: str, height_start: int = None,
-                                     height_end: int = None):
+    async def trtl_api_get_transfers(
+        self, url: str, key: str, coin: str, height_start: int = None,
+        height_end: int = None
+    ):
         time_out = 30
         method = "/transactions"
         headers = {
@@ -9036,15 +9173,18 @@ class Wallet(commands.Cog):
             'firstBlockIndex': firstBlockIndex if firstBlockIndex > 0 else 1,
             'blockCount': blockCount,
         }
-        result = await self.wallet_api.call_aiohttp_wallet_xmr_bcn('getTransactions', coin_name, time_out=time_out,
-                                                                   payload=payload)
+        result = await self.wallet_api.call_aiohttp_wallet_xmr_bcn(
+            'getTransactions', coin_name, time_out=time_out, payload=payload
+        )
         if result and 'items' in result:
             return result['items']
         return []
 
     # Mostly for BCN/XMR
-    async def call_daemon(self, get_daemon_rpc_url: str, method_name: str, coin: str, time_out: int = None,
-                          payload: Dict = None) -> Dict:
+    async def call_daemon(
+        self, get_daemon_rpc_url: str, method_name: str, coin: str, time_out: int = None,
+        payload: Dict = None
+    ) -> Dict:
         full_payload = {
             'params': payload or {},
             'jsonrpc': '2.0',
@@ -9054,8 +9194,11 @@ class Wallet(commands.Cog):
         timeout = time_out or 16
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(get_daemon_rpc_url + '/json_rpc', json=full_payload,
-                                        timeout=timeout) as response:
+                async with session.post(
+                    get_daemon_rpc_url + '/json_rpc',
+                    json=full_payload,
+                    timeout=timeout
+                ) as response:
                     if response.status == 200:
                         res_data = await response.json()
                         if res_data and 'result' in res_data:
@@ -9089,8 +9232,11 @@ class Wallet(commands.Cog):
             try:
 
                 async with aiohttp.ClientSession() as session:
-                    async with session.post(get_daemon_rpc_url + '/json_rpc', json=full_payload,
-                                            timeout=timeout) as response:
+                    async with session.post(
+                        get_daemon_rpc_url + '/json_rpc',
+                        json=full_payload,
+                        timeout=timeout
+                    ) as response:
                         if response.status == 200:
                             res_data = await response.json()
                             result = None
@@ -9106,8 +9252,11 @@ class Wallet(commands.Cog):
                                 }
                                 try:
                                     async with aiohttp.ClientSession() as session:
-                                        async with session.post(get_daemon_rpc_url + '/json_rpc', json=full_payload,
-                                                                timeout=timeout) as response:
+                                        async with session.post(
+                                            get_daemon_rpc_url + '/json_rpc',
+                                            json=full_payload,
+                                            timeout=timeout
+                                        ) as response:
                                             if response.status == 200:
                                                 res_data = await response.json()
                                                 return res_data['result']
@@ -9133,8 +9282,11 @@ class Wallet(commands.Cog):
             }
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.post(get_daemon_rpc_url + '/json_rpc', json=full_payload,
-                                            timeout=timeout) as response:
+                    async with session.post(
+                        get_daemon_rpc_url + '/json_rpc',
+                        json=full_payload,
+                        timeout=timeout
+                    ) as response:
                         if response.status == 200:
                             try:
                                 res_data = await response.json()
@@ -9155,8 +9307,11 @@ class Wallet(commands.Cog):
                                 }
                                 try:
                                     async with aiohttp.ClientSession() as session:
-                                        async with session.post(get_daemon_rpc_url + '/json_rpc', json=full_payload,
-                                                                timeout=timeout) as response:
+                                        async with session.post(
+                                            get_daemon_rpc_url + '/json_rpc',
+                                            json=full_payload,
+                                            timeout=timeout
+                                        ) as response:
                                             if response.status == 200:
                                                 res_data = await response.json()
                                                 if res_data and 'result' in res_data:
@@ -9206,15 +9361,18 @@ class Wallet(commands.Cog):
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if main_token is False:
-                        sql = """ SELECT * FROM `coin_settings` WHERE `type`=%s AND `enable`=%s AND `contract` IS NOT NULL AND `net_name` IS NOT NULL """
+                        sql = """ SELECT * FROM `coin_settings` WHERE `type`=%s AND `enable`=%s 
+                        AND `contract` IS NOT NULL AND `net_name` IS NOT NULL """
                         await cur.execute(sql, (type_token, 1))
                         result = await cur.fetchall()
                         if result and len(result) > 0: return result
                     else:
-                        sql = """ SELECT * FROM `coin_settings` WHERE `type`=%s AND `enable`=%s AND `contract` IS NULL AND `net_name` IS NOT NULL """
+                        sql = """ SELECT * FROM `coin_settings` WHERE `type`=%s 
+                        AND `enable`=%s AND `contract` IS NULL AND `net_name` IS NOT NULL """
                         await cur.execute(sql, (type_token, 1))
                         result = await cur.fetchall()
-                        if result and len(result) > 0: return result
+                        if result and len(result) > 0:
+                            return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("wallet get_all_contracts " + str(traceback.format_exc()))
@@ -9226,14 +9384,21 @@ class Wallet(commands.Cog):
     ):
         return await self.wallet_api.generate_qr_address(address)
 
-    async def sql_get_userwallet(self, user_id, coin: str, netname: str, type_coin: str, user_server: str = 'DISCORD',
-                                 chat_id: int = 0):
-        return await self.wallet_api.sql_get_userwallet(user_id, coin, netname, type_coin, user_server, chat_id)
+    async def sql_get_userwallet(
+        self, user_id, coin: str, netname: str, type_coin: str, 
+        user_server: str = 'DISCORD', chat_id: int = 0
+    ):
+        return await self.wallet_api.sql_get_userwallet(
+            user_id, coin, netname, type_coin, user_server, chat_id
+        )
 
-    async def sql_register_user(self, user_id, coin: str, netname: str, type_coin: str, user_server: str,
-                                chat_id: int = 0, is_discord_guild: int = 0):
-        return await self.wallet_api.sql_register_user(user_id, coin, netname, type_coin, user_server, chat_id,
-                                                       is_discord_guild)
+    async def sql_register_user(
+        self, user_id, coin: str, netname: str, type_coin: str, user_server: str,
+        chat_id: int = 0, is_discord_guild: int = 0
+    ):
+        return await self.wallet_api.sql_register_user(
+            user_id, coin, netname, type_coin, user_server, chat_id, is_discord_guild
+        )
 
     async def get_all_net_names(self):
         try:
@@ -9302,12 +9467,14 @@ class Wallet(commands.Cog):
 
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-            get_deposit = await self.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT,
-                                                        0)
+            get_deposit = await self.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             if get_deposit is None:
-                get_deposit = await self.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                           SERVER_BOT, 0, 0)
+                get_deposit = await self.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             description = ""
@@ -9324,9 +9491,10 @@ class Wallet(commands.Cog):
                 if real_deposit_fee > 0:
                     real_deposit_fee_text = " {} {}".format(
                         num_format_coin(real_deposit_fee, coin_name, coin_decimal, False), token_display)
-                fee_txt = " You must deposit at least {} {} to cover fees needed to credit your account. The fee{} will be deducted from your deposit amount.".format(
-                    num_format_coin(real_min_deposit, coin_name, coin_decimal, False), token_display,
-                    real_deposit_fee_text)
+                fee_txt = " You must deposit at least {} {} to cover fees needed to credit your account. "\
+                    "The fee{} will be deducted from your deposit amount.".format(
+                        num_format_coin(real_min_deposit, coin_name, coin_decimal, False), token_display, real_deposit_fee_text
+                        )
             embed = disnake.Embed(title=f'Deposit for {ctx.author.name}#{ctx.author.discriminator}',
                                   description=description + fee_txt, timestamp=datetime.fromtimestamp(int(time.time())))
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
@@ -9339,19 +9507,16 @@ class Wallet(commands.Cog):
                 qr_address = address_memo[0]
             try:
                 gen_qr_address = await self.generate_qr_address(qr_address)
-                address_path = qr_address.replace('{', '_').replace('}', '_').replace(':', '_').replace('"',
-                                                                                                        "_").replace(
-                    ',', "_").replace(' ', "_")
+                address_path = qr_address.replace('{', '_').replace('}', '_').replace(':', '_').replace('"', "_").replace(',', "_").replace(' ', "_")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
-            plain_msg = '{}#{} Your deposit address for **{}**: ```{}```'.format(ctx.author.name,
-                                                                                 ctx.author.discriminator, coin_name,
-                                                                                 wallet_address)
+            plain_msg = '{}#{} Your deposit address for **{}**: ```{}```'.format(
+                ctx.author.name, ctx.author.discriminator, coin_name, wallet_address
+            )
             if coin_name in ["HNT", "XLM", "VITE"]:
-                plain_msg = '{}#{} Your deposit address for **{}**: ```{}```'.format(ctx.author.name,
-                                                                                     ctx.author.discriminator,
-                                                                                     coin_name, wallet_address)
+                plain_msg = '{}#{} Your deposit address for **{}**: ```{}```'.format(
+                    ctx.author.name, ctx.author.discriminator, coin_name, wallet_address)
                 plain_msg += "MEMO must be included OR you will lose: `{}`".format(address_memo[2])
 
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"] and getattr(
@@ -9379,11 +9544,13 @@ class Wallet(commands.Cog):
             if coin_name == "HNT":  # put memo and base64
                 try:
                     address_memo = wallet_address.split()
-                    embed.add_field(name="MEMO", value="```Ascii: {}\nBase64: {}```".format(address_memo[2],
-                                                                                            base64.b64encode(
-                                                                                                address_memo[2].encode(
-                                                                                                    'ascii')).decode(
-                                                                                                'ascii')), inline=False)
+                    embed.add_field(
+                        name="MEMO",
+                        value="```Ascii: {}\nBase64: {}```".format(
+                            address_memo[2], base64.b64encode(address_memo[2].encode('ascii')).decode('ascii')
+                        ),
+                        inline=False
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             elif type_coin in ["XLM", "VITE"]:
@@ -9441,8 +9608,10 @@ class Wallet(commands.Cog):
                     return
         # Do the job
         try:
-            await ctx.response.send_message(f'{ctx.author.mention}, checking your {coin_name} balance...',
-                                            ephemeral=True)
+            await ctx.response.send_message(
+                f'{ctx.author.mention}, checking your {coin_name} balance...',
+                ephemeral=True
+            )
 
             try:
                 self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -9457,11 +9626,12 @@ class Wallet(commands.Cog):
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-            get_deposit = await self.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT,
-                                                        0)
+            get_deposit = await self.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
             if get_deposit is None:
-                get_deposit = await self.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                           SERVER_BOT, 0, 0)
+                get_deposit = await self.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -9477,9 +9647,10 @@ class Wallet(commands.Cog):
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             try:
                 # height can be None
-                userdata_balance = await self.wallet_api.user_balance(str(ctx.author.id), coin_name, 
-                                                                      wallet_address, type_coin,
-                                                                      height, deposit_confirm_depth, SERVER_BOT)
+                userdata_balance = await self.wallet_api.user_balance(
+                    str(ctx.author.id), coin_name, wallet_address, type_coin,
+                    height, deposit_confirm_depth, SERVER_BOT
+                )
                 total_balance = userdata_balance['adjust']
                 equivalent_usd = ""
                 if usd_equivalent_enable == 1:
@@ -9599,11 +9770,13 @@ class Wallet(commands.Cog):
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                     token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                     usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-                    get_deposit = await self.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                SERVER_BOT, 0)
+                    get_deposit = await self.sql_get_userwallet(
+                        str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
                     if get_deposit is None:
-                        get_deposit = await self.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                   SERVER_BOT, 0, 0)
+                        get_deposit = await self.sql_register_user(
+                            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                        )
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                         wallet_address = get_deposit['paymentid']
@@ -9624,9 +9797,10 @@ class Wallet(commands.Cog):
                         page.set_thumbnail(url=ctx.author.display_avatar)
                         page.set_footer(text="Use the reactions to flip pages.")
                     # height can be None
-                    userdata_balance = await self.wallet_api.user_balance(str(ctx.author.id), coin_name, 
-                                                                          wallet_address, type_coin,
-                                                                          height, deposit_confirm_depth, SERVER_BOT)
+                    userdata_balance = await self.wallet_api.user_balance(
+                        str(ctx.author.id), coin_name, wallet_address, type_coin,
+                        height, deposit_confirm_depth, SERVER_BOT
+                    )
                     total_balance = userdata_balance['adjust']
                     if total_balance == 0:
                         zero_tokens.append(coin_name)
@@ -9810,11 +9984,13 @@ class Wallet(commands.Cog):
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             fee_limit = getattr(getattr(self.bot.coin_list, coin_name), "fee_limit")
-            get_deposit = await self.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT,
-                                                        0)
+            get_deposit = await self.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                           SERVER_BOT, 0, 0)
+                get_deposit = await self.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -10306,9 +10482,10 @@ class Wallet(commands.Cog):
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                             fee_limit = getattr(getattr(self.bot.coin_list, coin_name), "fee_limit")
                             # Use fee limit as NetFee
-                            send_tx = await self.wallet_api.send_external_ada(str(ctx.author.id), amount, coin_decimal,
-                                                                             SERVER_BOT, coin_name, fee_limit, address,
-                                                                             60)
+                            send_tx = await self.wallet_api.send_external_ada(
+                                str(ctx.author.id), amount, coin_decimal, SERVER_BOT,
+                                coin_name, fee_limit, address, 60
+                            )
                             if "status" in send_tx and send_tx['status'] == "pending":
                                 tx_hash = send_tx['id']
                                 fee = send_tx['fee']['quantity'] / 10 ** coin_decimal + fee_limit
@@ -10924,8 +11101,9 @@ class Wallet(commands.Cog):
 
                 if get_user_coin is not None:
                     embed.set_footer(
-                        text="Requested by: {}#{} | preferred: {}".format(ctx.author.name, ctx.author.discriminator,
-                                                                          get_user_coin['coin_name']))
+                        text="Requested by: {}#{} | preferred: {}".format(
+                            ctx.author.name, ctx.author.discriminator, get_user_coin['coin_name'])
+                        )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             await ctx.edit_original_message(content=None, embed=embed, view=RowButtonRowCloseAnyMessage())
@@ -10949,10 +11127,15 @@ class Wallet(commands.Cog):
                     coin_list_values.append("{:,.4f} {} - {:,.0f} time(s)".format(v, k, vote_with_coin[k]))
 
                 embed = disnake.Embed(title=f'Vote claim stats', timestamp=datetime.now())
-                embed.add_field(name="Total Vote", value="```{}```".format("\n".join(coin_list_values)), inline=False)
+                embed.add_field(
+                    name="Total Vote",
+                    value="```{}```".format("\n".join(coin_list_values)),
+                    inline=False
+                )
                 embed.set_footer(
-                    text="Requested by: {}#{} | Total votes: {:,.0f}".format(ctx.author.name, ctx.author.discriminator,
-                                                                             nos_vote))
+                    text="Requested by: {}#{} | Total votes: {:,.0f}".format(
+                        ctx.author.name, ctx.author.discriminator, nos_vote)
+                    )
                 await ctx.edit_original_message(content=None, embed=embed, view=RowButtonRowCloseAnyMessage())
             return
         else:
@@ -11003,11 +11186,13 @@ class Wallet(commands.Cog):
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-            get_deposit = await self.sql_get_userwallet(str(self.bot.user.id), coin_name, net_name, type_coin,
-                                                        SERVER_BOT, 0)
+            get_deposit = await self.sql_get_userwallet(
+                str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.sql_register_user(str(self.bot.user.id), coin_name, net_name, type_coin,
-                                                           SERVER_BOT, 0, 0)
+                get_deposit = await self.sql_register_user(
+                    str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -11017,9 +11202,10 @@ class Wallet(commands.Cog):
 
             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             try:
-                userdata_balance = await self.wallet_api.user_balance(str(self.bot.user.id), coin_name, 
-                                                                      wallet_address, type_coin,
-                                                                      height, deposit_confirm_depth, SERVER_BOT)
+                userdata_balance = await self.wallet_api.user_balance(
+                    str(self.bot.user.id), coin_name, wallet_address, type_coin,
+                    height, deposit_confirm_depth, SERVER_BOT
+                )
                 actual_balance = float(userdata_balance['adjust'])
                 sum_sub = float(get_game_stat[coin_name])
 
@@ -11232,11 +11418,13 @@ class Wallet(commands.Cog):
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
 
-        get_deposit = await self.sql_get_userwallet(str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT,
-                                                    0)
+        get_deposit = await self.sql_get_userwallet(
+            str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if get_deposit is None:
-            get_deposit = await self.sql_register_user(str(self.bot.user.id), coin_name, net_name, type_coin,
-                                                       SERVER_BOT, 0, 0)
+            get_deposit = await self.sql_register_user(
+                str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+            )
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -11316,8 +11504,10 @@ class Wallet(commands.Cog):
                     amount_in_usd, None
                 )
                 try:
-                    faucet_add = await store.sql_faucet_add(str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
-                                                            coin_decimal, SERVER_BOT)
+                    faucet_add = await store.sql_faucet_add(
+                        str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
+                        coin_decimal, SERVER_BOT
+                    )
                     msg = f'{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random `/take` {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. Use /claim to vote TipBot and get reward.{extra_take_text}'
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(
@@ -11660,8 +11850,9 @@ class Wallet(commands.Cog):
                 # Check balance user first
                 net_name = getattr(getattr(self.bot.coin_list, FROM_COIN), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, FROM_COIN), "type")
-                get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), FROM_COIN, net_name,
-                                                                       type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0
+                )
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, FROM_COIN), "deposit_confirm_depth")
                 min_tip = getattr(getattr(self.bot.coin_list, FROM_COIN), "real_min_tip")
                 max_tip = getattr(getattr(self.bot.coin_list, FROM_COIN), "real_max_tip")
@@ -11673,18 +11864,20 @@ class Wallet(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     return
                 if get_deposit is None:
-                    get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), FROM_COIN, net_name,
-                                                                          type_coin, SERVER_BOT, 0,
-                                                                          1 if check_list['is_guild'] == 1 else 0)
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        str(ctx.author.id), FROM_COIN, net_name, type_coin, SERVER_BOT, 0,
+                        1 if check_list['is_guild'] == 1 else 0
+                    )
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
                 height = self.wallet_api.get_block_height(type_coin, FROM_COIN, net_name)
-                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), FROM_COIN, wallet_address,
-                                                                       type_coin, height, deposit_confirm_depth,
-                                                                       SERVER_BOT)
+                userdata_balance = await store.sql_user_balance_single(
+                    str(ctx.author.id), FROM_COIN, wallet_address,
+                    type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
                 actual_balance = float(userdata_balance['adjust'])
                 if actual_balance < amount:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to /swaptokens **{num_format_coin(amount, FROM_COIN, coin_decimal, False)} {token_display}**. Having {num_format_coin(actual_balance, FROM_COIN, coin_decimal, False)} {token_display}.'
@@ -11701,17 +11894,19 @@ class Wallet(commands.Cog):
                 coin_decimal = getattr(getattr(self.bot.coin_list, TO_COIN), "decimal")
                 token_display = getattr(getattr(self.bot.coin_list, TO_COIN), "display_name")
                 if get_deposit is None:
-                    get_deposit = await self.wallet_api.sql_register_user(creditor, TO_COIN, net_name, type_coin,
-                                                                          SERVER_BOT, 0,
-                                                                          1 if check_list['is_guild'] == 1 else 0)
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        creditor, TO_COIN, net_name, type_coin, SERVER_BOT, 0,
+                        1 if check_list['is_guild'] == 1 else 0
+                    )
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
                 height = self.wallet_api.get_block_height(type_coin, TO_COIN, net_name)
-                creditor_balance = await store.sql_user_balance_single(creditor, TO_COIN, wallet_address, type_coin,
-                                                                       height, deposit_confirm_depth, SERVER_BOT)
+                creditor_balance = await store.sql_user_balance_single(
+                    creditor, TO_COIN, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
                 actual_balance = float(creditor_balance['adjust'])
                 if actual_balance < amount_swapped:
                     msg = f'{EMOJI_RED_NO} {ctx.author.mention}, creditor has insufficient balance to /swaptokens **{num_format_coin(amount_swapped, FROM_COIN, coin_decimal, False)} {token_display}**. Remaining only {num_format_coin(actual_balance, TO_COIN, coin_decimal, False)} {token_display}.'
@@ -12370,16 +12565,16 @@ class Wallet(commands.Cog):
             # nano, banano
             if not self.update_balance_nano.is_running():
                 self.update_balance_nano.start()
-            # TRTL-API
+            # TRTL-API, updated multiple tasks
             if not self.update_balance_trtl_api.is_running():
                 self.update_balance_trtl_api.start()
-            # TRTL-SERVICE
+            # TRTL-SERVICE, updated multiple tasks
             if not self.update_balance_trtl_service.is_running():
                 self.update_balance_trtl_service.start()
-            # XMR
+            # XMR, updated multiple tasks
             if not self.update_balance_xmr.is_running():
                 self.update_balance_xmr.start()
-            # BTC
+            # BTC, updated multiple tasks
             if not self.update_balance_btc.is_running():
                 self.update_balance_btc.start()
 
@@ -12389,12 +12584,13 @@ class Wallet(commands.Cog):
             if not self.notify_new_confirmed_neo.is_running():
                 self.notify_new_confirmed_neo.start()
 
-            # CHIA
+            # CHIA, updated multiple tasks
             if not self.update_balance_chia.is_running():
                 self.update_balance_chia.start()
-            # ERC-20
+            # ERC-20, multiple tasks for main token
             if not self.update_balance_erc20.is_running():
                 self.update_balance_erc20.start()
+            # updated multiple tasks
             if not self.unlocked_move_pending_erc20.is_running():
                 self.unlocked_move_pending_erc20.start()
             if not self.update_balance_address_history_erc20.is_running():

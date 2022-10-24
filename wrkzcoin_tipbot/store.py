@@ -121,11 +121,14 @@ async def sql_info_by_server(server_id: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM `discord_server` WHERE `serverid`=%s LIMIT 1 """
+                sql = """ SELECT * FROM `discord_server` 
+                WHERE `serverid`=%s LIMIT 1
+                """
                 await cur.execute(sql, server_id)
                 result = await cur.fetchone()
                 if result:
-                    sql = """ SELECT * FROM `discord_feature_roles` WHERE `guild_id`=%s """
+                    sql = """ SELECT * FROM `discord_feature_roles` 
+                    WHERE `guild_id`=%s """
                     await cur.execute(sql, server_id)
                     feature_roles = await cur.fetchall()
                     list_roles_feature = None
@@ -139,7 +142,9 @@ async def sql_info_by_server(server_id: str):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def sql_addinfo_by_server(server_id: str, servername: str, prefix: str, default_coin: str, rejoin: bool = True):
+async def sql_addinfo_by_server(
+    server_id: str, servername: str, prefix: str, default_coin: str, rejoin: bool = True
+):
     global pool
     try:
         await openConnection()
@@ -178,9 +183,11 @@ async def sql_add_messages(list_messages):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT IGNORE INTO `discord_messages` (`serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, 
-                          `message_author`, `message_id`, `message_content`, `message_time`)
-                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                sql = """ INSERT IGNORE INTO `discord_messages` (`serverid`, `server_name`, 
+                `channel_id`, `channel_name`, `user_id`, `message_author`, `message_id`, 
+                `message_content`, `message_time`)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
                 await cur.executemany(sql, list_messages)
                 await conn.commit()
                 return cur.rowcount
@@ -188,7 +195,9 @@ async def sql_add_messages(list_messages):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_user: int = None):
+async def sql_get_messages(
+    server_id: str, channel_id: str, time_int: int, num_user: int = None
+):
     global pool
     lapDuration = int(time.time()) - time_int
     try:
@@ -197,8 +206,10 @@ async def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_u
             async with conn.cursor() as cur:
                 list_talker = []
                 if num_user is None:
-                    sql = """ SELECT DISTINCT `user_id` FROM discord_messages 
-                              WHERE `serverid` = %s AND `channel_id` = %s AND `message_time`>%s """
+                    sql = """ SELECT DISTINCT `user_id` 
+                    FROM discord_messages 
+                    WHERE `serverid` = %s AND `channel_id` = %s AND `message_time`>%s
+                    """
                     await cur.execute(sql, (server_id, channel_id, lapDuration,))
                     result = await cur.fetchall()
                     if result:
@@ -206,8 +217,10 @@ async def sql_get_messages(server_id: str, channel_id: str, time_int: int, num_u
                             if int(item['user_id']) not in list_talker:
                                 list_talker.append(int(item['user_id']))
                 else:
-                    sql = """ SELECT `user_id` FROM discord_messages WHERE `serverid` = %s AND `channel_id` = %s 
-                              GROUP BY `user_id` ORDER BY max(`message_time`) DESC LIMIT %s """
+                    sql = """ SELECT `user_id` FROM discord_messages 
+                    WHERE `serverid` = %s AND `channel_id` = %s 
+                    GROUP BY `user_id` ORDER BY max(`message_time`) DESC LIMIT %s
+                    """
                     await cur.execute(sql, (server_id, channel_id, num_user,))
                     result = await cur.fetchall()
                     if result:
@@ -235,7 +248,9 @@ async def sql_changeinfo_by_server(
             await openConnection()
             async with pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE discord_server SET `""" + what.lower() + """` = %s WHERE `serverid` = %s """
+                    sql = """ UPDATE `discord_server` SET `""" + what.lower() + """` = %s 
+                    WHERE `serverid` = %s
+                    """
                     await cur.execute(sql, (value, server_id,))
                     await conn.commit()
         except Exception as e:
@@ -708,8 +723,9 @@ async def add_discord_bot_message(message_id: str, guild_id: str, owner_id: str)
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO discord_bot_message_owner (`message_id`, `guild_id`, `owner_id`, `stored_time`) 
-                          VALUES (%s, %s, %s, %s) """
+                sql = """ INSERT INTO discord_bot_message_owner 
+                (`message_id`, `guild_id`, `owner_id`, `stored_time`) 
+                VALUES (%s, %s, %s, %s) """
                 await cur.execute(sql, (message_id, guild_id, owner_id, int(time.time())))
                 await conn.commit()
                 return True
@@ -723,10 +739,12 @@ async def get_discord_mathtip_by_msgid(msg_id: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM `discord_mathtip_tmp` WHERE `message_id`=%s """
-                await cur.execute(sql, (msg_id))
+                sql = """ SELECT * FROM `discord_mathtip_tmp` 
+                WHERE `message_id`=%s """
+                await cur.execute(sql, msg_id)
                 result = await cur.fetchone()
-                if result: return result
+                if result:
+                    return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -739,10 +757,13 @@ async def get_discord_triviatip_by_msgid(msg_id: str):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 swap_in = 0.0
-                sql = """ SELECT * FROM `discord_triviatip_tmp` WHERE `message_id`=%s LIMIT 1 """
-                await cur.execute(sql, (msg_id))
+                sql = """ SELECT * FROM `discord_triviatip_tmp` 
+                WHERE `message_id`=%s LIMIT 1
+                """
+                await cur.execute(sql, msg_id)
                 result = await cur.fetchone()
-                if result: return result
+                if result:
+                    return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -758,10 +779,12 @@ async def get_coin_settings(coin_type: str = None):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM `coin_settings` WHERE `is_maintenance`=0 AND `enable`=1 """ + sql_coin_type
+                sql = """ SELECT * FROM `coin_settings` 
+                WHERE `is_maintenance`=0 AND `enable`=1 """ + sql_coin_type
                 await cur.execute(sql, )
                 result = await cur.fetchall()
-                if result: return result
+                if result:
+                    return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -774,8 +797,9 @@ async def sql_nano_get_user_wallets(coin: str):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM nano_user WHERE `coin_name`=%s """
-                await cur.execute(sql, (coin_name,))
+                sql = """ SELECT * FROM nano_user 
+                WHERE `coin_name`=%s """
+                await cur.execute(sql, coin_name)
                 result = await cur.fetchall()
                 return result
     except Exception as e:
@@ -788,7 +812,9 @@ async def sql_get_new_tx_table(notified: str = 'NO', failed_notify: str = 'NO'):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM `discord_notify_new_tx` WHERE `notified`=%s AND `failed_notify`=%s """
+                sql = """ SELECT * FROM `discord_notify_new_tx` 
+                WHERE `notified`=%s AND `failed_notify`=%s
+                """
                 await cur.execute(sql, (notified, failed_notify,))
                 result = await cur.fetchall()
                 return result
@@ -797,17 +823,23 @@ async def sql_get_new_tx_table(notified: str = 'NO', failed_notify: str = 'NO'):
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-async def sql_update_notify_tx_table(payment_id: str, owner_id: str, owner_name: str, notified: str, 
-                                     failed_notify: str, txid: str):
+async def sql_update_notify_tx_table(
+    payment_id: str, owner_id: str, owner_name: str, notified: str, 
+    failed_notify: str, txid: str
+):
     global pool
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE `discord_notify_new_tx` SET `owner_id`=%s, `owner_name`=%s, `notified`=%s, `failed_notify`=%s, 
-                          `notified_time`=%s AND `notified_time` IS NULL WHERE `payment_id`=%s AND `txid`=%s LIMIT 1 """
-                await cur.execute(sql,
-                                  (owner_id, owner_name, notified, failed_notify, int(time.time()), payment_id, txid))
+                sql = """ UPDATE `discord_notify_new_tx` 
+                SET `owner_id`=%s, `owner_name`=%s, `notified`=%s, `failed_notify`=%s, 
+                `notified_time`=%s AND `notified_time` IS NULL 
+                WHERE `payment_id`=%s AND `txid`=%s LIMIT 1
+                """
+                await cur.execute(sql, (
+                    owner_id, owner_name, notified, failed_notify, int(time.time()), payment_id, txid
+                ))
                 await conn.commit()
                 return cur.rowcount
     except Exception as e:
@@ -822,50 +854,68 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family
             async with conn.cursor() as cur:
                 result = None
                 if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                    sql = """ SELECT * FROM `cn_user_paymentid` WHERE `paymentid`=%s AND `coin_name`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `cn_user_paymentid` 
+                    WHERE `paymentid`=%s AND `coin_name`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (paymentid, coin_name))
                     result = await cur.fetchone()
                 elif coin_family == "CHIA":
-                    sql = """ SELECT * FROM `xch_user` WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `xch_user` 
+                    WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (paymentid, coin_name))
                     result = await cur.fetchone()
                 elif coin_family == "BTC":
                     # if doge family, address is paymentid
-                    sql = """ SELECT * FROM `doge_user` WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `doge_user` 
+                    WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (paymentid, coin_name))
                     result = await cur.fetchone()
                 elif coin_family == "NANO":
                     # if doge family, address is paymentid
-                    sql = """ SELECT * FROM `nano_user` WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `nano_user` 
+                    WHERE `balance_wallet_address`=%s AND `coin_name`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (paymentid, coin_name))
                     result = await cur.fetchone()
                 elif coin_family == "HNT":
                     # if doge family, address is paymentid
-                    sql = """ SELECT * FROM `hnt_user` WHERE `main_address`=%s AND `memo`=%s AND `coin_name`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `hnt_user`
+                    WHERE `main_address`=%s AND `memo`=%s AND `coin_name`=%s LIMIT 1
+                    """
                     address_memo = paymentid.split()
                     await cur.execute(sql, (address_memo[0], address_memo[2], coin_name))
                     result = await cur.fetchone()
                 elif coin_family == "XLM":
                     # if doge family, address is paymentid
-                    sql = """ SELECT * FROM `xlm_user` WHERE `main_address`=%s AND `memo`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `xlm_user` 
+                    WHERE `main_address`=%s AND `memo`=%s LIMIT 1
+                    """
                     address_memo = paymentid.split()
                     await cur.execute(sql, (address_memo[0], address_memo[2]))
                     result = await cur.fetchone()
                 elif coin_family == "VITE":
                     # if doge family, address is paymentid
-                    sql = """ SELECT * FROM `vite_user` WHERE `main_address`=%s AND `memo`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM `vite_user`
+                    WHERE `main_address`=%s AND `memo`=%s LIMIT 1
+                    """
                     address_memo = paymentid.split()
                     await cur.execute(sql, (address_memo[0], address_memo[2]))
                     result = await cur.fetchone()
                 elif coin_family == "ADA":
                     # if ADA family, address is paymentid
-                    sql = """ SELECT * FROM `ada_user` WHERE `balance_wallet_address`=%s LIMIT 1 """
-                    await cur.execute(sql, (paymentid))
+                    sql = """ SELECT * FROM `ada_user`
+                    WHERE `balance_wallet_address`=%s LIMIT 1
+                    """
+                    await cur.execute(sql, paymentid)
                     result = await cur.fetchone()
                 elif coin_family == "SOL":
                     # if SOL family, address is paymentid
-                    sql = """ SELECT * FROM `sol_user` WHERE `balance_wallet_address`=%s LIMIT 1 """
-                    await cur.execute(sql, (paymentid))
+                    sql = """ SELECT * FROM `sol_user`
+                    WHERE `balance_wallet_address`=%s LIMIT 1
+                    """
+                    await cur.execute(sql, paymentid)
                     result = await cur.fetchone()
                 return result
     except Exception as e:
@@ -881,13 +931,17 @@ async def get_txscan_stored_list_erc(net_name: str):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if net_name == "TRX":
-                    sql = """ SELECT * FROM `trc20_contract_scan` WHERE `net_name`=%s ORDER BY `blockNumber` DESC LIMIT 500 """
+                    sql = """ SELECT * FROM `trc20_contract_scan` 
+                    WHERE `net_name`=%s ORDER BY `blockNumber` DESC LIMIT 500
+                    """
                     await cur.execute(sql, (net_name))
                     result = await cur.fetchall()
                     if result and len(result) > 0: return {
                         'txHash_unique': [item['contract_blockNumber_Tx_from_to_uniq'] for item in result]}
                 else:
-                    sql = """ SELECT * FROM `erc20_contract_scan` WHERE `net_name`=%s ORDER BY `blockNumber` DESC LIMIT 500 """
+                    sql = """ SELECT * FROM `erc20_contract_scan`
+                    WHERE `net_name`=%s ORDER BY `blockNumber` DESC LIMIT 500
+                    """
                     await cur.execute(sql, (net_name))
                     result = await cur.fetchall()
                     if result and len(result) > 0: return {
@@ -904,15 +958,21 @@ async def get_latest_stored_scanning_height_erc(net_name: str, contract: str = N
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if net_name == "TRX":
-                    sql = """ SELECT MAX(`blockNumber`) as TopBlock FROM `trc20_contract_scan` WHERE `net_name`=%s AND `contract`=%s """
+                    sql = """ SELECT MAX(`blockNumber`) as TopBlock 
+                    FROM `trc20_contract_scan` WHERE `net_name`=%s AND `contract`=%s
+                    """
                     await cur.execute(sql, (net_name, contract))
                     result = await cur.fetchone()
-                    if result and result['TopBlock']: return int(result['TopBlock'])
+                    if result and result['TopBlock']:
+                        return int(result['TopBlock'])
                 else:
-                    sql = """ SELECT MAX(`blockNumber`) as TopBlock FROM `erc20_contract_scan` WHERE `net_name`=%s """
+                    sql = """ SELECT MAX(`blockNumber`) as TopBlock 
+                    FROM `erc20_contract_scan` WHERE `net_name`=%s
+                    """
                     await cur.execute(sql, (net_name))
                     result = await cur.fetchone()
-                    if result and result['TopBlock']: return int(result['TopBlock'])
+                    if result and result['TopBlock']:
+                        return int(result['TopBlock'])
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return 1
@@ -925,7 +985,10 @@ async def get_monit_contract_tx_insert_erc(list_data):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT IGNORE INTO `erc20_contract_scan` (`net_name`, `contract`, `topics_dump`, `from_addr`, `to_addr`, `blockNumber`, `blockTime`, `transactionHash`, `contract_blockNumber_Tx_from_to_uniq`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                sql = """ INSERT IGNORE INTO `erc20_contract_scan` 
+                (`net_name`, `contract`, `topics_dump`, `from_addr`, `to_addr`, `blockNumber`, 
+                `blockTime`, `transactionHash`, `contract_blockNumber_Tx_from_to_uniq`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
                 await cur.executemany(sql, list_data)
                 await conn.commit()
                 return cur.rowcount
@@ -954,22 +1017,27 @@ async def get_monit_contract_tx_insert_trc(list_data):
         pass
     return 0
 
-async def get_monit_scanning_net_name_update_height(net_name: str, new_height: int, coin_name: str = None):
+async def get_monit_scanning_net_name_update_height(
+    net_name: str, new_height: int, coin_name: str = None
+):
     global pool
     try:
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if net_name == "TRX":
-                    sql = """ UPDATE `coin_settings` SET `scanned_from_height`=%s 
-                    WHERE `net_name`=%s AND (`scanned_from_height`<%s OR `scanned_from_height` IS NULL) AND `coin_name`=%s 
+                    sql = """ UPDATE `coin_settings` 
+                    SET `scanned_from_height`=%s 
+                    WHERE `net_name`=%s AND 
+                      (`scanned_from_height`<%s OR `scanned_from_height` IS NULL) 
+                      AND `coin_name`=%s 
                     LIMIT 1 """
                     await cur.execute(sql, (new_height, net_name, new_height, coin_name))
                     await conn.commit()
                     return new_height
                 else:
                     sql = """ UPDATE `coin_ethscan_setting` SET `scanned_from_height`=%s 
-                    HERE `net_name`=%s AND `scanned_from_height`<%s  
+                    WHERE `net_name`=%s AND `scanned_from_height`<%s  
                     LIMIT 1 """
                     await cur.execute(sql, (new_height, net_name, new_height))
                     await conn.commit()
@@ -1004,8 +1072,10 @@ async def trx_get_block_number(url: str, timeout: int = 64):
 
 async def trx_get_block_info(url: str, height: int, timeout: int = 32):
     try:
-        _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
-                                   timeout=Timeout(timeout=30, connect=20, read=20))
+        _http_client = AsyncClient(
+            limits=Limits(max_connections=10, max_keepalive_connections=5),
+            timeout=Timeout(timeout=30, connect=20, read=20)
+        )
         TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
         getBlock = await TronClient.get_block(height)
         await TronClient.close()
@@ -1015,13 +1085,15 @@ async def trx_get_block_info(url: str, height: int, timeout: int = 32):
         traceback.print_exc(file=sys.stdout)
     return False
 
-
 async def erc_get_block_number(url: str, timeout: int = 64):
     data = '{"jsonrpc":"2.0", "method":"eth_blockNumber", "params":[], "id":1}'
     try:
         async with aiohttp.ClientSession(connector=TCPConnector(ssl=False)) as session:
-            async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data),
-                                    timeout=timeout) as response:
+            async with session.post(
+                url, headers={'Content-Type': 'application/json'},
+                json=json.loads(data),
+                timeout=timeout
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -1041,8 +1113,11 @@ async def erc_get_block_info(url: str, height: int, timeout: int = 32):
         data = '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["' + str(hex(height)) + '", false],"id":1}'
         try:
             async with aiohttp.ClientSession(connector=TCPConnector(ssl=False)) as session:
-                async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data),
-                                        timeout=timeout) as response:
+                async with session.post(
+                    url, headers={'Content-Type': 'application/json'},
+                    json=json.loads(data),
+                    timeout=timeout
+                ) as response:
                     if response.status == 200:
                         res_data = await response.read()
                         res_data = res_data.decode('utf-8')
@@ -1058,7 +1133,6 @@ async def erc_get_block_info(url: str, height: int, timeout: int = 32):
         traceback.print_exc(file=sys.stdout)
     return None
 
-
 async def sql_get_all_erc_user(type_coin_user: str, called_Update: int = 0):
     # Check update only who has recently called for balance
     # If called_Update = 3600, meaning who called balance for last 1 hr
@@ -1068,17 +1142,21 @@ async def sql_get_all_erc_user(type_coin_user: str, called_Update: int = 0):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if called_Update == 0:
-                    sql = """ SELECT `user_id`, `balance_wallet_address`, `seed`, `user_server` FROM `erc20_user` WHERE `type`=%s """
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `seed`, `user_server`
+                    FROM `erc20_user` WHERE `type`=%s """
                     await cur.execute(sql, (type_coin_user))
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
                 elif called_Update > 0:
                     lap = int(time.time()) - called_Update
-                    sql = """ SELECT `user_id`, `balance_wallet_address`, `seed`, `user_server` FROM erc20_user 
-                              WHERE (`called_Update`>%s OR `is_discord_guild`=1) AND `type`=%s """
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `seed`, `user_server`
+                    FROM `erc20_user` 
+                    WHERE (`called_Update`>%s OR `is_discord_guild`=1) AND `type`=%s """
                     await cur.execute(sql, (lap, type_coin_user))
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -1093,17 +1171,23 @@ async def sql_get_all_tezos_user(type_coin_user: str, called_Update: int = 0):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if called_Update == 0:
-                    sql = """ SELECT `user_id`, `balance_wallet_address`, `type`, `seed`, `key`, `user_server` FROM `tezos_user` WHERE `type`=%s """
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `type`, `seed`, 
+                    `key`, `user_server` FROM `tezos_user` 
+                    WHERE `type`=%s
+                    """
                     await cur.execute(sql, (type_coin_user))
                     result = await cur.fetchall()
                     if result: return result
                 elif called_Update > 0:
                     lap = int(time.time()) - called_Update
-                    sql = """ SELECT `user_id`, `balance_wallet_address`, `type`, `seed`, `key`, `user_server` FROM tezos_user 
-                              WHERE (`called_Update`>%s OR `is_discord_guild`=1) AND `type`=%s """
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `type`, `seed`, `key`, `user_server`
+                    FROM `tezos_user` 
+                    WHERE (`called_Update`>%s OR `is_discord_guild`=1) AND `type`=%s
+                    """
                     await cur.execute(sql, (lap, type_coin_user))
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -1136,17 +1220,23 @@ async def sql_get_all_zil_user(type_coin_user: str, called_Update: int = 0):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if called_Update == 0:
-                    sql = """ SELECT `user_id`, `balance_wallet_address`, `type`, `key`, `user_server` FROM `zil_user` WHERE `type`=%s """
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `type`, `key`, `user_server` 
+                    FROM `zil_user` WHERE `type`=%s
+                    """
                     await cur.execute(sql, (type_coin_user))
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
                 elif called_Update > 0:
                     lap = int(time.time()) - called_Update
-                    sql = """ SELECT `user_id`, `balance_wallet_address`, `type`, `key`, `user_server` FROM zil_user 
-                              WHERE (`called_Update`>%s OR `is_discord_guild`=1) AND `type`=%s """
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `type`, `key`, `user_server`
+                    FROM zil_user 
+                    WHERE (`called_Update`>%s OR `is_discord_guild`=1) AND `type`=%s
+                    """
                     await cur.execute(sql, (lap, type_coin_user))
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -1179,23 +1269,29 @@ async def sql_get_all_vet_user(called_Update: int = 0):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if called_Update == 0:
-                    sql = """ SELECT `user_id`, `balance_wallet_address`, `key`, `user_server` FROM `vet_user` """
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `key`, `user_server`
+                    FROM `vet_user` """
                     await cur.execute(sql,)
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
                 elif called_Update > 0:
                     lap = int(time.time()) - called_Update
-                    sql = """ SELECT `user_id`, `balance_wallet_address`, `key`, `user_server` FROM vet_user 
-                              WHERE (`called_Update`>%s OR `is_discord_guild`=1) """
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `key`, `user_server`
+                    FROM vet_user 
+                    WHERE (`called_Update`>%s OR `is_discord_guild`=1) """
                     await cur.execute(sql, (lap,))
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-async def sql_recent_vet_move_deposit(coin_name: str, called_Update: int = 300):
+async def sql_recent_vet_move_deposit(
+    coin_name: str, called_Update: int = 300
+):
     global pool
     try:
         await openConnection()
@@ -1222,19 +1318,22 @@ async def sql_get_all_near_user(type_coin_user: str, called_Update: int = 0):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if called_Update == 0:
-                    sql = """ SELECT `user_id`, `user_id_near`, `coin_name`, `balance_wallet_address`, `type`, `seed`, 
-                              `privateKey`, `last_moved_gas`, `user_server` FROM `near_user` WHERE `type`=%s """
+                    sql = """ SELECT `user_id`, `user_id_near`, `coin_name`, `balance_wallet_address`, 
+                    `type`, `seed`, `privateKey`, `last_moved_gas`, `user_server`
+                    FROM `near_user` WHERE `type`=%s """
                     await cur.execute(sql, (type_coin_user))
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
                 elif called_Update > 0:
                     lap = int(time.time()) - called_Update
-                    sql = """ SELECT `user_id`, `user_id_near`, `coin_name`, `balance_wallet_address`, `type`, `seed`, 
-                              `privateKey`, `last_moved_gas`, `user_server` FROM `near_user` 
-                              WHERE (`called_Update`>%s OR `is_discord_guild`=1) AND `type`=%s """
+                    sql = """ SELECT `user_id`, `user_id_near`, `coin_name`, `balance_wallet_address`, 
+                    `type`, `seed`, `privateKey`, `last_moved_gas`, `user_server` FROM `near_user` 
+                    WHERE (`called_Update`>%s OR `is_discord_guild`=1) AND `type`=%s """
                     await cur.execute(sql, (lap, type_coin_user))
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -1267,17 +1366,21 @@ async def recent_balance_call_neo_user(called_Update: int = 0):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if called_Update == 0:
-                    sql = """ SELECT `user_id`, `balance_wallet_address`, `privateKey`, `user_server` FROM `neo_user` """
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `privateKey`, `user_server`
+                    FROM `neo_user` """
                     await cur.execute(sql,)
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
                 elif called_Update > 0:
                     lap = int(time.time()) - called_Update
-                    sql = """ SELECT `user_id`, `balance_wallet_address`, `privateKey`, `user_server` FROM neo_user 
-                              WHERE (`called_Update`>%s OR `is_discord_guild`=1) """
+                    sql = """ SELECT `user_id`, `balance_wallet_address`, `privateKey`, `user_server` 
+                    FROM neo_user 
+                    WHERE (`called_Update`>%s OR `is_discord_guild`=1) """
                     await cur.execute(sql, lap)
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -1300,7 +1403,9 @@ async def neo_get_existing_tx():
     return []
 
 # TODO: this is for ERC-20 only
-async def http_wallet_getbalance(url: str, address: str, contract: str, time_out: int = 64):
+async def http_wallet_getbalance(
+    url: str, address: str, contract: str, time_out: int = 64
+):
     if contract is None:
         data = '{"jsonrpc":"2.0","method":"eth_getBalance","params":["' + address + '", "latest"],"id":1}'
         try:
@@ -1366,7 +1471,9 @@ async def check_approved_erc20(
                 sql = """ SELECT * FROM `erc20_approved_spender` 
                           WHERE `user_id`=%s AND `balance_wallet_address`=%s 
                           AND `contract`=%s AND `user_server`=%s AND `network`=%s LIMIT 1 """
-                await cur.execute(sql, (user_id, address, contract, user_server, network))
+                await cur.execute(sql, (
+                    user_id, address, contract, user_server, network)
+                )
                 result = await cur.fetchone()
                 if result:
                     return True
@@ -1387,8 +1494,10 @@ async def insert_approved_erc20(
                           (`user_id`, `balance_wallet_address`, `contract`, `user_server`, 
                           `network`, `approved_hash`, `approved_date`) 
                           VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                await cur.execute(sql, (user_id, address, contract, user_server, 
-                                        network, approved_hash, int(time.time())))
+                await cur.execute(sql, (
+                    user_id, address, contract, user_server, 
+                    network, approved_hash, int(time.time()))
+                )
                 await conn.commit()
                 return cur.rowcount
     except Exception as e:
@@ -1535,7 +1644,7 @@ async def sql_check_minimum_deposit_erc20(
                                     real_deposit_fee, coin_decimal, sent_tx.hex(), each_address['user_server'],
                                     net_name
                                 )
-                                await asyncio.sleep(15.0)
+                                await asyncio.sleep(20.0)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                                 # await logchanbot("store " +str(traceback.format_exc()))
@@ -1592,36 +1701,52 @@ async def sql_check_minimum_deposit_erc20(
                             each_address['user_server'], net_name
                         )
                         if check_approved is False:
-                            # Not in DB, Check gas and set approve
-                            if gas_of_address / 10 ** 18 >= min_gas_tx:
-                                transaction = await erc20_approve_spender(
-                                    url, int(chainId, 16), contract, 
-                                    each_address['balance_wallet_address'],
-                                    decrypt_string(each_address['seed']),
-                                    config['eth']['MainAddress']
+                            # Check if it's previously approved but not in DB
+                            check_if_approved = await erc20_if_approved(
+                                url, contract, each_address['balance_wallet_address'],
+                                config['eth']['MainAddress']
+                            )
+                            if check_if_approved is True:
+                                # Insert to DB with transaction as AUTO
+                                added = await insert_approved_erc20(
+                                    each_address['user_id'], contract, 
+                                    each_address['balance_wallet_address'], 
+                                    each_address['user_server'], net_name, 
+                                    "APPROVED"
                                 )
-                                if transaction:
-                                    added = await insert_approved_erc20(
-                                        each_address['user_id'], contract, 
-                                        each_address['balance_wallet_address'], 
-                                        each_address['user_server'], net_name, 
-                                        transaction
-                                    )
-                                    await asyncio.sleep(5.0)
-                                    continue
-                            elif gas_of_address / 10 ** 18 < min_gas_tx and main_balance_gas_sufficient:
-                                send_gas_tx = await send_gas(
-                                    url, chainId, each_address['balance_wallet_address'], move_gas_amount, 
-                                    min_gas_tx
-                                )
-                                if send_gas_tx:
-                                    await logchanbot("[{}] Sent gas {} to to {}".format(
-                                        net_name, move_gas_amount/10**18, 
-                                        each_address['balance_wallet_address']
-                                        )
-                                    )
                                 await asyncio.sleep(5.0)
                                 continue
+                            else:
+                                # Not in DB, Check gas and set approve
+                                if gas_of_address / 10 ** 18 >= min_gas_tx:
+                                    transaction = await erc20_approve_spender(
+                                        url, int(chainId, 16), contract, 
+                                        each_address['balance_wallet_address'],
+                                        decrypt_string(each_address['seed']),
+                                        config['eth']['MainAddress']
+                                    )
+                                    if transaction:
+                                        added = await insert_approved_erc20(
+                                            each_address['user_id'], contract, 
+                                            each_address['balance_wallet_address'], 
+                                            each_address['user_server'], net_name, 
+                                            transaction
+                                        )
+                                        await asyncio.sleep(5.0)
+                                        continue
+                                elif gas_of_address / 10 ** 18 < min_gas_tx and main_balance_gas_sufficient:
+                                    send_gas_tx = await send_gas(
+                                        url, chainId, each_address['balance_wallet_address'], move_gas_amount, 
+                                        min_gas_tx
+                                    )
+                                    if send_gas_tx:
+                                        await logchanbot("[{}] Sent gas {} to to {}".format(
+                                            net_name, move_gas_amount/10**18, 
+                                            each_address['balance_wallet_address']
+                                            )
+                                        )
+                                    await asyncio.sleep(5.0)
+                                    continue
                         else:
                             # Transfer
                             if main_balance_gas_sufficient:
@@ -1656,7 +1781,9 @@ async def sql_check_minimum_deposit_erc20(
                             w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
                             unicorns = w3.eth.contract(address=w3.toChecksumAddress(contract), abi=EIP20_ABI)
-                            nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(each_address['balance_wallet_address']))
+                            nonce = w3.eth.getTransactionCount(
+                                w3.toChecksumAddress(each_address['balance_wallet_address'])
+                            )
 
                             unicorn_txn = unicorns.functions.transfer(
                                 w3.toChecksumAddress(config['eth']['MainAddress']),
@@ -1708,9 +1835,11 @@ async def sql_move_deposit_for_spendable(
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO erc20_move_deposit (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
-                          `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `time_insert`, 
-                          `user_server`, `network`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                sql = """ INSERT INTO erc20_move_deposit (`token_name`, `contract`, 
+                `user_id`, `balance_wallet_address`, `to_main_address`, `real_amount`,
+                `real_deposit_fee`, `token_decimal`, `txn`, `time_insert`, 
+                `user_server`, `network`)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                 await cur.execute(sql, (
                     token_name, contract, user_id, balance_wallet_address, to_main_address, real_amount,
                     real_deposit_fee, token_decimal, txn, int(time.time()), user_server.upper(),
@@ -1802,8 +1931,10 @@ async def sql_update_confirming_move_tx_erc20(
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE erc20_move_deposit SET `status`=%s, `blockNumber`=%s, `confirmed_depth`=%s 
-                WHERE `txn`=%s """
+                sql = """ UPDATE erc20_move_deposit 
+                SET `status`=%s, `blockNumber`=%s, `confirmed_depth`=%s 
+                WHERE `txn`=%s
+                """
                 await cur.execute(sql, (status, blockNumber, confirmed_depth, tx))
                 await conn.commit()
                 return True
@@ -1821,7 +1952,8 @@ async def get_monit_scanning_contract_balance_address_erc20(
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 lap = int(time.time()) - called_Update
-                sql = """ SELECT * FROM erc20_contract_scan WHERE `net_name`=%s AND `blockTime`>%s """
+                sql = """ SELECT * FROM `erc20_contract_scan`
+                WHERE `net_name`=%s AND `blockTime`>%s """
                 await cur.execute(sql, (net_name, lap,))
                 result = await cur.fetchall()
                 if result and len(result) > 0: return result
@@ -1836,7 +1968,8 @@ async def sql_update_erc_user_update_call_many_erc20(list_data):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ UPDATE erc20_user SET `called_Update`=%s WHERE `balance_wallet_address`=%s """
+                sql = """ UPDATE `erc20_user` SET `called_Update`=%s
+                WHERE `balance_wallet_address`=%s """
                 await cur.executemany(sql, list_data)
                 await conn.commit()
                 return cur.rowcount
@@ -1851,10 +1984,11 @@ async def sql_get_pending_notification_users_erc20(user_server: str = 'DISCORD')
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * FROM `erc20_move_deposit` 
-                          WHERE `status`=%s 
-                          AND `notified_confirmation`=%s 
-                          AND `user_server`=%s """
+                sql = """ SELECT * FROM `erc20_move_deposit`
+                WHERE `status`=%s 
+                AND `notified_confirmation`=%s 
+                AND `user_server`=%s
+                """
                 await cur.execute(sql, ('CONFIRMED', 'NO', user_server))
                 result = await cur.fetchall()
                 if result: return result
@@ -1872,8 +2006,8 @@ async def sql_updating_pending_move_deposit_erc20(
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ UPDATE erc20_move_deposit 
-                          SET `notified_confirmation`=%s, `failed_notification`=%s, `time_notified`=%s
-                          WHERE `txn`=%s AND `time_notified` IS NULL """
+                SET `notified_confirmation`=%s, `failed_notification`=%s, `time_notified`=%s
+                WHERE `txn`=%s AND `time_notified` IS NULL """
                 await cur.execute(sql, (
                     'YES' if notified_confirmation else 'NO',
                     'YES' if failed_notification else 'NO',
@@ -1909,8 +2043,9 @@ async def trx_check_minimum_deposit(
                 async with pool.acquire() as conn:
                     async with conn.cursor() as cur:
                         sql = """ SELECT COUNT(*) AS failed FROM `trc20_move_deposit` 
-                                  WHERE `balance_wallet_address`=%s 
-                                  AND `time_insert`>%s """
+                        WHERE `balance_wallet_address`=%s 
+                        AND `time_insert`>%s
+                        """
                         await cur.execute(sql, (each_address['balance_wallet_address'], lap))
                         result = await cur.fetchone()
                         if result is not None and 'failed' in result and result['failed'] >= num_failed_limit:
@@ -1940,8 +2075,10 @@ async def trx_check_minimum_deposit(
                     # gas TRX is 6 coin_decimal
                     real_deposited_balance = deposited_balance - min_gas_tx
                     try:
-                        _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
-                                                   timeout=Timeout(timeout=30, connect=20, read=20))
+                        _http_client = AsyncClient(
+                            limits=Limits(max_connections=10, max_keepalive_connections=5),
+                            timeout=Timeout(timeout=30, connect=20, read=20)
+                        )
                         TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
                         txb = (
                             TronClient.trx.transfer(
@@ -2153,8 +2290,10 @@ async def sql_check_pending_move_deposit_trc20(
 async def trx_get_tx_info(url: str, tx: str):
     timeout = 64
     try:
-        _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
-                                   timeout=Timeout(timeout=30, connect=20, read=20))
+        _http_client = AsyncClient(
+            limits=Limits(max_connections=10, max_keepalive_connections=5),
+            timeout=Timeout(timeout=30, connect=20, read=20)
+        )
         TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
         getTx = await TronClient.get_transaction(tx)
         await TronClient.close()
@@ -2174,8 +2313,10 @@ async def trx_wallet_getbalance(
     token_name = coin.upper()
     balance = 0.0
     try:
-        _http_client = AsyncClient(limits=Limits(max_connections=10, max_keepalive_connections=5),
-                                   timeout=Timeout(timeout=30, connect=20, read=20))
+        _http_client = AsyncClient(
+            limits=Limits(max_connections=10, max_keepalive_connections=5),
+            timeout=Timeout(timeout=30, connect=20, read=20)
+        )
         TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
         if contract is None or token_name == "TRX":
             try:
@@ -2229,7 +2370,10 @@ async def trx_update_confirming_move_tx(
         async with pool.acquire() as conn:
             await conn.ping(reconnect=True)
             async with conn.cursor() as cur:
-                sql = """ UPDATE trc20_move_deposit SET `status`=%s, `confirmed_depth`=%s WHERE `txn`=%s """
+                sql = """ UPDATE trc20_move_deposit
+                SET `status`=%s, `confirmed_depth`=%s
+                WHERE `txn`=%s
+                """
                 await cur.execute(sql, (status, confirmed_depth, tx))
                 await conn.commit()
                 return True
@@ -2245,12 +2389,13 @@ async def sql_get_pending_notification_users_trc20(user_server: str = 'DISCORD')
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ SELECT * FROM `trc20_move_deposit` 
-                          WHERE `status`=%s 
-                          AND `notified_confirmation`=%s 
-                          AND `user_server`=%s """
+                WHERE `status`=%s 
+                AND `notified_confirmation`=%s 
+                AND `user_server`=%s """
                 await cur.execute(sql, ('CONFIRMED', 'NO', user_server))
                 result = await cur.fetchall()
-                if result: return result
+                if result:
+                    return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -2265,13 +2410,15 @@ async def trx_get_pending_move_deposit(option: str = 'PENDING'):
             async with conn.cursor() as cur:
                 if option.upper() == "PENDING":
                     sql = """ SELECT * FROM trc20_move_deposit 
-                              WHERE `status`=%s AND `notified_confirmation`=%s """
+                    WHERE `status`=%s AND `notified_confirmation`=%s
+                    """
                     await cur.execute(sql, (option.upper(), 'NO'))
                     result = await cur.fetchall()
                     if result: return result
                 elif option.upper() == "ALL":
                     sql = """ SELECT * FROM trc20_move_deposit 
-                              WHERE `status`<>%s AND `status`<>%s """
+                    WHERE `status`<>%s AND `status`<>%s
+                    """
                     await cur.execute(sql, ('FAILED', 'CONFIRMED'))
                     result = await cur.fetchall()
                     if result: return result
@@ -2289,8 +2436,9 @@ async def sql_updating_pending_move_deposit_trc20(
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ UPDATE trc20_move_deposit 
-                          SET `notified_confirmation`=%s, `failed_notification`=%s, `time_notified`=%s
-                          WHERE `txn`=%s AND `time_notified` IS NULL """
+                SET `notified_confirmation`=%s, `failed_notification`=%s, `time_notified`=%s
+                WHERE `txn`=%s AND `time_notified` IS NULL
+                """
                 await cur.execute(sql, (
                     'YES' if notified_confirmation else 'NO',
                     'YES' if failed_notification else 'NO',
@@ -2320,18 +2468,23 @@ async def sql_get_all_trx_user(coin: str, called_Update: int = 0):
             await conn.ping(reconnect=True)
             async with conn.cursor() as cur:
                 if called_Update == 0:
-                    sql = """ SELECT `user_id`, `user_id_trc20`, `balance_wallet_address`, `hex_address`, `private_key`, `user_server` FROM trc20_user 
-                               """ + extra_str + """ ) OR `is_discord_guild`=1 """
+                    sql = """ SELECT `user_id`, `user_id_trc20`, `balance_wallet_address`, 
+                    `hex_address`, `private_key`, `user_server` FROM trc20_user 
+                    """ + extra_str + """ ) OR `is_discord_guild`=1 """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
                 elif called_Update > 0:
                     lap = int(time.time()) - called_Update
-                    sql = """ SELECT `user_id`, `user_id_trc20`, `balance_wallet_address`, `hex_address`, `private_key`, `user_server` FROM trc20_user 
-                              """ + extra_str + """ AND `called_Update`>%s) OR `is_discord_guild`=1 """
+                    sql = """ SELECT `user_id`, `user_id_trc20`, `balance_wallet_address`, 
+                    `hex_address`, `private_key`, `user_server`
+                    FROM trc20_user 
+                    """ + extra_str + """ AND `called_Update`>%s) OR `is_discord_guild`=1 """
                     await cur.execute(sql, (lap))
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -2344,16 +2497,17 @@ async def get_all_coin_token_addresses():
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """   (SELECT t1.balance_wallet_address as addresses FROM erc20_user t1)
-                            UNION
-                            (SELECT t2.balance_wallet_address FROM trc20_user t2)
-                            UNION
-                            (SELECT t3.balance_wallet_address FROM cn_user_paymentid t3)
-                            UNION
-                            (SELECT t4.balance_wallet_address FROM xch_user t4)
-                            UNION
-                            (SELECT t5.balance_wallet_address FROM doge_user t5)
-                            UNION
-                            (SELECT t6.balance_wallet_address FROM nano_user t6)  """
+                UNION
+                (SELECT t2.balance_wallet_address FROM trc20_user t2)
+                UNION
+                (SELECT t3.balance_wallet_address FROM cn_user_paymentid t3)
+                UNION
+                (SELECT t4.balance_wallet_address FROM xch_user t4)
+                UNION
+                (SELECT t5.balance_wallet_address FROM doge_user t5)
+                UNION
+                (SELECT t6.balance_wallet_address FROM nano_user t6)
+                """
                 await cur.execute(sql, ())
                 result = await cur.fetchall()
                 if result and len(result) > 0: return [each['addresses'] for each in result]
@@ -2456,7 +2610,9 @@ async def get_math_responders_by_message_id(message_id: str):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 swap_in = 0.0
-                sql = """ SELECT * FROM `discord_mathtip_responder` WHERE `message_id`=%s """
+                sql = """ SELECT * FROM `discord_mathtip_responder` 
+                WHERE `message_id`=%s
+                """
                 await cur.execute(sql, (message_id))
                 result = await cur.fetchall()
                 if result and len(result) > 0:
@@ -2523,7 +2679,8 @@ async def get_active_discord_triviatip():
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 swap_in = 0.0
-                sql = """ SELECT * FROM `discord_triviatip_tmp` WHERE `status`=%s """
+                sql = """ SELECT * FROM `discord_triviatip_tmp`
+                WHERE `status`=%s """
                 await cur.execute(sql, ("ONGOING"))
                 result = await cur.fetchall()
                 if result and len(result) > 0: return result
@@ -2539,7 +2696,8 @@ async def get_responders_by_message_id(message_id: str):
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 swap_in = 0.0
-                sql = """ SELECT * FROM `discord_triviatip_responder` WHERE `message_id`=%s """
+                sql = """ SELECT * FROM `discord_triviatip_responder`
+                WHERE `message_id`=%s """
                 await cur.execute(sql, (message_id))
                 result = await cur.fetchall()
                 if result and len(result) > 0:
@@ -2631,16 +2789,20 @@ async def sql_user_balance_mv_single(
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ INSERT INTO user_balance_mv 
-                          (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`, `extra_message`) 
+                          (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, 
+                          `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`, 
+                          `extra_message`) 
                           VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s);
 
-                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, 
+                          `balance`, `update_date`) 
                           VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
                           UPDATE 
                           `balance`=`balance`+VALUES(`balance`), 
                           `update_date`=VALUES(`update_date`);
 
-                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, 
+                          `balance`, `update_date`) 
                           VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
                           UPDATE 
                           `balance`=`balance`+VALUES(`balance`), 
@@ -2687,16 +2849,20 @@ async def sql_user_balance_mv_multple_amount(user_dict_tip, tiptype: str, user_s
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`, `real_amount_usd`, `extra_message`) 
+                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, 
+                `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, 
+                `type`, `date`, `user_server`, `real_amount_usd`, `extra_message`) 
                           VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s, %s);
                         
-                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, 
+                          `balance`, `update_date`) 
                           VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
                           UPDATE 
                           `balance`=`balance`+VALUES(`balance`), 
                           `update_date`=VALUES(`update_date`);
 
-                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, 
+                          `balance`, `update_date`) 
                           VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
                           UPDATE 
                           `balance`=`balance`+VALUES(`balance`), 
@@ -2738,20 +2904,23 @@ async def sql_user_balance_mv_multiple(
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`, `real_amount_usd`, `extra_message`) 
+                sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, 
+                `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, 
+                `date`, `user_server`, `real_amount_usd`, `extra_message`) 
                           VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s, %s);
                         
-                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
-                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
-                          UPDATE 
-                          `balance`=`balance`+VALUES(`balance`), 
-                          `update_date`=VALUES(`update_date`);
+                INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, 
+                `balance`, `update_date`) 
+                VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                UPDATE 
+                `balance`=`balance`+VALUES(`balance`), 
+                `update_date`=VALUES(`update_date`);
 
-                          INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
-                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
-                          UPDATE 
-                          `balance`=`balance`+VALUES(`balance`), 
-                          `update_date`=VALUES(`update_date`);
+                INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                UPDATE 
+                `balance`=`balance`+VALUES(`balance`), 
+                `update_date`=VALUES(`update_date`);
                 """
                 await cur.executemany(sql, values_list)
                 await conn.commit()
@@ -2772,9 +2941,11 @@ async def trx_move_deposit_for_spendable(
         async with pool.acquire() as conn:
             await conn.ping(reconnect=True)
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO trc20_move_deposit (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
-                          `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `blockNumber`, `time_insert`, 
-                          `user_server`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                sql = """ INSERT INTO trc20_move_deposit (`token_name`, `contract`, `user_id`, 
+                `balance_wallet_address`, `to_main_address`, `real_amount`, `real_deposit_fee`,
+                `token_decimal`, `txn`, `blockNumber`, `time_insert`, 
+                `user_server`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                 await cur.execute(sql, (
                     token_name, contract, user_id, balance_wallet_address, to_main_address, real_amount,
                     real_deposit_fee, token_decimal, txn, blockNumber, int(time.time()),
@@ -2833,7 +3004,8 @@ async def sql_toggle_tipnotify(user_id: str, onoff: str):
             await openConnection()
             async with pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `bot_tipnotify_user` WHERE `user_id` = %s LIMIT 1 """
+                    sql = """ SELECT * FROM `bot_tipnotify_user` 
+                    WHERE `user_id` = %s LIMIT 1 """
                     await cur.execute(sql, (user_id))
                     result = await cur.fetchone()
                     if result is None:
@@ -2852,7 +3024,8 @@ async def sql_toggle_tipnotify(user_id: str, onoff: str):
             await openConnection()
             async with pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ DELETE FROM `bot_tipnotify_user` WHERE `user_id` = %s """
+                    sql = """ DELETE FROM `bot_tipnotify_user` 
+                    WHERE `user_id` = %s """
                     await cur.execute(sql, str(user_id))
                     await conn.commit()
         except Exception as e:
@@ -2865,7 +3038,8 @@ async def sql_get_tipnotify():
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT `user_id`, `date` FROM `bot_tipnotify_user` """
+                sql = """ SELECT `user_id`, `date` 
+                FROM `bot_tipnotify_user` """
                 await cur.execute(sql, )
                 result = await cur.fetchall()
                 ignorelist = []
@@ -2884,7 +3058,10 @@ async def insert_freetip_collector(
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT IGNORE INTO discord_airdrop_collector (`message_id`, `from_userid`, `collector_id`, `collector_name`, `from_and_collector_uniq`, `inserted_time`) VALUES (%s, %s, %s, %s, %s, %s) """
+                sql = """ INSERT IGNORE INTO discord_airdrop_collector 
+                (`message_id`, `from_userid`, `collector_id`, `collector_name`, 
+                `from_and_collector_uniq`, `inserted_time`)
+                VALUES (%s, %s, %s, %s, %s, %s) """
                 await cur.execute(sql, (
                     message_id, from_userid, collector_id, collector_name,
                     "{}-{}-{}".format(message_id, from_userid, collector_id), int(time.time())
@@ -3617,6 +3794,41 @@ async def sql_faucet_add(
         traceback.print_exc(file=sys.stdout)
     return None
 # End Faucet / Game stats
+
+# Check if approved already
+async def erc20_if_approved(
+    url: str, contract: str, 
+    sender_address: str, operator_address: str
+):
+    try:
+        w3 = Web3(Web3.HTTPProvider(url))
+        # inject the poa compatibility middleware to the innermost layer
+        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        abi = [
+            {
+                "constant": True,
+                "inputs": [
+                    {"name": "_owner", "type": "address"},
+                    {"name": "_spender", "type": "address"},
+                ],
+                "name": "allowance",
+                "outputs": [{"name": "", "type": "uint256"}],
+                "payable": False,
+                "stateMutability": "view",
+                "type": "function",
+            },
+        ]
+        cnt = w3.eth.contract(address=w3.toChecksumAddress(contract), abi=abi)
+        _spender = w3.toChecksumAddress(
+            operator_address
+        ) 
+        spendable_amount = cnt.functions.allowance(w3.toChecksumAddress(sender_address), _spender).call()
+        if spendable_amount > 0:
+            return True
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return False
 
 ## approve spender to operator
 async def erc20_approve_spender(

@@ -1235,7 +1235,6 @@ class Admin(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    @commands.is_owner()
     @commands.guild_only()
     @commands.slash_command(
         usage='say',
@@ -1249,10 +1248,18 @@ class Admin(commands.Cog):
         ctx,
         text: str
     ):
-        # let bot post some message (testing) etc.
-        await logchanbot(f"[TIPBOT SAY] {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator} asked to say ```{text}```")
-        await ctx.channel.send(text)
-        await ctx.response.send_message(f"Message sent!", ephemeral=True)
+        try:
+            if ctx.author.id != self.bot.config['discord']['owner'] and not ctx.author.guild_permissions.manage_messages:
+                await ctx.response.send_message(f"You have no permission!", ephemeral=True)
+            else:
+                # let bot post some message (testing) etc.
+                await logchanbot(f"[TIPBOT SAY] {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator} asked to say:\n{text}")
+                await ctx.channel.send("{} asked:\{}".format(ctx.author.mention, text))
+                await ctx.response.send_message(f"Message sent!", ephemeral=True)
+        except disnake.errors.Forbidden:
+            await ctx.response.send_message(f"I have no permission to send text!", ephemeral=True)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
     @commands.dm_only()

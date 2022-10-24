@@ -10,6 +10,29 @@ from disnake.ext import commands
 import store
 from Bot import RowButtonRowCloseAnyMessage, logchanbot
 
+
+# https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
+
+def print_color(prt, color: str):
+    if color == "red":
+        print(f"\033[91m{prt}\033[00m")
+    elif color == "green":
+        print(f"\033[92m{prt}\033[00m")
+    elif color == "yellow":
+        print(f"\033[93m{prt}\033[00m")
+    elif color == "lightpurple":
+        print(f"\033[94m{prt}\033[00m")
+    elif color == "purple":
+        print(f"\033[95m{prt}\033[00m")
+    elif color == "cyan":
+        print(f"\033[96m{prt}\033[00m")
+    elif color == "lightgray":
+        print(f"\033[97m{prt}\033[00m")
+    elif color == "black":
+        print(f"\033[98m{prt}\033[00m")
+    else:
+        print(f"\033[0m{prt}\033[00m")
+
 async def get_all_coin_names(
     what: str,
     value: int

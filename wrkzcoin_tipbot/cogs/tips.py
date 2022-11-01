@@ -1056,17 +1056,17 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if amount <= 0:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
-            await ctx.edit_original_message(content=msg)
-            return
-
         notifyList = await store.sql_get_tipnotify()
         userdata_balance = await store.sql_user_balance_single(
             str(ctx.author.id), coin_name, wallet_address, type_coin,
             height, deposit_confirm_depth, SERVER_BOT
         )
         actual_balance = float(userdata_balance['adjust'])
+
+        if amount <= 0 or actual_balance <= 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+            await ctx.edit_original_message(content=msg)
+            return
 
         if amount > max_tip or amount < min_tip:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
@@ -1280,17 +1280,16 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if amount <= 0:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
-            await ctx.edit_original_message(content=msg)
-            return
-
         notifyList = await store.sql_get_tipnotify()
         userdata_balance = await store.sql_user_balance_single(
             str(ctx.author.id), coin_name, wallet_address, type_coin,
             height, deposit_confirm_depth, SERVER_BOT
         )
         actual_balance = float(userdata_balance['adjust'])
+        if amount <= 0 or actual_balance <= 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+            await ctx.edit_original_message(content=msg)
+            return
 
         if amount > max_tip or amount < min_tip:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
@@ -2227,7 +2226,7 @@ class Tips(commands.Cog):
                                     )
                                     actual_balance = float(userdata_balance['adjust'])
                                     # Check min. max.
-                                    if amount <= 0:
+                                    if amount <= 0 or actual_balance <= 0:
                                         error_msg = f'please get more {token_display}.'
                                         has_amount_error = True
                                         break
@@ -2478,7 +2477,7 @@ class Tips(commands.Cog):
                 return
         # end of check if amount is all
 
-        if amount <= 0:
+        if amount <= 0 or actual_balance <= 0:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
@@ -2722,17 +2721,17 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if amount <= 0:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
-            await ctx.edit_original_message(content=msg)
-            return
-
         notifyList = await store.sql_get_tipnotify()
         userdata_balance = await store.sql_user_balance_single(
             id_tipper, coin_name, wallet_address, type_coin, height,
             deposit_confirm_depth, SERVER_BOT
         )
         actual_balance = float(userdata_balance['adjust'])
+
+        if amount <= 0 or actual_balance <= 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+            await ctx.edit_original_message(content=msg)
+            return
 
         if amount > max_tip or amount < min_tip:
             nsg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'

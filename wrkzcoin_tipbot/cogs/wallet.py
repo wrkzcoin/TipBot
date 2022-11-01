@@ -940,8 +940,10 @@ class WalletAPI(commands.Cog):
                 return balance / 10 ** coin_decimal
         return balance
 
-    async def user_balance(self, user_id: str, coin: str, address: str, coin_family: str, top_block: int,
-                           confirmed_depth: int = 0, user_server: str = 'DISCORD'):
+    async def user_balance(
+        self, user_id: str, coin: str, address: str, coin_family: str, top_block: int,
+        confirmed_depth: int = 0, user_server: str = 'DISCORD'
+    ):
         # address: TRTL/BCN/XMR = paymentId
         token_name = coin.upper()
         user_server = user_server.upper()
@@ -7067,10 +7069,13 @@ class Wallet(commands.Cog):
     async def update_balance_tasks_btc(self, coin_name: str, debug: bool):
         if debug is True:
             print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
+        gettopblock = None
         if getattr(getattr(self.bot.coin_list, coin_name), "use_getinfo_btc") == 1:
             gettopblock = await self.wallet_api.call_doge('getinfo', coin_name)
         else:
             gettopblock = await self.wallet_api.call_doge('getblockchaininfo', coin_name)
+        if gettopblock is None:
+            return False
         height = int(gettopblock['blocks'])
         try:
             redis_utils.redis_conn.set(
@@ -7369,6 +7374,8 @@ class Wallet(commands.Cog):
         if debug is True:
             print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
         gettopblock = await self.gettopblock(coin_name, time_out=32)
+        if gettopblock is None:
+            return False
         height = int(gettopblock['height'])
         try:
             redis_utils.redis_conn.set(
@@ -9642,8 +9649,10 @@ class Wallet(commands.Cog):
             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             description = ""
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-            embed = disnake.Embed(title=f'Balance for {ctx.author.name}#{ctx.author.discriminator}',
-                                  timestamp=datetime.fromtimestamp(int(time.time())))
+            embed = disnake.Embed(
+                title=f'Balance for {ctx.author.name}#{ctx.author.discriminator}',
+                timestamp=datetime.fromtimestamp(int(time.time()))
+            )
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             try:
                 # height can be None
@@ -9670,10 +9679,12 @@ class Wallet(commands.Cog):
                             equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
                         elif total_in_usd >= 0.0001:
                             equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
-                embed.add_field(name="Token/Coin {}{}".format(token_display, equivalent_usd),
-                                value="```Available: {} {}```".format(
-                                    num_format_coin(total_balance, coin_name, coin_decimal, False), token_display),
-                                inline=False)
+                embed.add_field(
+                    name="Token/Coin {}{}".format(token_display, equivalent_usd),
+                    value="```Available: {} {}```".format(
+                        num_format_coin(total_balance, coin_name, coin_decimal, False), token_display),
+                    inline=False
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
@@ -11658,7 +11669,7 @@ class Wallet(commands.Cog):
             amount = amount.replace(",", "")
             amount = text_to_num(amount)
             if amount is None:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.'
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
                 await ctx.edit_original_message(content=msg)
                 return
         # end of check if amount is all
@@ -11667,8 +11678,8 @@ class Wallet(commands.Cog):
             deposit_confirm_depth, SERVER_BOT
         )
         actual_balance = float(userdata_balance['adjust'])
-        donate_factor = 100
-        if amount <= 0:
+        donate_factor = 10
+        if amount <= 0 or actual_balance <=0:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
@@ -11683,7 +11694,7 @@ class Wallet(commands.Cog):
 
         # check queue
         if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE} You have another tx in progress.'
+            msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE}, you have another tx in progress.'
             await ctx.edit_original_message(content=msg)
             return
 
@@ -11739,7 +11750,6 @@ class Wallet(commands.Cog):
         else:
             msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE}, you have another tx in progress.'
             await ctx.edit_original_message(content=msg)
-
     # End of Donate
 
     # Swap Tokens
@@ -12087,8 +12097,10 @@ class Wallet(commands.Cog):
                     return
 
                 height = self.wallet_api.get_block_height(type_coin, FROM_COIN, net_name)
-                userdata_balance = await self.wallet_api.user_balance(str(ctx.author.id), FROM_COIN, wallet_address, type_coin,
-                                                                      height, deposit_confirm_depth, SERVER_BOT)
+                userdata_balance = await self.wallet_api.user_balance(
+                    str(ctx.author.id), FROM_COIN, wallet_address, type_coin,
+                    height, deposit_confirm_depth, SERVER_BOT
+                )
                 actual_balance = float(userdata_balance['adjust'])
 
                 if amount > max_tip or amount < min_tip:

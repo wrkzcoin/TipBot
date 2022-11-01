@@ -29,10 +29,13 @@ class TopGGVote(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ SELECT `topgg_vote_secret` FROM `discord_server` WHERE `serverid`=%s """
-                    await cur.execute(sql, (guild_id))
+                    sql = """ SELECT `topgg_vote_secret` 
+                    FROM `discord_server` WHERE `serverid`=%s
+                    """
+                    await cur.execute(sql, guild_id)
                     result = await cur.fetchone()
-                    if result: return result['topgg_vote_secret']
+                    if result:
+                        return result['topgg_vote_secret']
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
@@ -43,32 +46,44 @@ class TopGGVote(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ SELECT * FROM `discord_server` WHERE `serverid`=%s """
-                    await cur.execute(sql, (guild_id))
+                    sql = """ SELECT * FROM `discord_server` 
+                    WHERE `serverid`=%s
+                    """
+                    await cur.execute(sql, guild_id)
                     result = await cur.fetchone()
                     if result:
-                        sql = """ SELECT * FROM `discord_feature_roles` WHERE `guild_id`=%s """
+                        sql = """ SELECT * FROM `discord_feature_roles` 
+                        WHERE `guild_id`=%s
+                        """
                         await cur.execute(sql, guild_id)
                         feature_roles = await cur.fetchall()
                         list_roles_feature = None
                         if feature_roles and len(feature_roles) > 0:
                             list_roles_feature = {}
                             for each in feature_roles:
-                                list_roles_feature[each['role_id']] = {'faucet_multipled_by': each['faucet_multipled_by'], 'guild_vote_multiplied_by': each['guild_vote_multiplied_by'], 'faucet_cut_time_percent': each['faucet_cut_time_percent']}
+                                list_roles_feature[each['role_id']] = {
+                                    'faucet_multipled_by': each['faucet_multipled_by'],
+                                    'guild_vote_multiplied_by': each['guild_vote_multiplied_by'],
+                                    'faucet_cut_time_percent': each['faucet_cut_time_percent']
+                                }
                         result['feature_roles'] = list_roles_feature
                         return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def insert_guild_vote(self, user_id: str, directory: str, guild_id: str, type_vote: str):
+    async def insert_guild_vote(
+        self, user_id: str, directory: str, guild_id: str, type_vote: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ INSERT IGNORE INTO guild_vote (`user_id`, `directory`, `guild_id`, `type`, `date_voted`) 
-                    VALUES (%s, %s, %s, %s, %s) """
+                    sql = """ INSERT IGNORE INTO guild_vote 
+                    (`user_id`, `directory`, `guild_id`, `type`, `date_voted`) 
+                    VALUES (%s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (user_id, directory, guild_id, type_vote, date_vote))
                     await conn.commit()
                     return True
@@ -84,10 +99,12 @@ class TopGGVote(commands.Cog):
                     date_vote = int(time.time())
                     sql = """ SELECT * FROM `guild_vote` 
                     WHERE `user_id`=%s AND `directory`=%s AND `guild_id`=%s 
-                    ORDER BY `date_voted` DESC LIMIT 1 """
+                    ORDER BY `date_voted` DESC LIMIT 1
+                    """
                     await cur.execute(sql, (user_id, directory, guild_id))
                     result = await cur.fetchone()
-                    if result: return result
+                    if result:
+                        return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
@@ -98,7 +115,8 @@ class TopGGVote(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `directory`, `bot_id`, `type`, `date_voted`) 
+                    sql = """ INSERT IGNORE INTO bot_vote 
+                    (`user_id`, `directory`, `bot_id`, `type`, `date_voted`) 
                     VALUES (%s, %s, %s, %s, %s) """
                     await cur.execute(sql, (user_id, directory, bot_id, type_vote, date_vote))
                     await conn.commit()
@@ -114,10 +132,12 @@ class TopGGVote(commands.Cog):
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
                     sql = """ SELECT * FROM `bot_vote` WHERE `user_id`=%s AND `directory`=%s 
-                    ORDER BY `date_voted` DESC LIMIT 1 """
+                    ORDER BY `date_voted` DESC LIMIT 1
+                    """
                     await cur.execute(sql, (user_id, directory))
                     result = await cur.fetchone()
-                    if result: return result
+                    if result:
+                        return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
@@ -142,13 +162,16 @@ class TopGGVote(commands.Cog):
                             get_guild_by_key = await self.guild_find_by_key(guild_id)
                             # Check vote
                             try:
-                                # Check if user just vote less than 1h. Sometimes top.gg just push too fast multiple times.
+                                # Check if user just vote less than 1h. Sometimes top.gg 
+                                # just push too fast multiple times.
                                 check_last_vote = await self.check_last_guild_vote(user_vote, "topgg", guild_id)
                                 if check_last_vote is not None and int(time.time()) - check_last_vote[
                                     'date_voted'] < 3600 and type_vote != "test":
                                     await log_to_channel(
                                         "vote",
-                                        f'[{SERVER_BOT}] User <@{user_vote}> voted for guild `{guild_id}` type `{type_vote}` but less than 1h.')
+                                        f"[{SERVER_BOT}] User <@{user_vote}> voted for guild `{guild_id}` "\
+                                        f"type `{type_vote}` but less than 1h."
+                                    )
                                     return web.Response(text="Thank you!")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -186,12 +209,10 @@ class TopGGVote(commands.Cog):
                                     # Check balance of guild
                                     net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                                     type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-                                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                    "deposit_confirm_depth")
+                                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                                     contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                    "usd_equivalent_enable")
+                                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                                     user_from = await self.wallet_api.sql_get_userwallet(
                                         guild_id, coin_name, net_name, type_coin, SERVER_BOT, 0
                                     )
@@ -227,8 +248,7 @@ class TopGGVote(commands.Cog):
                                         try:
                                             amount_in_usd = 0.0
                                             if usd_equivalent_enable == 1:
-                                                native_token_name = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                            "native_token_name")
+                                                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
                                                 coin_name_for_price = coin_name
                                                 if native_token_name:
                                                     coin_name_for_price = native_token_name
@@ -281,23 +301,33 @@ class TopGGVote(commands.Cog):
                                                         if serverinfo and serverinfo['vote_reward_channel']:
                                                             channel = self.bot.get_channel(
                                                                 int(serverinfo['vote_reward_channel']))
-                                                            embed = disnake.Embed(title="NEW GUILD VOTE!",
-                                                                                  timestamp=datetime.now())
-                                                            embed.add_field(name="User",
-                                                                            value="<@{}>".format(user_vote),
-                                                                            inline=True)
-                                                            embed.add_field(name="Reward", value="{} {}".format(
-                                                                num_format_coin(amount, coin_name, coin_decimal, False),
-                                                                coin_name), inline=True)
+                                                            embed = disnake.Embed(
+                                                                title="NEW GUILD VOTE!",
+                                                                timestamp=datetime.now()
+                                                            )
+                                                            embed.add_field(
+                                                                name="User",
+                                                                value="<@{}>".format(user_vote),
+                                                                inline=True
+                                                            )
+                                                            embed.add_field(
+                                                                name="Reward", value="{} {}".format(
+                                                                    num_format_coin(amount, coin_name, coin_decimal, False),
+                                                                    coin_name),
+                                                                inline=True
+                                                            )
                                                             if extra_amount > 0:
                                                                 embed.add_field(name="Extra Reward", value="{} {}".format(
                                                                     num_format_coin(extra_amount, coin_name, coin_decimal, False),
                                                                     coin_name), inline=True)
                                                             embed.add_field(name="Link",
                                                                             value="https://top.gg/servers/{}".format(
-                                                                                guild_id), inline=False)
-                                                            embed.set_author(name=self.bot.user.name,
-                                                                             icon_url=self.bot.user.display_avatar)
+                                                                                guild_id),
+                                                                            inline=False)
+                                                            embed.set_author(
+                                                                name=self.bot.user.name,
+                                                                icon_url=self.bot.user.display_avatar
+                                                            )
                                                             await channel.send(embed=embed)
                                                     except Exception:
                                                         traceback.print_exc(file=sys.stdout)
@@ -309,7 +339,8 @@ class TopGGVote(commands.Cog):
                                                 except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
                                                     await log_to_channel(
                                                         "vote",
-                                                        f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.')
+                                                        f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.'
+                                                    )
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
                                 if guild:
@@ -392,12 +423,11 @@ class TopGGVote(commands.Cog):
                                                         amount = each_coin['reward_amount']
                                                         break
                                                 if coin_name is not None:
-                                                    insert_reward = await faucet.insert_reward(
+                                                    await faucet.insert_reward(
                                                         user_vote, "topgg", amount, coin_name, int(time.time()), SERVER_BOT
                                                     )
                                                     # Check balance of bot
-                                                    net_name = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                       "net_name")
+                                                    net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                                                     type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                                                     deposit_confirm_depth = getattr(
                                                         getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -416,8 +446,9 @@ class TopGGVote(commands.Cog):
                                                     elif type_coin in ["XRP"]:
                                                         wallet_address = user_from['destination_tag']
 
-                                                    height = self.wallet_api.get_block_height(type_coin, coin_name,
-                                                                                              net_name)
+                                                    height = self.wallet_api.get_block_height(
+                                                        type_coin, coin_name, net_name
+                                                    )
 
                                                     # height can be None
                                                     userdata_balance = await store.sql_user_balance_single(
@@ -435,8 +466,7 @@ class TopGGVote(commands.Cog):
                                                         try:
                                                             coin_decimal = getattr(
                                                                 getattr(self.bot.coin_list, coin_name), "decimal")
-                                                            contract = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                               "contract")
+                                                            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                                                             usd_equivalent_enable = getattr(
                                                                 getattr(self.bot.coin_list, coin_name),
                                                                 "usd_equivalent_enable")
@@ -490,17 +520,26 @@ class TopGGVote(commands.Cog):
                                                                     channel = self.bot.get_channel(self.reward_channel)
                                                                     embed = disnake.Embed(title="NEW BOT VOTE!",
                                                                                           timestamp=datetime.now())
-                                                                    embed.add_field(name="User",
-                                                                                    value="<@{}>".format(user_vote),
-                                                                                    inline=True)
-                                                                    embed.add_field(name="Reward", value="{} {}".format(
-                                                                        num_format_coin(amount, coin_name, coin_decimal,
-                                                                                        False), coin_name), inline=True)
-                                                                    embed.add_field(name="Link",
-                                                                                    value=self.bot.config['bot_vote_link']['topgg'],
-                                                                                    inline=False)
-                                                                    embed.set_author(name=self.bot.user.name,
-                                                                                     icon_url=self.bot.user.display_avatar)
+                                                                    embed.add_field(
+                                                                        name="User",
+                                                                        value="<@{}>".format(user_vote),
+                                                                        inline=True
+                                                                    )
+                                                                    embed.add_field(
+                                                                        name="Reward", value="{} {}".format(
+                                                                            num_format_coin(amount, coin_name, coin_decimal, False),
+                                                                            coin_name),
+                                                                        inline=True
+                                                                    )
+                                                                    embed.add_field(
+                                                                        name="Link",
+                                                                        value=self.bot.config['bot_vote_link']['topgg'],
+                                                                        inline=False
+                                                                    )
+                                                                    embed.set_author(
+                                                                        name=self.bot.user.name,
+                                                                        icon_url=self.bot.user.display_avatar
+                                                                    )
                                                                     await channel.send(embed=embed)
                                                                 except Exception:
                                                                     traceback.print_exc(file=sys.stdout)
@@ -509,7 +548,10 @@ class TopGGVote(commands.Cog):
                                             else:
                                                 # User didn't put any prefer coin. Message him he could reward
                                                 if member is not None:
-                                                    msg = f"Thank you for voting for our TipBot at <{self.bot.config['bot_vote_link']['topgg']}>. You can get a reward! Know more by `/claim` or `/claim token_name` to set your preferred coin/token reward."
+                                                    msg = f"Thank you for voting for our TipBot at "\
+                                                        f"<{self.bot.config['bot_vote_link']['topgg']}>. "\
+                                                        f"You can get a reward! Know more by `/claim` or `/claim token_name` "\
+                                                        f"to set your preferred coin/token reward."
                                                     try:
                                                         await member.send(msg)
                                                     except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:

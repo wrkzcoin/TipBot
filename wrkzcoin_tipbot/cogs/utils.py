@@ -292,9 +292,10 @@ class Utils(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `bot_commanded` (`guild_id`, `user_id`, `user_server`, `command`, `timestamp`)
-                              VALUES (%s, %s, %s, %s, %s)
-                              """
+                    sql = """ INSERT INTO `bot_commanded` 
+                    (`guild_id`, `user_id`, `user_server`, `command`, `timestamp`)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """
                     await cur.executemany(sql, self.bot.commandings)
                     await conn.commit()
                     if cur.rowcount > 0:

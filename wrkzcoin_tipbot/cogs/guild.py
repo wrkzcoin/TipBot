@@ -165,7 +165,11 @@ class Guild(commands.Cog):
                                 msg_no_embed = msg
                                 await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} runs out of {coin_name} balance.")
                                 # add to DB
-                                await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], coin_name, coin_decimal, 0.0, 0.0, 0, None, None, int(time.time()) )
+                                await self.insert_new_activedrop_guild(
+                                    each_drop['serverid'], get_guild.name, 
+                                    each_drop['tiptalk_channel'], coin_name, 
+                                    coin_decimal, 0.0, 0.0, 0, None, None, int(time.time())
+                                )
                             else:
                                 list_receiver_names = []
                                 for member_id in message_talker:
@@ -518,19 +522,19 @@ class Guild(commands.Cog):
                             # raffle pot fee 0.01
                             values_list.append(( coin.upper(), contract, guild_id, "RAFFLE", guild_id, channel_id, list_amounts[3], coin_decimal, "RAFFLE", currentTs, user_server, unit_price_usd*list_amounts[3], guild_id, coin.upper(), user_server, -list_amounts[3], currentTs, "RAFFLE", coin.upper(), user_server, list_amounts[3], currentTs ))
                             sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`, `real_amount_usd`) 
-                                      VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s);
-                                    
-                                      INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
-                                      VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
-                                      UPDATE 
-                                      `balance`=`balance`+VALUES(`balance`), 
-                                      `update_date`=VALUES(`update_date`);
+                            VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s);
+                        
+                            INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                            VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                            UPDATE 
+                            `balance`=`balance`+VALUES(`balance`), 
+                            `update_date`=VALUES(`update_date`);
 
-                                      INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
-                                      VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
-                                      UPDATE 
-                                      `balance`=`balance`+VALUES(`balance`), 
-                                      `update_date`=VALUES(`update_date`);
+                            INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
+                            VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                            UPDATE 
+                            `balance`=`balance`+VALUES(`balance`), 
+                            `update_date`=VALUES(`update_date`);
                             """
                             await cur.executemany(sql, values_list)
                             await conn.commit()
@@ -544,10 +548,14 @@ class Guild(commands.Cog):
             await store.openConnection()	
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE guild_raffle SET `status`=%s WHERE `id`=%s AND `status` IN ('ONGOING', 'OPENED') LIMIT 1 """	
+                    sql = """ UPDATE guild_raffle SET `status`=%s 
+                    WHERE `id`=%s AND `status` IN ('ONGOING', 'OPENED') LIMIT 1
+                    """	
                     await cur.execute(sql, ('CANCELLED', raffle_id))
                     await conn.commit()	
-                    sql = """ UPDATE guild_raffle_entries SET `status`=%s WHERE `raffle_id`=%s """	
+                    sql = """ UPDATE guild_raffle_entries SET `status`=%s 
+                    WHERE `raffle_id`=%s
+                    """	
                     await cur.execute(sql, ('CANCELLED', raffle_id))
                     await conn.commit()	
                     return True	
@@ -563,7 +571,8 @@ class Guild(commands.Cog):
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM guild_raffle 
-                              WHERE `user_server`=%s AND `status` IN ('OPENED', 'ONGOING') """
+                    WHERE `user_server`=%s AND `status` IN ('OPENED', 'ONGOING')
+                    """
                     await cur.execute(sql, (user_server))
                     result = await cur.fetchall()
                     if result: return result
@@ -584,14 +593,17 @@ class Guild(commands.Cog):
                     result = await cur.fetchone()
                     if result:
                         sql = """ SELECT * FROM guild_raffle_entries 
-                                  WHERE `raffle_id`=%s AND `user_server`=%s ORDER BY `entry_id` DESC """
+                        WHERE `raffle_id`=%s AND `user_server`=%s 
+                        ORDER BY `entry_id` DESC
+                        """
                         await cur.execute(sql, (idx, user_server))
                         result_list = await cur.fetchall()
                         if result_list and len(result_list) > 0:
                             result['entries'] = result_list
                             if user_check:
                                 sql = """ SELECT * FROM guild_raffle_entries 
-                                          WHERE `raffle_id`=%s AND `user_server`=%s AND `user_id`=%s LIMIT 1 """
+                                WHERE `raffle_id`=%s AND `user_server`=%s AND `user_id`=%s LIMIT 1
+                                """
                                 await cur.execute(sql, (idx, user_server, user_check))
                                 result_check = await cur.fetchone()
                                 if result_check:
@@ -613,11 +625,12 @@ class Guild(commands.Cog):
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM guild_raffle 
-                              WHERE `guild_id`=%s AND `user_server`=%s ORDER BY `id` DESC LIMIT 1 """
+                    WHERE `guild_id`=%s AND `user_server`=%s ORDER BY `id` DESC LIMIT 1 """
                     if last_play: sql += "OFFSET 1"
                     await cur.execute(sql, (guild, user_server))
                     result = await cur.fetchone()
-                    if result: return result
+                    if result:
+                        return result
         except Exception:	
             await logchanbot("guild " +str(traceback.format_exc()))	
         return None
@@ -633,10 +646,12 @@ class Guild(commands.Cog):
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:	
                     sql = """ INSERT INTO guild_raffle_entries (`raffle_id`, `guild_id`, `amount`, `decimal`, 
-                              `coin_name`, `user_id`, `user_name`, `entry_ts`, `user_server`) 	
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """	
-                    await cur.execute(sql, (raffle_id, guild_id, amount, decimal, coin_name, user_id,
-                                            user_name, int(time.time()), user_server,))
+                    `coin_name`, `user_id`, `user_name`, `entry_ts`, `user_server`) 	
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """	
+                    await cur.execute(sql, (
+                        raffle_id, guild_id, amount, decimal, coin_name, user_id,
+                        user_name, int(time.time()), user_server
+                    ))
                     await conn.commit()	
                     return True	
         except Exception:	
@@ -655,10 +670,14 @@ class Guild(commands.Cog):
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:	
                     sql = """ INSERT INTO guild_raffle (`guild_id`, `guild_name`, `amount`, `decimal`, 
-                              `coin_name`, `created_userid`, `created_username`, `created_ts`, `ending_ts`, `user_server`) 	
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """	
-                    await cur.execute(sql, (guild_id, guild_name, amount, decimal, coin_name, created_userid,
-                                            created_username, created_ts, ending_ts, user_server,))
+                    `coin_name`, `created_userid`, `created_username`, `created_ts`, 
+                    `ending_ts`, `user_server`) 	
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """	
+                    await cur.execute(sql, (
+                        guild_id, guild_name, amount, decimal, coin_name, created_userid,
+                        created_username, created_ts, ending_ts, user_server
+                    ))
                     await conn.commit()	
                     return True	
         except Exception:	
@@ -695,9 +714,13 @@ class Guild(commands.Cog):
                             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-                            get_deposit = await self.wallet_api.sql_get_userwallet(each_guild['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0)
+                            get_deposit = await self.wallet_api.sql_get_userwallet(
+                                each_guild['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0
+                            )
                             if get_deposit is None:
-                                get_deposit = await self.wallet_api.sql_register_user(each_guild['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
+                                get_deposit = await self.wallet_api.sql_register_user(
+                                    each_guild['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0, 1
+                                )
 
                             wallet_address = get_deposit['balance_wallet_address']
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -706,9 +729,11 @@ class Guild(commands.Cog):
                                 wallet_address = get_deposit['destination_tag']
 
                             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                            userdata_balance = await self.wallet_api.user_balance(each_guild['serverid'], coin_name, 
-                                                                                  wallet_address, type_coin, height, 
-                                                                                  deposit_confirm_depth, SERVER_BOT)
+                            userdata_balance = await self.wallet_api.user_balance(
+                                each_guild['serverid'], coin_name, 
+                                wallet_address, type_coin, height, 
+                                deposit_confirm_depth, SERVER_BOT
+                            )
                             actual_balance = float(userdata_balance['adjust'])
                             if actual_balance < 10*float(each_guild['vote_reward_amount']):
                                 amount = 10*float(each_guild['vote_reward_amount'])
@@ -763,9 +788,11 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
-    async def guild_update_featurerole(self, guild_id: str, role_id: str, faucet_multipled_by: float,
-                                       guild_vote_multiplied_by: float, faucet_cut_time_percent: float,
-                                       updated_by_uid: str, updated_by_uname: str):
+    async def guild_update_featurerole(
+        self, guild_id: str, role_id: str, faucet_multipled_by: float,
+        guild_vote_multiplied_by: float, faucet_cut_time_percent: float,
+        updated_by_uid: str, updated_by_uname: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -783,9 +810,11 @@ class Guild(commands.Cog):
                     `updated_by_uname`=VALUES(`updated_by_uname`),
                     `date`=VALUES(`date`)
                     """
-                    await cur.execute(sql, (guild_id, role_id, faucet_multipled_by, 
-                                            guild_vote_multiplied_by, faucet_cut_time_percent,
-                                            updated_by_uid, updated_by_uname, int(time.time())))
+                    await cur.execute(sql, (
+                        guild_id, role_id, faucet_multipled_by, 
+                        guild_vote_multiplied_by, faucet_cut_time_percent,
+                        updated_by_uid, updated_by_uname, int(time.time())
+                    ))
                     await conn.commit()	
                     return True
         except Exception:
@@ -804,7 +833,8 @@ class Guild(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT `"""+secret+"""` FROM `discord_server` WHERE `serverid`=%s """
+                    sql = """ SELECT `"""+secret+"""` FROM `discord_server` WHERE `serverid`=%s
+                    """
                     await cur.execute(sql, ( guild_id ))
                     result = await cur.fetchone()
                     if result: return result[secret]
@@ -817,7 +847,8 @@ class Guild(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE discord_server SET `"""+secret+"""`=%s WHERE `serverid`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_server SET `"""+secret+"""`=%s WHERE `serverid`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (key, guild_id))
                     await conn.commit()
                     return cur.rowcount
@@ -825,18 +856,24 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def update_reward(self, guild_id: str, amount: float, coin_name: str, disable: bool=False, channel: str=None):
+    async def update_reward(
+        self, guild_id: str, amount: float, coin_name: str, disable: bool=False, channel: str=None
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if disable is True:
-                        sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, `vote_reward_coin`=%s, `vote_reward_channel`=%s WHERE `serverid`=%s LIMIT 1 """
+                        sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, 
+                        `vote_reward_coin`=%s, `vote_reward_channel`=%s WHERE `serverid`=%s LIMIT 1
+                        """
                         await cur.execute(sql, ( None, None, guild_id, None ))
                         await conn.commit()
                         return cur.rowcount
                     else:
-                        sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, `vote_reward_coin`=%s, `vote_reward_channel`=%s WHERE `serverid`=%s LIMIT 1 """
+                        sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, 
+                        `vote_reward_coin`=%s, `vote_reward_channel`=%s WHERE `serverid`=%s LIMIT 1
+                        """
                         await cur.execute(sql, ( amount, coin_name.upper(), channel, guild_id  ))
                         await conn.commit()
                         return cur.rowcount
@@ -844,18 +881,27 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return 0
 
-    async def update_faucet(self, guild_id: str, amount: float, coin_name: str, duration: int=43200, disable: bool=False, channel: str=None):
+    async def update_faucet(
+        self, guild_id: str, amount: float, coin_name: str, duration: int=43200, 
+        disable: bool=False, channel: str=None
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if disable is True:
-                        sql = """ UPDATE discord_server SET `faucet_amount`=%s, `faucet_coin`=%s, `faucet_channel`=%s, `faucet_duration`=%s WHERE `serverid`=%s LIMIT 1 """
+                        sql = """ UPDATE discord_server SET `faucet_amount`=%s, 
+                        `faucet_coin`=%s, `faucet_channel`=%s, `faucet_duration`=%s 
+                        WHERE `serverid`=%s LIMIT 1
+                        """
                         await cur.execute(sql, ( None, None, None, None, guild_id ))
                         await conn.commit()
                         return cur.rowcount
                     else:
-                        sql = """ UPDATE discord_server SET `faucet_amount`=%s, `faucet_coin`=%s, `faucet_channel`=%s, `faucet_duration`=%s WHERE `serverid`=%s LIMIT 1 """
+                        sql = """ UPDATE discord_server 
+                        SET `faucet_amount`=%s, `faucet_coin`=%s, `faucet_channel`=%s, 
+                        `faucet_duration`=%s WHERE `serverid`=%s LIMIT 1
+                        """
                         await cur.execute(sql, ( amount, coin_name.upper(), channel, duration, guild_id  ))
                         await conn.commit()
                         return cur.rowcount
@@ -863,14 +909,22 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return 0
 
-    async def update_activedrop(self, guild_id: str, amount: float=0, coin_name: str=None, duration: int=3600, channel: str=None, role_id: str=None):
+    async def update_activedrop(
+        self, guild_id: str, amount: float=0, coin_name: str=None, duration: int=3600, 
+        channel: str=None, role_id: str=None
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE discord_server SET `tiptalk_amount`=%s, `tiptallk_coin`=%s, `tiptalk_channel`=%s, `tiptalk_duration`=%s, `tiptalk_role_id`=%s 
-                              WHERE `serverid`=%s LIMIT 1 """
-                    await cur.execute(sql, ( amount, coin_name.upper() if coin_name else None, channel, duration, role_id, guild_id  ))
+                    sql = """ UPDATE discord_server SET `tiptalk_amount`=%s, 
+                    `tiptallk_coin`=%s, `tiptalk_channel`=%s, `tiptalk_duration`=%s, `tiptalk_role_id`=%s 
+                    WHERE `serverid`=%s LIMIT 1
+                    """
+                    await cur.execute(sql, (
+                        amount, coin_name.upper() if coin_name else None, 
+                        channel, duration, role_id, guild_id
+                    ))
                     await conn.commit()
                     return cur.rowcount
         except Exception:
@@ -883,8 +937,9 @@ class Guild(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_server  
-                              WHERE `tiptalk_amount`>0 """
-                    await cur.execute(sql, ())
+                    WHERE `tiptalk_amount`>0
+                    """
+                    await cur.execute(sql,)
                     result = await cur.fetchall()
                     if result and len(result) > 0: return result
         except Exception:
@@ -897,7 +952,8 @@ class Guild(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM discord_tiptalker  
-                              WHERE `guild_id`=%s ORDER BY `id` DESC LIMIT 1 """
+                    WHERE `guild_id`=%s ORDER BY `id` DESC LIMIT 1
+                    """
                     await cur.execute(sql, ( guild_id ))
                     result = await cur.fetchone()
                     if result: return result
@@ -905,16 +961,24 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def insert_new_activedrop_guild(self, guild_id: str, guild_name: str, channel_id: str, token_name: str, token_decimal: int, total_amount: float, each_amount: float, numb_receivers: int, list_receivers_id: str, list_receivers_name: str, spread_time: int):
+    async def insert_new_activedrop_guild(
+        self, guild_id: str, guild_name: str, channel_id: str, token_name: str, 
+        token_decimal: int, total_amount: float, each_amount: float, numb_receivers: int, 
+        list_receivers_id: str, list_receivers_name: str, spread_time: int
+    ):
         try:	
             await store.openConnection()	
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:	
-                    sql = """ INSERT INTO discord_tiptalker (`guild_id`, `guild_name`, `channel_id`, `token_name`, 
-                              `token_decimal`, `total_amount`, `each_amount`, `numb_receivers`, `list_receivers_id`, `list_receivers_name`, spread_time) 	
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """	
-                    await cur.execute(sql, ( guild_id, guild_name, channel_id, token_name.upper(), token_decimal, total_amount,
-                                            each_amount, numb_receivers, list_receivers_id, list_receivers_name, spread_time ))
+                    sql = """ INSERT INTO discord_tiptalker (`guild_id`, `guild_name`, 
+                    `channel_id`, `token_name`, `token_decimal`, `total_amount`, `each_amount`, 
+                    `numb_receivers`, `list_receivers_id`, `list_receivers_name`, spread_time) 	
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """	
+                    await cur.execute(sql, (
+                        guild_id, guild_name, channel_id, token_name.upper(), token_decimal, total_amount,
+                        each_amount, numb_receivers, list_receivers_id, list_receivers_name, spread_time
+                    ))
                     await conn.commit()	
                     return True	
         except Exception:	
@@ -1230,18 +1294,24 @@ class Guild(commands.Cog):
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
 
-                            user_entry = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
+                            user_entry = await self.wallet_api.sql_get_userwallet(
+                                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                            )
                             if user_entry is None:
-                                user_entry = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0)
+                                user_entry = await self.wallet_api.sql_register_user(
+                                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                                )
 
                             wallet_address = user_entry['balance_wallet_address']
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                 wallet_address = user_entry['paymentid']
 
                             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                            userdata_balance = await self.wallet_api.user_balance(str(ctx.author.id), coin_name, 
-                                                                                  wallet_address, type_coin, height, 
-                                                                                  deposit_confirm_depth, SERVER_BOT)
+                            userdata_balance = await self.wallet_api.user_balance(
+                                str(ctx.author.id), coin_name, 
+                                wallet_address, type_coin, height, 
+                                deposit_confirm_depth, SERVER_BOT
+                            )
                             actual_balance = float(userdata_balance['adjust'])
 
                             if actual_balance < get_raffle['amount']:
@@ -1340,9 +1410,13 @@ class Guild(commands.Cog):
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-                get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
                 if get_deposit is None:
-                    get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1
+                    )
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                     wallet_address = get_deposit['paymentid']
@@ -1351,9 +1425,11 @@ class Guild(commands.Cog):
 
                 height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 # height can be None
-                userdata_balance = await self.wallet_api.user_balance(str(ctx.guild.id), coin_name, 
-                                                                      wallet_address, type_coin, height, 
-                                                                      deposit_confirm_depth, SERVER_BOT)
+                userdata_balance = await self.wallet_api.user_balance(
+                    str(ctx.guild.id), coin_name, 
+                    wallet_address, type_coin, height, 
+                    deposit_confirm_depth, SERVER_BOT
+                )
                 total_balance = userdata_balance['adjust']
                 if total_balance > 0:
                     has_none_balance = False
@@ -1401,10 +1477,12 @@ class Guild(commands.Cog):
                 
             for k, v in coin_balance_list.items():
                 if num_coins == 0 or num_coins % per_page == 0:
-                    page = disnake.Embed(title=f'[ GUILD **{ctx.guild.name.upper()}** BALANCE LIST ]',
-                                         description=f"`{total_all_balance_usd}`",
-                                         color=disnake.Color.red(),
-                                         timestamp=datetime.fromtimestamp(int(time.time())), )
+                    page = disnake.Embed(
+                        title=f'[ GUILD **{ctx.guild.name.upper()}** BALANCE LIST ]',
+                        description=f"`{total_all_balance_usd}`",
+                        color=disnake.Color.red(),
+                        timestamp=datetime.fromtimestamp(int(time.time())),
+                    )
 
                     if ctx.guild.icon:
                         page.set_thumbnail(url=str(ctx.guild.icon))
@@ -1414,10 +1492,12 @@ class Guild(commands.Cog):
                 if num_coins > 0 and num_coins % per_page == 0:
                     all_pages.append(page)
                     if num_coins < len(coin_balance_list):
-                        page = disnake.Embed(title=f'[ GUILD **{ctx.guild.name.upper()}** BALANCE LIST ]',
-                                             description=f"`{total_all_balance_usd}`",
-                                             color=disnake.Color.red(),
-                                             timestamp=datetime.fromtimestamp(int(time.time())), )
+                        page = disnake.Embed(
+                            title=f'[ GUILD **{ctx.guild.name.upper()}** BALANCE LIST ]',
+                            description=f"`{total_all_balance_usd}`",
+                            color=disnake.Color.red(),
+                            timestamp=datetime.fromtimestamp(int(time.time())),
+                        )
                         if ctx.guild.icon:
                             page.set_thumbnail(url=str(ctx.guild.icon))
                         page.set_footer(text="Use the reactions to flip pages.")
@@ -1492,9 +1572,13 @@ class Guild(commands.Cog):
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
+            get_deposit = await self.wallet_api.sql_register_user(
+                str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1
+            )
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -1503,9 +1587,9 @@ class Guild(commands.Cog):
             wallet_address = get_deposit['destination_tag']
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-        userdata_balance = await self.wallet_api.user_balance(str(ctx.guild.id), coin_name, wallet_address, 
-                                                              type_coin, height, deposit_confirm_depth, 
-                                                              SERVER_BOT)
+        userdata_balance = await self.wallet_api.user_balance(
+            str(ctx.guild.id), coin_name, wallet_address, 
+            type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
         amount = amount.replace(",", "")
@@ -1609,9 +1693,13 @@ class Guild(commands.Cog):
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -1624,9 +1712,10 @@ class Guild(commands.Cog):
             all_amount = False
             if not amount.isdigit() and amount.upper() == "ALL":
                 all_amount = True
-                userdata_balance = await self.wallet_api.user_balance(str(ctx.author.id), coin_name, wallet_address, 
-                                                                      type_coin, height, deposit_confirm_depth, 
-                                                                      SERVER_BOT)
+                userdata_balance = await self.wallet_api.user_balance(
+                    str(ctx.author.id), coin_name, wallet_address, 
+                    type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
                 amount = float(userdata_balance['adjust'])
             # If $ is in amount, let's convert to coin/token
             elif "$" in amount[-1] or "$" in amount[0]: # last is $
@@ -1650,19 +1739,24 @@ class Guild(commands.Cog):
                     if per_unit and per_unit > 0:
                         amount = float(Decimal(amount) / Decimal(per_unit))
                     else:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\
+                            f"Try with different method."
                         await ctx.edit_original_message(content=msg)
                         return
             else:
                 amount = amount.replace(",", "")
                 amount = text_to_num(amount)
                 if amount is None:
-                    await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.')
+                    await ctx.edit_original_message(
+                        content=f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+                    )
                     return
             # end of check if amount is all
-            userdata_balance = await self.wallet_api.user_balance(str(ctx.author.id), coin_name, 
-                                                                  wallet_address, type_coin, height, 
-                                                                  deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await self.wallet_api.user_balance(
+                str(ctx.author.id), coin_name, 
+                wallet_address, type_coin, height, 
+                deposit_confirm_depth, SERVER_BOT
+            )
             actual_balance = Decimal(userdata_balance['adjust'])
             amount = Decimal(amount)
             if amount <= 0:
@@ -1700,7 +1794,9 @@ class Guild(commands.Cog):
 
             # OK, move fund
             if ctx.author.id in self.bot.TX_IN_PROCESS:
-                await ctx.edit_original_message(content=f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.')
+                await ctx.edit_original_message(
+                    content=f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+                )
                 return
             else:
                 self.bot.TX_IN_PROCESS.append(ctx.author.id)

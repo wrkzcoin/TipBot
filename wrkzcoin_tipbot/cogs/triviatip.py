@@ -78,12 +78,12 @@ class TriviaButton(disnake.ui.View):
             question = await store.get_q_db(get_triviatip['question_id'])
             total_answer = answered_msg_id['total']
 
-            indiv_amount_str = num_format_coin(truncate(amount / len(answered_msg_id['right_ids']), 4), coin_name,
-                                               coin_decimal, False) if len(
-                answered_msg_id['right_ids']) > 0 else num_format_coin(truncate(amount, 4), coin_name, coin_decimal,
-                                                                       False)
-            indiv_amount = truncate(amount / len(answered_msg_id['right_ids']), 4) if len(
-                answered_msg_id['right_ids']) > 0 else truncate(amount, 4)
+            indiv_amount_str = num_format_coin(
+                truncate(amount / len(answered_msg_id['right_ids']), 4), coin_name, coin_decimal, False) if \
+                    len(answered_msg_id['right_ids']) > 0 else \
+                        num_format_coin(truncate(amount, 4), coin_name, coin_decimal, False)
+            indiv_amount = truncate(amount / len(answered_msg_id['right_ids']), 4) if \
+                len(answered_msg_id['right_ids']) > 0 else truncate(amount, 4)
 
             attend_list_id_right = answered_msg_id['right_ids']
             amount_in_usd = 0.0
@@ -107,18 +107,35 @@ class TriviaButton(disnake.ui.View):
                 title=f"⁉️ Trivia Tip {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                     f"{token_display} - {total_equivalent_usd} Total answer {total_answer}",
                 description=get_triviatip['question_content'],
-                timestamp=datetime.fromtimestamp(get_triviatip['trivia_endtime']))
-            embed.add_field(name="Category (credit: {})".format(question['credit']), value=question['category'],
-                            inline=False)
-            embed.add_field(name="Correct answer", value=get_triviatip['button_correct_answer'], inline=False)
-            embed.add_field(name="Correct ( {} )".format(len(answered_msg_id['right_ids'])), value="{}".format(
-                " | ".join(answered_msg_id['right_names']) if len(answered_msg_id['right_names']) > 0 else "N/A"),
-                            inline=False)
-            embed.add_field(name="Incorrect ( {} )".format(len(answered_msg_id['wrong_ids'])), value="{}".format(
-                " | ".join(answered_msg_id['wrong_names']) if len(answered_msg_id['wrong_names']) > 0 else "N/A"),
-                            inline=False)
+                timestamp=datetime.fromtimestamp(get_triviatip['trivia_endtime'])
+            )
+            embed.add_field(
+                name="Category (credit: {})".format(question['credit']),
+                value=question['category'],
+                inline=False
+            )
+            embed.add_field(
+                name="Correct answer",
+                value=get_triviatip['button_correct_answer'],
+                inline=False
+            )
+            embed.add_field(
+                name="Correct ( {} )".format(len(answered_msg_id['right_ids'])),
+                value="{}".format(
+                    " | ".join(answered_msg_id['right_names']) if len(answered_msg_id['right_names']) > 0 else "N/A"),
+                inline=False
+            )
+            embed.add_field(
+                name="Incorrect ( {} )".format(len(answered_msg_id['wrong_ids'])),
+                value="{}".format(
+                    " | ".join(answered_msg_id['wrong_names']) if len(answered_msg_id['wrong_names']) > 0 else "N/A"),
+                inline=False)
             if len(answered_msg_id['right_ids']) > 0:
-                embed.add_field(name='Each Winner Receives:', value=f"{indiv_amount_str} {token_display}", inline=True)
+                embed.add_field(
+                    name='Each Winner Receives:',
+                    value=f"{indiv_amount_str} {token_display}",
+                    inline=True
+                )
             embed.set_footer(text=f"Trivia tip by {owner_displayname}")
 
             if len(answered_msg_id['right_ids']) > 0:
@@ -133,7 +150,7 @@ class TriviaButton(disnake.ui.View):
                             del self.bot.user_balance_cache[key_coin]
                 except Exception:
                     pass
-                trivia_tipping = await store.sql_user_balance_mv_multiple(
+                await store.sql_user_balance_mv_multiple(
                     get_triviatip['from_userid'],
                     answered_msg_id['right_ids'],
                     get_triviatip['guild_id'],
@@ -150,7 +167,6 @@ class TriviaButton(disnake.ui.View):
 
 
 class TriviaTips(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
@@ -302,13 +318,6 @@ class TriviaTips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        try:
-            amount = float(amount)
-        except ValueError:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid amount.'
-            await ctx.edit_original_message(content=msg)
-            return
-
         def hms_to_seconds(time_string):
             duration_in_second = 0
             if time_string.isdigit():
@@ -359,11 +368,6 @@ class TriviaTips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if amount <= 0:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
-            await ctx.edit_original_message(content=msg)
-            return
-
         # Get random question
         rand_q = await store.get_random_q_db("ANY")
         if rand_q is None:
@@ -376,6 +380,11 @@ class TriviaTips(commands.Cog):
             height, deposit_confirm_depth, SERVER_BOT
         )
         actual_balance = float(userdata_balance['adjust'])
+
+        if amount <= 0 or actual_balance <= 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+            await ctx.edit_original_message(content=msg)
+            return
 
         if amount > max_tip or amount < min_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be "\
@@ -416,8 +425,15 @@ class TriviaTips(commands.Cog):
         embed = disnake.Embed(
             title=f"⁉️ Trivia Tip {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
             description=rand_q['question'], timestamp=datetime.fromtimestamp(trivia_end))
-        embed.add_field(name="Category (credit: {})".format(rand_q['credit']), value=rand_q['category'], inline=False)
-        embed.add_field(name="Answering", value="None", inline=False)
+        embed.add_field(
+            name="Category (credit: {})".format(rand_q['credit']),
+            value=rand_q['category'],
+            inline=False
+        )
+        embed.add_field(
+            name="Answering",
+            value="None", inline=False
+        )
         embed.set_footer(text=f"Trivia tip by {owner_displayname}")
         if rand_q and rand_q['type'] == "MULTIPLE":
             answers = [rand_q['correct_answer'], rand_q['incorrect_answer_1'], rand_q['incorrect_answer_2'],
@@ -429,7 +445,7 @@ class TriviaTips(commands.Cog):
                 view = TriviaButton(ctx, answers, index_answer, duration_s, self.bot.coin_list)
                 view.message = await ctx.original_message()
                 # Insert to trivia ongoing list
-                insert_trivia = await store.insert_discord_triviatip(
+                await store.insert_discord_triviatip(
                     coin_name, contract, str(ctx.author.id),
                     owner_displayname, str(view.message.id),
                     rand_q['question'], rand_q['id'],
@@ -449,7 +465,7 @@ class TriviaTips(commands.Cog):
                 view = TriviaButton(ctx, answers, index_answer, duration_s, self.bot.coin_list)
                 view.message = await ctx.original_message()
                 # Insert to trivia ongoing list
-                insert_trivia = await store.insert_discord_triviatip(
+                await store.insert_discord_triviatip(
                     coin_name, contract, str(ctx.author.id),
                     owner_displayname, str(view.message.id),
                     rand_q['question'], rand_q['id'],

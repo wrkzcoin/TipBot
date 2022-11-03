@@ -99,16 +99,22 @@ class QuickDrop(commands.Cog):
                                 description="First come, first serve!",
                                 timestamp=datetime.fromtimestamp(each_drop['expiring_time']))
                             embed.set_footer(text=f"Dropped by {owner_displayname} | Used with /quickdrop | Ended")
-                            embed.add_field(name='Owner',
-                                            value=owner_displayname,
-                                            inline=False)
+                            embed.add_field(
+                                name='Owner',
+                                value=owner_displayname,
+                                inline=False
+                            )
                             if each_drop['collected_by_userid'] is None:
-                                embed.add_field(name='Collected by',
-                                                value="None",
-                                                inline=False)
-                            embed.add_field(name='Amount',
-                                            value="🎉🎉 {} {} 🎉🎉".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name),
-                                            inline=False)
+                                embed.add_field(
+                                    name='Collected by',
+                                    value="None",
+                                    inline=False
+                                )
+                            embed.add_field(
+                                name='Amount',
+                                value="🎉🎉 {} {} 🎉🎉".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name),
+                                inline=False
+                            )
                             try:
                                 channel = self.bot.get_channel(int(each_drop['channel_id']))
                                 _msg: disnake.Message = await channel.fetch_message(int(each_drop['message_id']))
@@ -272,16 +278,16 @@ class QuickDrop(commands.Cog):
 
             default_duration = 60
 
-            if amount <= 0:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
-                await ctx.edit_original_message(content=msg)
-                return
-
             userdata_balance = await store.sql_user_balance_single(
                 str(ctx.author.id), coin_name, wallet_address, type_coin,
                 height, deposit_confirm_depth, SERVER_BOT
             )
             actual_balance = float(userdata_balance['adjust'])
+
+            if amount <= 0 or actual_balance <= 0:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+                await ctx.edit_original_message(content=msg)
+                return
 
             if amount > max_tip or amount < min_tip:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, amount cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
@@ -319,12 +325,16 @@ class QuickDrop(commands.Cog):
                 title=f"📦📦📦 Quick Drop 📦📦📦",
                 description="First come, first serve!",
                 timestamp=datetime.now())
-            embed.add_field(name='Owner',
-                            value="{}#{}".format(ctx.author.name, ctx.author.discriminator),
-                            inline=False)
-            embed.add_field(name='Amount',
-                            value="❔❔❔❔❔",
-                            inline=False)
+            embed.add_field(
+                name='Owner',
+                value="{}#{}".format(ctx.author.name, ctx.author.discriminator),
+                inline=False
+            )
+            embed.add_field(
+                name='Amount',
+                value="❔❔❔❔❔",
+                inline=False
+            )
             embed.set_footer(text=f"Dropped by {owner_displayname} | Used with /quickdrop")
             try:
                 view = QuickDropButton(ctx, default_duration, self.bot.coin_list, self.bot, ctx.channel.id) 

@@ -145,9 +145,11 @@ class MemeTipReport(disnake.ui.Modal):
             await interaction.edit_original_message(content=f"{interaction.author.mention}, description is too short!")
             return
         report_id = str(uuid.uuid4())
-        report = await self.meme_report(report_id, self.meme_id, self.owner_userid, interaction.author.id,
-                                        "{}#{}".format(interaction.author.name, interaction.author.discriminator),
-                                        contact_id, desc_id)
+        report = await self.meme_report(
+            report_id, self.meme_id, self.owner_userid, interaction.author.id,
+            "{}#{}".format(interaction.author.name, interaction.author.discriminator),
+            contact_id, desc_id
+        )
         if report > 0:
             await interaction.edit_original_message(
                 content=f'{interaction.author.mention}, thank you for your report! ID: `{report_id}`.')
@@ -156,9 +158,11 @@ class MemeTipReport(disnake.ui.Modal):
                 embed = disnake.Embed(title="MEME REPORT!", description="Caption: {}".format(self.get_meme['caption']),
                                       timestamp=datetime.now())
                 embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
-                embed.add_field(name="Uploaded Guild/Chan",
-                                value="`{}/{}`".format(self.get_meme['guild_id'], self.get_meme['channel_id']),
-                                inline=False)
+                embed.add_field(
+                    name="Uploaded Guild/Chan",
+                    value="`{}/{}`".format(self.get_meme['guild_id'], self.get_meme['channel_id']),
+                    inline=False
+                )
                 embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
                 embed.add_field(name="Hash", value="`{}`".format(self.get_meme['sha256']), inline=False)
                 embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
@@ -170,7 +174,6 @@ class MemeTipReport(disnake.ui.Modal):
         else:
             await interaction.edit_original_message(
                 content=f"{interaction.author.mention}, internal error, please report!")
-
 
 class TipOtherCoin(disnake.ui.Modal):
     def __init__(self, ctx, bot, meme_id: str, owner_userid: str, get_meme) -> None:
@@ -470,8 +473,10 @@ class MemeTip_Button(disnake.ui.View):
                 if hasattr(interaction, "guild") and hasattr(interaction.guild, "id"):
                     guild_id = interaction.guild.id
                     channel_id = interaction.channel.id
-                tip = await add_memetip(self.meme_id, self.owner_userid, str(interaction.author.id), guild_id,
-                                        channel_id, amount, coin_name, coin_decimal, contract, amount_in_usd)
+                tip = await add_memetip(
+                    self.meme_id, self.owner_userid, str(interaction.author.id), guild_id,
+                    channel_id, amount, coin_name, coin_decimal, contract, amount_in_usd
+                )
                 if tip > 0:
                     try:
                         msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(
@@ -619,8 +624,11 @@ class MemeTip_Button(disnake.ui.View):
                     msg = f'{interaction.author.mention}, you tipped **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** to meme `{self.meme_id}`.'
                     await interaction.edit_original_message(content=msg)
                     try:
-                        embed = disnake.Embed(title="A meme got tipped!",
-                                              description=f"Share your meme and get tipped!", timestamp=datetime.now())
+                        embed = disnake.Embed(
+                            title="A meme got tipped!",
+                            description=f"Share your meme and get tipped!",
+                            timestamp=datetime.now()
+                        )
                         embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=False)
                         embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
                         embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
@@ -885,8 +893,11 @@ class MemeTip_Button(disnake.ui.View):
                     msg = f'{interaction.author.mention}, you tipped **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** to meme `{self.meme_id}`.'
                     await interaction.edit_original_message(content=msg)
                     try:
-                        embed = disnake.Embed(title="A meme got tipped!",
-                                              description=f"Share your meme and get tipped!", timestamp=datetime.now())
+                        embed = disnake.Embed(
+                            title="A meme got tipped!",
+                            description=f"Share your meme and get tipped!",
+                            timestamp=datetime.now()
+                        )
                         embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=False)
                         embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
                         embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
@@ -1021,9 +1032,11 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO meme_uploaded (`key`, `owner_userid`, `owner_name`, `guild_id`, 
+                    sql = """ INSERT INTO meme_uploaded 
+                    (`key`, `owner_userid`, `owner_name`, `guild_id`, 
                     `channel_id`, `caption`, `original_name`, `saved_name`, `file_type`, `sha256`, `uploaded_date`) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (
                         key, owner_userid, owner_name, guild_id, channel_id, caption, original_name, saved_name,
                         file_type,
@@ -1170,7 +1183,8 @@ class MemePls(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ UPDATE `meme_uploaded` SET `number_view`=number_view+%s WHERE `key`=%s LIMIT 1;
-                              INSERT INTO meme_viewed (`meme_id`, `owner_userid`, `called_by`, `guild_id`, `channel_id`, `date`) 
+                              INSERT INTO meme_viewed (`meme_id`, `owner_userid`, `called_by`, 
+                              `guild_id`, `channel_id`, `date`) 
                               VALUES (%s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (
                         inc, meme_id, meme_id, owner_userid, called_by, guild_id, channel_id, int(time.time())))
@@ -1217,11 +1231,16 @@ class MemePls(commands.Cog):
         get_meme = await self.get_random_approved_meme_guild(guild_id)
         if get_meme is None:
             await ctx.edit_original_message(
-                content=f"{ctx.author.mention}, could not get one random meme here yet. No one uploaded? Try again later!")
+                content=f"{ctx.author.mention}, could not get one random meme here yet. "\
+                    "No one uploaded? Try again later!"
+                )
             return
         else:
-            embed = disnake.Embed(title="MEME uploaded by {}".format(get_meme['owner_name']),
-                                  description=f"You can tip from your balance.", timestamp=datetime.now())
+            embed = disnake.Embed(
+                title="MEME uploaded by {}".format(get_meme['owner_name']),
+                description=f"You can tip from your balance.",
+                timestamp=datetime.now()
+            )
             embed.add_field(name="View Count", value=get_meme['number_view'] + 1, inline=False)
             embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
             embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
@@ -1266,8 +1285,11 @@ class MemePls(commands.Cog):
                 content=f"{ctx.author.mention}, could not get one random meme yet. Try again later!")
             return
         else:
-            embed = disnake.Embed(title="MEME uploaded by {}".format(get_meme['owner_name']),
-                                  description=f"You can tip from your balance.", timestamp=datetime.now())
+            embed = disnake.Embed(
+                title="MEME uploaded by {}".format(get_meme['owner_name']),
+                description=f"You can tip from your balance.",
+                timestamp=datetime.now()
+            )
             embed.add_field(name="View Count", value=get_meme['number_view'] + 1, inline=False)
             embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
             embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
@@ -1336,8 +1358,10 @@ class MemePls(commands.Cog):
                 if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                     guild_id = ctx.guild.id
                     channel_id = ctx.channel.id
-                await self.meme_update_view(get_meme['key'], get_meme['owner_userid'], str(ctx.author.id), guild_id,
-                                            channel_id, 1)
+                await self.meme_update_view(
+                    get_meme['key'], get_meme['owner_userid'], str(ctx.author.id), guild_id,
+                    channel_id, 1
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
@@ -1369,9 +1393,12 @@ class MemePls(commands.Cog):
                     if get_meme['enable'] == 1:
                         status = "APPROVED"
                     embed = disnake.Embed(
-                        title="MEME uploaded by {} / {} in {}".format(get_meme['owner_name'], get_meme['owner_userid'],
-                                                                      get_meme['guild_id']),
-                        description=f"Status `{status}`", timestamp=datetime.now())
+                        title="MEME uploaded by {} / {} in {}".format(
+                            get_meme['owner_name'], get_meme['owner_userid'], get_meme['guild_id']
+                        ),
+                        description=f"Status `{status}`",
+                        timestamp=datetime.now()
+                    )
                     embed.add_field(name="Original File", value=get_meme['original_name'], inline=False)
                     embed.add_field(name="Stored File", value=get_meme['saved_name'], inline=False)
                     embed.add_field(name="New URL link", value=self.meme_web_path + get_meme['saved_name'],
@@ -1379,8 +1406,10 @@ class MemePls(commands.Cog):
                     embed.add_field(name="View Count", value=get_meme['number_view'], inline=False)
                     embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
                     embed.set_thumbnail(url=self.meme_web_path + get_meme['saved_name'])
-                    embed.set_footer(text="Reviewing {} by: {}#{}".format(get_meme['key'], ctx.author.name,
-                                                                          ctx.author.discriminator))
+                    embed.set_footer(
+                        text="Reviewing {} by: {}#{}".format(
+                            get_meme['key'], ctx.author.name, ctx.author.discriminator)
+                        )
                     try:
                         view = MemeReview_Button(ctx, self.bot, 30, get_meme['key'], get_meme['owner_userid'])
                         view.message = await ctx.original_message()
@@ -1398,13 +1427,18 @@ class MemePls(commands.Cog):
                     if get_meme['enable'] == 1:
                         status = "APPROVED"
                     embed = disnake.Embed(
-                        title="MEME uploaded by {} / {} in {}".format(get_meme['owner_name'], get_meme['owner_userid'],
-                                                                      get_meme['guild_id']),
-                        description=f"Status `{status}`", timestamp=datetime.now())
+                        title="MEME uploaded by {} / {} in {}".format(
+                            get_meme['owner_name'], get_meme['owner_userid'], get_meme['guild_id']),
+                        description=f"Status `{status}`",
+                        timestamp=datetime.now()
+                    )
                     embed.add_field(name="Original File", value=get_meme['original_name'], inline=False)
                     embed.add_field(name="Stored File", value=get_meme['saved_name'], inline=False)
-                    embed.add_field(name="New URL link", value=self.meme_web_path + get_meme['saved_name'],
-                                    inline=False)
+                    embed.add_field(
+                        name="New URL link",
+                        value=self.meme_web_path + get_meme['saved_name'],
+                        inline=False
+                    )
                     embed.add_field(name="View Count", value=get_meme['number_view'], inline=False)
                     embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
                     embed.set_thumbnail(url=self.meme_web_path + get_meme['saved_name'])
@@ -1431,13 +1465,19 @@ class MemePls(commands.Cog):
                     if get_meme['enable'] == 1:
                         status = "APPROVED"
                     embed = disnake.Embed(
-                        title="MEME uploaded by {} / {} in {}".format(get_meme['owner_name'], get_meme['owner_userid'],
-                                                                      get_meme['guild_id']),
-                        description=f"Status `{status}`", timestamp=datetime.now())
+                        title="MEME uploaded by {} / {} in {}".format(
+                            get_meme['owner_name'], get_meme['owner_userid'], get_meme['guild_id']
+                        ),
+                        description=f"Status `{status}`",
+                        timestamp=datetime.now()
+                    )
                     embed.add_field(name="Original File", value=get_meme['original_name'], inline=False)
                     embed.add_field(name="Stored File", value=get_meme['saved_name'], inline=False)
-                    embed.add_field(name="New URL link", value=self.meme_web_path + get_meme['saved_name'],
-                                    inline=False)
+                    embed.add_field(
+                        name="New URL link",
+                        value=self.meme_web_path + get_meme['saved_name'],
+                        inline=False
+                    )
                     embed.add_field(name="View Count", value=get_meme['number_view'], inline=False)
                     embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
                     embed.set_thumbnail(url=self.meme_web_path + get_meme['saved_name'])
@@ -1460,9 +1500,12 @@ class MemePls(commands.Cog):
                     if get_meme['enable'] == 1:
                         status = "APPROVED"
                     embed = disnake.Embed(
-                        title="MEME uploaded by {} / {} in {}".format(get_meme['owner_name'], get_meme['owner_userid'],
-                                                                      get_meme['guild_id']),
-                        description=f"Status `{status}`", timestamp=datetime.now())
+                        title="MEME uploaded by {} / {} in {}".format(
+                            get_meme['owner_name'], get_meme['owner_userid'], get_meme['guild_id']
+                        ),
+                        description=f"Status `{status}`",
+                        timestamp=datetime.now()
+                    )
                     embed.add_field(name="Original File", value=get_meme['original_name'], inline=False)
                     embed.add_field(name="Stored File", value=get_meme['saved_name'], inline=False)
                     embed.add_field(name="New URL link", value=self.meme_web_path + get_meme['saved_name'],
@@ -1505,10 +1548,11 @@ class MemePls(commands.Cog):
                 for each in get_user_memes:
                     ts = datetime.fromtimestamp(each['uploaded_date'])
                     embed = disnake.Embed(
-                        title="{}#{} Your MEME `{}`".format(ctx.author.name,
-                                                            ctx.author.discriminator,
-                                                            each['key']), 
-                        description=f"Caption: {each['caption']}\nViewed: {each['number_view']}x\nTipped: {each['number_tipped']}x",
+                        title="{}#{} Your MEME `{}`".format(
+                            ctx.author.name, ctx.author.discriminator, each['key']
+                        ), 
+                        description=f"Caption: {each['caption']}\nViewed: {each['number_view']}x\n"\
+                            f"Tipped: {each['number_tipped']}x",
                         timestamp=ts)
                     embed.add_field(name="Guild ID", value=each['guild_id'], inline=True)
                     embed.add_field(name="Status", value="APPROVED" if each['enable'] == 1 else "PENDING", inline=True)
@@ -1520,7 +1564,6 @@ class MemePls(commands.Cog):
                 view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-
 
     async def meme_upload(self, ctx, caption, attachment):
         await self.bot_log()
@@ -1574,16 +1617,17 @@ class MemePls(commands.Cog):
                                 saved_name = hex_dig + "." + mime_type.split("/")[1]
                                 with open(self.meme_storage + saved_name, "wb") as f:
                                     f.write(BytesIO(res_data).getbuffer())
-                                saving = await self.save_uploaded(random_string, str(ctx.author.id),
-                                                                  "{}#{}".format(ctx.author.name,
-                                                                                 ctx.author.discriminator), guild_id,
-                                                                  channel_id, caption, original_name, saved_name,
-                                                                  mime_type, hex_dig, int(time.time()))
+                                saving = await self.save_uploaded(
+                                    random_string, str(ctx.author.id),
+                                    "{}#{}".format(ctx.author.name, ctx.author.discriminator),
+                                    guild_id, channel_id, caption, original_name, saved_name,
+                                    mime_type, hex_dig, int(time.time())
+                                )
                                 if saving > 0:
                                     embed = disnake.Embed(
-                                        title="MEME uploaded by {}#{} / {} in {}".format(ctx.author.name,
-                                                                                         ctx.author.discriminator,
-                                                                                         ctx.author.id, guild_name),
+                                        title="MEME uploaded by {}#{} / {} in {}".format(
+                                            ctx.author.name, ctx.author.discriminator, ctx.author.id, guild_name
+                                        ),
                                         description=f"Please help to check and review `{random_string}`!",
                                         timestamp=datetime.now())
                                     embed.add_field(name="Original File", value=original_name, inline=False)

@@ -32,12 +32,15 @@ class Pools(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `miningpoolstat_fetch` (`coin_name`, `user_id`, `user_name`, `requested_date`, `respond_date`, 
-                              `response`, `guild_id`, `guild_name`, `channel_id`, `user_server`, `is_cache`, `using_browser`)
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql,
-                                      (coin_name, user_id, user_name, requested_date, respond_date, response, guild_id,
-                                       guild_name, channel_id, user_server, is_cache, using_browser))
+                    sql = """ INSERT INTO `miningpoolstat_fetch` 
+                    (`coin_name`, `user_id`, `user_name`, `requested_date`, `respond_date`, 
+                    `response`, `guild_id`, `guild_name`, `channel_id`, `user_server`, `is_cache`, `using_browser`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (
+                        coin_name, user_id, user_name, requested_date, respond_date, response, guild_id,
+                        guild_name, channel_id, user_server, is_cache, using_browser
+                    ))
                     await conn.commit()
                     return True
         except Exception:
@@ -91,7 +94,6 @@ class Pools(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
-
 
     async def get_miningpoolstat_coin(
         self,
@@ -191,11 +193,23 @@ class Pools(commands.Cog):
                         embed = disnake.Embed(title='Mining Pools for {}'.format(coin_name), description='',
                                               timestamp=datetime.now(), colour=7047495)
                         if 'symbol' in get_pool_data:
-                            embed.add_field(name="Ticker", value=get_pool_data['symbol'], inline=True)
+                            embed.add_field(
+                                name="Ticker",
+                                value=get_pool_data['symbol'],
+                                inline=True
+                            )
                         if 'algo' in get_pool_data:
-                            embed.add_field(name="Algo", value=get_pool_data['algo'], inline=True)
+                            embed.add_field(
+                                name="Algo",
+                                value=get_pool_data['algo'],
+                                inline=True
+                            )
                         if 'hashrate' in get_pool_data:
-                            embed.add_field(name="Hashrate", value=self.hhashes(get_pool_data['hashrate']), inline=True)
+                            embed.add_field(
+                                name="Hashrate",
+                                value=self.hhashes(get_pool_data['hashrate']),
+                                inline=True
+                            )
 
                         if len(get_pool_data['data']) > 0:
                             async def sorted_pools(pool_list):
@@ -269,24 +283,40 @@ class Pools(commands.Cog):
                             for each_pool in pool_list:
                                 if num_pool == 0 or num_pool % pool_nos_per_page == 0:
                                     pool_links = ''
-                                    page = disnake.Embed(title='Mining Pools for {}'.format(coin_name), description='',
-                                                         timestamp=datetime.now())
+                                    page = disnake.Embed(
+                                        title='Mining Pools for {}'.format(coin_name),
+                                        description='',
+                                        timestamp=datetime.now()
+                                    )
                                     if 'symbol' in get_pool_data:
-                                        page.add_field(name="Ticker", value=get_pool_data['symbol'], inline=True)
+                                        page.add_field(
+                                            name="Ticker",
+                                            value=get_pool_data['symbol'],
+                                            inline=True
+                                        )
                                     if 'algo' in get_pool_data:
-                                        page.add_field(name="Algo", value=get_pool_data['algo'], inline=True)
+                                        page.add_field(
+                                            name="Algo",
+                                            value=get_pool_data['algo'],
+                                            inline=True
+                                        )
                                     if 'hashrate' in get_pool_data:
                                         page.add_field(
-                                            name="Hashrate", value=self.hhashes(get_pool_data['hashrate']), inline=True
+                                            name="Hashrate",
+                                            value=self.hhashes(get_pool_data['hashrate']),
+                                            inline=True
                                         )
                                     page.set_footer(
-                                        text=f"Requested by: {ctx.author.name}#{ctx.author.discriminator} | Use the reactions to flip pages.")
+                                        text=f"Requested by: {ctx.author.name}#{ctx.author.discriminator} "\
+                                        "| Use the reactions to flip pages."
+                                    )
                                 percentage = "[0.00%]"
 
                                 try:
                                     hash_rate = self.hhashes(each_pool['hashrate'])
                                     percentage = "[{0:.2f}%]".format(
-                                        each_pool['hashrate'] / get_pool_data['hashrate'] * 100)
+                                        each_pool['hashrate'] / get_pool_data['hashrate'] * 100
+                                    )
                                 except Exception:
                                     pass
                                 pool_name = None
@@ -298,7 +328,8 @@ class Pools(commands.Cog):
                                     pool_name = each_pool['url'].replace("https://", "").replace("http://", "").replace(
                                         "www", "")
                                 pool_links += "#{}. [{}]({}) - {} __{}__\n".format(
-                                    num_pool + 1, pool_name, each_pool['url'], hash_rate if hash_rate else '0H/s', percentage
+                                    num_pool + 1, pool_name, each_pool['url'],
+                                    hash_rate if hash_rate else '0H/s', percentage
                                 )
                                 num_pool += 1
                                 if num_pool > 0 and num_pool % pool_nos_per_page == 0:
@@ -313,21 +344,39 @@ class Pools(commands.Cog):
                                         inline=False
                                     )
                                     page.set_footer(
-                                        text=f"Data from https://miningpoolstats.stream | Requested by: {ctx.author.name}#{ctx.author.discriminator}")
+                                        text=f"Data from https://miningpoolstats.stream | "\
+                                            f"Requested by: {ctx.author.name}#{ctx.author.discriminator}"
+                                    )
                                     all_pages.append(page)
                                     if num_pool < len(pool_list):
                                         pool_links = ''
-                                        page = disnake.Embed(title='Mining Pools for {}'.format(coin_name),
-                                                             description='', timestamp=datetime.now())
+                                        page = disnake.Embed(
+                                            title='Mining Pools for {}'.format(coin_name),
+                                            description='',
+                                            timestamp=datetime.now()
+                                        )
                                         if 'symbol' in get_pool_data:
-                                            page.add_field(name="Ticker", value=get_pool_data['symbol'], inline=True)
+                                            page.add_field(
+                                                name="Ticker",
+                                                value=get_pool_data['symbol'],
+                                                inline=True
+                                            )
                                         if 'algo' in get_pool_data:
-                                            page.add_field(name="Algo", value=get_pool_data['algo'], inline=True)
+                                            page.add_field(
+                                                name="Algo",
+                                                value=get_pool_data['algo'],
+                                                inline=True
+                                            )
                                         if 'hashrate' in get_pool_data:
-                                            page.add_field(name="Hashrate",
-                                                           value=self.hhashes(get_pool_data['hashrate']), inline=True)
+                                            page.add_field(
+                                                name="Hashrate",
+                                                value=self.hhashes(get_pool_data['hashrate']),
+                                                inline=True
+                                            )
                                         page.set_footer(
-                                            text=f"Data from https://miningpoolstats.stream | Requested by: {ctx.author.name}#{ctx.author.discriminator}")
+                                            text=f"Data from https://miningpoolstats.stream | "\
+                                                f"Requested by: {ctx.author.name}#{ctx.author.discriminator}"
+                                        )
                                 elif num_pool == len(pool_list):
                                     page.add_field(name="Pool List", value=pool_links)
                                     page.add_field(

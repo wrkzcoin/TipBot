@@ -228,8 +228,10 @@ class Trade(commands.Cog):
             wallet_address = get_deposit['destination_tag']
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.author.id), coin_name, wallet_address, type_coin,
+            height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
         if sell_amount > actual_balance:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance of {coin_name} to trade. Having {num_format_coin(actual_balance, coin_name, coin_decimal_sell, False)} {coin_name} and needed {num_format_coin(sell_amount, coin_name, coin_decimal_sell, False)} {coin_name}.'
@@ -725,9 +727,10 @@ class Trade(commands.Cog):
                         wallet_address = get_deposit['destination_tag']
 
                     height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                    userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name,
-                                                                           wallet_address, type_coin, height,
-                                                                           deposit_confirm_depth, SERVER_BOT)
+                    userdata_balance = await store.sql_user_balance_single(
+                        str(ctx.author.id), coin_name, wallet_address, type_coin, height,
+                        deposit_confirm_depth, SERVER_BOT
+                    )
                     actual_balance = float(userdata_balance['adjust'])
 
                     if actual_balance < get_order_num['amount_get_after_fee']:
@@ -761,10 +764,12 @@ class Trade(commands.Cog):
                         except Exception:
                             pass
                         # let's make order update
-                        match_order = await store.sql_match_order_by_sellerid(str(ctx.author.id), ref_number,
-                                                                              SERVER_BOT,
-                                                                              get_order_num['sell_user_server'],
-                                                                              get_order_num['userid_sell'], True)
+                        match_order = await store.sql_match_order_by_sellerid(
+                            str(ctx.author.id), ref_number,
+                            SERVER_BOT,
+                            get_order_num['sell_user_server'],
+                            get_order_num['userid_sell'], True
+                        )
                         if match_order:
                             try:
                                 msg = '{} #**{}** Order completed! ```Get: {}{}\nFrom selling: {}{}\nFee: {}{}\n```'.format(
@@ -921,17 +926,19 @@ class Trade(commands.Cog):
                 if item_nos == 0 or (item_nos > 0 and item_nos % per_page == 0):
                     if item_nos > 0 and item_nos % per_page == 0:
                         all_pages.append(page)
-                    page = disnake.Embed(title=get_list_orders['title'],
-                                         description="Thank you for trading with TipBot!",
-                                         color=disnake.Color.blue(),
-                                         timestamp=datetime.now(), )
+                    page = disnake.Embed(
+                        title=get_list_orders['title'],
+                        description="Thank you for trading with TipBot!",
+                        color=disnake.Color.blue(),
+                        timestamp=datetime.now(),
+                    )
                     page.set_thumbnail(url=ctx.author.display_avatar)
                     page.set_footer(text="Use the reactions to flip pages.")
                     empty_page = True
-                page.add_field(name="{}: **# {}** (Ratio: {})".format(each_page['pair'], each_page['order_number'],
-                                                                      each_page['rate']),
-                               value="Selling {} for {}".format(each_page['selling'], each_page['for']),
-                               inline=False)
+                page.add_field(
+                    name="{}: **# {}** (Ratio: {})".format(each_page['pair'], each_page['order_number'], each_page['rate']),
+                    value="Selling {} for {}".format(each_page['selling'], each_page['for']),
+                    inline=False)
                 empty_page = False
                 item_nos += 1
             if empty_page is False:

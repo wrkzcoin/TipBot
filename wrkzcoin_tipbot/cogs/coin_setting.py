@@ -18,7 +18,9 @@ class CoinSetting(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list = {}
-                    sql = """ SELECT * FROM `coin_settings` WHERE `enable`=1 """
+                    sql = """ SELECT * FROM `coin_settings` 
+                    WHERE `enable`=1
+                    """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -36,7 +38,9 @@ class CoinSetting(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list_name = []
-                    sql = """ SELECT `coin_name` FROM `coin_settings` WHERE `enable`=1 """
+                    sql = """ SELECT `coin_name` 
+                    FROM `coin_settings` 
+                    WHERE `enable`=1 """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -95,7 +99,9 @@ class CoinSetting(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT `coin_name` FROM `coin_settings` WHERE `enable`=1 AND `enable_faucet`=%s """
+                    sql = """ SELECT `coin_name` FROM `coin_settings` 
+                    WHERE `enable`=1 AND `enable_faucet`=%s
+                    """
                     await cur.execute(sql, (1))
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -142,7 +148,6 @@ class CoinSetting(commands.Cog):
                 await ctx.reply(f"{ctx.author.mention}, unknown command. Available for reload `coinlist`")
         except Exception:
             traceback.print_exc(file=sys.stdout)
-
 
 def setup(bot):
     bot.add_cog(CoinSetting(bot))

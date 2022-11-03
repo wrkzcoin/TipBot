@@ -105,15 +105,28 @@ class MathButton(disnake.ui.View):
             embed = disnake.Embed(
                 title=f"🧮 Math Tip {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {total_equivalent_usd} - Total answer {total_answer}",
                 description=get_mathtip['eval_content'], timestamp=datetime.fromtimestamp(get_mathtip['math_endtime']))
-            embed.add_field(name="Correct answer", value=get_mathtip['eval_answer'], inline=False)
-            embed.add_field(name="Correct ( {} )".format(len(answered_msg_id['right_ids'])), value="{}".format(
-                " | ".join(answered_msg_id['right_names']) if len(answered_msg_id['right_names']) > 0 else "N/A"),
-                            inline=False)
-            embed.add_field(name="Incorrect ( {} )".format(len(answered_msg_id['wrong_ids'])), value="{}".format(
-                " | ".join(answered_msg_id['wrong_names']) if len(answered_msg_id['wrong_names']) > 0 else "N/A"),
-                            inline=False)
+            embed.add_field(
+                name="Correct answer",
+                value=get_mathtip['eval_answer'],
+                inline=False
+            )
+            embed.add_field(
+                name="Correct ( {} )".format(len(answered_msg_id['right_ids'])),
+                value="{}".format(
+                    " | ".join(answered_msg_id['right_names']) if len(answered_msg_id['right_names']) > 0 else "N/A"),
+                inline=False)
+            embed.add_field(
+                name="Incorrect ( {} )".format(len(answered_msg_id['wrong_ids'])),
+                value="{}".format(
+                    " | ".join(answered_msg_id['wrong_names']) if len(answered_msg_id['wrong_names']) > 0 else "N/A"),
+                inline=False
+            )
             if len(answered_msg_id['right_ids']) > 0:
-                embed.add_field(name='Each Winner Receives:', value=f"{indiv_amount_str} {token_display}", inline=True)
+                embed.add_field(
+                    name='Each Winner Receives:',
+                    value=f"{indiv_amount_str} {token_display}",
+                    inline=True
+                )
             embed.set_footer(text=f"Trivia tip by {owner_displayname}")
 
             if len(answered_msg_id['right_ids']) > 0:
@@ -128,7 +141,7 @@ class MathButton(disnake.ui.View):
                             del self.bot.user_balance_cache[key_coin]
                 except Exception:
                     pass
-                trivia_tipping = await store.sql_user_balance_mv_multiple(
+                await store.sql_user_balance_mv_multiple(
                     get_mathtip['from_userid'], answered_msg_id['right_ids'],
                     get_mathtip['guild_id'], get_mathtip['channel_id'],
                     float(indiv_amount), coin_name, "MATHTIP", coin_decimal, SERVER_BOT, contract,
@@ -142,7 +155,6 @@ class MathButton(disnake.ui.View):
 
 
 class MathTips(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
@@ -458,7 +470,11 @@ class MathTips(commands.Cog):
         embed = disnake.Embed(
             title=f"🧮 Math Tip {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
             description=eval_string_original, timestamp=datetime.fromtimestamp(int(time.time()) + duration_s))
-        embed.add_field(name="Answering", value="None", inline=False)
+        embed.add_field(
+            name="Answering",
+            value="None",
+            inline=False
+        )
         embed.set_footer(text=f"Math tip by {owner_displayname}")
 
         answers = [str(result_float), str(wrong_answer_1), str(wrong_answer_2), str(wrong_answer_3)]
@@ -467,7 +483,7 @@ class MathTips(commands.Cog):
         try:
             view = MathButton(ctx, answers, index_answer, duration_s, self.bot.coin_list)
             view.message = await ctx.original_message()
-            insert_mathtip = await store.insert_discord_mathtip(
+            await store.insert_discord_mathtip(
                 coin_name, contract, str(ctx.author.id),
                 owner_displayname, str(view.message.id),
                 eval_string_original, result_float, wrong_answer_1,

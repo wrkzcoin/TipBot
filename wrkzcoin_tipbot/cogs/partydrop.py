@@ -138,15 +138,21 @@ class PartyDrop(commands.Cog):
                             indiv_amount = total_amount / len(all_name_list) # including initiator
                             amount_in_usd = indiv_amount * get_message['unit_price_usd'] if get_message['unit_price_usd'] and get_message['unit_price_usd'] > 0.0 else 0.0
                             indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
-                            embed.add_field(name='Each Member Receives:',
-                                            value=f"{indiv_amount_str} {token_display}",
-                                            inline=True)
-                            embed.add_field(name='Started amount', 
-                                            value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
-                            embed.add_field(name='Party Pot', 
-                                            value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{indiv_amount_str} {token_display}",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Started amount', 
+                                value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Party Pot', 
+                                value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
                             try:
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 if channel is None:
@@ -208,14 +214,21 @@ class PartyDrop(commands.Cog):
                                 pass
                             amount_in_usd = indiv_amount * get_message['unit_price_usd'] if get_message['unit_price_usd'] and get_message['unit_price_usd'] > 0.0 else 0.0
                             indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
-                            embed.add_field(name='Each Member Receives:',
-                                            value=f"{indiv_amount_str} {token_display}", inline=True)
-                            embed.add_field(name='Started amount', 
-                                            value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
-                            embed.add_field(name='Party Pot', 
-                                            value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{indiv_amount_str} {token_display}",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Started amount', 
+                                value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Party Pot', 
+                                value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
                             try:
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 if channel is None:
@@ -445,16 +458,16 @@ class PartyDrop(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if min_amount <= 0 or sponsor_amount <= 0:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
-            await ctx.edit_original_message(content=msg)
-            return
-
         userdata_balance = await store.sql_user_balance_single(
             str(ctx.author.id), coin_name, wallet_address, type_coin,
             height, deposit_confirm_depth, SERVER_BOT
         )
         actual_balance = float(userdata_balance['adjust'])
+
+        if min_amount <= 0 or sponsor_amount <= 0 or actual_balance <= 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+            await ctx.edit_original_message(content=msg)
+            return
 
         if min_amount > max_tip or min_amount < min_tip:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, minimum amount cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
@@ -499,13 +512,18 @@ class PartyDrop(commands.Cog):
         embed = disnake.Embed(
             title=f"🎉 Party Drop 🎉",
             description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(min_amount, coin_name, coin_decimal, False), coin_name),
-            timestamp=datetime.fromtimestamp(party_end))
-        embed.add_field(name='Started amount',
-                        value=num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
-                        inline=True)
-        embed.add_field(name='Party Pot',
-                        value=num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
-                        inline=True)
+            timestamp=datetime.fromtimestamp(party_end)
+        )
+        embed.add_field(
+            name='Started amount',
+            value=num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
+            inline=True
+        )
+        embed.add_field(
+            name='Party Pot',
+            value=num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
+            inline=True
+        )
         time_left = seconds_str_days(duration_s)
         embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Time left: {time_left}")
         try:
@@ -513,7 +531,7 @@ class PartyDrop(commands.Cog):
             msg = await ctx.channel.send(content=None, embed=embed, view=view)
             view.message = msg
             view.channel_interact = ctx.channel.id
-            party = await store.insert_partydrop_create(
+            await store.insert_partydrop_create(
                 coin_name, contract, str(ctx.author.id),
                 owner_displayname, str(view.message.id),
                 str(ctx.guild.id), str(ctx.channel.id), 

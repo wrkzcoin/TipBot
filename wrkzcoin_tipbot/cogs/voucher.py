@@ -9,7 +9,8 @@ from io import BytesIO
 import disnake
 import qrcode
 import store
-from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, EMOJI_INFORMATION, num_format_coin, text_to_num, is_ascii
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, EMOJI_INFORMATION, num_format_coin, \
+    text_to_num, is_ascii
 from PIL import Image, ImageDraw, ImageFont
 from cogs.wallet import WalletAPI
 from disnake.app_commands import Option
@@ -42,7 +43,9 @@ class Voucher(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM cn_voucher_settings WHERE `coin_name`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM cn_voucher_settings 
+                    WHERE `coin_name`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (coin_name,))
                     result = await cur.fetchone()
                     return result
@@ -65,10 +68,14 @@ class Voucher(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO cn_voucher (`coin_name`, `user_id`, `user_name`, `amount`, 
-                              `decimal`, `reserved_fee`, `date_create`, `comment`, `secret_string`, `voucher_image_name`, `user_server`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (coin_name, user_id, user_name, amount, coin_decimal, reserved_fee,
-                                            int(time.time()), comment, secret_string, voucher_image_name, user_server))
+                    `decimal`, `reserved_fee`, `date_create`, `comment`, `secret_string`, 
+                    `voucher_image_name`, `user_server`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (
+                        coin_name, user_id, user_name, amount, coin_decimal, reserved_fee,
+                        int(time.time()), comment, secret_string, voucher_image_name, user_server
+                    ))
                     # voucher balance
                     data_rows = []
                     # create voucher
@@ -97,7 +104,6 @@ class Voucher(commands.Cog):
                               UPDATE 
                               `balance`=`balance`+VALUES(`balance`), 
                               `update_date`=VALUES(`update_date`);
-
                               """
                     await cur.executemany(sql, data_rows)
                     await conn.commit()
@@ -118,15 +124,19 @@ class Voucher(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if already_claimed == 'YESNO':
-                        sql = """ SELECT * FROM cn_voucher WHERE `user_id`=%s AND `user_server`=%s 
-                                  ORDER BY `date_create` DESC LIMIT """ + str(last) + """ """
-                        await cur.execute(sql, (user_id, user_server,))
+                        sql = """ SELECT * FROM cn_voucher 
+                        WHERE `user_id`=%s AND `user_server`=%s 
+                        ORDER BY `date_create` DESC LIMIT %s
+                        """
+                        await cur.execute(sql, (user_id, user_server, last))
                         result = await cur.fetchall()
                         return result
                     elif already_claimed == 'YES' or already_claimed == 'NO':
-                        sql = """ SELECT * FROM cn_voucher WHERE `user_id`=%s AND `user_server`=%s AND `already_claimed`=%s
-                                  ORDER BY `date_create` DESC LIMIT """ + str(last) + """ """
-                        await cur.execute(sql, (user_id, user_server, already_claimed))
+                        sql = """ SELECT * FROM cn_voucher 
+                        WHERE `user_id`=%s AND `user_server`=%s AND `already_claimed`=%s
+                        ORDER BY `date_create` DESC LIMIT %s
+                        """
+                        await cur.execute(sql, (user_id, user_server, already_claimed, last))
                         result = await cur.fetchall()
                         return result
         except Exception:
@@ -193,11 +203,14 @@ class Voucher(commands.Cog):
         min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(
+                str(ctx.author.id), coin_name, net_name, type_coin,
+                SERVER_BOT, 0, 0
+            )
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -206,7 +219,7 @@ class Voucher(commands.Cog):
             wallet_address = get_deposit['destination_tag']
         # Check if tx in progress
         if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention} You have another tx in progress.'
+            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
             await ctx.edit_original_message(content=msg)
             return
 
@@ -322,7 +335,7 @@ class Voucher(commands.Cog):
             return
 
         if actual_balance < total_amount + total_fee_amount:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to create voucher.A voucher needed amount + fee: {num_format_coin(total_amount + total_fee_amount, coin_name)} {token_display}\nHaving: {num_format_coin(actual_balance, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to create voucher.A voucher needed amount + fee: {num_format_coin(total_amount + total_fee_amount, coin_name)} {token_display}\nHaving: {num_format_coin(actual_balance, coin_name, coin_decimal, False)} {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
 
@@ -331,7 +344,8 @@ class Voucher(commands.Cog):
             comment_str = comment.strip().replace('\n', ' ').replace('\r', '')
 
         if len(comment_str) > self.max_comment:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please limit your comment to max. **{self.max_comment}** chars.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please limit your comment to max. "\
+                f"**{self.max_comment}** chars."
             await ctx.edit_original_message(content=msg)
             return
         elif not is_ascii(comment_str):
@@ -435,11 +449,11 @@ class Voucher(commands.Cog):
                     if voucher_make:
                         try:
                             await ctx.author.send(
-                                f'New Voucher Link ({i + 1} of {voucher_numb}): {qrstring}\n'
-                                '```'
-                                f'Amount: {num_format_coin(voucher_each, coin_name, coin_decimal, False)} {coin_name}\n'
-                                f'Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, coin_name, coin_decimal, False)} {coin_name}\n'
-                                f'Voucher comment: {comment_str}```'
+                                f"New Voucher Link ({i + 1} of {voucher_numb}): {qrstring}\n"
+                                "```"
+                                f"Amount: {num_format_coin(voucher_each, coin_name, coin_decimal, False)} {coin_name}\n"
+                                f"Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, coin_name, coin_decimal, False)} {coin_name}\n"
+                                f"Voucher comment: {comment_str}```"
                             )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -532,7 +546,8 @@ class Voucher(commands.Cog):
                         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
+                            "Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
                 except Exception:
@@ -542,11 +557,11 @@ class Voucher(commands.Cog):
                 if voucher_make:
                     try:
                         msg = await ctx.author.send(
-                            f'New Voucher Link: {qrstring}\n'
-                            '```'
-                            f'Amount: {num_format_coin(voucher_each, coin_name, coin_decimal, False)} {coin_name}\n'
-                            f'Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, coin_name, coin_decimal, False)} {coin_name}\n'
-                            f'Voucher comment: {comment_str}```'
+                            f"New Voucher Link: {qrstring}\n"
+                            "```"
+                            f"Amount: {num_format_coin(voucher_each, coin_name, coin_decimal, False)} {coin_name}\n"
+                            f"Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, coin_name, coin_decimal, False)} {coin_name}\n"
+                            f"Voucher comment: {comment_str}```"
                         )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
@@ -636,8 +651,10 @@ class Voucher(commands.Cog):
                     voucher_url_list.append(self.voucher_url + '/claim/' + item['secret_string'])
                 voucher_url_list_str = "\n".join(voucher_url_list)
                 combined_vouchers = "Total unclaimed: " + str(len(voucher_url_list)) + "\n\n" + voucher_url_list_str
-                data_file = disnake.File(BytesIO(combined_vouchers.encode()),
-                                         filename=f"unclaimed_voucher_{str(ctx.author.id)}_{str(int(time.time()))}.csv")
+                data_file = disnake.File(
+                    BytesIO(combined_vouchers.encode()),
+                    filename=f"unclaimed_voucher_{str(ctx.author.id)}_{str(int(time.time()))}.csv"
+                )
                 await ctx.edit_original_message(content=None, file=data_file)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -676,10 +693,12 @@ class Voucher(commands.Cog):
             ]
             for each in get_vouchers:
                 coin_decimal = getattr(getattr(self.bot.coin_list, each['coin_name']), "decimal")
-                table_data.append([each['secret_string'],
-                                   num_format_coin(each['amount'], each['coin_name'], coin_decimal, False) + " " + each[
-                                       'coin_name'], 'YES' if each['already_claimed'] == 'YES' else 'NO',
-                                   datetime.fromtimestamp(each['date_create']).strftime('%Y-%m-%d')])
+                table_data.append([
+                    each['secret_string'], num_format_coin(each['amount'], each['coin_name'], coin_decimal, False) \
+                        + " " + each['coin_name'],
+                    'YES' if each['already_claimed'] == 'YES' else 'NO',
+                    datetime.fromtimestamp(each['date_create']).strftime('%Y-%m-%d')]
+                )
             table = AsciiTable(table_data)
             table.padding_left = 1
             table.padding_right = 1

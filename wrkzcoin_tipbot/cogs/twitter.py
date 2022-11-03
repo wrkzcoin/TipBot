@@ -863,8 +863,10 @@ class Twitter(commands.Cog):
                     return
                 else:
                     # let's delete
-                    delete = await self.del_guild_sub(str(ctx.guild.id), twitter_link, user, str(ctx.author.id),
-                                                      "{}#{}".format(ctx.author.name, ctx.author.discriminator))
+                    await self.del_guild_sub(
+                        str(ctx.guild.id), twitter_link, user, str(ctx.author.id),
+                        "{}#{}".format(ctx.author.name, ctx.author.discriminator)
+                    )
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully unsubscribe from <{twitter_link}>."
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(

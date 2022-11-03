@@ -26,8 +26,9 @@ async def external_get_guild_role_shop_items(guild_id: str):
         async with store.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ SELECT * FROM `discord_guild_role_shop` 
-                          WHERE `guild_id`=%s AND `max_slot`>`already_ordered` 
-                          ORDER BY `created_date` DESC """
+                WHERE `guild_id`=%s AND `max_slot`>`already_ordered` 
+                ORDER BY `created_date` DESC
+                """
                 await cur.execute(sql, guild_id)
                 result = await cur.fetchall()
                 if result:
@@ -137,7 +138,6 @@ class GShop(commands.Cog):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
-
     async def set_expired_role_item(self, idx: int):
         try:
             await store.openConnection()
@@ -162,8 +162,9 @@ class GShop(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `discord_guild_role_shop` 
-                              WHERE `guild_id`=%s AND `max_slot`>`already_ordered` 
-                              ORDER BY `created_date` DESC """
+                    WHERE `guild_id`=%s AND `max_slot`>`already_ordered` 
+                    ORDER BY `created_date` DESC
+                    """
                     await cur.execute(sql, guild_id)
                     result = await cur.fetchall()
                     if result:
@@ -179,8 +180,9 @@ class GShop(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `discord_guild_role_shop` 
-                              WHERE `item_id`=%s AND `guild_id`=%s AND `max_slot`>`already_ordered` 
-                              LIMIT 1 """
+                    WHERE `item_id`=%s AND `guild_id`=%s AND `max_slot`>`already_ordered` 
+                    LIMIT 1
+                    """
                     await cur.execute(sql, (item_id, guild_id))
                     result = await cur.fetchone()
                     if result:
@@ -270,7 +272,9 @@ class GShop(commands.Cog):
             await logchanbot("gshop " +str(traceback.format_exc()))
         return []
 
-    async def check_exist_role_ordered(self, item_id, guild_id, ordered_by_uid, is_expired):
+    async def check_exist_role_ordered(
+        self, item_id, guild_id, ordered_by_uid, is_expired
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -293,8 +297,9 @@ class GShop(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `discord_guild_role_shop` 
-                              WHERE `item_id`=%s AND `guild_id`=%s 
-                              LIMIT 1 """
+                    WHERE `item_id`=%s AND `guild_id`=%s 
+                    LIMIT 1
+                    """
                     await cur.execute(sql, (item_id, guild_id))
                     result = await cur.fetchone()
                     if result:
@@ -319,10 +324,12 @@ class GShop(commands.Cog):
                     `ordered_by_uname`, `ordered_date`, `renewed_date`, `expired_date`, `is_expired`) 
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """
-                    await cur.execute(sql, (role_shop_id, role_shop_json, item_id, guild_id, role_id, 
-                                            acc_real_amount, token_name, token_decimal,
-                                            ordered_by_uid, ordered_by_uname, int(time.time()),
-                                            renewed_date, expired_date, is_expired))
+                    await cur.execute(sql, (
+                        role_shop_id, role_shop_json, item_id, guild_id, role_id, 
+                        acc_real_amount, token_name, token_decimal,
+                        ordered_by_uid, ordered_by_uname, int(time.time()),
+                        renewed_date, expired_date, is_expired)
+                    )
                     sql_2 = """
                     UPDATE `discord_guild_role_shop` 
                     SET `already_ordered`=`already_ordered`+1 
@@ -456,11 +463,13 @@ class GShop(commands.Cog):
                 token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                 amount = item_info['real_amount']
 
-                get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                       SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
                 if get_deposit is None:
-                    get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name,
-                                                                          type_coin, SERVER_BOT, 0)
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
 
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -867,12 +876,19 @@ class GShop(commands.Cog):
         else:
             embed = disnake.Embed(
                 title=f"Role Shop List in {ctx.guild.name}",
-                timestamp=datetime.now())
+                timestamp=datetime.now()
+            )
             embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator} | /gshop")
             for each in get_guild_items:
                 duration = int(each['duration']/3600/24)
-                embed.add_field(name="{}".format(each['item_id']),
-                                value="Role: {}\nCost: {} {}\nAvailable/Total: {}/{}".format(each['role_name'], num_format_coin(each['real_amount'], each['token_name'], each['token_decimal'], False), each['token_name'], each['max_slot'] - each['already_ordered'], each['max_slot']), inline=False)
+                embed.add_field(
+                    name="{}".format(each['item_id']),
+                    value="Role: {}\nCost: {} {}\nAvailable/Total: {}/{}".format(
+                        each['role_name'], num_format_coin(each['real_amount'], each['token_name'],
+                        each['token_decimal'], False), each['token_name'],
+                        each['max_slot'] - each['already_ordered'], each['max_slot']),
+                    inline=False
+                )
             await ctx.edit_original_message(content=None, embed=embed)
 
     @commands.Cog.listener()

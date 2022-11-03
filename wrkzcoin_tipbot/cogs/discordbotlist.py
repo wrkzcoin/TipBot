@@ -23,13 +23,16 @@ class DiscordBotList(commands.Cog):
         self.wallet_api = WalletAPI(self.bot)
         self.reward_channel = self.bot.config['bot_vote_link']['reward_channel']
 
-    async def insert_bot_vote(self, user_id: str, directory: str, bot_id: str, type_vote: str, voter: str):
+    async def insert_bot_vote(
+        self, user_id: str, directory: str, bot_id: str, type_vote: str, voter: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ INSERT IGNORE INTO `bot_vote` (`user_id`, `name`, `directory`, `bot_id`, `type`, `date_voted`) 
+                    sql = """ INSERT IGNORE INTO `bot_vote` 
+                    (`user_id`, `name`, `directory`, `bot_id`, `type`, `date_voted`) 
                     VALUES (%s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (user_id, voter, directory, bot_id, type_vote, date_vote))
                     await conn.commit()
@@ -38,13 +41,16 @@ class DiscordBotList(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
-    async def check_last_bot_vote(self, user_id: str, directory: str, bot_id: str):
+    async def check_last_bot_vote(
+        self, user_id: str, directory: str, bot_id: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ SELECT * FROM `bot_vote` WHERE `user_id`=%s AND `directory`=%s AND `bot_id`=%s 
+                    sql = """ SELECT * FROM `bot_vote` 
+                    WHERE `user_id`=%s AND `directory`=%s AND `bot_id`=%s 
                     ORDER BY `date_voted` DESC LIMIT 1 """
                     await cur.execute(sql, (user_id, directory, bot_id))
                     result = await cur.fetchone()
@@ -116,7 +122,7 @@ class DiscordBotList(commands.Cog):
                                                 amount = each_coin['reward_amount']
                                                 break
                                         if coin_name is not None:
-                                            insert_reward = await faucet.insert_reward(
+                                            await faucet.insert_reward(
                                                 user_vote, "discordbotlist", amount, coin_name,
                                                 int(time.time()), SERVER_BOT
                                             )
@@ -127,11 +133,13 @@ class DiscordBotList(commands.Cog):
                                                 getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth"
                                             )
                                             user_from = await self.wallet_api.sql_get_userwallet(
-                                                str(self.bot.config['discord']['bot_id']), coin_name, net_name, type_coin, SERVER_BOT, 0
+                                                str(self.bot.config['discord']['bot_id']), coin_name, net_name, 
+                                                type_coin, SERVER_BOT, 0
                                             )
                                             if user_from is None:
                                                 user_from = await self.wallet_api.sql_register_user(
-                                                    str(self.bot.config['discord']['bot_id']), coin_name, net_name, type_coin, SERVER_BOT, 0
+                                                    str(self.bot.config['discord']['bot_id']), coin_name, net_name, 
+                                                    type_coin, SERVER_BOT, 0
                                                 )
                                             wallet_address = user_from['balance_wallet_address']
                                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -139,10 +147,13 @@ class DiscordBotList(commands.Cog):
                                             elif type_coin in ["XRP"]:
                                                 wallet_address = user_from['destination_tag']
 
-                                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                            height = self.wallet_api.get_block_height(
+                                                type_coin, coin_name, net_name
+                                            )
                                             # height can be None
                                             userdata_balance = await store.sql_user_balance_single(
-                                                str(self.bot.config['discord']['bot_id']), coin_name, wallet_address, type_coin,
+                                                str(self.bot.config['discord']['bot_id']), coin_name,
+                                                 wallet_address, type_coin,
                                                 height, deposit_confirm_depth, SERVER_BOT
                                             )
                                             total_balance = userdata_balance['adjust']
@@ -213,17 +224,25 @@ class DiscordBotList(commands.Cog):
                                                                 title="NEW BOT VOTE!",
                                                                 timestamp=datetime.now()
                                                             )
-                                                            embed.add_field(name="User",
-                                                                            value="<@{}>".format(user_vote),
-                                                                            inline=True)
-                                                            embed.add_field(name="Reward", value="{} {}".format(
-                                                                num_format_coin(amount, coin_name, coin_decimal, False),
-                                                                coin_name), inline=True)
-                                                            embed.add_field(name="Link",
-                                                                            value=self.bot.config['bot_vote_link']['discordbotlist'],
-                                                                            inline=False)
-                                                            embed.set_author(name=self.bot.user.name,
-                                                                             icon_url=self.bot.user.display_avatar)
+                                                            embed.add_field(
+                                                                name="User",
+                                                                value="<@{}>".format(user_vote),
+                                                                inline=True
+                                                            )
+                                                            embed.add_field(
+                                                                name="Reward",
+                                                                value="{} {}".format(
+                                                                    num_format_coin(amount, coin_name, coin_decimal, False), coin_name),
+                                                                inline=True)
+                                                            embed.add_field(
+                                                                name="Link",
+                                                                value=self.bot.config['bot_vote_link']['discordbotlist'],
+                                                                inline=False
+                                                            )
+                                                            embed.set_author(
+                                                                name=self.bot.user.name,
+                                                                icon_url=self.bot.user.display_avatar
+                                                            )
                                                             await channel.send(embed=embed)
                                                         except Exception:
                                                             traceback.print_exc(file=sys.stdout)

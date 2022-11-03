@@ -546,7 +546,7 @@ class BlackJackButtons(disnake.ui.View):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tip = await store.sql_user_balance_mv_single(
+                        await store.sql_user_balance_mv_single(
                             self.bot.user.id, str(interaction.user.id),
                             str(interaction.guild.id), str(interaction.channel.id),
                             amount, coin_name, "GAME", coin_decimal, SERVER_BOT, contract,
@@ -557,10 +557,12 @@ class BlackJackButtons(disnake.ui.View):
                         await logchanbot(traceback.format_exc())
             else:
                 try:
-                    await self.db.sql_game_free_add('BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue),
-                                                    str(interaction.author.id), 'WIN' if won else 'LOSE',
-                                                    str(interaction.guild.id), 'BLACKJACK',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        'BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue),
+                        str(interaction.author.id), 'WIN' if won else 'LOSE',
+                        str(interaction.guild.id), 'BLACKJACK',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -599,8 +601,10 @@ class Maze_Buttons(disnake.ui.View):
         self.maze_data = maze_createMazeDump(self.WIDTH, self.HEIGHT, self.SEED)
         self.playerx, self.playery = 1, 1
         self.exitx, self.exity = self.WIDTH - 2, self.HEIGHT - 2
-        self.maze_created = maze_displayMaze(self.maze_data, self.WIDTH, self.HEIGHT, self.playerx, self.playery,
-                                             self.exitx, self.exity)
+        self.maze_created = maze_displayMaze(
+            self.maze_data, self.WIDTH, self.HEIGHT, self.playerx, self.playery,
+            self.exitx, self.exity
+        )
 
     async def on_timeout(self):
         if self.game_over is False:
@@ -721,9 +725,11 @@ class Maze_Buttons(disnake.ui.View):
                         await logchanbot(traceback.format_exc())
             else:
                 try:
-                    await self.db.sql_game_free_add(json.dumps(remap_keys(self.maze_data)), str(interaction.author.id),
-                                                    'WIN' if won else 'LOSE', str(interaction.guild.id), 'MAZE',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        json.dumps(remap_keys(self.maze_data)), str(interaction.author.id),
+                        'WIN' if won else 'LOSE', str(interaction.guild.id), 'MAZE',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -751,8 +757,10 @@ class Maze_Buttons(disnake.ui.View):
                     break  # Break if we've reached a branch point.
 
         try:
-            maze_edit = maze_displayMaze(self.maze_data, self.WIDTH, self.HEIGHT, self.playerx, self.playery,
-                                         self.exitx, self.exity)
+            maze_edit = maze_displayMaze(
+                self.maze_data, self.WIDTH, self.HEIGHT, self.playerx, self.playery,
+                self.exitx, self.exity
+            )
             await self.message.edit(
                 content=f"{self.ctx.author.mention} Maze:\n```{maze_edit}```",
                 view=self
@@ -827,19 +835,23 @@ class Maze_Buttons(disnake.ui.View):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
-                                                                     str(interaction.guild.id),
-                                                                     str(interaction.channel.id), amount, coin_name,
-                                                                     "GAME", coin_decimal, SERVER_BOT, contract,
-                                                                     amount_in_usd, None)
+                        await store.sql_user_balance_mv_single(
+                            self.bot.user.id, str(interaction.user.id),
+                            str(interaction.guild.id),
+                            str(interaction.channel.id), amount, coin_name,
+                            "GAME", coin_decimal, SERVER_BOT, contract,
+                            amount_in_usd, None
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
             else:
                 try:
-                    await self.db.sql_game_free_add(json.dumps(remap_keys(self.maze_data)), str(interaction.author.id),
-                                                    'WIN' if won else 'LOSE', str(interaction.guild.id), 'MAZE',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        json.dumps(remap_keys(self.maze_data)), str(interaction.author.id),
+                        'WIN' if won else 'LOSE', str(interaction.guild.id), 'MAZE',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -867,8 +879,10 @@ class Maze_Buttons(disnake.ui.View):
                     break  # Break if we've reached a branch point.
 
         try:
-            maze_edit = maze_displayMaze(self.maze_data, self.WIDTH, self.HEIGHT, self.playerx, self.playery,
-                                         self.exitx, self.exity)
+            maze_edit = maze_displayMaze(
+                self.maze_data, self.WIDTH, self.HEIGHT, self.playerx, self.playery,
+                self.exitx, self.exity
+            )
             await self.message.edit(
                 content=f"{self.ctx.author.mention} Maze:\n```{maze_edit}```",
                 view=self
@@ -907,7 +921,7 @@ class Maze_Buttons(disnake.ui.View):
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(
+                    await self.db.sql_game_add(
                         json.dumps(remap_keys(self.maze_data)),
                         str(interaction.author.id), coin_name, 'WIN' if won else 'LOSE',
                         amount, coin_decimal, str(interaction.guild.id), 'MAZE',
@@ -1062,19 +1076,23 @@ class Maze_Buttons(disnake.ui.View):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tip = await store.sql_user_balance_mv_single(self.bot.user.id, str(interaction.user.id),
-                                                                     str(interaction.guild.id),
-                                                                     str(interaction.channel.id), amount, coin_name,
-                                                                     "GAME", coin_decimal, SERVER_BOT, contract,
-                                                                     amount_in_usd, None)
+                        await store.sql_user_balance_mv_single(
+                            self.bot.user.id, str(interaction.user.id),
+                            str(interaction.guild.id),
+                            str(interaction.channel.id), amount, coin_name,
+                            "GAME", coin_decimal, SERVER_BOT, contract,
+                            amount_in_usd, None
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
             else:
                 try:
-                    await self.db.sql_game_free_add(json.dumps(remap_keys(self.maze_data)), str(interaction.author.id),
-                                                    'WIN' if won else 'LOSE', str(interaction.guild.id), 'MAZE',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        json.dumps(remap_keys(self.maze_data)), str(interaction.author.id),
+                        'WIN' if won else 'LOSE', str(interaction.guild.id), 'MAZE',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -1170,7 +1188,7 @@ class g2048_Buttons(disnake.ui.View):
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(
+                    await self.db.sql_game_add(
                         self.board, str(interaction.author.id), coin_name,
                         str(self.score), amount, coin_decimal,
                         str(interaction.guild.id), '2048',
@@ -1279,7 +1297,7 @@ class g2048_Buttons(disnake.ui.View):
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(
+                    await self.db.sql_game_add(
                         self.board, str(interaction.author.id), coin_name,
                         str(self.score), amount, coin_decimal,
                         str(interaction.guild.id), '2048',
@@ -1756,11 +1774,13 @@ class Sokoban_Buttons(disnake.ui.View):
                     timestamp=datetime.now()
                 )
                 embed.add_field(name="LEVEL", value=self.level)
-                embed.add_field(name="OTHER LINKS",
-                                value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
-                                    self.bot.config['discord']['github_link']), inline=False
-                                )
+                embed.add_field(
+                    name="OTHER LINKS",
+                    value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
+                        self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                        self.bot.config['discord']['github_link']),
+                        inline=False
+                )
 
                 ## game end
                 for child in self.children:
@@ -1808,10 +1828,13 @@ class Sokoban_Buttons(disnake.ui.View):
                     timestamp=datetime.now()
                 )
                 embed.add_field(name="LEVEL", value=self.level)
-                embed.add_field(name="OTHER LINKS",
-                                value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
-                                    self.bot.config['discord']['github_link']), inline=False)
+                embed.add_field(
+                    name="OTHER LINKS",
+                    value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
+                        self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                        self.bot.config['discord']['github_link']),
+                    inline=False
+                )
                 await interaction.response.defer()
                 await self.message.edit(embed=embed, view=self)
         except Exception:
@@ -1903,12 +1926,13 @@ class Sokoban_Buttons(disnake.ui.View):
                     timestamp=datetime.now()
                 )
                 embed.add_field(name="LEVEL", value=self.level)
-                embed.add_field(name="OTHER LINKS",
-                                value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
-                                    self.bot.config['discord']['github_link']),
-                                inline=False
-                                )
+                embed.add_field(
+                    name="OTHER LINKS",
+                    value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
+                        self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                        self.bot.config['discord']['github_link']),
+                    inline=False
+                )
                 ## game end
                 for child in self.children:
                     if isinstance(child, disnake.ui.Button):
@@ -1954,12 +1978,13 @@ class Sokoban_Buttons(disnake.ui.View):
                     timestamp=datetime.now()
                 )
                 embed.add_field(name="LEVEL", value=self.level)
-                embed.add_field(name="OTHER LINKS",
-                                value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
-                                    self.bot.config['discord']['github_link']),
-                                inline=False
-                                )
+                embed.add_field(
+                    name="OTHER LINKS",
+                    value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
+                        self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                        self.bot.config['discord']['github_link']),
+                    inline=False
+                )
                 await interaction.response.defer()
                 await self.message.edit(embed=embed, view=self)
         except Exception:
@@ -2102,12 +2127,13 @@ class Sokoban_Buttons(disnake.ui.View):
                     timestamp=datetime.now()
                 )
                 embed.add_field(name="LEVEL", value=self.level)
-                embed.add_field(name="OTHER LINKS",
-                                value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
-                                    self.bot.config['discord']['github_link']),
-                                inline=False
-                                )
+                embed.add_field(
+                    name="OTHER LINKS",
+                    value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
+                        self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                        self.bot.config['discord']['github_link']),
+                    inline=False
+                )
                 await interaction.response.defer()
                 await self.message.edit(embed=embed, view=self)
         except Exception:
@@ -2198,12 +2224,13 @@ class Sokoban_Buttons(disnake.ui.View):
                     timestamp=datetime.now()
                 )
                 embed.add_field(name="LEVEL", value=self.level)
-                embed.add_field(name="OTHER LINKS",
-                                value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
-                                    self.bot.config['discord']['github_link']),
-                                inline=False
-                                )
+                embed.add_field(
+                    name="OTHER LINKS",
+                    value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
+                        self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                        self.bot.config['discord']['github_link']),
+                    inline=False
+                )
 
                 ## game end
                 for child in self.children:
@@ -2250,12 +2277,13 @@ class Sokoban_Buttons(disnake.ui.View):
                     timestamp=datetime.now()
                 )
                 embed.add_field(name="LEVEL", value=self.level)
-                embed.add_field(name="OTHER LINKS",
-                                value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
-                                    self.bot.config['discord']['github_link']),
-                                inline=False
-                                )
+                embed.add_field(
+                    name="OTHER LINKS",
+                    value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
+                        self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                        self.bot.config['discord']['github_link']),
+                    inline=False
+                )
                 await interaction.response.defer()
                 await self.message.edit(embed=embed, view=self)
         except Exception:
@@ -2814,9 +2842,11 @@ class Games(commands.Cog):
                         await logchanbot(traceback.format_exc())
                 else:
                     try:
-                        await self.db.sql_game_free_add('{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2),
-                                                        str(ctx.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id),
-                                                        'DICE', int(time.time()) - time_start, SERVER_BOT)
+                        await self.db.sql_game_free_add(
+                            '{}:{}:{}:{}'.format(dice_time, sum_dice, dice1, dice2),
+                            str(ctx.author.id), 'WIN' if won else 'LOSE', str(ctx.guild.id),
+                            'DICE', int(time.time()) - time_start, SERVER_BOT
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
@@ -3053,7 +3083,7 @@ class Games(commands.Cog):
                                                 del self.bot.user_balance_cache[key_coin]
                                         except Exception:
                                             pass
-                                        tip = await store.sql_user_balance_mv_single(
+                                        await store.sql_user_balance_mv_single(
                                             self.bot.user.id, str(ctx.user.id), str(ctx.guild.id),
                                             str(ctx.channel.id), amount, coin_name, "GAME", coin_decimal,
                                             SERVER_BOT, contract, amount_in_usd, None
@@ -3307,12 +3337,13 @@ class Games(commands.Cog):
                     timestamp=datetime.now()
                 )
                 embed.add_field(name="LEVEL", value=level)
-                embed.add_field(name="OTHER LINKS",
-                                value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                    self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
-                                    self.bot.config['discord']['github_link']),
-                                inline=False
-                                )
+                embed.add_field(
+                    name="OTHER LINKS",
+                    value="[Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
+                        self.bot.config['discord']['invite_link'], self.bot.config['discord']['support_server_link'],
+                        self.bot.config['discord']['github_link']),
+                    inline=False
+                )
                 view.message = await ctx.channel.send(embed=embed, view=view)
                 view.level = level
                 # Find the player position:

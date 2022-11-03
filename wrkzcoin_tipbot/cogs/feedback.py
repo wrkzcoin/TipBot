@@ -52,10 +52,14 @@ class FeedbackAdd(disnake.ui.Modal):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `discord_feedback` (`user_id`, `user_name`, `feedback_id`, `topic`, `feedback_text`, `feedback_date`, `howto_contact_back`)
-                              VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO `discord_feedback` 
+                    (`user_id`, `user_name`, `feedback_id`, `topic`, `feedback_text`, `feedback_date`, `howto_contact_back`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (
-                        user_id, user_name, feedback_id, topic, feedback_text, int(time.time()), howto_contact_back))
+                        user_id, user_name, feedback_id, topic, 
+                        feedback_text, int(time.time()), howto_contact_back
+                    ))
                     await conn.commit()
                     return True
         except Exception:

@@ -29,7 +29,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_trx_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -56,7 +57,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_bsc_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -83,7 +85,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_sol_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -110,7 +113,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_matic_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -137,7 +141,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_celo_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -164,7 +169,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_ftm_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -191,7 +197,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_avax_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -218,7 +225,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_xdai_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -246,7 +254,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_one_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -273,7 +282,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_tezos_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -304,7 +314,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_near_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -335,7 +346,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_xrp_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -366,7 +378,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_zil_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -393,7 +406,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_vet_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -424,7 +438,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_nova_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -451,7 +466,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_eth_node"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
@@ -483,7 +499,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_remove_all_tx_ethscan"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         try:
             remove_old_tx_erc20 = await store.contract_tx_remove_after(
@@ -506,7 +523,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_pull_trc20_scanning"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         # Get all contracts of ETH type and update to coin_ethscan_setting
         trc_contracts = await self.get_all_contracts("TRC-20")
@@ -528,7 +546,8 @@ class EthScan(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_pull_erc20_scanning"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         # Get all contracts of ETH type and update to coin_ethscan_setting
         erc_contracts = await self.get_all_contracts("ERC-20")
@@ -681,7 +700,8 @@ class EthScan(commands.Cog):
                                 elif decoded_data and 'result' in decoded_data:
                                     records = decoded_data['result']
                                     if len(records) > 0:
-                                        # print("{} Got {} record(s).".format(net_name, len(records))) # For later debug
+                                        # print("{} Got {} record(s).".format(net_name, len(records))) 
+                                        # For later debug
                                         pass
                                     if len(records) > 0:
                                         rows = []

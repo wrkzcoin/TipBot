@@ -117,15 +117,21 @@ class TalkDrop(commands.Cog):
                             indiv_amount = each_talkdrop['real_amount'] / len(all_name_list) if len(all_name_list) > 0 else each_talkdrop['real_amount']
                             amount_in_usd = indiv_amount * each_talkdrop['unit_price_usd'] if each_talkdrop['unit_price_usd'] and each_talkdrop['unit_price_usd'] > 0.0 else 0.0
                             indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
-                            embed.add_field(name='Each Member Receives:',
-                                            value=f"{indiv_amount_str} {token_display}",
-                                            inline=True)
-                            embed.add_field(name='Total Amount', 
-                                            value=num_format_coin(each_talkdrop['real_amount'], coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
-                            embed.add_field(name='Minimum Messages',
-                                            value=each_talkdrop['minimum_message'],
-                                            inline=True)
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{indiv_amount_str} {token_display}",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Total Amount', 
+                                value=num_format_coin(each_talkdrop['real_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Minimum Messages',
+                                value=each_talkdrop['minimum_message'],
+                                inline=True
+                            )
                             try:
                                 channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
                                 if channel:
@@ -186,14 +192,21 @@ class TalkDrop(commands.Cog):
                             except Exception:
                                 pass
                             indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
-                            embed.add_field(name='Each Member Receives:',
-                                            value=f"{indiv_amount_str} {token_display}", inline=True)
-                            embed.add_field(name='Total Amount', 
-                                            value=num_format_coin(each_talkdrop['real_amount'], coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
-                            embed.add_field(name='Minimum Messages',
-                                            value=each_talkdrop['minimum_message'],
-                                            inline=True)
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{indiv_amount_str} {token_display}",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Total Amount', 
+                                value=num_format_coin(each_talkdrop['real_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Minimum Messages',
+                                value=each_talkdrop['minimum_message'],
+                                inline=True
+                            )
                             try:
                                 channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
                                 if channel is None:
@@ -323,7 +336,8 @@ class TalkDrop(commands.Cog):
         # Check amount
         if not amount.isdigit() and amount.upper() == "ALL":
             userdata_balance = await store.sql_user_balance_single(
-                str(ctx.author.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+                str(ctx.author.id), coin_name, wallet_address, type_coin, 
+                height, deposit_confirm_depth, SERVER_BOT
             )
             amount = float(userdata_balance['adjust'])
         # If $ is in amount, let's convert to coin/token
@@ -373,16 +387,16 @@ class TalkDrop(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if amount <= 0:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
-            await ctx.edit_original_message(content=msg)
-            return
-
         userdata_balance = await store.sql_user_balance_single(
             str(ctx.author.id), coin_name, wallet_address, type_coin,
             height, deposit_confirm_depth, SERVER_BOT
         )
         actual_balance = float(userdata_balance['adjust'])
+
+        if amount <= 0 or actual_balance <= 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+            await ctx.edit_original_message(content=msg)
+            return
 
         if amount > max_tip or amount < min_tip:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, amount cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
@@ -439,20 +453,24 @@ class TalkDrop(commands.Cog):
             title="✍️ Talk Drop ✍️",
             description="You can collect only if you have chatted in channel {} from {} ago.".format(channel.mention, seconds_str_days(int(from_when))),
             timestamp=datetime.fromtimestamp(talkdrop_end))
-        embed.add_field(name='Total Amount',
-                        value=num_format_coin(amount, coin_name, coin_decimal, False) + " " + coin_name,
-                        inline=True)
+        embed.add_field(
+            name='Total Amount',
+            value=num_format_coin(amount, coin_name, coin_decimal, False) + " " + coin_name,
+            inline=True
+        )
         time_left = seconds_str_days(duration_s)
-        embed.add_field(name='Minimum Messages',
-                        value=minimum_message,
-                        inline=True)
+        embed.add_field(
+            name='Minimum Messages',
+            value=minimum_message,
+            inline=True
+        )
         embed.set_footer(text=f"Contributed by {owner_displayname} | /talkdrop | Time left: {time_left}")
         try:
             view = TalkDropButton(ctx, duration_s, self.bot.coin_list, self.bot, ctx.channel.id) 
             msg = await ctx.channel.send(content=None, embed=embed, view=view)
             view.message = msg
             view.channel_interact = ctx.channel.id
-            talkdrop = await store.insert_talkdrop_create(
+            await store.insert_talkdrop_create(
                 coin_name, contract, str(ctx.author.id),
                 owner_displayname, str(view.message.id),
                 str(ctx.guild.id), str(ctx.channel.id), 

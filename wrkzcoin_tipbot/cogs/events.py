@@ -46,8 +46,10 @@ class Events(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_stats (`num_server`, `num_online`, `num_users`, `num_bots`, `num_tips`, `date`) 
-                    VALUES (%s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO discord_stats 
+                    (`num_server`, `num_online`, `num_users`, `num_bots`, `num_tips`, `date`) 
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (num_server, num_online, num_users, num_bots, num_tips, date))
                     await conn.commit()
         except Exception:
@@ -60,7 +62,8 @@ class Events(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT (SELECT COUNT(*) FROM user_balance_mv) AS nos_tipping,
-                              (SELECT COUNT(*) FROM user_balance_mv_data) AS nos_user """
+                    (SELECT COUNT(*) FROM user_balance_mv_data) AS nos_user
+                    """
                     await cur.execute(sql, ())
                     result = await cur.fetchone()
                     return result
@@ -82,7 +85,8 @@ class Events(commands.Cog):
                     sql = """ INSERT IGNORE INTO discord_mathtip_responder 
                     (`message_id`, `guild_id`, `from_userid`, `responder_id`, `responder_name`, 
                     `from_and_responder_uniq`, `result`, `inserted_time`) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (
                         message_id, guild_id, from_userid, responder_id, responder_name,
                         "{}-{}-{}".format(message_id, from_userid, responder_id), result,
@@ -104,7 +108,8 @@ class Events(commands.Cog):
                 async with conn.cursor() as cur:
                     swap_in = 0.0
                     sql = """ SELECT * FROM `discord_mathtip_responder` 
-                    WHERE `message_id`=%s AND `from_userid`=%s AND `responder_id`=%s LIMIT 1 """
+                    WHERE `message_id`=%s AND `from_userid`=%s AND `responder_id`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (message_id, from_userid, responder_id))
                     result = await cur.fetchone()
                     if result and len(result) > 0: return True
@@ -135,7 +140,8 @@ class Events(commands.Cog):
                 async with conn.cursor() as cur:
                     swap_in = 0.0
                     sql = """ SELECT * FROM `discord_triviatip_tmp` 
-                    WHERE `message_id`=%s LIMIT 1 """
+                    WHERE `message_id`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (message_id))
                     result = await cur.fetchone()
                     if result: return result
@@ -155,7 +161,8 @@ class Events(commands.Cog):
                     sql = """ INSERT IGNORE INTO discord_triviatip_responder 
                     (`message_id`, `guild_id`, `question_id`, `from_userid`, `responder_id`, 
                     `responder_name`, `from_and_responder_uniq`, `result`, `inserted_time`) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (
                     message_id, guild_id, question_id, from_userid, responder_id, responder_name,
                     "{}-{}-{}".format(message_id, from_userid, responder_id), result, int(time.time())))
@@ -255,7 +262,8 @@ class Events(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "events_process_saving_message"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 2: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 2:
+            # not running if less than 15s
             return
         await asyncio.sleep(time_lap)
         if len(self.bot.message_list) > 0:
@@ -282,7 +290,8 @@ class Events(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "events_reload_coin_paprika"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         await asyncio.sleep(time_lap)
         try:
@@ -300,7 +309,8 @@ class Events(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "events_reload_coingecko"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         await asyncio.sleep(time_lap)
         try:
@@ -318,7 +328,8 @@ class Events(commands.Cog):
         # Check if task recently run @bot_task_logs
         task_name = "events_update_discord_stats"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
             return
         await asyncio.sleep(time_lap)
         try:
@@ -653,7 +664,9 @@ class Events(commands.Cog):
                     return
 
                 if get_message is None:
-                    await inter.edit_original_message(content=f"QuickDrop ID {str(inter.message.id)}: Failed to collect!")
+                    await inter.edit_original_message(
+                        content=f"QuickDrop ID {str(inter.message.id)}: Failed to collect!"
+                    )
                     await logchanbot(
                         f"[ERROR QUICKDROP] Failed to collect in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
                     return
@@ -669,7 +682,9 @@ class Events(commands.Cog):
                         if str(inter.message.id) not in self.quickdrop_cache:
                             self.quickdrop_cache[str(inter.message.id)] = inter.author.id
                         else:
-                            await inter.edit_original_message(content=f"QuickDrop ID {str(inter.message.id)}: is being processed by other!")
+                            await inter.edit_original_message(
+                                content=f"QuickDrop ID {str(inter.message.id)}: is being processed by other!"
+                            )
                             return
                     except Exception:
                         pass
@@ -715,16 +730,24 @@ class Events(commands.Cog):
                                     title=f"📦📦📦 Quick Drop Collected! 📦📦📦",
                                     description="First come, first serve!",
                                     timestamp=datetime.datetime.fromtimestamp(get_message['expiring_time']))
-                                embed.set_footer(text=f"Dropped by {owner_displayname} | Used with /quickdrop | Ended")
-                                embed.add_field(name='Owner', 
-                                                value=owner_displayname,
-                                                inline=False)
-                                embed.add_field(name='Collected by', 
-                                                value="{}#{}".format(inter.author.name, inter.author.discriminator),
-                                                inline=False)
-                                embed.add_field(name='Amount', 
-                                                value="🎉🎉 {} {} 🎉🎉".format(num_format_coin(get_message['real_amount'], get_message['token_name'], get_message['token_decimal'], False), get_message['token_name']),
-                                                inline=False)
+                                embed.set_footer(
+                                    text=f"Dropped by {owner_displayname} | Used with /quickdrop | Ended"
+                                )
+                                embed.add_field(
+                                    name='Owner', 
+                                    value=owner_displayname,
+                                    inline=False
+                                )
+                                embed.add_field(
+                                    name='Collected by', 
+                                    value="{}#{}".format(inter.author.name, inter.author.discriminator),
+                                    inline=False
+                                )
+                                embed.add_field(
+                                    name='Amount', 
+                                    value="🎉🎉 {} {} 🎉🎉".format(num_format_coin(get_message['real_amount'], get_message['token_name'], get_message['token_decimal'], False), get_message['token_name']),
+                                    inline=False
+                                )
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 _msg: disnake.Message = await channel.fetch_message(int(get_message['message_id']))
                                 await _msg.edit(content=None, embed=embed, view=None)
@@ -789,11 +812,15 @@ class Events(commands.Cog):
                         return
                     else:
                         # Add him to there
-                        added = await store.add_talkdrop(str(msg_id), get_message['from_userid'], 
-                                                         str(inter.author.id),
-                                                         "{}#{}".format(inter.author.name, inter.author.discriminator))
+                        added = await store.add_talkdrop(
+                            str(msg_id), get_message['from_userid'], 
+                            str(inter.author.id),
+                            "{}#{}".format(inter.author.name, inter.author.discriminator)
+                        )
                         if added is True:
-                            await inter.edit_original_message(content=f"Talkdrop ID {str(inter.message.id)}: Successfully joined!")
+                            await inter.edit_original_message(
+                                content=f"Talkdrop ID {str(inter.message.id)}: Successfully joined!"
+                            )
                             # Update view
                             coin_name = get_message['token_name']
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -822,14 +849,21 @@ class Events(commands.Cog):
                                 user_tos = list(set(user_tos))
                             indiv_amount = get_message['real_amount'] / len(user_tos) if len(user_tos) > 0 else get_message['real_amount']
                             indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
-                            embed.add_field(name='Each Member Receives:',
-                                            value=f"{indiv_amount_str} {token_display}", inline=True)
-                            embed.add_field(name='Total Amount', 
-                                            value=num_format_coin(get_message['real_amount'], coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
-                            embed.add_field(name='Minimum Messages',
-                                            value=get_message['minimum_message'],
-                                            inline=True)
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{indiv_amount_str} {token_display}",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Total Amount', 
+                                value=num_format_coin(get_message['real_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Minimum Messages',
+                                value=get_message['minimum_message'],
+                                inline=True
+                            )
                             try:
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 if channel is None:
@@ -897,8 +931,10 @@ class Events(commands.Cog):
                         wallet_address = get_deposit['destination_tag']
 
                     height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                    userdata_balance = await store.sql_user_balance_single(str(inter.author.id), coin_name, wallet_address, type_coin,
-                                                                           height, deposit_confirm_depth, SERVER_BOT)
+                    userdata_balance = await store.sql_user_balance_single(
+                        str(inter.author.id), coin_name, wallet_address, type_coin,
+                        height, deposit_confirm_depth, SERVER_BOT
+                    )
                     actual_balance = float(userdata_balance['adjust'])
                     if actual_balance < new_amount:
                         await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: not sufficient balance!")
@@ -977,7 +1013,12 @@ class Events(commands.Cog):
                             # Update view
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop 🎉",
-                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name), timestamp=datetime.datetime.fromtimestamp(get_message['partydrop_time']))
+                                description="Each click will deduct from your TipBot's balance. "\
+                                    "Minimum entrance cost: `{} {}`. "\
+                                    "Party Pot will be distributed equally to all attendees after completion.".format(
+                                        num_format_coin(amount, coin_name, coin_decimal, False), coin_name),
+                                timestamp=datetime.datetime.fromtimestamp(get_message['partydrop_time'])
+                            )
                             time_left = seconds_str_days(get_message['partydrop_time'] - int(time.time())) if int(time.time()) < get_message['partydrop_time'] else "00:00:00"
                             embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Time left: {time_left}")
                             attend_list = await store.get_party_attendant(str(inter.message.id))
@@ -989,20 +1030,35 @@ class Events(commands.Cog):
                                     name_list.append("<@{}> : {} {}".format(each_att['attendant_id'], num_format_coin(each_att['joined_amount'], coin_name, coin_decimal, False), token_display))
                                     total_amount += each_att['joined_amount']
                                     if len(name_list) > 0 and len(name_list) % 15 == 0:
-                                        embed.add_field(name='Attendant', value="\n".join(name_list), inline=False)
+                                        embed.add_field(
+                                            name='Attendant',
+                                            value="\n".join(name_list),
+                                            inline=False
+                                        )
                                         name_list = []
                                 if len(name_list) > 0:
-                                    embed.add_field(name='Attendant', value="\n".join(name_list), inline=False)
+                                    embed.add_field(
+                                        name='Attendant',
+                                        value="\n".join(name_list),
+                                        inline=False
+                                    )
                             indiv_amount = total_amount / (len(attend_list) + 1)
                             indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
-                            embed.add_field(name='Each Member Receives:',
-                                            value=f"{indiv_amount_str} {token_display}", inline=True)
-                            embed.add_field(name='Started amount',
-                                            value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
-                            embed.add_field(name='Party Pot',
-                                            value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{indiv_amount_str} {token_display}",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Started amount',
+                                value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Party Pot',
+                                value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
                             try:
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 _msg: disnake.Message = await channel.fetch_message(inter.message.id)
@@ -1060,7 +1116,7 @@ class Events(commands.Cog):
                         result = "WRONG"
                         if inter.component.label == get_message['button_correct_answer']:
                             result = "RIGHT"
-                        insert_triviatip = await self.insert_trivia_responder(
+                        await self.insert_trivia_responder(
                             str(inter.message.id), get_message['guild_id'], get_message['question_id'],
                             get_message['from_userid'], str(inter.author.id),
                             "{}#{}".format(inter.author.name, inter.author.discriminator), result
@@ -1237,14 +1293,16 @@ class Events(commands.Cog):
                         str(inter.author.id), str(inter.guild.id),
                         get_food_id['cost_coin_name'],
                         get_food_id['cost_expense_amount'],
-                        get_food_id['fee_ratio'] * get_food_id[
-                            'cost_expense_amount'],
+                        get_food_id['fee_ratio'] * get_food_id['cost_expense_amount'],
                         coin_decimal, contract, add_energy
                     )
 
                     paid_money = '{} {}'.format(
-                        num_format_coin(get_food_id['cost_expense_amount'], get_food_id['cost_coin_name'], coin_decimal,
-                                        False), coin_name)
+                        num_format_coin(
+                            get_food_id['cost_expense_amount'], get_food_id['cost_coin_name'], coin_decimal, False
+                        ),
+                        coin_name
+                    )
                     if insert_eating:
                         await inter.edit_original_message(
                             content=f"{EMOJI_INFORMATION} {inter.author.mention}, "\
@@ -1355,8 +1413,10 @@ class Events(commands.Cog):
                 # Else, go on and Insert work to DB
                 add_energy = 0
                 add_energy_health_str = ""
-                get_userinfo = await db.economy_get_user(str(inter.author.id),
-                                                         '{}#{}'.format(inter.author.name, inter.author.discriminator))
+                get_userinfo = await db.economy_get_user(
+                    str(inter.author.id),
+                    '{}#{}'.format(inter.author.name, inter.author.discriminator)
+                )
                 if get_item_id['item_energy'] > 0:
                     add_energy = get_item_id['item_energy']
                     if get_userinfo['energy_current'] + add_energy > get_userinfo['energy_total']:
@@ -1413,16 +1473,26 @@ class Events(commands.Cog):
                     botdetails.add_field(name='Invite Me:', value=self.bot.config['discord']['invite_link'], inline=True)
                     botdetails.add_field(name='Servers:', value=len(self.bot.guilds), inline=True)
                     try:
-                        botdetails.add_field(name="Online", value='{:,.0f}'.format(
-                            total_online), inline=True)
-                        botdetails.add_field(name="Users", value='{:,.0f}'.format(
-                            total_unique), inline=True)
-                        botdetails.add_field(name="Bots", value='{:,.0f}'.format(
-                            num_bots), inline=True)
-                        botdetails.add_field(name="Tips", value='{:,.0f}'.format(get_tipping_count['nos_tipping']),
-                                             inline=True)
-                        botdetails.add_field(name="Wallets", value='{:,.0f}'.format(get_tipping_count['nos_user']),
-                                             inline=True)
+                        botdetails.add_field(
+                            name="Online",
+                            value='{:,.0f}'.format(total_online),
+                            inline=True
+                        )
+                        botdetails.add_field(
+                            name="Users",
+                            value='{:,.0f}'.format(total_unique),
+                            inline=True
+                        )
+                        botdetails.add_field(
+                            name="Bots",
+                            value='{:,.0f}'.format(num_bots),
+                            inline=True
+                        )
+                        botdetails.add_field(
+                            name="Tips",
+                            value='{:,.0f}'.format(get_tipping_count['nos_tipping']),
+                            inline=True
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     botdetails.set_footer(text='Made in Python',
@@ -1461,20 +1531,32 @@ class Events(commands.Cog):
                     botdetails.add_field(name='Invite Me:', value=self.bot.config['discord']['invite_link'], inline=True)
                     botdetails.add_field(name='Servers:', value=len(self.bot.guilds), inline=True)
                     try:
-                        botdetails.add_field(name="Online", value='{:,.0f}'.format(
-                            total_online), inline=True)
-                        botdetails.add_field(name="Users", value='{:,.0f}'.format(
-                            total_unique), inline=True)
-                        botdetails.add_field(name="Bots", value='{:,.0f}'.format(
-                            num_bots), inline=True)
-                        botdetails.add_field(name="Tips", value='{:,.0f}'.format(get_tipping_count['nos_tipping']),
-                                             inline=True)
-                        botdetails.add_field(name="Wallets", value='{:,.0f}'.format(get_tipping_count['nos_user']),
-                                             inline=True)
+                        botdetails.add_field(
+                            name="Online",
+                            value='{:,.0f}'.format(total_online),
+                            inline=True
+                        )
+                        botdetails.add_field(
+                            name="Users",
+                            value='{:,.0f}'.format(total_unique),
+                            inline=True
+                        )
+                        botdetails.add_field(
+                            name="Bots",
+                            value='{:,.0f}'.format(num_bots),
+                            inline=True
+                        )
+                        botdetails.add_field(
+                            name="Tips",
+                            value='{:,.0f}'.format(get_tipping_count['nos_tipping']),
+                            inline=True
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                    botdetails.set_footer(text='Made in Python',
-                                          icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
+                    botdetails.set_footer(
+                        text='Made in Python',
+                        icon_url='http://findicons.com/files/icons/2804/plex/512/python.png'
+                    )
                     botdetails.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
                     await self.botLogChan.send(embed=botdetails)
             except Exception:

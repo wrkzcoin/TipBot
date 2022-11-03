@@ -30,7 +30,8 @@ class BFDBotVote(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     date_vote = int(time.time())
-                    sql = """ INSERT IGNORE INTO bot_vote (`user_id`, `directory`, `bot_id`, `type`, `date_voted`) 
+                    sql = """ INSERT IGNORE 
+                    INTO bot_vote (`user_id`, `directory`, `bot_id`, `type`, `date_voted`) 
                     VALUES (%s, %s, %s, %s, %s) """
                     await cur.execute(sql, (user_id, directory, bot_id, type_vote, date_vote))
                     await conn.commit()
@@ -120,7 +121,7 @@ class BFDBotVote(commands.Cog):
                                                         amount = each_coin['reward_amount']
                                                         break
                                                 if coin_name is not None:
-                                                    insert_reward = await faucet.insert_reward(
+                                                    await faucet.insert_reward(
                                                         user_vote, "botsfordiscord", amount, coin_name,
                                                         int(time.time()), SERVER_BOT
                                                     )

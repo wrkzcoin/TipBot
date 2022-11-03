@@ -1453,6 +1453,8 @@ async def http_wallet_getbalance(
                         data = data.decode('utf-8')
                         decoded_data = json.loads(data)
                         if decoded_data and 'result' in decoded_data:
+                            if decoded_data['result'] == "0x":
+                                return 0
                             return int(decoded_data['result'], 16)
         except asyncio.TimeoutError:
             print('TIMEOUT: get balance {} for {}s'.format(url, time_out))

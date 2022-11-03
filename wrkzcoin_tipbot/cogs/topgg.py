@@ -311,19 +311,22 @@ class TopGGVote(commands.Cog):
                                                                 inline=True
                                                             )
                                                             embed.add_field(
-                                                                name="Reward", value="{} {}".format(
+                                                                name="Reward",
+                                                                value="{} {}".format(
                                                                     num_format_coin(amount, coin_name, coin_decimal, False),
-                                                                    coin_name),
+                                                                    coin_name
+                                                                ),
                                                                 inline=True
                                                             )
                                                             if extra_amount > 0:
                                                                 embed.add_field(name="Extra Reward", value="{} {}".format(
                                                                     num_format_coin(extra_amount, coin_name, coin_decimal, False),
                                                                     coin_name), inline=True)
-                                                            embed.add_field(name="Link",
-                                                                            value="https://top.gg/servers/{}".format(
-                                                                                guild_id),
-                                                                            inline=False)
+                                                            embed.add_field(
+                                                                name="Link",
+                                                                value="https://top.gg/servers/{}".format(guild_id),
+                                                                inline=False
+                                                            )
                                                             embed.set_author(
                                                                 name=self.bot.user.name,
                                                                 icon_url=self.bot.user.display_avatar

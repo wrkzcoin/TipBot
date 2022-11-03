@@ -40,9 +40,13 @@ class Tool(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `discord_tts` (`user_id`, `user_name`, `msg_content`, `lang`, `time`, `tts_mp3`, `user_server`)
-                              VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (user_id, user_name, msg_content, lang, int(time.time()), tts_mp3, user_server))
+                    sql = """ INSERT INTO `discord_tts` 
+                    (`user_id`, `user_name`, `msg_content`, `lang`, `time`, `tts_mp3`, `user_server`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (
+                        user_id, user_name, msg_content, lang, int(time.time()), tts_mp3, user_server
+                    ))
                     await conn.commit()
                     return True
         except Exception:
@@ -50,7 +54,8 @@ class Tool(commands.Cog):
         return False
 
     async def sql_add_trans_tts(
-        self, user_id: str, user_name: str, original: str, translated: str, to_lang: str, media_file: str, user_server: str='DISCORD'
+        self, user_id: str, user_name: str, original: str, translated: str, 
+        to_lang: str, media_file: str, user_server: str='DISCORD'
     ):
         user_server = user_server.upper()
         try:
@@ -59,19 +64,21 @@ class Tool(commands.Cog):
                 async with conn.cursor() as cur:
                     sql = """ INSERT INTO `discord_trans_tts` (`user_id`, `user_name`, `original`, `translated`, 
                     `to_lang`, `time`, `media_file`, `user_server`)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (user_id, user_name, original, translated, to_lang, int(time.time()), media_file, user_server))
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (
+                        user_id, user_name, original, translated, 
+                        to_lang, int(time.time()), media_file, user_server
+                    ))
                     await conn.commit()
                     return True
         except Exception:
             await logchanbot("tools " +str(traceback.format_exc()))
         return False
 
-
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-
 
     @commands.slash_command(description="Various tool's commands.")
     async def tool(self, ctx):
@@ -130,8 +137,10 @@ class Tool(commands.Cog):
                 voice_file = await self.bot.loop.run_in_executor(None, make_voice)
                 file = disnake.File(self.tts_path + voice_file, filename=voice_file)
                 await ctx.edit_original_message(content="{}".format(ctx.author.mention), file=file)
-                await self.sql_add_tts(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), \
-                            input_text, 'en', voice_file, SERVER_BOT)
+                await self.sql_add_tts(
+                    str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                    input_text, 'en', voice_file, SERVER_BOT
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("tools " +str(traceback.format_exc()))
@@ -299,7 +308,10 @@ class Tool(commands.Cog):
                     await ctx.edit_original_message(content=f'{ctx.author.mention}, internal error.')
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await ctx.edit_original_message(content=f'{ctx.author.mention}, internal error. The media file could be too big or text too long. Please reduce your text length.')
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, internal error. The media file could be "\
+                        f"too big or text too long. Please reduce your text length."
+                    )
                 await logchanbot(f"[TRANSLATE] {ctx.author.name}#{ctx.author.discriminator} failed to get translation with {to_lang} ```{input_text}```")
 
         try:

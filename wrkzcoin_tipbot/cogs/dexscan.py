@@ -24,10 +24,12 @@ class DexScan(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `dex_track_price_info` WHERE `enabled`=%s """
+                    sql = """ SELECT * FROM `dex_track_price_info` WHERE `enabled`=%s
+                    """
                     await cur.execute(sql, (1))
                     result = await cur.fetchall()
-                    if result: return result
+                    if result:
+                        return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return []
@@ -71,8 +73,10 @@ class DexScan(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO dex_track_price_info_data (`token_name`, `chain_id`, `net_name`, `contract`, `price`, `source_from`, `inserted_time`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO dex_track_price_info_data 
+                    (`token_name`, `chain_id`, `net_name`, `contract`, `price`, `source_from`, `inserted_time`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (token_name, chain_id, net_name, contract, truncate(price, 18), source_from, int(time.time())))
                     await conn.commit()
                     return True

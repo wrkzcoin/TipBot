@@ -198,10 +198,12 @@ class Tb(commands.Cog):
                         e.set_image(url=draw_link)
                         e.set_footer(text=f"Sketchme requested by {ctx.author.name}#{ctx.author.discriminator}")
                         await ctx.edit_original_message(content=None, embed=e)
-                        await self.sql_add_tbfun(str(ctx.author.id),
-                                                 '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                                 str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME',
-                                                 SERVER_BOT)
+                        await self.sql_add_tbfun(
+                            str(ctx.author.id),
+                            '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME',
+                            SERVER_BOT
+                        )
                     except Exception:
                         await logchanbot("tb " +str(traceback.format_exc()))
                     return
@@ -226,10 +228,12 @@ class Tb(commands.Cog):
                         e.set_image(url=draw_link)
                         e.set_footer(text=f"Sketchme requested by {ctx.author.name}#{ctx.author.discriminator}")
                         msg = await ctx.edit_original_message(content=None, embed=e)
-                        await self.sql_add_tbfun(str(ctx.author.id),
-                                                 '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                                 str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME',
-                                                 SERVER_BOT)
+                        await self.sql_add_tbfun(
+                            str(ctx.author.id),
+                            '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SKETCHME',
+                            SERVER_BOT
+                        )
                     except Exception:
                         await logchanbot("tb " +str(traceback.format_exc()))
                 except asyncio.TimeoutError:
@@ -263,8 +267,10 @@ class Tb(commands.Cog):
                 e.set_image(url=self.bot.config['fun']['fun_img_www'] + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+                await self.sql_add_tbfun(
+                    str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                    str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -294,8 +300,10 @@ class Tb(commands.Cog):
                 e.set_image(url=self.bot.config['fun']['fun_img_www'] + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+                await self.sql_add_tbfun(
+                    str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                    str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -325,8 +333,10 @@ class Tb(commands.Cog):
                 e.set_image(url=self.bot.config['fun']['fun_img_www'] + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+                await self.sql_add_tbfun(
+                    str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                    str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -355,8 +365,10 @@ class Tb(commands.Cog):
                 e.set_image(url=self.bot.config['fun']['fun_img_www'] + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+                await self.sql_add_tbfun(
+                    str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                    str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -385,8 +397,10 @@ class Tb(commands.Cog):
                 e.set_image(url=self.bot.config['fun']['fun_img_www'] + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+                await self.sql_add_tbfun(
+                    str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                    str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -416,8 +430,10 @@ class Tb(commands.Cog):
                 e.set_image(url=self.bot.config['fun']['fun_img_www'] + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+                await self.sql_add_tbfun(
+                    str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                    str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -446,8 +462,10 @@ class Tb(commands.Cog):
                 e.set_image(url=self.bot.config['fun']['fun_img_www'] + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+                await self.sql_add_tbfun(
+                    str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                    str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -477,8 +495,10 @@ class Tb(commands.Cog):
                 e.set_image(url=self.bot.config['fun']['fun_img_www'] + os.path.basename(fun_image))
                 e.set_footer(text=f"{action} requested by {ctx.author.name}#{ctx.author.discriminator}")
                 await ctx.edit_original_message(content=None, embed=e)
-                await self.sql_add_tbfun(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                         str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT)
+                await self.sql_add_tbfun(
+                    str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                    str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, action, SERVER_BOT
+                )
         except Exception:
             await logchanbot("tb " +str(traceback.format_exc()))
         return
@@ -529,8 +549,10 @@ class Tb(commands.Cog):
                 await ctx.edit_original_message(content=msg)
             else:
                 try:
-                    await ctx.edit_original_message(content=f'{ctx.author.mention} {emoji_url}',
-                                                    view=RowButtonRowCloseAnyMessage())
+                    await ctx.edit_original_message(
+                        content=f'{ctx.author.mention} {emoji_url}',
+                        view=RowButtonRowCloseAnyMessage()
+                    )
                 except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
                     traceback.print_exc(file=sys.stdout)
             return

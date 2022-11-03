@@ -22,7 +22,9 @@ class database_tag():
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if tag_id is None:
-                        sql = """ SELECT * FROM `discord_tag` WHERE `tag_serverid` = %s """
+                        sql = """ SELECT * FROM `discord_tag` 
+                        WHERE `tag_serverid` = %s
+                        """
                         await cur.execute(sql, (server_id,))
                         result = await cur.fetchall()
                         tag_list = result
@@ -30,7 +32,9 @@ class database_tag():
                     else:
                         try:
                             sql = """ SELECT `tag_id`, `tag_desc`, `date_added`, `tag_serverid`, `added_byname`, 
-                                      `added_byuid`, `num_trigger` FROM `discord_tag` WHERE `tag_serverid` = %s AND `tag_id`=%s """
+                            `added_byuid`, `num_trigger` FROM `discord_tag` 
+                            WHERE `tag_serverid` = %s AND `tag_id`=%s
+                            """
                             await cur.execute(sql, (server_id, tag_id,))
                             result = await cur.fetchone()
                             if result: return result
@@ -40,27 +44,31 @@ class database_tag():
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def sql_tag_by_server_add(self, server_id: str, tag_id: str, tag_desc: str, added_byname: str,
-                                    added_byuid: str):
+    async def sql_tag_by_server_add(
+        self, server_id: str, tag_id: str, tag_desc: str, added_byname: str, added_byuid: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT COUNT(*) FROM `discord_tag` WHERE `tag_serverid`=%s """
+                    sql = """ SELECT COUNT(*) FROM `discord_tag` WHERE `tag_serverid`=%s
+                    """
                     await cur.execute(sql, (server_id,))
                     counting = await cur.fetchone()
                     if counting:
                         if counting['COUNT(*)'] > 50:
                             return None
-                    sql = """ SELECT `tag_id`, `tag_desc`, `date_added`, `tag_serverid`, `added_byname`, `added_byuid`, 
-                              `num_trigger` 
-                              FROM discord_tag WHERE tag_serverid = %s AND tag_id=%s """
+                    sql = """ SELECT `tag_id`, `tag_desc`, `date_added`, `tag_serverid`, 
+                    `added_byname`, `added_byuid`, `num_trigger` 
+                    FROM discord_tag WHERE tag_serverid = %s AND tag_id=%s
+                    """
                     await cur.execute(sql, (server_id, tag_id.upper(),))
                     result = await cur.fetchone()
                     if result is None:
                         sql = """ INSERT INTO `discord_tag` (`tag_id`, `tag_desc`, `date_added`, `tag_serverid`, 
-                                  `added_byname`, `added_byuid`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s) """
+                        `added_byname`, `added_byuid`) 
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        """
                         await cur.execute(sql, (
                         tag_id.upper(), tag_desc, int(time.time()), server_id, added_byname, added_byuid,))
                         await conn.commit()
@@ -75,12 +83,14 @@ class database_tag():
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT `tag_id`, `tag_desc`, `date_added`, `tag_serverid`, `added_byname`, 
-                              `added_byuid`, `num_trigger` 
-                              FROM `discord_tag` WHERE `tag_serverid` = %s AND `tag_id`=%s """
+                    `added_byuid`, `num_trigger` 
+                    FROM `discord_tag` WHERE `tag_serverid` = %s AND `tag_id`=%s
+                    """
                     await cur.execute(sql, (server_id, tag_id.upper(),))
                     result = await cur.fetchone()
                     if result:
-                        sql = """ DELETE FROM `discord_tag` WHERE `tag_id`=%s AND `tag_serverid`=%s """
+                        sql = """ DELETE FROM `discord_tag` WHERE `tag_id`=%s AND `tag_serverid`=%s
+                        """
                         await cur.execute(sql, (tag_id.upper(), server_id,))
                         await conn.commit()
                         return tag_id.upper()
@@ -117,8 +127,10 @@ class ModTagGuildAdd(disnake.ui.Modal):
             return
         elif re.match('^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$', tag_name):
             if tag_desc == "" or len(tag_desc) <= 3:
-                await inter.response.send_message(f"{inter.author.mention}, tag description is empty or too short!",
-                                                  ephemeral=False)
+                await inter.response.send_message(
+                    f"{inter.author.mention}, tag description is empty or too short!",
+                    ephemeral=False
+                )
                 return
 
             tagging = database_tag()
@@ -130,8 +142,9 @@ class ModTagGuildAdd(disnake.ui.Modal):
                     await inter.response.send_message(f"{inter.author.mention}, tag `{tag_name}` already exists here.")
                     return
             # Let's add
-            addTag = await tagging.sql_tag_by_server_add(str(inter.guild.id), tag_name, tag_desc, inter.author.name,
-                                                         str(inter.author.id))
+            addTag = await tagging.sql_tag_by_server_add(
+                str(inter.guild.id), tag_name, tag_desc, inter.author.name, str(inter.author.id)
+            )
             if addTag is None:
                 await inter.response.send_message(f"{inter.author.mention}, failed to add tag `{tag_name}`.")
             if addTag.upper() == tag_name.upper():

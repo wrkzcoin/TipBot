@@ -75,13 +75,17 @@ class BotBalance(commands.Cog):
             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             description = ""
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-            embed = disnake.Embed(title=f"Balance for Bot {member.name}#{member.discriminator}",
-                                  description="This is for Bot's! Not yours!", timestamp=datetime.now())
+            embed = disnake.Embed(
+                title=f"Balance for Bot {member.name}#{member.discriminator}",
+                description="This is for Bot's! Not yours!",
+                timestamp=datetime.now()
+            )
             embed.set_author(name=member.name, icon_url=member.display_avatar)
             try:
                 # height can be None
                 userdata_balance = await store.sql_user_balance_single(
-                    str(member.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+                    str(member.id), coin_name, wallet_address, type_coin, height,
+                    deposit_confirm_depth, SERVER_BOT
                 )
                 total_balance = userdata_balance['adjust']
                 equivalent_usd = ""
@@ -102,10 +106,12 @@ class BotBalance(commands.Cog):
                             equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
                         elif total_in_usd >= 0.0001:
                             equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
-                embed.add_field(name="Token/Coin {}{}".format(token_display, equivalent_usd),
-                                value="```Available: {} {}```".format(
-                                    num_format_coin(total_balance, coin_name, coin_decimal, False), token_display),
-                                inline=False)
+                embed.add_field(
+                    name="Token/Coin {}{}".format(token_display, equivalent_usd),
+                    value="```Available: {} {}```".format(
+                        num_format_coin(total_balance, coin_name, coin_decimal, False), token_display),
+                    inline=False
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             await ctx.edit_original_message(content=None, embed=embed)

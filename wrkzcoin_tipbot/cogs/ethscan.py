@@ -91,19 +91,23 @@ class EthScan(commands.Cog):
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
             return
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                bot_settings['api_best_node_sol'],
-                headers={'Content-Type': 'application/json'},
-                timeout=5.0
-            ) as response:
-                if response.status == 200:
-                    res_data = await response.read()
-                    res_data = res_data.decode('utf-8')
-                    # SOL needs to fetch best node from their public
-                    self.bot.erc_node_list['SOL'] = res_data.replace('"', '')
-                else:
-                    await logchanbot(f"Can not fetch best node for SOL.")
+        else:
+            if "local_node_sol" in bot_settings and bot_settings['local_node_sol'] is not None:
+                self.bot.erc_node_list['SOL'] = bot_settings['local_node_sol']
+            else:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        bot_settings['api_best_node_sol'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            # SOL needs to fetch best node from their public
+                            self.bot.erc_node_list['SOL'] = res_data.replace('"', '')
+                        else:
+                            await logchanbot(f"Can not fetch best node for SOL.")
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
@@ -119,19 +123,23 @@ class EthScan(commands.Cog):
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
             return
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                bot_settings['api_best_node_matic'],
-                headers={'Content-Type': 'application/json'},
-                timeout=5.0
-            ) as response:
-                if response.status == 200:
-                    res_data = await response.read()
-                    res_data = res_data.decode('utf-8')
-                    # MATIC needs to fetch best node from their public
-                    self.bot.erc_node_list['MATIC'] = res_data.replace('"', '')
-                else:
-                    await logchanbot(f"Can not fetch best node for MATIC.")
+        else:
+            if "local_node_matic" in bot_settings and bot_settings['local_node_matic'] is not None:
+                self.bot.erc_node_list['MATIC'] = bot_settings['local_node_matic']
+            else:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        bot_settings['api_best_node_matic'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            # MATIC needs to fetch best node from their public
+                            self.bot.erc_node_list['MATIC'] = res_data.replace('"', '')
+                        else:
+                            await logchanbot(f"Can not fetch best node for MATIC.")
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
@@ -147,19 +155,23 @@ class EthScan(commands.Cog):
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
             return
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                bot_settings['api_best_node_celo'],
-                headers={'Content-Type': 'application/json'},
-                timeout=5.0
-            ) as response:
-                if response.status == 200:
-                    res_data = await response.read()
-                    res_data = res_data.decode('utf-8')
-                    # CELO needs to fetch best node from their public
-                    self.bot.erc_node_list['CELO'] = res_data.replace('"', '')
-                else:
-                    await logchanbot(f"Can not fetch best node for CELO.")
+        else:
+            if "local_node_celo" in bot_settings and bot_settings['local_node_celo'] is not None:
+                self.bot.erc_node_list['CELO'] = bot_settings['local_node_celo']
+            else:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        bot_settings['api_best_node_celo'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            # CELO needs to fetch best node from their public
+                            self.bot.erc_node_list['CELO'] = res_data.replace('"', '')
+                        else:
+                            await logchanbot(f"Can not fetch best node for CELO.")
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
@@ -175,19 +187,23 @@ class EthScan(commands.Cog):
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
             return
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                bot_settings['api_best_node_ftm'],
-                headers={'Content-Type': 'application/json'},
-                timeout=5.0
-            ) as response:
-                if response.status == 200:
-                    res_data = await response.read()
-                    res_data = res_data.decode('utf-8')
-                    # FTM needs to fetch best node from their public
-                    self.bot.erc_node_list['FTM'] = res_data.replace('"', '')
-                else:
-                    await logchanbot(f"Can not fetch best node for FTM.")
+        else:
+            if "local_node_ftm" in bot_settings and bot_settings['local_node_ftm'] is not None:
+                self.bot.erc_node_list['FTM'] = bot_settings['local_node_ftm']
+            else:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        bot_settings['api_best_node_ftm'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            # FTM needs to fetch best node from their public
+                            self.bot.erc_node_list['FTM'] = res_data.replace('"', '')
+                        else:
+                            await logchanbot(f"Can not fetch best node for FTM.")
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
@@ -203,19 +219,23 @@ class EthScan(commands.Cog):
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
             return
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                bot_settings['api_best_node_avax'],
-                headers={'Content-Type': 'application/json'},
-                timeout=5.0
-            ) as response:
-                if response.status == 200:
-                    res_data = await response.read()
-                    res_data = res_data.decode('utf-8')
-                    # AVAX needs to fetch best node from their public
-                    self.bot.erc_node_list['AVAX'] = res_data.replace('"', '')
-                else:
-                    await logchanbot(f"Can not fetch best node for AVAX.")
+        else:
+            if "local_node_avax" in bot_settings and bot_settings['local_node_avax'] is not None:
+                self.bot.erc_node_list['AVAX'] = bot_settings['local_node_avax']
+            else:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        bot_settings['api_best_node_avax'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            # AVAX needs to fetch best node from their public
+                            self.bot.erc_node_list['AVAX'] = res_data.replace('"', '')
+                        else:
+                            await logchanbot(f"Can not fetch best node for AVAX.")
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
@@ -231,20 +251,25 @@ class EthScan(commands.Cog):
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
             return
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                bot_settings['api_best_node_xdai'],
-                headers={'Content-Type': 'application/json'},
-                timeout=5.0
-            ) as response:
-                if response.status == 200:
-                    res_data = await response.read()
-                    res_data = res_data.decode('utf-8')
-                    # XDAI needs to fetch best node from their public
-                    self.bot.erc_node_list['XDAI'] = res_data.replace('"', '')
-                    self.bot.erc_node_list['xDai'] = res_data.replace('"', '')
-                else:
-                    await logchanbot(f"Can not fetch best node for XDAI.")
+        else:
+            if "local_node_xdai" in bot_settings and bot_settings['local_node_xdai'] is not None:
+                self.bot.erc_node_list['XDAI'] = bot_settings['local_node_xdai']
+                self.bot.erc_node_list['xDai'] = bot_settings['local_node_xdai']
+            else:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        bot_settings['api_best_node_xdai'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            # XDAI needs to fetch best node from their public
+                            self.bot.erc_node_list['XDAI'] = res_data.replace('"', '')
+                            self.bot.erc_node_list['xDai'] = res_data.replace('"', '')
+                        else:
+                            await logchanbot(f"Can not fetch best node for XDAI.")
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
@@ -444,19 +469,23 @@ class EthScan(commands.Cog):
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
             return
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                bot_settings['api_best_node_nova'],
-                headers={'Content-Type': 'application/json'},
-                timeout=5.0
-            ) as response:
-                if response.status == 200:
-                    res_data = await response.read()
-                    res_data = res_data.decode('utf-8')
-                    # NOVA needs to fetch best node from their public
-                    self.bot.erc_node_list['NOVA'] = res_data.replace('"', '')
-                else:
-                    await logchanbot(f"Can not fetch best node for NOVA.")
+        else:
+            if "local_node_nova" in bot_settings and bot_settings['local_node_nova'] is not None:
+                self.bot.erc_node_list['NOVA'] = bot_settings['local_node_nova']
+            else:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        bot_settings['api_best_node_nova'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            # NOVA needs to fetch best node from their public
+                            self.bot.erc_node_list['NOVA'] = res_data.replace('"', '')
+                        else:
+                            await logchanbot(f"Can not fetch best node for NOVA.")
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)

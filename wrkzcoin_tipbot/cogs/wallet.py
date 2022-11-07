@@ -6775,6 +6775,9 @@ class Wallet(commands.Cog):
         if debug is True:
             print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
         gettopblock = await self.gettopblock(coin_name, time_out=32)
+        if gettopblock is None:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} gettopblock {coin_name} got None", color="red")
+            return
         height = int(gettopblock['block_header']['height'])
         try:
             redis_utils.redis_conn.set(
@@ -9266,7 +9269,12 @@ class Wallet(commands.Cog):
                                         ) as response:
                                             if response.status == 200:
                                                 res_data = await response.json()
-                                                return res_data['result']
+                                                if 'result' in res_data:
+                                                    return res_data['result']
+                                                else:
+                                                    print("Couldn't get result for coin: {}".format(coin_name))
+                                            else:
+                                                print("Coin {} got response status: {}".format(coin_name, response.status))
                                 except asyncio.TimeoutError:
                                     traceback.print_exc(file=sys.stdout)
                                 except Exception:
@@ -9344,19 +9352,11 @@ class Wallet(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
             return None
         elif coin_family == "CHIA":
-            url = getattr(getattr(self.bot.coin_list, coin_name), "daemon_address") + '/get_blockchain_state'
+            payload = {'wallet_id': 1}
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, timeout=timeout, json={}) as response:
-                        if response.status == 200:
-                            res_data = await response.json()
-                            return res_data['blockchain_state']['peak']
-            except asyncio.TimeoutError:
-                await logchanbot(
-                    'gettopblock: method: {} coin_name {} - timeout {}'.format(
-                        "get_blockchain_state", coin.upper(), time_out
-                    )
-                )
+                get_height = await self.wallet_api.call_xch('get_height_info', coin_name, payload=payload)
+                if get_height and 'success' in get_height and get_height['height']:
+                    return get_height
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             return None

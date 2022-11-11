@@ -987,12 +987,13 @@ class Guild(commands.Cog):
 
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
-    @commands.slash_command(description="Various guild's commands.")
+    @commands.slash_command(
+        dm_permission=False,
+        description="Various guild's commands."
+    )
     async def guild(self, ctx):
         pass
 
-
-    @commands.guild_only()
     @commands.has_permissions(manage_channels=True)
     @guild.sub_command(
         usage="guild createraffle <amount> <coin> <duration>", 
@@ -2059,6 +2060,7 @@ class Guild(commands.Cog):
 
     @commands.guild_only()
     @commands.slash_command(
+        dm_permission=False,
         usage="mdeposit <coin_name>", 
         options=[
             Option('token', 'token', OptionType.string, required=True),
@@ -2263,6 +2265,7 @@ class Guild(commands.Cog):
     @commands.has_permissions(administrator=True)
     @commands.guild_only()
     @commands.slash_command(
+        dm_permission=False,
         usage="tiptalker <amount> <coin/token> <duration> <#channel> [@role]", 
         options=[
             Option('amount', 'amount', OptionType.string, required=True), 
@@ -2495,7 +2498,6 @@ class Guild(commands.Cog):
         await ctx.edit_original_message(content=None, embed=embed)
 
     @commands.bot_has_permissions(send_messages=True)
-    @commands.guild_only()
     @guild.sub_command(
         usage="guild info", 
         description="Get information about a guild."
@@ -2515,6 +2517,7 @@ class Guild(commands.Cog):
     @commands.bot_has_permissions(send_messages=True)
     @commands.guild_only()
     @commands.slash_command(
+        dm_permission=False,
         name="featurerole",
         usage="featurerole",
         description="Adjust faucet, vote, claim duration cut by a role.")
@@ -2525,7 +2528,6 @@ class Guild(commands.Cog):
         pass
 
     @commands.bot_has_permissions(send_messages=True)
-    @commands.guild_only()
     @featurerole.sub_command(
         name="list",
         usage="featurerole list", 
@@ -2580,7 +2582,6 @@ class Guild(commands.Cog):
 
     @commands.has_permissions(administrator=True)
     @commands.bot_has_permissions(send_messages=True)
-    @commands.guild_only()
     @featurerole.sub_command(
         name="add",
         usage="featurerole add <role> ....", 
@@ -2710,7 +2711,6 @@ class Guild(commands.Cog):
 
     @commands.has_permissions(administrator=True)
     @commands.bot_has_permissions(send_messages=True)
-    @commands.guild_only()
     @featurerole.sub_command(
         name="delete",
         usage="featurerole delete <role>", 
@@ -2749,11 +2749,13 @@ class Guild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     @commands.bot_has_permissions(send_messages=True)
     @commands.guild_only()
-    @commands.slash_command(usage="/faucet",
-                            description="Claim guild's faucet.")
+    @commands.slash_command(
+        dm_permission=False,
+        usage="faucet",
+        description="Claim guild's faucet."
+    )
     async def faucet(
         self, 
         ctx

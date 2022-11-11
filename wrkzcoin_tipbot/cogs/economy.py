@@ -3280,6 +3280,7 @@ class Economy(commands.Cog):
 
     @commands.guild_only()
     @commands.slash_command(
+        dm_permission=False,
         description="Economy game commands."
     )
     async def eco(self, ctx):

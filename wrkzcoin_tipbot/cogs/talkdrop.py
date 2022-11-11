@@ -488,6 +488,7 @@ class TalkDrop(commands.Cog):
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='talkdrop <amount> <token> <channel> <from when> <end>',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),

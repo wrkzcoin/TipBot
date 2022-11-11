@@ -681,7 +681,10 @@ class Twitter(commands.Cog):
         await asyncio.sleep(time_lap)
 
     @commands.guild_only()
-    @commands.slash_command(description="Various twitter's commands.")
+    @commands.slash_command(
+        dm_permission=False,
+        description="Various twitter's commands."
+    )
     async def twitter(self, ctx):
         pass
 

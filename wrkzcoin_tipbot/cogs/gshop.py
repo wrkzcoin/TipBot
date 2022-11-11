@@ -344,15 +344,15 @@ class GShop(commands.Cog):
             await logchanbot("gshop " +str(traceback.format_exc()))
         return False
 
+    @commands.guild_only()
     @commands.slash_command(
+        dm_permission=False,
         name="gshop",
         description="Guild shop's commands."
     )
     async def gshop(self, ctx):
         await self.bot_log()
 
-
-    @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.has_permissions(manage_channels=True)
     @gshop.sub_command(
@@ -404,7 +404,6 @@ class GShop(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(f"[GSHOP] server {str(ctx.guild.id)}, user `{str(ctx.author.id)}` failed to remove item `{item_id}`.")
 
-    @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @gshop.sub_command(
         name="buyrole",
@@ -624,7 +623,6 @@ class GShop(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.has_permissions(manage_channels=True)
     @gshop.sub_command(
@@ -838,7 +836,6 @@ class GShop(commands.Cog):
         string = string.lower()
         return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
-    @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @gshop.sub_command(
         name="rolelist",

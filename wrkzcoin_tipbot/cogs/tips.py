@@ -858,6 +858,7 @@ class Tips(commands.Cog):
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='randtip',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
@@ -1143,6 +1144,7 @@ class Tips(commands.Cog):
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='freetip',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
@@ -1491,6 +1493,7 @@ class Tips(commands.Cog):
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='tipall',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
@@ -1761,6 +1764,7 @@ class Tips(commands.Cog):
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='tip <amount> <token> @mention .... [last 10u, last 10mn]',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
@@ -2025,6 +2029,7 @@ class Tips(commands.Cog):
     @commands.bot_has_permissions(send_messages=True)
     @commands.has_permissions(manage_channels=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='guildtip <amount> <token> @mention @mention..',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
@@ -2053,6 +2058,7 @@ class Tips(commands.Cog):
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='z <amount coin1, amount coin2> <@mention @mention @role>',
         options=[
             Option('amount_coin_list_to', 'amount_coin_list_to', OptionType.string, required=True)

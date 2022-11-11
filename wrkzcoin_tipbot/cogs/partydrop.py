@@ -548,6 +548,7 @@ class PartyDrop(commands.Cog):
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='partydrop <amount> <token> <duration>',
         options=[
             Option('min_amount', 'min_amount', OptionType.string, required=True),

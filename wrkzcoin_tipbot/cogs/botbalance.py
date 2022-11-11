@@ -126,6 +126,7 @@ class BotBalance(commands.Cog):
     @commands.bot_has_permissions(send_messages=True)
     @commands.guild_only()
     @commands.slash_command(
+        dm_permission=False,
         usage="botbalance <bot> <coin>",
         options=[
             Option("botname", "Enter a bot", OptionType.user, required=True),

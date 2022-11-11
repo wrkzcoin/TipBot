@@ -501,6 +501,7 @@ class MathTips(commands.Cog):
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='mathtip <amount> <token> <duration> <math expression>',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),

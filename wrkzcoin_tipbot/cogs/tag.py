@@ -159,12 +159,14 @@ class Tag(commands.Cog):
         self.tag_db = database_tag()
 
     @commands.guild_only()
-    @commands.slash_command(description="Manage or display tag(s).")
+    @commands.slash_command(
+        dm_permission=False,
+        description="Manage or display tag(s)."
+    )
     async def tag(self, ctx):
         # Check if tag available
         pass
 
-    @commands.guild_only()
     @commands.has_permissions(manage_channels=True)
     @tag.sub_command(
         usage="tag add",
@@ -176,7 +178,6 @@ class Tag(commands.Cog):
     ):
         await ctx.response.send_modal(modal=ModTagGuildAdd())
 
-    @commands.guild_only()
     @commands.has_permissions(manage_channels=True)
     @tag.sub_command(
         usage="tag delete <tag_name>",
@@ -224,7 +225,6 @@ class Tag(commands.Cog):
         else:
             return ["N/A"]
 
-    @commands.guild_only()
     @tag.sub_command(
         usage="tag show <tag_name>",
         options=[

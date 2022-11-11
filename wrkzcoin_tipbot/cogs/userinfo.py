@@ -164,6 +164,7 @@ class Userinfo(commands.Cog):
 
     @commands.guild_only()
     @commands.slash_command(
+        dm_permission=False,
         usage="userinfo <member>",
         options=[
             Option("user", "Enter user", OptionType.user, required=False)

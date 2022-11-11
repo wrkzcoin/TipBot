@@ -3355,11 +3355,14 @@ class Games(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    @commands.slash_command(description="Various game commands.")
+    @commands.guild_only()
+    @commands.slash_command(
+        dm_permission=False,
+        description="Various game commands."
+    )
     async def game(self, ctx):
         pass
 
-    @commands.guild_only()
     @game.sub_command(
         usage="game blackjack",
         description="Blackjack, original code by Al Sweigart al@inventwithpython.com."
@@ -3373,7 +3376,6 @@ class Games(commands.Cog):
         if game_blackjack and "error" in game_blackjack:
             await ctx.response.send_message(game_blackjack['error'])
 
-    @commands.guild_only()
     @game.sub_command(
         usage="game slot",
         description="Play a slot game."
@@ -3388,7 +3390,6 @@ class Games(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    @commands.guild_only()
     @game.sub_command(
         usage="game maze",
         description="Interactive 2D ascii maze game."
@@ -3403,7 +3404,6 @@ class Games(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    @commands.guild_only()
     @game.sub_command(
         usage="game dice",
         description="Simple dice game."
@@ -3418,7 +3418,6 @@ class Games(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    @commands.guild_only()
     @game.sub_command(
         usage="game snail <bet number>",
         options=[
@@ -3437,7 +3436,6 @@ class Games(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    @commands.guild_only()
     @game.sub_command(
         usage="game g2048",
         description="Classic 2048 game. Slide all the tiles on the board in one of four directions."
@@ -3452,7 +3450,6 @@ class Games(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    @commands.guild_only()
     @game.sub_command(
         usage="game sokoban",
         description="Sokoban interactive game."

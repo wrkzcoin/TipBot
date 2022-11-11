@@ -562,7 +562,10 @@ class Tb(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.guild_only()
-    @commands.slash_command(description="Some fun commands.")
+    @commands.slash_command(
+        dm_permission=False,
+        description="Some fun commands."
+    )
     async def tb(self, ctx):
         pass
 

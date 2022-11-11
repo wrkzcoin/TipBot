@@ -11576,7 +11576,9 @@ class Wallet(commands.Cog):
             await logchanbot("wallet /take_action " + str(traceback.format_exc()))
         self.bot.TX_IN_PROCESS.remove(ctx.author.id)
 
+    @commands.guild_only()
     @commands.slash_command(
+        dm_permission=False,
         usage="take <info>",
         options=[
             Option('info', 'info', OptionType.string, required=False)

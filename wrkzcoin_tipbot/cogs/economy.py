@@ -3307,7 +3307,7 @@ class Economy(commands.Cog):
         self, 
         ctx
     ):
-        eco_items = await self.eco_items(ctx)
+        await self.eco_items(ctx)
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     @eco.sub_command(
@@ -3324,7 +3324,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_info = await self.eco_info(ctx, member)
+        await self.eco_info(ctx, member)
 
 
     @eco.sub_command(
@@ -3355,7 +3355,7 @@ class Economy(commands.Cog):
         *, 
         item_name: str
     ):
-        eco_buy = await self.eco_buy(ctx, item_name)
+        await self.eco_buy(ctx, item_name)
         if item_name is None:
             item_name = "LIST"
         if item_name.upper() == "LIST":
@@ -3393,7 +3393,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_fish = await self.eco_fish(ctx, member)
+        await self.eco_fish(ctx, member)
 
     @eco.sub_command(
         usage="eco plant <crop name>", 
@@ -3438,7 +3438,7 @@ class Economy(commands.Cog):
         ctx, 
         what: str
     ):
-        eco_collect = await self.eco_collect(ctx, what)
+        await self.eco_collect(ctx, what)
         if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     @eco.sub_command(
@@ -3455,7 +3455,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_dairy = await self.eco_dairy(ctx, member)
+        await self.eco_dairy(ctx, member)
 
     @eco.sub_command(
         usage="eco chicken <member>", 
@@ -3471,7 +3471,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_chicken = await self.eco_chicken(ctx, member)
+        await self.eco_chicken(ctx, member)
 
     @eco.sub_command(
         usage="eco saltfarm <member>", 
@@ -3487,7 +3487,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_saltfarm = await self.eco_saltfarm(ctx, member)
+        await self.eco_saltfarm(ctx, member)
 
     @eco.sub_command(
         usage="eco farm <member>", 
@@ -3503,7 +3503,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_farm = await self.eco_farm(ctx, member)
+        await self.eco_farm(ctx, member)
 
     @eco.sub_command(
         usage="eco harvest", 
@@ -3513,7 +3513,7 @@ class Economy(commands.Cog):
         self, 
         ctx
     ):
-        eco_harvest = await self.eco_harvest(ctx)
+        await self.eco_harvest(ctx)
 
     @eco.sub_command(
         usage="eco fishing", 
@@ -3523,7 +3523,7 @@ class Economy(commands.Cog):
         self, 
         ctx
     ):
-        eco_fishing = await self.eco_fishing(ctx)
+        await self.eco_fishing(ctx)
 
     @eco.sub_command(
         usage="eco woodcutting", 
@@ -3543,7 +3543,7 @@ class Economy(commands.Cog):
         self, 
         ctx
     ):
-        eco_search = await self.eco_search(ctx)
+        await self.eco_search(ctx)
 
     @eco.sub_command(
         usage="eco eat", 

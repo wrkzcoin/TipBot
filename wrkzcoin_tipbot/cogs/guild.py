@@ -1144,6 +1144,10 @@ class Guild(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
+    @createraffle.autocomplete("coin")
+    async def createraffle_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     @guild.sub_command(
         usage="guild raffle [info|join|check]", 
@@ -1649,6 +1653,10 @@ class Guild(commands.Cog):
                 msg = f'{ctx.author.mention}, internal error or nothing updated.'
                 await ctx.edit_original_message(content=msg)
 
+    @votereward.autocomplete("coin")
+    async def votereward_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     @guild.sub_command(
         usage="guild deposit <amount> <coin/token>", 
@@ -1834,6 +1842,10 @@ class Guild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @deposit.autocomplete("coin")
+    async def guilddeposit_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     @commands.has_permissions(administrator=True)
     @guild.sub_command(
@@ -1976,7 +1988,6 @@ class Guild(commands.Cog):
                     await ctx.edit_original_message(content=f'Internal error! Please report!')
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-
 
     # Guild deposit
     async def async_mdeposit(self, ctx, token: str=None, plain: str=None):
@@ -2206,6 +2217,11 @@ class Guild(commands.Cog):
                 await ctx.edit_original_message(content=msg)
             return
 
+    @faucetclaim.autocomplete("coin")
+    async def quickdrop_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
+
     @commands.has_permissions(administrator=True)
     @guild.sub_command(
         usage="guild activedrop <amount> <coin/token> <duration> <#channel> [@role]", 
@@ -2238,8 +2254,12 @@ class Guild(commands.Cog):
         role: disnake.Role=None
     ):
         await self.async_activedrop( ctx, amount, coin, duration, channel, role )
-    
-    
+
+    @activedrop.autocomplete("coin")
+    async def activedrop_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
+
     @commands.has_permissions(administrator=True)
     @commands.guild_only()
     @commands.slash_command(
@@ -2273,6 +2293,11 @@ class Guild(commands.Cog):
         role: disnake.Role=None
     ):
         await self.async_activedrop( ctx, amount, coin, duration, channel, role )
+
+    @tiptalker.autocomplete("coin")
+    async def tiptalker_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     async def async_activedrop(self, ctx, amount: str, coin: str, duration: str, channel: disnake.TextChannel, role: disnake.Role=None):
 

@@ -833,6 +833,11 @@ class GShop(commands.Cog):
                 f"[GSHOP] item added failed `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`."
             )
 
+    @slash_addrole.autocomplete("token")
+    async def quickdrop_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
+
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @gshop.sub_command(

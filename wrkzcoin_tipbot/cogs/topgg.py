@@ -195,7 +195,7 @@ class TopGGVote(commands.Cog):
                                     if get_guild['feature_roles'] is not None:
                                         try:
                                             member = guild.get_member(int(user_vote))
-                                            if member.roles and len(member.roles) > 0:
+                                            if member and member.roles and len(member.roles) > 0:
                                                 for r in member.roles:
                                                     if str(r.id) in get_guild['feature_roles']:
                                                         extra_amount = amount * get_guild['feature_roles'][str(r.id)]['guild_vote_multiplied_by'] - amount
@@ -503,7 +503,7 @@ class TopGGVote(commands.Cog):
                                                                     del self.bot.user_balance_cache[key_coin]
                                                             except Exception:
                                                                 pass
-                                                            tip = await store.sql_user_balance_mv_single(
+                                                            await store.sql_user_balance_mv_single(
                                                                 self.bot.config['discord']['bot_id'], user_vote, "TOPGG", "VOTE",
                                                                 amount, coin_name, "BOTVOTE", coin_decimal, SERVER_BOT,
                                                                 contract, amount_in_usd, None

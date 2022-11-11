@@ -877,6 +877,11 @@ class Tips(commands.Cog):
             await self.async_randtip(ctx, amount, token, rand_option)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+    @randtip.autocomplete("token")
+    async def randtip_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
     # End of RandomTip
 
     # FreeTip
@@ -1160,6 +1165,10 @@ class Tips(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @freetip.autocomplete("token")
+    async def freetip_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
     # End of FreeTip
 
     # TipAll
@@ -1508,6 +1517,10 @@ class Tips(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @tipall.autocomplete("token")
+    async def tipall_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
     # End of TipAll
 
     # Tip Normal
@@ -1769,6 +1782,10 @@ class Tips(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @tip.autocomplete("token")
+    async def tip_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     async def async_gtip(self, ctx, amount: str, token: str, args):
         coin_name = token.upper()
@@ -2027,6 +2044,11 @@ class Tips(commands.Cog):
             await self.async_gtip(ctx, amount, token.strip(), args.strip())
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+    @guildtip.autocomplete("token")
+    async def guildtip_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)

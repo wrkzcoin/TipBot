@@ -11,9 +11,7 @@ from disnake.enums import OptionType
 from disnake.ext import commands
 from cogs.utils import Utils
 from Bot import SERVER_BOT
-
 # TODO: add back itag for media
-
 
 class database_tag():
     async def sql_tag_by_server(self, server_id: str, tag_id: str = None):
@@ -116,6 +114,7 @@ class ModTagGuildAdd(disnake.ui.Modal):
                 style=TextInputStyle.paragraph
             ),
         ]
+        self.tag_db = database_tag()
         super().__init__(title="Add a new tag to guild", custom_id="modal_add_tag", components=components)
 
     async def callback(self, inter: disnake.ModalInteraction) -> None:
@@ -132,17 +131,15 @@ class ModTagGuildAdd(disnake.ui.Modal):
                     ephemeral=False
                 )
                 return
-
-            tagging = database_tag()
             # Check if tag already exist!
-            ListTag = await tagging.sql_tag_by_server(str(inter.guild.id), None)
-            if len(ListTag) > 0:
-                d = [i['tag_id'] for i in ListTag]
+            list_tag = await self.tag_db.sql_tag_by_server(str(inter.guild.id), None)
+            if len(list_tag) > 0:
+                d = [i['tag_id'] for i in list_tag]
                 if tag_name.upper() in d:
                     await inter.response.send_message(f"{inter.author.mention}, tag `{tag_name}` already exists here.")
                     return
             # Let's add
-            addTag = await tagging.sql_tag_by_server_add(
+            addTag = await self.tag_db.sql_tag_by_server_add(
                 str(inter.guild.id), tag_name, tag_desc, inter.author.name, str(inter.author.id)
             )
             if addTag is None:
@@ -154,12 +151,12 @@ class ModTagGuildAdd(disnake.ui.Modal):
         else:
             await inter.response.send_message(f"{inter.author.mention}, tag `{tag_name}` is not valid.")
 
-
 class Tag(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
         self.utils = Utils(self.bot)
+        self.tag_db = database_tag()
 
     @commands.guild_only()
     @commands.slash_command(description="Manage or display tag(s).")
@@ -195,8 +192,7 @@ class Tag(commands.Cog):
     ):
         if re.match('^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$', tag_name):
             tag = tag_name.upper()
-            tagging = database_tag()
-            delTag = await tagging.sql_tag_by_server_del(str(ctx.guild.id), tag.strip())
+            delTag = await self.tag_db.sql_tag_by_server_del(str(ctx.guild.id), tag.strip())
             if delTag is None:
                 await ctx.response.send_message(f"{ctx.author.mention}, failed to delete tag `{tag_name}`.")
             elif delTag.upper() == tag.upper():
@@ -218,6 +214,16 @@ class Tag(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @delete.autocomplete("tag_name")
+    async def delete_tag_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        list_tag = await self.tag_db.sql_tag_by_server(str(inter.guild.id), None)
+        if len(list_tag) > 0:
+            d = [i['tag_id'] for i in list_tag]
+            return [name for name in d if string in name.lower()][:10]
+        else:
+            return ["N/A"]
+
     @commands.guild_only()
     @tag.sub_command(
         usage="tag show <tag_name>",
@@ -231,16 +237,15 @@ class Tag(commands.Cog):
         ctx,
         tag_name: str = None
     ):
-        tagging = database_tag()
         if tag_name is None:
-            ListTag = await tagging.sql_tag_by_server(str(ctx.guild.id), None)
+            ListTag = await self.tag_db.sql_tag_by_server(str(ctx.guild.id), None)
             if len(ListTag) > 0:
                 tags = (', '.join([w['tag_id'] for w in ListTag])).lower()
                 await ctx.response.send_message(f"{ctx.author.mention}, available tag:```{tags}```")
             else:
                 await ctx.response.send_message(f"{ctx.author.mention}, there is not any tag in this server.")
         else:
-            TagIt = await tagging.sql_tag_by_server(str(ctx.guild.id), tag_name.upper())
+            TagIt = await self.tag_db.sql_tag_by_server(str(ctx.guild.id), tag_name.upper())
             if TagIt:
                 tagDesc = TagIt['tag_desc'].replace("\n", "\r\n")
                 try:
@@ -256,6 +261,15 @@ class Tag(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @show.autocomplete("tag_name")
+    async def show_tag_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        list_tag = await self.tag_db.sql_tag_by_server(str(inter.guild.id), None)
+        if len(list_tag) > 0:
+            d = [i['tag_id'] for i in list_tag]
+            return [name for name in d if string in name.lower()][:10]
+        else:
+            return ["N/A"]
 
 def setup(bot):
     bot.add_cog(Tag(bot))

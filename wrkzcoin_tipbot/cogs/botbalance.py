@@ -140,6 +140,10 @@ class BotBalance(commands.Cog):
     ):
         await self.bot_bal(ctx, botname, coin)
 
+    @botbalance.autocomplete("coin")
+    async def coin_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
 def setup(bot):
     bot.add_cog(BotBalance(bot))

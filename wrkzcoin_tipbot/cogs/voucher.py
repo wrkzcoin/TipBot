@@ -580,6 +580,11 @@ class Voucher(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("voucher " +str(traceback.format_exc()))
 
+    @make.autocomplete("coin")
+    async def voucher_make_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
+
     @voucher.sub_command(
         usage="voucher unclaim",
         description="View list of unclaimed vouchers."

@@ -376,6 +376,11 @@ class QuickDrop(commands.Cog):
     ):
         await self.async_quickdrop(ctx, amount, token)
 
+    @quickdrop.autocomplete("token")
+    async def quickdrop_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
+
     @commands.Cog.listener()
     async def on_ready(self):
         if self.bot.config['discord']['enable_bg_tasks'] == 1:

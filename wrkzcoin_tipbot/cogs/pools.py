@@ -190,8 +190,11 @@ class Pools(commands.Cog):
                             content=f"{ctx.author.name}#{ctx.author.discriminator}, Received 0 length of data for **{coin_name}**.")
                         return
                     elif len(get_pool_data['data']) <= pool_nos_per_page:
-                        embed = disnake.Embed(title='Mining Pools for {}'.format(coin_name), description='',
-                                              timestamp=datetime.now(), colour=7047495)
+                        embed = disnake.Embed(
+                            title='Mining Pools for {}'.format(coin_name),
+                            description='',
+                            timestamp=datetime.now()
+                        )
                         if 'symbol' in get_pool_data:
                             embed.add_field(
                                 name="Ticker",

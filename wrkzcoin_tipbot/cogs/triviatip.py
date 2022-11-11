@@ -500,6 +500,10 @@ class TriviaTips(commands.Cog):
     ):
         await self.async_triviatip(ctx, amount, token, duration)
 
+    @triviatip.autocomplete("token")
+    async def triviatip_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
 def setup(bot):
     bot.add_cog(TriviaTips(bot))

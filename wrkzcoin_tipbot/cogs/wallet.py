@@ -9502,8 +9502,11 @@ class Wallet(commands.Cog):
                     "The fee{} will be deducted from your deposit amount.".format(
                         num_format_coin(real_min_deposit, coin_name, coin_decimal, False), token_display, real_deposit_fee_text
                         )
-            embed = disnake.Embed(title=f'Deposit for {ctx.author.name}#{ctx.author.discriminator}',
-                                  description=description + fee_txt, timestamp=datetime.fromtimestamp(int(time.time())))
+            embed = disnake.Embed(
+                title=f'Deposit for {ctx.author.name}#{ctx.author.discriminator}',
+                description=description + fee_txt,
+                timestamp=datetime.fromtimestamp(int(time.time()))
+            )
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             qr_address = wallet_address
             if coin_name == "HNT":
@@ -9529,9 +9532,16 @@ class Wallet(commands.Cog):
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"] and getattr(
                     getattr(self.bot.coin_list, coin_name),
                     "split_main_paymentid") == 1:  # split main and integrated address
-                embed.add_field(name="Main Address", value="`{}`".format(get_deposit['main_address']), inline=False)
-                embed.add_field(name="PaymentID (Must include)", value="`{}`".format(get_deposit['paymentid']),
-                                inline=False)
+                embed.add_field(
+                    name="Main Address",
+                    value="`{}`".format(get_deposit['main_address']),
+                    inline=False
+                )
+                embed.add_field(
+                    name="PaymentID (Must include)",
+                    value="`{}`".format(get_deposit['paymentid']),
+                    inline=False
+                )
             else:
                 wallet_address_new = wallet_address
                 if " MEMO:" in wallet_address_new:
@@ -9593,6 +9603,10 @@ class Wallet(commands.Cog):
     ):
         await self.async_deposit(ctx, token, plain)
 
+    @deposit.autocomplete("token")
+    async def deposit_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
     # End of deposit
 
     # Balance
@@ -9916,6 +9930,11 @@ class Wallet(commands.Cog):
             await self.async_balances(ctx, None)
         else:
             await self.async_balance(ctx, token)
+
+    @balance.autocomplete("token")
+    async def balance_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     @commands.slash_command(
         usage='balances',
@@ -11022,6 +11041,11 @@ class Wallet(commands.Cog):
     ):
         await self.async_withdraw(ctx, amount, token, address)
 
+    @withdraw.autocomplete("token")
+    async def withdraw_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
+
     @commands.slash_command(
         usage='transfer',
         options=[
@@ -11039,6 +11063,11 @@ class Wallet(commands.Cog):
         address: str
     ):
         await self.async_withdraw(ctx, amount, token, address)
+
+    @transfer.autocomplete("token")
+    async def transfer_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     @commands.slash_command(
         usage='send',
@@ -11058,6 +11087,10 @@ class Wallet(commands.Cog):
     ):
         await self.async_withdraw(ctx, amount, token, address)
 
+    @send.autocomplete("token")
+    async def send_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
     # End of Withdraw
 
     # Faucet

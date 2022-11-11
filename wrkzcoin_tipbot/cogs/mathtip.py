@@ -520,6 +520,10 @@ class MathTips(commands.Cog):
     ):
         await self.async_mathtip(ctx, amount, token, duration, math_exp)
 
+    @mathtip.autocomplete("token")
+    async def mathtip_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
 def setup(bot):
     bot.add_cog(MathTips(bot))

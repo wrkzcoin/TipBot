@@ -341,8 +341,25 @@ class Trade(commands.Cog):
         except Exception:
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 return
+        await self.make_open_order(ctx, sell_amount, sell_ticker, buy_amount, buy_ticker)
 
-        create_order = await self.make_open_order(ctx, sell_amount, sell_ticker, buy_amount, buy_ticker)
+    @sell.autocomplete("sell_ticker")
+    async def sell_sell_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        list_trade = []
+        for each in self.bot.coin_name_list:
+            if getattr(getattr(self.bot.coin_list, each), "enable_trade") == 1:
+                list_trade.append(each)
+        return [name for name in list_trade if string in name.lower()][:10]
+
+    @sell.autocomplete("buy_ticker")
+    async def sell_buy_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        list_trade = []
+        for each in self.bot.coin_name_list:
+            if getattr(getattr(self.bot.coin_list, each), "enable_trade") == 1:
+                list_trade.append(each)
+        return [name for name in list_trade if string in name.lower()][:10]
 
     @market.sub_command(
         usage="market myorder [coin]",
@@ -501,12 +518,22 @@ class Trade(commands.Cog):
                 msg = f'{ctx.author.mention}, you do not have any active selling.'
                 await ctx.edit_original_message(content=msg)
 
+    @myorder.autocomplete("ticker")
+    async def myorder_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        list_trade = []
+        for each in self.bot.coin_name_list:
+            if getattr(getattr(self.bot.coin_list, each), "enable_trade") == 1:
+                list_trade.append(each)
+        return [name for name in list_trade if string in name.lower()][:10]
 
-    @market.sub_command(usage="market cancel <ref_number|all>",
-                        options=[
-                            Option('order_num', 'order_num', OptionType.string, required=True)
-                        ],
-                        description="Cancel your opened order or all.")
+    @market.sub_command(
+        usage="market cancel <ref_number|all>",
+        options=[
+            Option('order_num', 'order_num', OptionType.string, required=True)
+        ],
+        description="Cancel your opened order or all."
+    )
     async def cancel(
         self,
         ctx,
@@ -600,13 +627,13 @@ class Trade(commands.Cog):
                         msg = f'{ctx.author.mention}, you cancelled #**{order_num}**.'
                         await ctx.edit_original_message(content=msg)
 
-
-    @market.sub_command(usage="market buy <ref_number>",
-                        options=[
-                            Option('ref_number', 'ref_number', OptionType.string, required=True)
-                        ],
-                        description="Trade from a referenced number."
-                        )
+    @market.sub_command(
+        usage="market buy <ref_number>",
+        options=[
+            Option('ref_number', 'ref_number', OptionType.string, required=True)
+        ],
+        description="Trade from a referenced number."
+    )
     async def buy(
         self,
         ctx,
@@ -826,16 +853,16 @@ class Trade(commands.Cog):
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** does not exist or already completed.'
                 await ctx.edit_original_message(content=msg)
 
-    @market.sub_command(usage="market list <coin/pair> <desc|asc>",
-                        options=[
-                            Option('coin', 'coin or pair', OptionType.string, required=True),
-                            Option('option_order', 'desc or asc', OptionType.string, required=False, choices=[
-                                OptionChoice("desc", "desc"),
-                                OptionChoice("asc", "asc")
-                            ]
-                                   )
-                        ],
-                        description="Make an opened sell of a coin for another coin.")
+    @market.sub_command(
+        usage="market list <coin/pair> <desc|asc>",
+        options=[
+            Option('coin', 'coin or pair', OptionType.string, required=True),
+            Option('option_order', 'desc or asc', OptionType.string, required=False, choices=[
+                OptionChoice("desc", "desc"),
+                OptionChoice("asc", "asc")]
+            )
+        ],
+        description="Make an opened sell of a coin for another coin.")
     async def list(
         self,
         ctx,
@@ -945,11 +972,17 @@ class Trade(commands.Cog):
                 all_pages.append(page)
             if len(all_pages) == 1:
                 all_pages[0].set_footer(text="Please create more opened orders with /market sell")
-                await ctx.edit_original_message(content=None, embed=all_pages[0],
-                                                view=RowButtonRowCloseAnyMessage())
+                await ctx.edit_original_message(
+                    content=None,
+                    embed=all_pages[0],
+                    view=RowButtonRowCloseAnyMessage()
+                )
             elif len(all_pages) > 1:
-                await ctx.edit_original_message(content=None, embed=all_pages[0],
-                                                view=MenuPage(ctx, all_pages, timeout=30, disable_remove=False))
+                await ctx.edit_original_message(
+                    content=None,
+                    embed=all_pages[0],
+                    view=MenuPage(ctx, all_pages, timeout=30, disable_remove=False)
+                )
         else:
             no_open = ""
             if coin_pair and len(coin_pair) == 2:
@@ -957,6 +990,16 @@ class Trade(commands.Cog):
             msg = f'{ctx.author.mention}, there is no result{no_open}. Please create opened order with /market sell command.'
             await ctx.edit_original_message(content=msg)
             return
+
+    @list.autocomplete("coin")
+    async def marketlist_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        string = string.lower()
+        list_trade = []
+        for each in self.bot.coin_name_list:
+            if getattr(getattr(self.bot.coin_list, each), "enable_trade") == 1:
+                list_trade.append(each)
+        return [name for name in list_trade if string in name.lower()][:10]
 
     @market.sub_command(
         usage="market listcoins",

@@ -117,6 +117,10 @@ class Coininfo(commands.Cog):
     ):
         await self.get_coininfo(ctx, coin)
 
+    @coininfo.autocomplete("coin")
+    async def coin_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     async def async_coinlist(self, ctx):
         await ctx.response.send_message(f"{ctx.author.mention} getting coin list...")

@@ -103,7 +103,10 @@ class MenuPage(disnake.ui.View):
         self.embed_count = 0
 
         # Gets the embed object.
-        embed = self.embeds[self.embed_count]
+        try:
+            embed = self.embeds[self.embed_count]
+        except IndexError:
+            return
 
         self.last_page.disabled = False
 
@@ -124,7 +127,11 @@ class MenuPage(disnake.ui.View):
         self.embed_count -= 1
 
         # Gets the embed object.
-        embed = self.embeds[self.embed_count]
+        try:
+            embed = self.embeds[self.embed_count]
+        except IndexError:
+            self.embed_count += 1
+            return
 
         self.last_page.disabled = False
 
@@ -159,7 +166,11 @@ class MenuPage(disnake.ui.View):
         self.embed_count += 1
 
         # Gets the embed object.
-        embed = self.embeds[self.embed_count]
+        try:
+            embed = self.embeds[self.embed_count]
+        except IndexError:
+            self.embed_count -= 1
+            return
 
         # Enables the previous page button and disables the next page button if we're on the last embed.
         self.prev_page.disabled = False
@@ -180,7 +191,11 @@ class MenuPage(disnake.ui.View):
         self.embed_count = len(self.embeds) - 1
 
         # Gets the embed object.
-        embed = self.embeds[self.embed_count]
+        try:
+            embed = self.embeds[self.embed_count]
+        except IndexError:
+            self.embed_count = len(self.embeds) + 1
+            return
 
         self.first_page.disabled = False
 

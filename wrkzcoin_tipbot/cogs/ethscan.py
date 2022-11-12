@@ -545,7 +545,7 @@ class EthScan(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
 
     # Token contract only, not user's address
-    @tasks.loop(seconds=30.0)
+    @tasks.loop(seconds=60.0)
     async def pull_trc20_scanning(self):
         await self.bot.wait_until_ready()
         await asyncio.sleep(2.0)
@@ -568,7 +568,7 @@ class EthScan(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
 
     # Token contract only, not user's address
-    @tasks.loop(seconds=30.0)
+    @tasks.loop(seconds=60.0)
     async def pull_erc20_scanning(self):
         await self.bot.wait_until_ready()
         await asyncio.sleep(2.0)
@@ -985,6 +985,8 @@ class EthScan(commands.Cog):
             # scan
             if not self.pull_trc20_scanning.is_running():
                 self.pull_trc20_scanning.start()
+            if not self.pull_erc20_scanning.is_running():
+                self.pull_erc20_scanning.start()
             if not self.remove_all_tx_ethscan.is_running():
                 self.remove_all_tx_ethscan.start()
 
@@ -1026,6 +1028,8 @@ class EthScan(commands.Cog):
             # scan
             if not self.pull_trc20_scanning.is_running():
                 self.pull_trc20_scanning.start()
+            if not self.pull_erc20_scanning.is_running():
+                self.pull_erc20_scanning.start()
             if not self.remove_all_tx_ethscan.is_running():
                 self.remove_all_tx_ethscan.start()
 

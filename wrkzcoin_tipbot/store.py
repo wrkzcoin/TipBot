@@ -1065,6 +1065,8 @@ async def trx_get_block_number(url: str, timeout: int = 64):
                         height = decoded_data['block_header']['raw_data']['number']
     except asyncio.TimeoutError:
         print('TRX: get block number {}s for TOKEN {}'.format(timeout, "TRX"))
+    except aiohttp.client_exceptions.ServerDisconnectedError:
+        print('TRX: server disconnected url: {} for TOKEN {}'.format(url, "TRX"))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         await logchanbot("store " +str(traceback.format_exc()))
@@ -1077,10 +1079,16 @@ async def trx_get_block_info(url: str, height: int, timeout: int = 32):
             timeout=Timeout(timeout=30, connect=20, read=20)
         )
         TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
-        getBlock = await TronClient.get_block(height)
+        get_block = await TronClient.get_block(height)
         await TronClient.close()
-        if getBlock:
-            return getBlock['block_header']['raw_data']
+        if get_block:
+            return get_block['block_header']['raw_data']
+    except httpx.RemoteProtocolError:
+        print("httpx.RemoteProtocolError: url {} for TRX".format(url))
+    except httpx.ReadTimeout:
+        print("httpx.ReadTimeout: url {} for TRX".format(url))
+    except httpx.ConnectTimeout:
+        print("httpx.ConnectTimeout: url {} for TRX".format(url))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return False
@@ -1456,6 +1464,8 @@ async def http_wallet_getbalance(
                             if decoded_data['result'] == "0x":
                                 return 0
                             return int(decoded_data['result'], 16)
+        except aiohttp.client_exceptions.ServerDisconnectedError:
+            print("http_wallet_getbalance disconnected from url: {} for contract {}".format(url, contract))
         except asyncio.TimeoutError:
             print('TIMEOUT: get balance {} for {}s'.format(url, time_out))
         except Exception as e:
@@ -1876,8 +1886,11 @@ async def sql_get_tx_info_erc20(url: str, tx: str, timeout: int = 64):
     data = '{"jsonrpc":"2.0", "method": "eth_getTransactionReceipt", "params":["' + tx + '"], "id":1}'
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers={'Content-Type': 'application/json'}, json=json.loads(data),
-                                    timeout=timeout) as response:
+            async with session.post(
+                url, headers={'Content-Type': 'application/json'},
+                json=json.loads(data),
+                timeout=timeout
+            ) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -1896,8 +1909,8 @@ async def sql_check_pending_move_deposit_erc20(
     block_timeout: int = 64
 ):
     global pool
-    topBlock = await erc_get_block_number(url, block_timeout)
-    if topBlock is None:
+    top_block = await erc_get_block_number(url, block_timeout)
+    if top_block is None:
         print(f'Can not get top block {url} - {net_name}.')
         return
 
@@ -1912,17 +1925,17 @@ async def sql_check_pending_move_deposit_erc20(
                 status = "CONFIRMED"
                 if 'status' in check_tx and int(check_tx['status'], 16) == 0:
                     status = "FAILED"
-                if topBlock - deposit_confirm_depth > tx_block_number:
-                    confirming_tx = await sql_update_confirming_move_tx_erc20(
-                        each_tx['txn'], tx_block_number, topBlock - tx_block_number, status
+                if top_block - deposit_confirm_depth > tx_block_number:
+                    await sql_update_confirming_move_tx_erc20(
+                        each_tx['txn'], tx_block_number, top_block - tx_block_number, status
                     )
             elif check_tx is None:
                 # None found
                 if int(time.time()) - 4 * 3600 > each_tx['time_insert']:
                     status = "FAILED"
                     tx_block_number = 0
-                    failed_tx = await sql_update_confirming_move_tx_erc20(
-                        each_tx['txn'], tx_block_number, topBlock - tx_block_number, status
+                    await sql_update_confirming_move_tx_erc20(
+                        each_tx['txn'], tx_block_number, top_block - tx_block_number, status
                     )
 
 async def sql_update_confirming_move_tx_erc20(
@@ -2108,7 +2121,7 @@ async def trx_check_minimum_deposit(
                         await TronClient.close()
                         if txn_ret and in_block:
                             try:
-                                inserted = await trx_move_deposit_for_spendable(
+                                await trx_move_deposit_for_spendable(
                                     token_name, contract, each_address['user_id'],
                                     each_address['balance_wallet_address'], config['trc']['MainAddress'],
                                     real_deposited_balance,
@@ -2118,6 +2131,12 @@ async def trx_check_minimum_deposit(
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                         await asyncio.sleep(3)
+                    except httpx.RemoteProtocolError:
+                        print("httpx.RemoteProtocolError: url {} for token {}".format(url, coin))
+                    except httpx.ReadTimeout:
+                        print("httpx.ReadTimeout: url {} for token {}".format(url, coin))
+                    except httpx.ConnectTimeout:
+                        print("httpx.ConnectTimeout: url {} for token {}".format(url, coin))
                     except Exception as e:
                         traceback.print_exc(file=sys.stdout)
                 else:
@@ -2186,6 +2205,12 @@ async def trx_check_minimum_deposit(
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
                             await asyncio.sleep(0.5)
+                        except httpx.RemoteProtocolError:
+                            print("httpx.RemoteProtocolError: url {} for token {}".format(url, coin))
+                        except httpx.ReadTimeout:
+                            print("httpx.ReadTimeout: url {} for token {}".format(url, coin))
+                        except httpx.ConnectTimeout:
+                            print("httpx.ConnectTimeout: url {} for token {}".format(url, coin))
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
                     elif type_coin == "TRC-10":
@@ -2249,6 +2274,12 @@ async def trx_check_minimum_deposit(
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
                             await asyncio.sleep(3)
+                        except httpx.RemoteProtocolError:
+                            print("httpx.RemoteProtocolError: url {} for token {}".format(url, coin))
+                        except httpx.ReadTimeout:
+                            print("httpx.ReadTimeout: url {} for token {}".format(url, coin))
+                        except httpx.ConnectTimeout:
+                            print("httpx.ConnectTimeout: url {} for token {}".format(url, coin))
                         except Exception as e:
                             traceback.print_exc(file=sys.stdout)
         msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(
@@ -2305,6 +2336,12 @@ async def trx_get_tx_info(url: str, tx: str):
             return False
         else:
             return True
+    except httpx.RemoteProtocolError:
+        print("httpx.RemoteProtocolError: url {} for TRX".format(url))
+    except httpx.ReadTimeout:
+        print("httpx.ReadTimeout: url {} for TRX".format(url))
+    except httpx.ConnectTimeout:
+        print("httpx.ConnectTimeout: url {} for TRX".format(url))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return False
@@ -2341,6 +2378,12 @@ async def trx_wallet_getbalance(
                         await logchanbot("Mis-match SYM vs TOKEN NAME: {} vs {}".format(SYM, token_name))
                 except (AddressNotFound, UnknownError) as e:
                     pass
+                except httpx.RemoteProtocolError:
+                    print("httpx.RemoteProtocolError: url {} for token {}".format(url, coin))
+                except httpx.ReadTimeout:
+                    print("httpx.ReadTimeout: url {} for token {}".format(url, coin))
+                except httpx.ConnectTimeout:
+                    print("httpx.ConnectTimeout: url {} for token {}".format(url, coin))
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
             elif type_coin == "TRC-10":
@@ -2354,6 +2397,12 @@ async def trx_wallet_getbalance(
                 except Exception as e:
                     pass
         await TronClient.close()
+    except httpx.RemoteProtocolError:
+        print("httpx.RemoteProtocolError: url {} for token {}".format(url, coin))
+    except httpx.ReadTimeout:
+        print("httpx.ReadTimeout: url {} for token {}".format(url, coin))
+    except httpx.ConnectTimeout:
+        print("httpx.ConnectTimeout: url {} for token {}".format(url, coin))
     except UnknownError as e:
         pass
     except Exception as e:

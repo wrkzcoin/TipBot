@@ -27,6 +27,7 @@ from eth_account import Account
 from eth_utils import is_hex_address  # Check hex only
 from ethtoken.abi import EIP20_ABI
 from httpx import AsyncClient, Timeout, Limits
+import httpx
 from pywallet import wallet as ethwallet
 from solana.keypair import Keypair
 from solana.publickey import PublicKey
@@ -231,6 +232,8 @@ async def tezos_check_token_balances(url: str, address: str, timeout: int=16):
                     return json_resp
                 else:
                     print("tezos_check_token_balances: return {}".format(response.status))
+    except asyncio.exceptions.TimeoutError:
+        print("Tezos check balances timeout for url: {} / addr: {}. Time: {}".format(url, address, timeout))
     except Exception:
         traceback.print_exc(file=sys.stdout)
     return None
@@ -2185,6 +2188,8 @@ class WalletAPI(commands.Cog):
                         print(f'Call {coin_name} returns {str(response.status)} with method {method_name}')
                         print(data)
                         print(url)
+        except aiohttp.client_exceptions.ServerDisconnectedError:
+            print("call_doge: got disconnected for coin: {}".format(coin_name))
         except asyncio.TimeoutError:
             print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
             await logchanbot(
@@ -6625,6 +6630,9 @@ class Wallet(commands.Cog):
         if debug is True:
             print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
         gettopblock = await self.gettopblock(coin_name, time_out=32)
+        if gettopblock is None:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Got None for top block {coin_name}", color="yellow")
+            return
         height = int(gettopblock['block_header']['height'])
         try:
             redis_utils.redis_conn.set(
@@ -6924,6 +6932,9 @@ class Wallet(commands.Cog):
         if debug is True:
             print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
         gettopblock = await self.gettopblock(coin_name, time_out=32)
+        if gettopblock is None:
+            print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Got None for top block {coin_name}", color="yellow")
+            return
         height = int(gettopblock['block_header']['height'])
         try:
             redis_utils.redis_conn.set(
@@ -9012,11 +9023,12 @@ class Wallet(commands.Cog):
         user_server = user_server.upper()
 
         try:
+            url = self.bot.erc_node_list['TRX']
             _http_client = AsyncClient(
                 limits=Limits(max_connections=100, max_keepalive_connections=20),
                 timeout=Timeout(timeout=10, connect=5, read=5
             ))
-            TronClient = AsyncTron(provider=AsyncHTTPProvider(self.bot.erc_node_list['TRX'], client=_http_client))
+            TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
             if token_name == "TRX":
                 txb = (
                     TronClient.trx.transfer(self.bot.config['trc']['MainAddress'], to_address, int(amount * 10 ** 6))
@@ -9030,7 +9042,7 @@ class Wallet(commands.Cog):
                     in_block = await txn_ret.wait()
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                await TronClient.close()
+
                 if txn_ret and in_block:
                     # Add to SQL
                     try:
@@ -9066,7 +9078,7 @@ class Wallet(commands.Cog):
                             in_block = await txn_ret.wait()
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
-                        await TronClient.close()
+
                         if txn_ret and in_block:
                             # Add to SQL
                             try:
@@ -9085,6 +9097,8 @@ class Wallet(commands.Cog):
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                                 await logchanbot("wallet send_external_trc20 " + str(traceback.format_exc()))
+                    except httpx.ConnectTimeout:
+                        print("HTTPX ConnectTimeout url: {}".format(url))
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                 elif trc_type == "TRC-10":
@@ -9105,7 +9119,7 @@ class Wallet(commands.Cog):
                             in_block = await txn_ret.wait()
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
-                        await TronClient.close()
+
                         if txn_ret and in_block:
                             # Add to SQL
                             try:

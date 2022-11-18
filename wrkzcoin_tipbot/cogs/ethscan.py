@@ -558,9 +558,27 @@ class EthScan(commands.Cog):
         # Get all contracts of ETH type and update to coin_ethscan_setting
         trc_contracts = await self.get_all_contracts("TRC-20")
         if len(trc_contracts) > 0:
+            # Update height
+            local_height = await store.trx_get_block_number(self.bot.erc_node_list['TRX'], 16)
+            if local_height == 0:
+                await asyncio.sleep(5.0)
+                return
+            else:
+                try:
+                    net_name = "TRX"
+                    redis_utils.redis_conn.set(
+                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{net_name}",
+                        str(local_height)
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                    await logchanbot("ethscan pull_trc20_scanning " + str(traceback.format_exc()))
+
             for each_contract in trc_contracts:
                 try:
-                    await self.fetch_txes_trc(each_contract['coin_name'], each_contract['contract'])
+                    pass
+                    # TODO, blocked IO
+                    # await self.fetch_txes_trc(each_contract['coin_name'], each_contract['contract'])
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(10.0)
@@ -597,7 +615,23 @@ class EthScan(commands.Cog):
                 try:
                     if k in net_names and net_names[k]['enable'] == 1:
                         await self.update_scan_setting(k, v)
-                        await self.fetch_txes(self.bot.erc_node_list[k], k, v, net_names[k]['scanned_from_height'])
+
+                        # Update height
+                        local_height = await store.erc_get_block_number(self.bot.erc_node_list[k])
+                        try:
+                            if local_height and local_height > 0:
+                                redis_utils.redis_conn.set(
+                                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{k}",
+                                    str(local_height)
+                                )
+                            else:
+                                return
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot("ethscan pull_erc20_scanning " + str(traceback.format_exc()))
+
+                        # TODO: this blocked IO
+                        # await self.fetch_txes(self.bot.erc_node_list[k], k, v, net_names[k]['scanned_from_height'])
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(10.0)
@@ -673,12 +707,7 @@ class EthScan(commands.Cog):
             height = await store.get_latest_stored_scanning_height_erc(net_name)
             local_height = await store.erc_get_block_number(url)
             try:
-                if local_height and local_height > 0:
-                    redis_utils.redis_conn.set(
-                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{net_name}",
-                        str(local_height)
-                    )
-                else:
+                if local_height is None:
                     return
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -829,20 +858,11 @@ class EthScan(commands.Cog):
 
             # Get latest fetching
             last_timestamp = await store.get_latest_stored_scanning_height_erc(net_name, contract)
-
             local_height = await store.trx_get_block_number(self.bot.erc_node_list['TRX'], timeout)
             if local_height == 0:
                 await asyncio.sleep(5.0)
                 return
 
-            try:
-                redis_utils.redis_conn.set(
-                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{net_name}",
-                    str(local_height)
-                )
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-                await logchanbot("ethscan fetch_txes_trc " + str(traceback.format_exc()))
             try:
                 url = "https://api.trongrid.io/v1/contracts/" + contract + "/events?event_name=Transfer&only_confirmed=true&order_by=block_timestamp,desc&limit=200"
                 if last_timestamp:
@@ -985,6 +1005,8 @@ class EthScan(commands.Cog):
             # scan
             if not self.pull_trc20_scanning.is_running():
                 self.pull_trc20_scanning.start()
+
+            # temporary, blocking IO
             if not self.pull_erc20_scanning.is_running():
                 self.pull_erc20_scanning.start()
             if not self.remove_all_tx_ethscan.is_running():
@@ -1026,6 +1048,7 @@ class EthScan(commands.Cog):
                 self.fetch_eth_node.start()
 
             # scan
+            # Temporary disable
             if not self.pull_trc20_scanning.is_running():
                 self.pull_trc20_scanning.start()
             if not self.pull_erc20_scanning.is_running():

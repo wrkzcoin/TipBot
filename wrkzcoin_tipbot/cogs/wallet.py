@@ -331,6 +331,8 @@ async def xrp_get_latest_transactions(url: str, address: str):
     try:
         list_tx = await get_account_payment_transactions(address, async_client)
         return list_tx
+    except httpx.ReadTimeout:
+        print("httpx.ReadTimeout: url {} for XRP".format(url))
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return []
@@ -2188,7 +2190,7 @@ class WalletAPI(commands.Cog):
                         print(f'Call {coin_name} returns {str(response.status)} with method {method_name}')
                         print(data)
                         print(url)
-        except aiohttp.client_exceptions.ServerDisconnectedError:
+        except (aiohttp.client_exceptions.ServerDisconnectedError, aiohttp.client_exceptions.ClientOSError):
             print("call_doge: got disconnected for coin: {}".format(coin_name))
         except asyncio.TimeoutError:
             print('TIMEOUT: method_name: {} - COIN: {} - timeout {}'.format(method_name, coin.upper(), timeout))
@@ -8773,7 +8775,6 @@ class Wallet(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-
     @tasks.loop(seconds=60.0)
     async def update_balance_trc20(self):
         time_lap = 5  # seconds
@@ -9727,7 +9728,7 @@ class Wallet(commands.Cog):
 
     # Balances
     async def async_balances(self, ctx, tokens: str = None):
-        await ctx.response.send_message(f"{ctx.author.mention} balance loading...", ephemeral=True)
+        await ctx.response.send_message(content=f"{ctx.author.mention} balance loading...")
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/balances", int(time.time())))

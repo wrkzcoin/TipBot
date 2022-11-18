@@ -1076,7 +1076,7 @@ async def trx_get_block_info(url: str, height: int, timeout: int = 32):
     try:
         _http_client = AsyncClient(
             limits=Limits(max_connections=10, max_keepalive_connections=5),
-            timeout=Timeout(timeout=30, connect=20, read=20)
+            timeout=Timeout(timeout=10, connect=5, read=5)
         )
         TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
         get_block = await TronClient.get_block(height)
@@ -1647,19 +1647,24 @@ async def sql_check_minimum_deposit_erc20(
 
                         # send Transaction for gas:
                         sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
-                        if signed_txn and sent_tx:
+                        if signed_txn is not None and sent_tx is not None:
                             # Add to SQL
                             try:
-                                inserted = await sql_move_deposit_for_spendable(
+                                await sql_move_deposit_for_spendable(
                                     token_name, None, each_address['user_id'], each_address['balance_wallet_address'],
                                     config['eth']['MainAddress'], real_deposited_balance,
                                     real_deposit_fee, coin_decimal, sent_tx.hex(), each_address['user_server'],
                                     net_name
                                 )
-                                await asyncio.sleep(20.0)
+                                await asyncio.sleep(10.0)
                             except Exception as e:
                                 traceback.print_exc(file=sys.stdout)
                                 # await logchanbot("store " +str(traceback.format_exc()))
+                        if sent_tx.hex() is not None:
+                            await logchanbot("[DEPOSIT] from user {}@{} amount {} {} to main balance. Tx: {}".format(
+                                each_address['user_id'], each_address['user_server'], real_deposited_balance, token_name, sent_tx.hex()
+                                )
+                            )
                     except Exception as e:
                         print("ERROR TOKEN: {} - from {} to {}".format(
                             token_name, each_address['balance_wallet_address'], config['eth']['MainAddress'])
@@ -1768,19 +1773,27 @@ async def sql_check_minimum_deposit_erc20(
                                     config['eth']['MainAddress'], config['eth']['MainAddress_seed'], 
                                     deposited_balance
                                 )
-                                if transaction:
+                                if transaction is not None:
                                     # Add to SQL
                                     try:
-                                        inserted = await sql_move_deposit_for_spendable(
+                                        await sql_move_deposit_for_spendable(
                                             token_name, contract, each_address['user_id'],
                                             each_address['balance_wallet_address'], config['eth']['MainAddress'],
                                             real_deposited_balance, real_deposit_fee, coin_decimal,
                                             transaction, each_address['user_server'], net_name
                                         )
-                                        await asyncio.sleep(5.0)
                                     except Exception as e:
                                         traceback.print_exc(file=sys.stdout)
                                         await logchanbot("store " +str(traceback.format_exc()))
+                                    print("[DEPOSIT] from user {}@{} amount {} {} to main balance. Tx: {}".format(
+                                        each_address['user_id'], each_address['user_server'], real_deposited_balance, token_name, transaction
+                                        )
+                                    )
+                                    await logchanbot("[DEPOSIT] from user {}@{} amount {} {} to main balance. Tx: {}".format(
+                                        each_address['user_id'], each_address['user_server'], real_deposited_balance, token_name, transaction
+                                        )
+                                    )
+                                    await asyncio.sleep(5.0)
                     else:
                         if gas_of_address / 10 ** 18 >= min_gas_tx:
                             print('Address {} still has gas {}{} or Zero gas is needed.'.format(
@@ -1810,19 +1823,24 @@ async def sql_check_minimum_deposit_erc20(
                                 mnemonic=decrypt_string(each_address['seed']))
                             signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=acct.key)
                             sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
-                            if signed_txn and sent_tx:
+                            if signed_txn is not None and sent_tx is not None:
                                 # Add to SQL
                                 try:
-                                    inserted = await sql_move_deposit_for_spendable(
+                                    await sql_move_deposit_for_spendable(
                                         token_name, contract, each_address['user_id'],
                                         each_address['balance_wallet_address'], config['eth']['MainAddress'],
                                         real_deposited_balance, real_deposit_fee, coin_decimal,
                                         sent_tx.hex(), each_address['user_server'], net_name
                                     )
-                                    await asyncio.sleep(15.0)
+                                    await asyncio.sleep(10.0)
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
                                     await logchanbot("store " +str(traceback.format_exc()))
+                            if sent_tx.hex() is not None:
+                                await logchanbot("[DEPOSIT] from user {}@{} amount {} {} to main balance. Tx: {}".format(
+                                    each_address['user_id'], each_address['user_server'], real_deposited_balance, token_name, sent_tx.hex()
+                                    )
+                                )
                         elif gas_of_address / 10 ** 18 < min_gas_tx and main_balance_gas_sufficient:
                             send_gas_tx = await send_gas(
                                 url, chainId, each_address['balance_wallet_address'], move_gas_amount, min_gas_tx
@@ -2092,7 +2110,7 @@ async def trx_check_minimum_deposit(
                     try:
                         _http_client = AsyncClient(
                             limits=Limits(max_connections=10, max_keepalive_connections=5),
-                            timeout=Timeout(timeout=30, connect=20, read=20)
+                            timeout=Timeout(timeout=10, connect=5, read=5)
                         )
                         TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
                         txb = (
@@ -2146,7 +2164,7 @@ async def trx_check_minimum_deposit(
                             tron_node = await handle_best_node("TRX")
                             _http_client = AsyncClient(
                                 limits=Limits(max_connections=10, max_keepalive_connections=5),
-                                timeout=Timeout(timeout=30, connect=20, read=20)
+                                timeout=Timeout(timeout=10, connect=5, read=5)
                             )
                             TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
                             cntr = await TronClient.get_contract(contract)
@@ -2218,7 +2236,7 @@ async def trx_check_minimum_deposit(
                             tron_node = await handle_best_node("TRX")
                             _http_client = AsyncClient(
                                 limits=Limits(max_connections=10, max_keepalive_connections=5),
-                                timeout=Timeout(timeout=30, connect=20, read=20)
+                                timeout=Timeout(timeout=10, connect=5, read=5)
                             )
                             TronClient = AsyncTron(provider=AsyncHTTPProvider(tron_node, client=_http_client))
                             balance = await trx_wallet_getbalance(
@@ -2325,7 +2343,7 @@ async def trx_get_tx_info(url: str, tx: str):
     try:
         _http_client = AsyncClient(
             limits=Limits(max_connections=10, max_keepalive_connections=5),
-            timeout=Timeout(timeout=30, connect=20, read=20)
+            timeout=Timeout(timeout=10, connect=5, read=5)
         )
         TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
         getTx = await TronClient.get_transaction(tx)
@@ -2354,7 +2372,7 @@ async def trx_wallet_getbalance(
     try:
         _http_client = AsyncClient(
             limits=Limits(max_connections=10, max_keepalive_connections=5),
-            timeout=Timeout(timeout=30, connect=20, read=20)
+            timeout=Timeout(timeout=10, connect=5, read=5)
         )
         TronClient = AsyncTron(provider=AsyncHTTPProvider(url, client=_http_client))
         if contract is None or token_name == "TRX":

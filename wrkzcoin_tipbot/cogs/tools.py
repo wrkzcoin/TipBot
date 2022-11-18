@@ -3,6 +3,8 @@ import sys, os
 import time
 import uuid
 import subprocess
+from datetime import datetime
+import random
 
 import disnake
 from disnake.ext import commands
@@ -394,6 +396,81 @@ class Tool(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @commands.guild_only()
+    @commands.slash_command(
+        dm_permission=False,
+        name="pickuser",
+        description="Pick a user from who re-act on a message."
+    )
+    async def command_pickuser(
+        self,
+        ctx,
+        msg_id: str,
+        emoji_str: str,
+        channel: disnake.TextChannel=None
+    ) -> None:
+        """ /pickuser <message ID> <emoji> """
+        await ctx.response.send_message(f"{ctx.author.mention} finding message & re-action...")    
+        try:
+            msg_id = int(msg_id)
+            try:
+                if channel is not None:
+                    _msg: disnake.Message = await channel.fetch_message(msg_id)
+                else:
+                    _msg: disnake.Message = await ctx.channel.fetch_message(msg_id)
+            except disnake.errors.NotFound:
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, message not found or wrong channel."
+                )
+                return
+
+            if _msg is None:
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, I can't find that message `{str(msg_id)}`. Try again later or double check the ID."
+                )
+            else:
+                # check if that's his message
+                if _msg.author != ctx.author:
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, you can only do with your message. Try again!"
+                    )
+                    return
+                else:
+                    my_emoji = disnake.PartialEmoji.from_str(emoji_str)
+                    if my_emoji is None:
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, I can't get emoji from string `{emoji_str}`!"
+                        )
+                        return
+
+                    attend_list = []
+                    if len(_msg.reactions) > 0:
+                        for each_r in _msg.reactions:
+                            print("{} vs {}".format(each_r, emoji_str))
+                            if str(each_r) == str(emoji_str):
+                                attend_list = [user async for user in each_r.users() if not user.bot and user != ctx.author]
+                            else:
+                                continue
+                        if len(attend_list) > 1:
+                            random.seed(datetime.now())
+                            picked_u = random.choice(attend_list)
+                            await ctx.edit_original_message(
+                                content=f"{ctx.author.mention}, there are total {str(len(attend_list))} users. A random selected {picked_u.mention} by {self.bot.user.mention}."
+                            )
+                        else:
+                            await ctx.edit_original_message(
+                                content=f"{ctx.author.mention}, need more user to re-act on that mesage with {emoji_str}."
+                            )
+                    else:
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, I can't find anyone re-act with {emoji_str}."
+                        )
+        except ValueError:
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, invalid message ID."
+            )
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 def setup(bot):
     bot.add_cog(Tool(bot))

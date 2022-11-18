@@ -33,7 +33,7 @@ class About(commands.Cog):
         return None
 
     async def async_about(self, ctx):
-        await ctx.response.send_message(f"{ctx.author.mention} loading about...")
+        await ctx.response.defer(ephemeral=False)
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", 
                                          str(ctx.author.id), SERVER_BOT, "/about", int(time.time())))

@@ -5,6 +5,7 @@ import uuid
 import subprocess
 from datetime import datetime
 import random
+import io
 
 import disnake
 from disnake.ext import commands
@@ -399,6 +400,73 @@ class Tool(commands.Cog):
     @commands.guild_only()
     @commands.slash_command(
         dm_permission=False,
+        name="whoreact",
+        description="Get list of user who reacts on a message."
+    )
+    async def command_whoreact(
+        self,
+        ctx,
+        msg_id: str,
+        channel: disnake.TextChannel=None
+    ) -> None:
+        """ /whoreact <message ID> """
+        await ctx.response.send_message(f"{ctx.author.mention} finding message & re-action...")    
+        try:
+            msg_id = int(msg_id)
+            try:
+                if channel is not None:
+                    _msg: disnake.Message = await channel.fetch_message(msg_id)
+                    msg_link = "<https://discord.com/channels/"+str(ctx.guild.id)+"/"+str(channel.id)+"/"+str(msg_id) + ">"
+                else:
+                    _msg: disnake.Message = await ctx.channel.fetch_message(msg_id)
+                    msg_link = "<https://discord.com/channels/"+str(ctx.guild.id)+"/"+str(ctx.channel.id)+"/"+str(msg_id) + ">"
+            except disnake.errors.NotFound:
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, message not found or wrong channel."
+                )
+                return
+
+            if _msg is None:
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, I can't find that message `{str(msg_id)}` ({msg_link}). "\
+                        "Try again later or double check the ID."
+                )
+            else:
+                attend_list = []
+                if len(_msg.reactions) > 0:
+                    for each_r in _msg.reactions:
+                        attend_list += [user async for user in each_r.users() if not user.bot and user != ctx.author]
+                    
+                    attend_list = list(set(attend_list))
+                    if len(attend_list) > 0:
+                        list_user_ids = " ".join(["<@{}>".format(u.id) for u in attend_list])
+                        list_user_names = " ".join(["{}#{}".format(u.name, u.discriminator) for u in attend_list])
+                        concat_str = f"Total list of user ID ({str(len(attend_list))}):\n"+list_user_ids+"\n\nList of user name(s):\n"+list_user_names
+                        if len(concat_str) < 1000:
+                            await ctx.edit_original_message(
+                                content="```{}```".format(concat_str)
+                            )
+                        else:
+                            data_file = disnake.File(io.BytesIO(concat_str.encode()), filename=f"Re-act on message_{msg_id}_{str(int(time.time()))}.txt")
+                            await ctx.edit_original_message(content=None, file=data_file)
+                    else:
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, there is no one re-act on that message {msg_link}."
+                        )
+                else:
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, I can't find anyone re-act to that message {msg_link}."
+                    )
+        except ValueError:
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, invalid message ID."
+            )
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.guild_only()
+    @commands.slash_command(
+        dm_permission=False,
         name="pickuser",
         description="Pick a user from who re-act on a message."
     )
@@ -446,7 +514,6 @@ class Tool(commands.Cog):
                     attend_list = []
                     if len(_msg.reactions) > 0:
                         for each_r in _msg.reactions:
-                            print("{} vs {}".format(each_r, emoji_str))
                             if str(each_r) == str(emoji_str):
                                 attend_list = [user async for user in each_r.users() if not user.bot and user != ctx.author]
                             else:

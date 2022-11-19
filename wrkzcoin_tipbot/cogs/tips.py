@@ -1450,9 +1450,7 @@ class Tips(commands.Cog):
             # mention all user
             send_tipped_ping = 0
             list_user_mention = []
-            list_user_mention_str = ""
             list_user_not_mention = []
-            list_user_not_mention_str = ""
             random.shuffle(listMembers)
 
             for member in listMembers:
@@ -1470,13 +1468,14 @@ class Tips(commands.Cog):
                     # Check if a batch meets
                     if numb_mention > 0 and numb_mention % max_mention == 0:
                         # send the batch
+                        mention_users = ""
                         if len(list_user_mention) >= 1:
-                            list_user_mention_str = ", ".join(list_user_mention)
+                            mention_users = ", ".join(list_user_mention)
                         if len(list_user_not_mention) >= 1:
-                            list_user_not_mention_str = ", ".join(list_user_not_mention)
+                            mention_users += ", " + ", ".join(list_user_not_mention)
                         try:
-                            if len(list_user_mention_str) > 5 or len(list_user_not_mention_str) > 5:
-                                msg = f"{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str}, "\
+                            if len(mention_users) > 0:
+                                msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
                                     f"you got a tip of **{amountDiv_str} {token_display}** {equivalent_usd} from "\
                                     f"{ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}"
                                 await ctx.followup.send(msg)
@@ -1486,20 +1485,19 @@ class Tips(commands.Cog):
                             await logchanbot("tips " +str(traceback.format_exc()))
                         # reset
                         list_user_mention = []
-                        list_user_mention_str = ""
                         list_user_not_mention = []
-                        list_user_not_mention_str = ""
             # if there is still here
-            if len(list_user_mention) + len(list_user_not_mention) > 1:
+            if len(list_user_mention) + len(list_user_not_mention) >= 1:
+                mention_users = ""
                 if len(list_user_mention) >= 1:
-                    list_user_mention_str = ", ".join(list_user_mention)
+                    mention_users = ", ".join(list_user_mention)
                 if len(list_user_not_mention) >= 1:
-                    list_user_not_mention_str = ", ".join(list_user_not_mention)
+                    mention_users += ", " + ", ".join(list_user_not_mention)
                 try:
                     remaining_str = ""
                     if numb_mention < total_found:
                         remaining_str = " and other {} members".format(total_found - numb_mention)
-                    msg = f"{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, "\
+                    msg = f"{EMOJI_MONEYFACE} {mention_users}{remaining_str}, "\
                         f"you got a tip of **{amountDiv_str} {token_display}** {equivalent_usd} from "\
                         f"{ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}"
                     await ctx.followup.send(msg)
@@ -2959,9 +2957,7 @@ class Tips(commands.Cog):
             # mention all user
             send_tipped_ping = 0
             list_user_mention = []
-            list_user_mention_str = ""
             list_user_not_mention = []
-            list_user_not_mention_str = ""
             random.shuffle(list_receivers)
             for member_id in list_receivers:
                 member = self.bot.get_user(int(member_id))
@@ -2982,15 +2978,16 @@ class Tips(commands.Cog):
                     # Check if a batch meets
                     if numb_mention > 0 and numb_mention % max_mention == 0:
                         # send the batch
+                        mention_users = ""
                         if len(list_user_mention) >= 1:
-                            list_user_mention_str = ", ".join(list_user_mention)
+                            mention_users = ", ".join(list_user_mention)
                         if len(list_user_not_mention) >= 1:
-                            list_user_not_mention_str = ", ".join(list_user_not_mention)
+                            mention_users += ", " + ", ".join(list_user_not_mention)
                         try:
-                            if len(list_user_mention_str) > 5 or len(list_user_not_mention_str) > 5:
-                                msg = f"{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str}, "\
+                            if len(mention_users) > 0:
+                                msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
                                     f"you got a {tip_type_text} of **{num_format_coin(amount, coin_name, coin_decimal, False)}"\
-                                    f" {token_display} {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
+                                    f" {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
                                     f"{NOTIFICATION_OFF_CMD}"
                                 await ctx.followup.send(msg)
                                 send_tipped_ping += 1
@@ -2999,23 +2996,405 @@ class Tips(commands.Cog):
                             await logchanbot("tips " +str(traceback.format_exc()))
                         # reset
                         list_user_mention = []
-                        list_user_mention_str = ""
                         list_user_not_mention = []
-                        list_user_not_mention_str = ""
             # if there is still here
-            if len(list_user_mention) + len(list_user_not_mention) > 1:
+            if len(list_user_mention) + len(list_user_not_mention) >= 1:
+                mention_users = ""
                 if len(list_user_mention) >= 1:
-                    list_user_mention_str = ", ".join(list_user_mention)
+                    mention_users = ", ".join(list_user_mention)
                 if len(list_user_not_mention) >= 1:
-                    list_user_not_mention_str = ", ".join(list_user_not_mention)
+                    mention_users += ", " + ", ".join(list_user_not_mention)
                 try:
                     remaining_str = ""
                     if numb_mention < total_found:
                         remaining_str = " and other {} members".format(total_found - numb_mention)
-                    msg = f'{EMOJI_MONEYFACE} {list_user_mention_str} {list_user_not_mention_str} {remaining_str}, you got a {tip_type_text} of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}'
+                    msg = f"{EMOJI_MONEYFACE} {mention_users}{remaining_str}, "\
+                        f"you got a {tip_type_text} of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** "\
+                        f"{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}"
                     await ctx.followup.send(msg)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
+
+    # Message command
+    @commands.guild_only()
+    @commands.command(
+        name="tip",
+        usage="tip <amount> <token> <user(s)/role(s)",
+        description="Tip users"
+    )
+    async def cmd_message_tip(self, ctx, amount: str, ticker: str, *, users):
+        try:
+            coin_name = ticker.upper()
+            if not hasattr(self.bot.coin_list, coin_name):
+                msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+                await ctx.reply(content=msg)
+                return
+
+            async with ctx.typing():
+                net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+
+                min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+                max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
+                if get_deposit is None:
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        str(ctx.author.id), coin_name, net_name, type_coin,
+                        SERVER_BOT, 0, 0
+                    )
+
+                wallet_address = get_deposit['balance_wallet_address']
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    wallet_address = get_deposit['paymentid']
+                elif type_coin in ["XRP"]:
+                    wallet_address = get_deposit['destination_tag']
+
+                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                userdata_balance = await store.sql_user_balance_single(
+                    str(ctx.author.id), coin_name, wallet_address, type_coin, height,
+                    deposit_confirm_depth, SERVER_BOT
+                )
+                actual_balance = float(userdata_balance['adjust'])
+                # Check if tx in progress
+                if int(ctx.author.id) in self.bot.TX_IN_PROCESS:
+                    msg = f'{EMOJI_ERROR} {ctx.author.mention}, another tx in progress.'
+                    await ctx.reply(msg)
+                    return
+
+                # check if amount is all
+                all_amount = False
+                if not amount.isdigit() and amount.upper() == "ALL":
+                    all_amount = True
+                    userdata_balance = await store.sql_user_balance_single(
+                        str(ctx.author.id), coin_name, wallet_address, type_coin,
+                        height, deposit_confirm_depth, SERVER_BOT
+                    )
+                    amount = float(userdata_balance['adjust'])
+                # If $ is in amount, let's convert to coin/token
+                elif "$" in amount[-1] or "$" in amount[0]:  # last is $
+                    # Check if conversion is allowed for this coin.
+                    amount = amount.replace(",", "").replace("$", "")
+                    if usd_equivalent_enable == 0:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                        await ctx.reply(msg)
+                        return
+                    else:
+                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                        coin_name_for_price = coin_name
+                        if native_token_name:
+                            coin_name_for_price = native_token_name
+                        per_unit = None
+                        if coin_name_for_price in self.bot.token_hints:
+                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                        else:
+                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                        if per_unit and per_unit > 0:
+                            amount = float(Decimal(amount) / Decimal(per_unit))
+                        else:
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+                            await ctx.reply(msg)
+                            return
+                else:
+                    amount = amount.replace(",", "")
+                    amount = text_to_num(amount)
+                    if amount is None:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+                        await ctx.reply(msg)
+                        return
+                # end of check if amount is all
+
+                if amount <= 0 or actual_balance <= 0:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+                    await ctx.reply(msg)
+                    return
+
+                if amount < min_tip or amount > max_tip:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be smaller than **"\
+                        f"{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}** "\
+                        f"or bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**."
+                    await ctx.reply(msg)
+                    return
+                elif amount > actual_balance:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send tip of "\
+                        f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                    await ctx.reply(msg)
+                    return
+                
+                user_mentions = ctx.message.mentions
+                role_mentions = ctx.message.role_mentions
+                if self.bot.user in user_mentions:
+                    user_mentions.remove(self.bot.user)
+                if "@everyone" in role_mentions:
+                    role_mentions.remove("@everyone")
+
+                if len(user_mentions) == 0 and len(role_mentions) == 0:
+                    await ctx.reply(f"{EMOJI_RED_NO} {ctx.author.mention}, there is no one to tip to.")
+                    return
+
+                list_users = []
+                if len(role_mentions) >= 1:
+                    for each_role in role_mentions:
+                        role_listMember = [member for member in ctx.guild if member.bot == False and each_role in member.roles]
+                        if len(role_listMember) >= 1:
+                            for each_member in role_listMember:
+                                if each_member not in list_users:
+                                    list_users.append(each_member.id)
+                if len(user_mentions) >= 1:
+                    for each_member in user_mentions:
+                        if each_member not in list_users:
+                            list_users.append(each_member.id)
+                
+                list_users = list(set(list_users))
+                if ctx.author in list_users:
+                    list_users.remove(ctx.author)
+                if len(list_users) == 0:
+                    await ctx.reply(f"{EMOJI_RED_NO} {ctx.author.mention}, there is no one to tip to.")
+                    return
+                else:
+                    max_allowed = 400
+                    try:
+                        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                        if len(list_users) > max_allowed:
+                            # Check if premium guild
+                            if serverinfo and serverinfo['is_premium'] == 0:
+                                msg = f'{ctx.author.mention}, there are more than maximum allowed `{str(max_allowed)}`. "\
+                                    f"You can request pluton#8888 to allow this for your guild.'
+                                await ctx.reply(msg)
+                                await logchanbot(
+                                    f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(list_users))}` "\
+                                    f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
+                                )
+                                return
+                            else:
+                                await logchanbot(
+                                    f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: `{str(len(list_users))}` "\
+                                    f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
+                                )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+
+                    list_receivers = []
+                    for member_id in list_users:
+                        try:
+                            user_to = await self.wallet_api.sql_get_userwallet(
+                                str(member_id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                            )
+                            if user_to is None:
+                                user_to = await self.wallet_api.sql_register_user(
+                                    str(member_id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                                )
+                            try:
+                                list_receivers.append(str(member_id))
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                                await logchanbot("tips " +str(traceback.format_exc()))
+                                print('Failed creating wallet for tip talk for userid: {}'.format(member_id))
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot("tips " +str(traceback.format_exc()))
+
+                    TotalAmount = amount * len(list_receivers)
+
+                    if TotalAmount > max_tip:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be bigger than "\
+                            f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**."
+                        await ctx.reply(msg)
+                        return
+                    elif amount < min_tip:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be smaller than "\
+                            f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                        await ctx.reply(msg)
+                        return
+                    elif TotalAmount > actual_balance:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send total "\
+                            f"tip of **{num_format_coin(TotalAmount, coin_name, coin_decimal, False)} {token_display}**."
+                        await ctx.reply(msg)
+                        return
+
+                    # add queue also tip
+                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    else:
+                        msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+                        await ctx.reply(msg)
+                        return
+
+                    tip = None
+
+                    equivalent_usd = ""
+                    total_equivalent_usd = ""
+                    amount_in_usd = 0.0
+                    total_amount_in_usd = 0.0
+
+                    per_unit = None
+                    if usd_equivalent_enable == 1:
+                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                        coin_name_for_price = coin_name
+                        if native_token_name:
+                            coin_name_for_price = native_token_name
+                        if coin_name_for_price in self.bot.token_hints:
+                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                        else:
+                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                        if per_unit and per_unit > 0:
+                            amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                            if amount_in_usd > 0.0001:
+                                equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+                            total_amount_in_usd = float(Decimal(per_unit) * Decimal(TotalAmount))
+                            if total_amount_in_usd > 0.0001:
+                                total_equivalent_usd = " ~ {:,.4f} USD".format(total_amount_in_usd)
+
+                    try:
+                        if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        try:
+                            key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                            if key_coin in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key_coin]
+
+                            for each in list_receivers:
+                                key_coin = each + "_" + coin_name + "_" + SERVER_BOT
+                                if key_coin in self.bot.user_balance_cache:
+                                    del self.bot.user_balance_cache[key_coin]
+                        except Exception:
+                            pass
+                        tip = await store.sql_user_balance_mv_multiple(
+                            str(ctx.author.id), list_receivers, str(ctx.guild.id), str(ctx.channel.id), amount, coin_name, "TIP",
+                            coin_decimal, SERVER_BOT, contract, float(amount_in_usd), "Message Command"
+                        )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot("tips " +str(traceback.format_exc()))
+
+                    # remove queue from tip
+                    if ctx.author.id in self.bot.TX_IN_PROCESS:
+                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+
+                    if tip is not None:
+                        # tipper shall always get DM. Ignore notifyList
+                        try:
+                            msg = f"{EMOJI_ARROW_RIGHTHOOK} tip of **{num_format_coin(TotalAmount, coin_name, coin_decimal, False)}"\
+                                f" {token_display}** {total_equivalent_usd} was sent to ({len(list_receivers)}) member(s) in "\
+                                f"server `{ctx.guild.name}`.\nEach member got: "\
+                                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** {equivalent_usd}\n"
+                            try:
+                                await ctx.author.send(msg)
+                            except Exception:
+                                pass
+                        except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                            pass
+                        try:
+                            await ctx.message.add_reaction(EMOJI_MONEYFACE)
+                        except Exception:
+                            pass
+
+                        notifyList = await store.sql_get_tipnotify()
+
+                        if 0 < len(list_receivers) <= 40:
+                            list_user_mention = []
+                            list_user_not_mention = []
+                            for member_id in list_receivers:
+                                member = self.bot.get_user(int(member_id))
+                                if not member:
+                                    continue
+                                if str(member.id) not in notifyList:
+                                    list_user_mention.append("{}".format(member.mention))
+                                else:
+                                    list_user_not_mention.append("{}#{}".format(member.name, member.discriminator))
+
+                            mention_users = ""
+                            if len(list_user_mention) >= 1:
+                                mention_users = ", ".join(list_user_mention)
+                            if len(list_user_not_mention) >= 1:
+                                mention_users += ", " + ", ".join(list_user_not_mention)
+
+                            try:
+                                msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
+                                    f"you got a tip of **{num_format_coin(amount, coin_name, coin_decimal, False)}"\
+                                    f" {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
+                                    f"{NOTIFICATION_OFF_CMD}"
+                                await ctx.reply(msg)
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                                await logchanbot("tips " +str(traceback.format_exc()))
+                        else:
+                            # Message mention all in public
+                            total_found = 0
+                            max_mention = 40
+                            numb_mention = 0
+
+                            # mention all user
+                            send_tipped_ping = 0
+                            list_user_mention = []
+                            list_user_not_mention = []
+                            random.shuffle(list_receivers)
+                            for member_id in list_receivers:
+                                member = self.bot.get_user(int(member_id))
+                                if not member:
+                                    continue
+
+                                if send_tipped_ping >= self.bot.config['discord']['maxTipTalkMessage']:
+                                    total_found += 1
+                                else:
+                                    if ctx.author.id != member.id and member.id != self.bot.user.id:
+                                        if str(member.id) not in notifyList:
+                                            list_user_mention.append("{}".format(member.mention))
+                                        else:
+                                            list_user_not_mention.append("{}#{}".format(member.name, member.discriminator))
+                                    total_found += 1
+                                    numb_mention += 1
+
+                                    # Check if a batch meets
+                                    if numb_mention > 0 and numb_mention % max_mention == 0:
+                                        # send the batch
+                                        mention_users = ""
+                                        if len(list_user_mention) >= 1:
+                                            mention_users = ", ".join(list_user_mention)
+                                        if len(list_user_not_mention) >= 1:
+                                            mention_users += ", " + ", ".join(list_user_not_mention)
+                                        try:
+                                            if len(mention_users) > 0:
+                                                msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
+                                                    f"you got a tip of **{num_format_coin(amount, coin_name, coin_decimal, False)}"\
+                                                    f" {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
+                                                    f"{NOTIFICATION_OFF_CMD}"
+                                                await ctx.reply(msg)
+                                                send_tipped_ping += 1
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
+                                            await logchanbot("tips " +str(traceback.format_exc()))
+                                        # reset
+                                        list_user_mention = []
+                                        list_user_not_mention = []
+                            # if there is still here
+                            if len(list_user_mention) + len(list_user_not_mention) >= 1:
+                                mention_users = ""
+                                if len(list_user_mention) >= 1:
+                                    mention_users = ", ".join(list_user_mention)
+                                if len(list_user_not_mention) >= 1:
+                                    mention_users += ", " + ", ".join(list_user_not_mention)
+                                try:
+                                    remaining_str = ""
+                                    if numb_mention < total_found:
+                                        remaining_str = " and other {} members".format(total_found - numb_mention)
+                                    msg = f"{EMOJI_MONEYFACE} {mention_users}{remaining_str}, "\
+                                        f"you got a tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**"\
+                                        f" {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}"
+                                    await ctx.reply(msg)
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     # End of Tip Normal
     @commands.Cog.listener()

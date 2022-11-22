@@ -339,6 +339,15 @@ class TopGGVote(commands.Cog):
                                                             f"[{SERVER_BOT}] Failed to send message to "\
                                                             f"reward channel in guild: `{guild_id}` / {guild.name}."
                                                         )
+                                                        try:
+                                                            if serverinfo['vote_reward_channel']:
+                                                                await guild_owner.send(
+                                                                    f"I can't publish an embed message to channel <#{serverinfo['vote_reward_channel']}> in your guild {guild.name} "\
+                                                                    f"which a user just voted at top.gg. You received this message because you are the owner of the guild and "\
+                                                                    f"please help to fix the permission."
+                                                                )
+                                                        except Exception:
+                                                            pass
                                                 except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
                                                     await log_to_channel(
                                                         "vote",

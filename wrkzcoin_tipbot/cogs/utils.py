@@ -3,6 +3,7 @@ import traceback
 from typing import List
 import time
 from cachetools import TTLCache
+from sqlitedict import SqliteDict
 
 import disnake
 from disnake.ext import commands
@@ -213,6 +214,10 @@ class Utils(commands.Cog):
         self.bot = bot
         self.commanding_save = 10
         self.adding_commands = False
+        self.cache_kv_db_test = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="test", autocommit=True)
+        self.cache_kv_db_general = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="general", autocommit=True)
+        self.cache_kv_db_block = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="block", autocommit=True)
+        self.cache_kv_db_pools = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="pools", autocommit=True)
 
     async def get_bot_settings(self):
         try:
@@ -324,6 +329,54 @@ class Utils(commands.Cog):
                     await logchanbot("[bot_commanded] removed: " +str(each))
         self.adding_commands = False
 
+    def set_cache_kv(self, table: str, key: str, value):
+        try:
+            if table.lower() == "test":
+                self.cache_kv_db_test[key.upper()] = value
+                return True            
+            elif table.lower() == "general":
+                self.cache_kv_db_general[key.upper()] = value
+                return True
+            elif table.lower() == "block":
+                self.cache_kv_db_block[key.upper()] = value
+                return True
+            elif table.lower() == "pools":
+                self.cache_kv_db_pools[key.upper()] = value
+                return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    def get_cache_kv(self, table: str, key: str):
+        try:
+            if table.lower() == "test":
+                return self.cache_kv_db_test[key.upper()]
+            elif table.lower() == "general":
+                return self.cache_kv_db_general[key.upper()]
+            elif table.lower() == "block":
+                return self.cache_kv_db_block[key.upper()]
+            elif table.lower() == "pools":
+                return self.cache_kv_db_pools[key.upper()]
+        except KeyError:
+            pass
+        return None
+
+    async def cog_load(self):
+        # for testing table
+        if self.cache_kv_db_test is None:
+            self.cache_kv_db_test = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="test", autocommit=True)
+        if self.cache_kv_db_general is None:
+            self.cache_kv_db_general = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="general", autocommit=True)
+        if self.cache_kv_db_block is None:
+            self.cache_kv_db_block = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="block", autocommit=True)
+        if self.cache_kv_db_pools is None:
+            self.cache_kv_db_pools = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="pools", autocommit=True)
+
+    def cog_unload(self):
+        self.cache_kv_db_test.close()
+        self.cache_kv_db_general.close()
+        self.cache_kv_db_block.close()
+        self.cache_kv_db_pools.close()
 
 def setup(bot):
     bot.add_cog(Utils(bot))

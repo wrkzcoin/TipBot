@@ -679,7 +679,7 @@ class Faucet(commands.Cog):
 class WalletAPI(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
+        self.utils = Utils(self.bot)
         redis_utils.openRedis()
         # DB
         self.pool = None
@@ -1414,21 +1414,25 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("wallet user_balance " +str(traceback.format_exc()))
 
-
     def get_block_height(self, type_coin: str, coin: str, net_name: str = None):
-        redis_utils.openRedis()
         height = None
         coin_name = coin.upper()
         try:
             if type_coin in ["ERC-20", "TRC-20"]:
-                height = int(redis_utils.redis_conn.get(
-                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{net_name}").decode())
+                height = self.utils.get_cache_kv(
+                    "block",
+                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{net_name}"
+                )
             elif type_coin in ["XLM", "NEO", "VITE"]:
-                height = int(redis_utils.redis_conn.get(
-                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{type_coin}").decode())
+                height = self.utils.get_cache_kv(
+                    "block",
+                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{type_coin}"
+                )
             else:
-                height = int(redis_utils.redis_conn.get(
-                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}").decode())
+                height = self.utils.get_cache_kv(
+                    "block",
+                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}"
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return height
@@ -5682,9 +5686,10 @@ class Wallet(commands.Cog):
                                 if 'result' in decoded_data:
                                     height = int(decoded_data['result'])
                                     try:
-                                        redis_utils.redis_conn.set(
-                                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                                            str(height)
+                                        self.utils.set_cache_kv(
+                                            "block",
+                                            f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                                            height
                                         )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
@@ -5904,9 +5909,10 @@ class Wallet(commands.Cog):
             coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
             if height and height > 0:
                 try:
-                    redis_utils.redis_conn.set(
-                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                        str(height)
+                    self.utils.set_cache_kv(
+                        "block",
+                        f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                        height
                     )
                     # if there are other asset, set them all here
                 except Exception:
@@ -6079,9 +6085,10 @@ class Wallet(commands.Cog):
                                 if 'history_latest_ledger' in decoded_data:
                                     height = decoded_data['history_latest_ledger']
                                     try:
-                                        redis_utils.redis_conn.set(
-                                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                                            str(height)
+                                        self.utils.set_cache_kv(
+                                            "block",
+                                            f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                                            height
                                         )
                                         # if there are other asset, set them all here
                                     except Exception:
@@ -6286,9 +6293,10 @@ class Wallet(commands.Cog):
             if getEpochInfo:
                 height = getEpochInfo['absoluteSlot']
                 try:
-                    redis_utils.redis_conn.set(
-                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                        str(height)
+                    self.utils.set_cache_kv(
+                        "block",
+                        f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                        height
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -6400,13 +6408,16 @@ class Wallet(commands.Cog):
                     result = await cur.fetchall()
                     if result and len(result) > 0:
                         for each_mv in result:
-                            fetch_tx = await fetch_getConfirmedTransaction(self.bot.erc_node_list['SOL'],
-                                                                           each_mv['txn'], 16)
+                            fetch_tx = await fetch_getConfirmedTransaction(
+                                self.bot.erc_node_list['SOL'], each_mv['txn'], 16
+                            )
                             if fetch_tx:
                                 get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name),
                                                             "deposit_confirm_depth")
-                                net_height = int(redis_utils.redis_conn.get(
-                                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}").decode())
+                                net_height = self.utils.get_cache_kv(
+                                    "block",
+                                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}"
+                                )
                                 height = fetch_tx['slot']
                                 confirmed_depth = net_height - height
                                 status = "FAILED"
@@ -6498,9 +6509,10 @@ class Wallet(commands.Cog):
                                             height = int(fetch_wallet['tip']['height']['quantity'])
                                             for each_coin in self.bot.coin_name_list:
                                                 if getattr(getattr(self.bot.coin_list, each_coin), "type") == "ADA":
-                                                    redis_utils.redis_conn.set(
-                                                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{each_coin.upper()}",
-                                                        str(height)
+                                                    self.utils.set_cache_kv(
+                                                        "block",
+                                                        f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{each_coin.upper()}",
+                                                        height
                                                     )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
@@ -6637,9 +6649,10 @@ class Wallet(commands.Cog):
             return
         height = int(gettopblock['block_header']['height'])
         try:
-            redis_utils.redis_conn.set(
-                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                str(height)
+            self.utils.set_cache_kv(
+                "block",
+                f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                height
             )
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -6790,9 +6803,10 @@ class Wallet(commands.Cog):
             return
         height = int(gettopblock['block_header']['height'])
         try:
-            redis_utils.redis_conn.set(
-                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                str(height)
+            self.utils.set_cache_kv(
+                "block",
+                f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                height
             )
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -6939,9 +6953,10 @@ class Wallet(commands.Cog):
             return
         height = int(gettopblock['block_header']['height'])
         try:
-            redis_utils.redis_conn.set(
-                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                str(height)
+            self.utils.set_cache_kv(
+                "block",
+                f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                height
             )
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -7094,9 +7109,10 @@ class Wallet(commands.Cog):
             return False
         height = int(gettopblock['blocks'])
         try:
-            redis_utils.redis_conn.set(
-                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                str(height)
+            self.utils.set_cache_kv(
+                "block",
+                f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                height
             )
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -7272,9 +7288,10 @@ class Wallet(commands.Cog):
             gettopblock = await self.wallet_api.call_neo('getblockcount', payload=[]) 
             try:
                 height = int(gettopblock['result'])
-                redis_utils.redis_conn.set(
-                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                    str(height)
+                self.utils.set_cache_kv(
+                    "block",
+                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                    height
                 )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -7394,9 +7411,10 @@ class Wallet(commands.Cog):
             return False
         height = int(gettopblock['height'])
         try:
-            redis_utils.redis_conn.set(
-                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                str(height)
+            self.utils.set_cache_kv(
+                "block",
+                f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                height
             )
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -7567,11 +7585,12 @@ class Wallet(commands.Cog):
                         gettopblock = await self.wallet_api.call_nano(coin_name, payload='{ "action": "block_count" }')
                         if gettopblock and 'count' in gettopblock:
                             height = int(gettopblock['count'])
-                            # store in redis
+                            # store in kv
                             try:
-                                redis_utils.redis_conn.set(
-                                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                                    str(height)
+                                self.utils.set_cache_kv(
+                                    "block",
+                                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                                    height
                                 )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -7713,9 +7732,10 @@ class Wallet(commands.Cog):
                     return
                 for each_coin in self.bot.coin_name_list:
                     if getattr(getattr(self.bot.coin_list, each_coin), "type") == "XRP":
-                        redis_utils.redis_conn.set(
-                            f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{each_coin.upper()}",
-                            str(height)
+                        self.utils.set_cache_kv(
+                            "block",
+                            f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{each_coin.upper()}",
+                            height
                         )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -7838,17 +7858,19 @@ class Wallet(commands.Cog):
             try:
                 if get_head:
                     height = get_head['result']['sync_info']['latest_block_height']
-                    redis_utils.redis_conn.set(
-                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                        str(height)
+                    self.utils.set_cache_kv(
+                        "block",
+                        f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                        height
                     )
                     if len(near_contracts) > 0:
                         for each_coin in near_contracts:
                             name = each_coin['coin_name']
                             try:
-                                redis_utils.redis_conn.set(
-                                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{name}",
-                                    str(height)
+                                self.utils.set_cache_kv(
+                                    "block",
+                                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{name}",
+                                    height
                                 )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -8150,17 +8172,19 @@ class Wallet(commands.Cog):
             get_status = await vet_get_status(self.bot.erc_node_list['VET'], 16)
             if get_status:
                 height = int(get_status['number'])
-                redis_utils.redis_conn.set(
-                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                    str(height)
+                self.utils.set_cache_kv(
+                    "block",
+                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                    height
                 )
                 if len(vet_contracts) > 0:
                     for each_coin in vet_contracts:
                         name = each_coin['coin_name']
                         try:
-                            redis_utils.redis_conn.set(
-                                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{name}",
-                                str(height)
+                            self.utils.set_cache_kv(
+                                "block",
+                                f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{name}",
+                                height
                             )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -8349,17 +8373,19 @@ class Wallet(commands.Cog):
             get_status = await zil_get_status(self.bot.erc_node_list['ZIL'], 16)
             if get_status:
                 height = int(get_status['result']['NumTxBlocks'])
-                redis_utils.redis_conn.set(
-                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                    str(height)
+                self.utils.set_cache_kv(
+                    "block",
+                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                    height
                 )
                 if len(zil_contracts) > 0:
                     for each_coin in zil_contracts:
                         name = each_coin['coin_name']
                         try:
-                            redis_utils.redis_conn.set(
-                                f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{name}",
-                                str(height)
+                            self.utils.set_cache_kv(
+                                "block",
+                                f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{name}",
+                                height
                             )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -8473,17 +8499,19 @@ class Wallet(commands.Cog):
             try:
                 if get_head:
                     height = get_head['level']
-                    redis_utils.redis_conn.set(
-                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{coin_name}",
-                        str(height)
+                    self.utils.set_cache_kv(
+                        "block",
+                        f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                        height
                     )
                     if len(xtz_contracts) > 0:
                         for each_coin in xtz_contracts:
                             name = each_coin['coin_name']
                             try:
-                                redis_utils.redis_conn.set(
-                                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{name}",
-                                    str(height)
+                                self.utils.set_cache_kv(
+                                    "block",
+                                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{name}",
+                                    height
                                 )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)

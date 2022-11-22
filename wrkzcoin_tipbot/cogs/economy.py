@@ -16,7 +16,6 @@ from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_fo
 
 import store
 from cogs.wallet import WalletAPI
-import redis_utils
 from cogs.utils import Utils
 
 
@@ -1381,7 +1380,6 @@ class Economy(commands.Cog):
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
 
-        redis_utils.openRedis()
         self.botLogChan = None
         self.db = database_economy(bot)
         self.enable_logchan = True

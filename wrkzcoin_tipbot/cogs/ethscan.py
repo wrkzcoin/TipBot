@@ -8,7 +8,6 @@ from aiohttp import TCPConnector
 import json
 from disnake.ext import tasks, commands
 import functools
-import redis_utils
 
 import store
 from Bot import get_token_list, logchanbot, hex_to_base58, base58_to_hex
@@ -19,7 +18,6 @@ class EthScan(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        redis_utils.openRedis()
         self.utils = Utils(self.bot)
         self.blockTime = {}
         self.allow_start_ethscan = False
@@ -566,9 +564,10 @@ class EthScan(commands.Cog):
             else:
                 try:
                     net_name = "TRX"
-                    redis_utils.redis_conn.set(
-                        f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{net_name}",
-                        str(local_height)
+                    self.utils.set_cache_kv(
+                        "block",
+                        f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{net_name}",
+                        local_height
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -615,14 +614,14 @@ class EthScan(commands.Cog):
                 try:
                     if k in net_names and net_names[k]['enable'] == 1:
                         await self.update_scan_setting(k, v)
-
                         # Update height
                         local_height = await store.erc_get_block_number(self.bot.erc_node_list[k])
                         try:
                             if local_height and local_height > 0:
-                                redis_utils.redis_conn.set(
-                                    f"{self.bot.config['redis']['prefix'] + self.bot.config['redis']['daemon_height']}{k}",
-                                    str(local_height)
+                                self.utils.set_cache_kv(
+                                    "block",
+                                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{k}",
+                                    local_height
                                 )
                             else:
                                 return

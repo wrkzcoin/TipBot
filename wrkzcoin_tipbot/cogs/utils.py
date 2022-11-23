@@ -218,6 +218,7 @@ class Utils(commands.Cog):
         self.cache_kv_db_general = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="general", autocommit=True)
         self.cache_kv_db_block = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="block", autocommit=True)
         self.cache_kv_db_pools = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="pools", autocommit=True)
+        self.cache_kv_db_paprika = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="paprika", autocommit=True)
 
     async def get_bot_settings(self):
         try:
@@ -343,6 +344,9 @@ class Utils(commands.Cog):
             elif table.lower() == "pools":
                 self.cache_kv_db_pools[key.upper()] = value
                 return True
+            elif table.lower() == "paprika":
+                self.cache_kv_db_paprika[key.upper()] = value
+                return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return False
@@ -357,6 +361,8 @@ class Utils(commands.Cog):
                 return self.cache_kv_db_block[key.upper()]
             elif table.lower() == "pools":
                 return self.cache_kv_db_pools[key.upper()]
+            elif table.lower() == "paprika":
+                return self.cache_kv_db_paprika[key.upper()]
         except KeyError:
             pass
         return None
@@ -371,12 +377,15 @@ class Utils(commands.Cog):
             self.cache_kv_db_block = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="block", autocommit=True)
         if self.cache_kv_db_pools is None:
             self.cache_kv_db_pools = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="pools", autocommit=True)
+        if self.cache_kv_db_paprika is None:
+            self.cache_kv_db_paprika = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="paprika", autocommit=True)
 
     def cog_unload(self):
         self.cache_kv_db_test.close()
         self.cache_kv_db_general.close()
         self.cache_kv_db_block.close()
         self.cache_kv_db_pools.close()
+        self.cache_kv_db_paprika.close()
 
 def setup(bot):
     bot.add_cog(Utils(bot))

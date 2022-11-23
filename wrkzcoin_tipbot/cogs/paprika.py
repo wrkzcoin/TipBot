@@ -21,12 +21,13 @@ from io import BytesIO
 import os.path
 from pyvirtualdisplay import Display
 import os
+from cachetools import TTLCache
 
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
 from Bot import EMOJI_CHART_DOWN, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_FLOPPY, logchanbot, EMOJI_HOURGLASS_NOT_DONE, SERVER_BOT
-import redis_utils
+
 import store
 from cogs.utils import Utils
 
@@ -127,8 +128,9 @@ class Paprika(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-        redis_utils.openRedis()
         self.utils = Utils(self.bot)
+        self.paprika_coin_cache = TTLCache(maxsize=2048, ttl=60.0)
+        self.paprika_coinlist_cache = TTLCache(maxsize=4, ttl=3600.0)
 
         # enable trade-view
         # Example: https://coinpaprika.com/trading-view/wrkz-wrkzcoin
@@ -154,6 +156,7 @@ class Paprika(commands.Cog):
         await asyncio.sleep(time_lap)
         url = "https://api.coinpaprika.com/v1/tickers"
         try:
+            print(f"/paprika fetching: {url}")
             async with aiohttp.ClientSession() as cs:
                 async with cs.get(url, timeout=30) as r:
                     res_data = await r.read()
@@ -260,11 +263,11 @@ class Paprika(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         coin_name = coin.upper()
-        key = self.bot.config['redis']['prefix_paprika'] + coin.upper()
-        # Get from redis
+        key = self.bot.config['kv_db']['prefix_paprika'] + coin.upper()
+        # Get from kv
         try:
-            if redis_utils.redis_conn.exists(key):
-                response_text = redis_utils.redis_conn.get(key).decode()
+            if key in self.paprika_coin_cache:
+                response_text = self.paprika_coin_cache[key]
                 msg = f"{ctx.author.mention}, {response_text}"
                 await ctx.edit_original_message(content=msg)
                 # fetch tradeview image
@@ -275,34 +278,26 @@ class Paprika(commands.Cog):
                         elif coin_name in self.bot.token_hint_names:
                             id = self.bot.token_hint_names[coin_name]['ticker_name']
                         else:
-                            if redis_utils.redis_conn.exists(self.bot.config['redis']['prefix_paprika'] + "COINSLIST"):
-                                j = json.loads(
-                                    redis_utils.redis_conn.get(self.bot.config['redis']['prefix_paprika'] + "COINSLIST").decode()
-                                )
+                            coin_list_key = self.bot.config['kv_db']['prefix_paprika'] + "COINSLIST"
+                            if  coin_list_key in self.paprika_coinlist_cache:
+                                j = self.paprika_coinlist_cache[coin_list_key]
                             else:
                                 link = 'https://api.coinpaprika.com/v1/coins'
                                 async with aiohttp.ClientSession() as session:
                                     async with session.get(link) as resp:
                                         if resp.status == 200:
                                             j = await resp.json()
-                                            # add to redis coins list
                                             try:
-                                                redis_utils.redis_conn.set(
-                                                    self.bot.config['redis']['prefix_paprika'] + "COINSLIST",
-                                                    json.dumps(j),
-                                                    ex=self.bot.config['redis']['default_time_coinlist']
-                                                )
+                                                self.paprika_coinlist_cache[coin_list_key] = j
                                             except Exception:
                                                 traceback.format_exc()
-                                            # end add to redis
                             if coin_name.isdigit():
                                 for i in j:
                                     if int(coin_name) == int(i['rank']):
                                         id = i['id']
                             else:
                                 for i in j:
-                                    if coin_name.lower() == i['name'].lower() or coin_name.lower() == i[
-                                        'symbol'].lower():
+                                    if coin_name.lower() == i['name'].lower() or coin_name.lower() == i['symbol'].lower():
                                         id = i['id']  # i['name']
                         if len(self.display_list) > 2:
                             display_id = random.choice(self.display_list)
@@ -335,24 +330,19 @@ class Paprika(commands.Cog):
         elif coin_name in self.bot.token_hint_names:
             id = self.bot.token_hint_names[coin_name]['ticker_name']
         else:
-            if redis_utils.redis_conn.exists(self.bot.config['redis']['prefix_paprika'] + "COINSLIST"):
-                j = json.loads(redis_utils.redis_conn.get(self.bot.config['redis']['prefix_paprika'] + "COINSLIST").decode())
+            coin_list_key = self.bot.config['kv_db']['prefix_paprika'] + "COINSLIST"
+            if coin_list_key in self.paprika_coinlist_cache:
+                j = self.paprika_coinlist_cache[coin_list_key]
             else:
                 link = 'https://api.coinpaprika.com/v1/coins'
                 async with aiohttp.ClientSession() as session:
                     async with session.get(link) as resp:
                         if resp.status == 200:
                             j = await resp.json()
-                            # add to redis coins list
                             try:
-                                redis_utils.redis_conn.set(
-                                    self.bot.config['redis']['prefix_paprika'] + "COINSLIST",
-                                    json.dumps(j),
-                                    ex=self.bot.config['redis']['default_time_coinlist']
-                                )
+                                self.paprika_coinlist_cache[coin_list_key] = j
                             except Exception:
                                 traceback.format_exc()
-                            # end add to redis
             if coin_name.isdigit():
                 for i in j:
                     if int(coin_name) == int(i['rank']):
@@ -364,6 +354,7 @@ class Paprika(commands.Cog):
         try:
             async with aiohttp.ClientSession() as session:
                 url = 'https://api.coinpaprika.com/v1/tickers/{}'.format(id)
+                print(f"/paprika fetching: {url}")
                 async with session.get(url) as resp:
                     if resp.status == 200:
                         j = await resp.json()
@@ -386,7 +377,7 @@ class Paprika(commands.Cog):
                             j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'],
                             j['quotes']['USD']['ath_date'])
                         try:
-                            redis_utils.redis_conn.set(key, response_text, ex=self.bot.config['redis']['default_time_paprika'])
+                            self.paprika_coin_cache[key] = response_text
                         except Exception:
                             traceback.format_exc()
                             await logchanbot("paprika " +str(traceback.format_exc()))
@@ -399,26 +390,20 @@ class Paprika(commands.Cog):
                                 elif coin_name in self.bot.token_hint_names:
                                     id = self.bot.token_hint_names[coin_name]['ticker_name']
                                 else:
-                                    if redis_utils.redis_conn.exists(self.bot.config['redis']['prefix_paprika'] + "COINSLIST"):
-                                        j = json.loads(redis_utils.redis_conn.get(
-                                            self.bot.config['redis']['prefix_paprika'] + "COINSLIST").decode()
-                                        )
+                                    coin_list_key = self.bot.config['kv_db']['prefix_paprika'] + "COINSLIST"
+                                    if coin_list_key in self.paprika_coinlist_cache:
+                                        j = self.paprika_coinlist_cache[coin_list_key]
                                     else:
                                         link = 'https://api.coinpaprika.com/v1/coins'
+                                        print(f"/paprika fetching: {link}")
                                         async with aiohttp.ClientSession() as session:
                                             async with session.get(link) as resp:
                                                 if resp.status == 200:
                                                     j = await resp.json()
-                                                    # add to redis coins list
                                                     try:
-                                                        redis_utils.redis_conn.set(
-                                                            self.bot.config['redis']['prefix_paprika'] + "COINSLIST",
-                                                            json.dumps(j),
-                                                            ex=self.bot.config['redis']['default_time_coinlist']
-                                                        )
+                                                        self.paprika_coinlist_cache[coin_list_key] = j
                                                     except Exception:
                                                         traceback.format_exc()
-                                                    # end add to redis
                                     if coin_name.isdigit():
                                         for i in j:
                                             if int(coin_name) == int(i['rank']):

@@ -9,9 +9,10 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 import aiohttp
 import json
+from cachetools import TTLCache
+
 from Bot import logchanbot, RowButtonRowCloseAnyMessage, SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE
 import store
-import redis_utils
 from cogs.utils import MenuPage
 from cogs.utils import Utils
 
@@ -19,8 +20,8 @@ from cogs.utils import Utils
 class Pools(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        redis_utils.openRedis()
         self.utils = Utils(self.bot)
+        self.pool_cache = TTLCache(maxsize=1024, ttl=120.0)
 
     async def sql_miningpoolstat_fetch(
         self, coin_name: str, user_id: str, user_name: str, requested_date: int, \
@@ -75,17 +76,25 @@ class Pools(commands.Cog):
                         res_data = res_data.decode('utf-8')
                         res_data = res_data.replace("var coin_list = ", "").replace(";", "")
                         decoded_data = json.loads(res_data)
-                        key = self.bot.config['redis']['prefix'] + ":MININGPOOL:"
-                        key_hint = self.bot.config['redis']['prefix'] + ":MININGPOOL:SHORTNAME:"
+                        key = self.bot.config['kv_db']['prefix'] + ":MININGPOOL:"
+                        key_hint = self.bot.config['kv_db']['prefix'] + ":MININGPOOL:SHORTNAME:"
                         if decoded_data and len(decoded_data) > 0:
-                            # print(decoded_data)
-                            redis_utils.openRedis()
                             for kc, cat in decoded_data.items():
                                 if not isinstance(cat, int) and not isinstance(cat, str):
                                     for k, v in cat.items():
-                                        # Should have no expire.
-                                        redis_utils.redis_conn.set((key + k).upper(), json.dumps(v))
-                                        redis_utils.redis_conn.set((key_hint + v['s']).upper(), k.upper())
+                                        try:
+                                            self.utils.set_cache_kv(
+                                                "pools",
+                                                (key + k).upper(),
+                                                v
+                                            )
+                                            self.utils.set_cache_kv(
+                                                "pools",
+                                                (key_hint + v['s']).upper(),
+                                                k.upper()
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
         except asyncio.TimeoutError:
             print('TIMEOUT: Fetching from miningpoolstats')
         except Exception:
@@ -100,35 +109,31 @@ class Pools(commands.Cog):
         coin: str
     ):
         coin_name = coin.upper()
-        key = self.bot.config['redis']['prefix'] + ":MININGPOOLDATA:" + coin_name
-        if redis_utils.redis_conn.exists(key):
-            return json.loads(redis_utils.redis_conn.get(key).decode())
+        key = self.bot.config['kv_db']['prefix'] + ":MININGPOOLDATA:" + coin_name
+
+        if key in self.pool_cache:
+            print("/pools using cache {}...".format(coin_name))
+            return self.pool_cache[key]
+
         else:
             try:
-                redis_utils.openRedis()
-                try:
-                    link = self.bot.config['miningpoolstat']['coinapi'].replace("COIN_NAME", coin.lower())
-                    print(f"Fetching {link}")
-                    async with aiohttp.ClientSession() as cs:
-                        async with cs.get(link, timeout=self.bot.config['miningpoolstat']['timeout']) as r:
-                            if r.status == 200:
-                                res_data = await r.read()
-                                res_data = res_data.decode('utf-8')
-                                decoded_data = json.loads(res_data)
-                                await cs.close()
-                                if decoded_data and len(decoded_data) > 0 and 'data' in decoded_data:
-                                    redis_utils.redis_conn.set(
-                                        key,json.dumps(decoded_data),
-                                        ex=self.bot.config['miningpoolstat']['expired']
-                                    )
-                                    return decoded_data
-                                else:
-                                    print(f'MININGPOOLSTAT: Error {link} Fetching from miningpoolstats')
-                                    return None
-                except asyncio.TimeoutError:
-                    print(f'TIMEOUT: Fetching from miningpoolstats {coin_name}')
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
+                link = self.bot.config['miningpoolstat']['coinapi'].replace("COIN_NAME", coin.lower())
+                print(f"Fetching {link}")
+                async with aiohttp.ClientSession() as cs:
+                    async with cs.get(link, timeout=self.bot.config['miningpoolstat']['timeout']) as r:
+                        if r.status == 200:
+                            res_data = await r.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)
+                            await cs.close()
+                            if decoded_data and len(decoded_data) > 0 and 'data' in decoded_data:
+                                self.pool_cache[key] = decoded_data
+                                return decoded_data
+                            else:
+                                print(f'MININGPOOLSTAT: Error {link} Fetching from miningpoolstats')
+                                return None
+            except asyncio.TimeoutError:
+                print(f'TIMEOUT: Fetching from miningpoolstats {coin_name}')
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             return None
@@ -138,7 +143,7 @@ class Pools(commands.Cog):
         ctx,
         coin: str
     ):
-        coin_name = coin
+        coin_name = coin.upper()
         await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} {ctx.author.mention}, checking pools..")
 
         try:
@@ -153,23 +158,26 @@ class Pools(commands.Cog):
             if self.bot.config['miningpoolstat']['enable'] != 1:
                 await ctx.edit_original_message(content=f'{ctx.author.mention}, command temporarily disable.')
                 return
-            key = self.bot.config['redis']['prefix'] + ":MININGPOOL:" + coin_name
-            key_hint = self.bot.config['redis']['prefix'] + ":MININGPOOL:SHORTNAME:" + coin_name
-            if not redis_utils.redis_conn.exists(key):
-                if redis_utils.redis_conn.exists(key_hint):
-                    coin_name = redis_utils.redis_conn.get(key_hint).decode().upper()
-                    key = self.bot.config['redis']['prefix'] + ":MININGPOOL:" + coin_name
+            key = self.bot.config['kv_db']['prefix'] + ":MININGPOOL:" + coin_name
+            key_hint = self.bot.config['kv_db']['prefix'] + ":MININGPOOL:SHORTNAME:" + coin_name
+
+            if self.utils.get_cache_kv("pools",  key) is None:
+                if self.utils.get_cache_kv("pools",  key_hint) is not None:
+                    coin_name = self.utils.get_cache_kv("pools",  key_hint).upper()
+                    key = self.bot.config['kv_db']['prefix'] + ":MININGPOOL:" + coin_name
                 else:
                     await ctx.edit_original_message(content=f'{ctx.author.mention}, unknown coin **{coin_name}**.')
                     return
-            if redis_utils.redis_conn.exists(key):
-                # check if already in redis
-                key_p = key + ":POOLS"  # self.bot.config['redis']['prefix'] + :MININGPOOL:coin_name:POOLS
-                key_data = self.bot.config['redis']['prefix'] + ":MININGPOOLDATA:" + coin_name
+
+            if self.utils.get_cache_kv("pools",  key) is not None:
+                # check if already in kv_db
+                key_p = key + ":POOLS"  # self.bot.config['kv_db']['prefix'] + :MININGPOOL:coin_name:POOLS
+                key_data = self.bot.config['kv_db']['prefix'] + ":MININGPOOLDATA:" + coin_name
                 get_pool_data = None
                 is_cache = 'NO'
-                if redis_utils.redis_conn.exists(key_data):
-                    get_pool_data = json.loads(redis_utils.redis_conn.get(key_data).decode())
+
+                if self.utils.get_cache_kv("pools",  key_data) is not None:
+                    get_pool_data = self.utils.get_cache_kv("pools",  key_data)
                     is_cache = 'YES'
                 else:
                     if ctx.author.id not in self.bot.MINGPOOLSTAT_IN_PROCESS:
@@ -413,111 +421,6 @@ class Pools(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
                     if ctx.author.id in self.bot.MINGPOOLSTAT_IN_PROCESS:
                         self.bot.MINGPOOLSTAT_IN_PROCESS.remove(ctx.author.id)
-                else:
-                    # Try old way
-                    # if not exist, add to queue in redis
-                    key_queue = self.bot.config['redis']['prefix'] + ":MININGPOOL2:QUEUE"
-                    if redis_utils.redis_conn.llen(key_queue) > 0:
-                        list_coin_queue = redis_utils.redis_conn.lrange(key_queue, 0, -1)
-                        if coin_name not in list_coin_queue:
-                            redis_utils.redis_conn.lpush(key_queue, coin_name)
-                    elif redis_utils.redis_conn.llen(key_queue) == 0:
-                        redis_utils.redis_conn.lpush(key_queue, coin_name)
-                    try:
-                        # loop and waiting for another fetch
-                        retry = 0
-                        while True:
-                            key = self.bot.config['redis']['prefix'] + ":MININGPOOL2:" + coin_name
-                            key_p = key + ":POOLS"  # self.bot.config['redis']['prefix'] + :MININGPOOL2:coin_name:POOLS
-                            await asyncio.sleep(5)
-                            if redis_utils.redis_conn.exists(key_p):
-                                result = json.loads(redis_utils.redis_conn.get(key_p).decode())
-                                is_cache = 'NO'
-                                try:
-                                    embed = disnake.Embed(
-                                        title='Mining Pools for {}'.format(coin_name), description='',
-                                        timestamp=datetime.now()
-                                    )
-                                    i = 0
-                                    if result and len(result) > 0:
-                                        pool_links = ''
-                                        hash_rate = ''
-                                        for each in result:
-                                            if i < 15 and i < len(result):
-                                                if len(each) >= 4:
-                                                    hash_list = ['H/s', 'KH/s', 'MH/s', 'GH/s', 'TH/s', 'PH/s', 'EH/s']
-                                                    if [ele for ele in hash_list if
-                                                        ((ele in each[2]) and ('Hashrate' not in each[2]))]:
-                                                        hash_rate = each[2]
-                                                    elif [ele for ele in hash_list if
-                                                          ((ele in each[3]) and ('Hashrate' not in each[3]))]:
-                                                        hash_rate = each[3]
-                                                    else:
-                                                        hash_rate = ''
-                                                    if hash_rate == '' and len(each) >= 5 and [
-                                                        ele for ele in hash_list if ((ele in each[4]) and ('Hashrate' not in each[4]))
-                                                    ]:
-                                                        hash_rate = each[4]
-                                                    elif hash_rate == '' and len(each) >= 6 and [
-                                                        ele for ele in hash_list if ((ele in each[5]) and ('Hashrate' not in each[5]))
-                                                    ]:
-                                                        hash_rate = each[5]
-                                                    elif hash_rate == '' and len(each) >= 7 and [
-                                                        ele for ele in hash_list if ((ele in each[6]) and ('Hashrate' not in each[6]))
-                                                    ]:
-                                                        hash_rate = each[6]
-                                                    pool_links += each[0] + ' ' + each[1] + ' ' + hash_rate + '\n'
-                                                else:
-                                                    pool_links += each[0] + ' ' + each[1] + '\n'
-                                                i += 1
-                                        try:
-                                            embed.add_field(name="List", value=pool_links)
-                                        except Exception:
-                                            traceback.print_exc(file=sys.stdout)
-                                    embed.add_field(
-                                        name="OTHER LINKS",
-                                        value="{} / [Invite TipBot]({}) / [Support Server]({}) / [TipBot Github]({})".format(
-                                            "[More pools](https://miningpoolstats.stream/{})".format(coin_name.lower()), 
-                                            self.bot.config['discord']['invite_link'], 
-                                            self.bot.config['discord']['support_server_link'],
-                                            self.bot.config['discord']['github_link']
-                                        ),
-                                        inline=False
-                                    )
-                                    embed.set_footer(text="Data from https://miningpoolstats.stream")
-                                    await ctx.edit_original_message(content=None, embed=embed)
-                                    respond_date = int(time.time())
-                                    await self.sql_miningpoolstat_fetch(
-                                        coin_name, str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                        requested_date, respond_date, json.dumps(result),
-                                        str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
-                                        ctx.guild.name if hasattr(ctx, "guild") and hasattr(ctx.guild, "name") else "DM",
-                                        str(ctx.channel.id), is_cache, SERVER_BOT, 'YES'
-                                    )
-                                    if ctx.author.id in self.bot.MINGPOOLSTAT_IN_PROCESS:
-                                        self.bot.MINGPOOLSTAT_IN_PROCESS.remove(ctx.author.id)
-                                    break
-                                except Exception:
-                                    traceback.print_exc(file=sys.stdout)
-                                    if ctx.author.id in self.bot.MINGPOOLSTAT_IN_PROCESS:
-                                        self.bot.MINGPOOLSTAT_IN_PROCESS.remove(ctx.author.id)
-                                    return
-                            elif not redis_utils.redis_conn.exists(key_p):
-                                retry += 1
-                            if retry >= 5:
-                                redis_utils.redis_conn.lrem(key_queue, 0, coin_name)
-                                await ctx.edit_original_message(
-                                    content=f'{ctx.author.mention} We can not fetch data for **{coin_name}**.'
-                                )
-                                if ctx.author.id in self.bot.MINGPOOLSTAT_IN_PROCESS:
-                                    self.bot.MINGPOOLSTAT_IN_PROCESS.remove(ctx.author.id)
-                                break
-                    except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
-                        if ctx.author.id in self.bot.MINGPOOLSTAT_IN_PROCESS:
-                            self.bot.MINGPOOLSTAT_IN_PROCESS.remove(ctx.author.id)
-                        return
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
             if ctx.author.id in self.bot.MINGPOOLSTAT_IN_PROCESS:
                 self.bot.MINGPOOLSTAT_IN_PROCESS.remove(ctx.author.id)
         except Exception:

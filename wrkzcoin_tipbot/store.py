@@ -807,45 +807,6 @@ async def sql_nano_get_user_wallets(coin: str):
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-async def sql_get_new_tx_table(notified: str = 'NO', failed_notify: str = 'NO'):
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ SELECT * FROM `discord_notify_new_tx` 
-                WHERE `notified`=%s AND `failed_notify`=%s
-                """
-                await cur.execute(sql, (notified, failed_notify,))
-                result = await cur.fetchall()
-                return result
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-        await logchanbot("store " +str(traceback.format_exc()))
-    return []
-
-async def sql_update_notify_tx_table(
-    payment_id: str, owner_id: str, owner_name: str, notified: str, 
-    failed_notify: str, txid: str
-):
-    global pool
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ UPDATE `discord_notify_new_tx` 
-                SET `owner_id`=%s, `owner_name`=%s, `notified`=%s, `failed_notify`=%s, 
-                `notified_time`=%s AND `notified_time` IS NULL 
-                WHERE `payment_id`=%s AND `txid`=%s LIMIT 1
-                """
-                await cur.execute(sql, (
-                    owner_id, owner_name, notified, failed_notify, int(time.time()), payment_id, txid
-                ))
-                await conn.commit()
-                return cur.rowcount
-    except Exception as e:
-        await logchanbot("store " +str(traceback.format_exc()))
-    return 0
-
 async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family: str):
     coin_name = coin.upper()
     try:

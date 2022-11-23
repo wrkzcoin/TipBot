@@ -66,10 +66,12 @@ def get_trade_view_by_id(
         driver.set_window_position(0, 0)
         driver.set_window_size(selenium_setting['win_w'], selenium_setting['win_h'])
 
+        print("/paprika get_trade_view_by_id: {}".format(web_url))
         driver.get(web_url)
+
+        WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.ID, "tv_chart_container")))
         WebDriverWait(driver, timeout).until(
             EC.frame_to_be_available_and_switch_to_it((By.CSS_SELECTOR, "iframe[id^='tradingview']")))
-        ## WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.ID, "tv_chart_container")))
         WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.CLASS_NAME, "chart-markup-table")))
         WebDriverWait(driver, timeout).until(
             EC.visibility_of_element_located((By.CLASS_NAME, "chart-container-border")))
@@ -134,7 +136,7 @@ class Paprika(commands.Cog):
 
         # enable trade-view
         # Example: https://coinpaprika.com/trading-view/wrkz-wrkzcoin
-        self.tradeview = True
+        self.tradeview = False # Disable TradeView
         self.tradeview_url = "https://coinpaprika.com/trading-view/"
         self.tradeview_path = "./discordtip_v2_paprika_tradeview/"
         self.tradeview_static_png = "https://tipbot-static.wrkz.work/discordtip_v2_paprika_tradeview/"

@@ -3751,9 +3751,8 @@ async def sql_roach_get_by_id(roach_id: str, user_server: str = 'DISCORD'):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
-
 async def sql_faucet_checkuser(user_id: str, user_server: str = 'DISCORD'):
-    global pool, redis_conn, redis_pool
+    global pool
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return
@@ -3802,7 +3801,7 @@ async def sql_faucet_add(
     claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int,
     user_server: str = 'DISCORD'
 ):
-    global pool, redis_conn
+    global pool
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
         return

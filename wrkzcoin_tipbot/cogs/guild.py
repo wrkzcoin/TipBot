@@ -117,7 +117,10 @@ class Guild(commands.Cog):
                     try:
                         get_bot = get_guild.get_member( self.bot.user.id )
                         if not get_bot.guild_permissions.send_messages:
-                            await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {str(get_guild.id)} I have no permission to send message. Skipped.")
+                            await logchanbot(
+                                f"[ACTIVEDROP] in guild {get_guild.name} / {str(get_guild.id)} "\
+                                "I have no permission to send message. Skipped."
+                            )
                             continue
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
@@ -125,12 +128,16 @@ class Guild(commands.Cog):
                     # check last drop
                     last_drop = await self.get_last_activedrop_guild( each_drop['serverid'] )
                     role = None
-                    if last_drop is None or (last_drop is not None and int(time.time()) - last_drop['spread_time'] >= each_drop['tiptalk_duration'] ):
+                    if last_drop is None or \
+                        (last_drop is not None and int(time.time()) - last_drop['spread_time'] >= each_drop['tiptalk_duration']):
                         # let's spread tiptalker
                         additional_time = 0
                         if last_drop is not None and 300 > int(time.time()) - last_drop['spread_time'] - each_drop['tiptalk_duration'] > 0:
                             additional_time = int(time.time()) - last_drop['spread_time'] - each_drop['tiptalk_duration']
-                        message_talker = await store.sql_get_messages( each_drop['serverid'], each_drop['tiptalk_channel'], each_drop['tiptalk_duration'] + additional_time, None)
+                        message_talker = await store.sql_get_messages(
+                            each_drop['serverid'], each_drop['tiptalk_channel'],
+                            each_drop['tiptalk_duration'] + additional_time, None
+                        )
                         msg = ""
                         msg_no_embed = ""
                         list_receivers = []
@@ -142,9 +149,13 @@ class Guild(commands.Cog):
                                 role = disnake.utils.get(get_guild.roles, id=int(each_drop['tiptalk_role_id']))
 
                             # Check guild's balance
-                            get_deposit = await self.wallet_api.sql_get_userwallet(each_drop['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0)
+                            get_deposit = await self.wallet_api.sql_get_userwallet(
+                                each_drop['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0
+                            )
                             if get_deposit is None:
-                                get_deposit = await self.wallet_api.sql_register_user(each_drop['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
+                                get_deposit = await self.wallet_api.sql_register_user(
+                                    each_drop['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0, 1
+                                )
 
                             wallet_address = get_deposit['balance_wallet_address']
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -161,9 +172,12 @@ class Guild(commands.Cog):
                             actual_balance = float(userdata_balance['adjust'])
                             
                             if actual_balance < float(each_drop['tiptalk_amount']):
-                                msg = f"Guild {get_guild.name} runs out of {coin_name}'s balance. Please deposit with `/guild deposit` command."
+                                msg = f"Guild {get_guild.name} runs out of {coin_name}'s balance. "\
+                                    f"Please deposit with `/guild deposit` command."
                                 msg_no_embed = msg
-                                await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} runs out of {coin_name} balance.")
+                                await logchanbot(
+                                    f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} runs out of {coin_name} balance."
+                                )
                                 # add to DB
                                 await self.insert_new_activedrop_guild(
                                     each_drop['serverid'], get_guild.name, 
@@ -175,7 +189,8 @@ class Guild(commands.Cog):
                                 for member_id in message_talker:
                                     try:
                                         member = get_guild.get_member( int(member_id) )
-                                        if (member and member in get_guild.members and role and hasattr(member, "roles") and role in member.roles) or (role is None and member and member in get_guild.members):
+                                        if (member and member in get_guild.members and role and hasattr(member, "roles") \
+                                            and role in member.roles) or (role is None and member and member in get_guild.members):
                                             user_to = await self.wallet_api.sql_get_userwallet(
                                                 str(member_id), coin_name, net_name, type_coin, SERVER_BOT, 0
                                             )
@@ -196,7 +211,11 @@ class Guild(commands.Cog):
                                 if len(list_receivers) == 0:
                                     msg = f"There is 0 active talkers in the last {lap_str}."
                                     # add to DB
-                                    await self.insert_new_activedrop_guild( each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], coin_name, coin_decimal, each_drop['tiptalk_amount'], each_drop['tiptalk_amount'], len(list_receivers), None, None, int(time.time()) )
+                                    await self.insert_new_activedrop_guild(
+                                        each_drop['serverid'], get_guild.name, each_drop['tiptalk_channel'], coin_name,
+                                        coin_decimal, each_drop['tiptalk_amount'], each_drop['tiptalk_amount'],
+                                        len(list_receivers), None, None, int(time.time())
+                                    )
                                     # No need to message, just pass
                                     continue
                                 else:
@@ -243,34 +262,85 @@ class Guild(commands.Cog):
                                         except Exception:
                                             pass
 
-                                        tiptalk = await store.sql_user_balance_mv_multiple( each_drop['serverid'], list_receivers, each_drop['serverid'], each_drop['tiptalk_channel'], each_drop['tiptalk_amount']/len(list_receivers), coin_name, "TIPTALK", coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None )
+                                        tiptalk = await store.sql_user_balance_mv_multiple(
+                                            each_drop['serverid'], list_receivers, each_drop['serverid'],
+                                            each_drop['tiptalk_channel'], each_drop['tiptalk_amount']/len(list_receivers),
+                                            coin_name, "TIPTALK", coin_decimal, SERVER_BOT, contract, float(amount_in_usd), None
+                                        )
                                         list_mentioned = [f"<@{each}>" for each in list_receivers]
                                         msg = ", ".join(list_mentioned) + f" active talker(s) in the last {lap_str}."
-                                        msg_no_embed = ", ".join(list_receiver_names) + " got {} {} each. Next drop in {}.".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name, seconds_str(each_drop['tiptalk_duration']))
+                                        msg_no_embed = ", ".join(list_receiver_names) + " got {} {} each. Next drop in {}.".format(
+                                            num_format_coin(
+                                                each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'],
+                                                coin_name, coin_decimal, False
+                                            ),
+                                            coin_name,
+                                            seconds_str(each_drop['tiptalk_duration'])
+                                        )
                                         if len(msg) > 999:
                                             verb = "is"
                                             if len(list_receivers) > 0:
                                                 verb = "are"
                                             msg = f"There {verb} {str(len(list_receivers))} active talker(s) in the last {lap_str}."
-                                            msg_no_embed = msg + " Each got {} {}. Next drop in {}. You can disable it by /tiptalker and set amount 0.".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name, seconds_str(each_drop['tiptalk_duration']))
+                                            msg_no_embed = msg + " Each got {} {}. Next drop in {}. "\
+                                                "You can disable it by /tiptalker and set amount 0.".format(num_format_coin(
+                                                    each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'],
+                                                    coin_name, coin_decimal, False
+                                                ),
+                                                coin_name,
+                                                seconds_str(each_drop['tiptalk_duration'])
+                                            )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                         await logchanbot("guild " +str(traceback.format_exc()))
                         if len(msg) > 0:
-                            embed = disnake.Embed(title = "ACTIVEDROP/TALKER {}".format( get_guild.name ), description="Keep on chatting in <#{}>".format(each_drop['tiptalk_channel']), timestamp=datetime.now())
-                            embed.add_field(name="RECEIVER(s): {}".format(len(list_receivers)), value=msg, inline=False)
-                            embed.add_field(name="TOTAL", value="{} {}".format(num_format_coin(each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name), inline=False)
-                            embed.add_field(name="EACH", value="{} {}".format(num_format_coin(each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name), inline=False)
+                            embed = disnake.Embed(
+                                title = "ACTIVEDROP/TALKER {}".format( get_guild.name ),
+                                description="Keep on chatting in <#{}>".format(each_drop['tiptalk_channel']),
+                                timestamp=datetime.now()
+                            )
+                            embed.add_field(
+                                name="RECEIVER(s): {}".format(len(list_receivers)),
+                                value=msg,
+                                inline=False
+                            )
+                            embed.add_field(
+                                name="TOTAL",
+                                value="{} {}".format(
+                                    num_format_coin(each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name
+                                ),
+                                inline=False
+                            )
+                            embed.add_field(
+                                name="EACH",
+                                value="{} {}".format(
+                                    num_format_coin(
+                                        each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'],
+                                        coin_name,
+                                        coin_decimal,
+                                        False
+                                    ), 
+                                    coin_name
+                                ),
+                                inline=False
+                            )
                             if each_drop['tiptalk_role_id'] and role:
                                 embed.add_field(name="ROLE", value=role.name, inline=False)
-                            embed.add_field(name="NEXT DROP", value=seconds_str(each_drop['tiptalk_duration']), inline=False)
+                            embed.add_field(
+                                name="NEXT DROP",
+                                value=seconds_str(each_drop['tiptalk_duration']),
+                                inline=False
+                            )
                             embed.set_footer(text="You can disable it by /tiptalker and set amount 0.")
                             if get_channel and len(list_receivers) > 0:
                                 try:
                                     await get_channel.send(embed=embed)
                                 except Exception:
                                     await get_channel.send(content=msg_no_embed)
-                                await logchanbot(f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} to {str(len(list_receivers))} for total of {num_format_coin(each_drop['tiptalk_amount'], coin_name, coin_decimal, False)} {coin_name}.")
+                                await logchanbot(
+                                    f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} to {str(len(list_receivers))} "\
+                                    f"for total of {num_format_coin(each_drop['tiptalk_amount'], coin_name, coin_decimal, False)} {coin_name}."
+                                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
@@ -310,8 +380,10 @@ class Guild(commands.Cog):
                                 if (list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) < 3) or \
                                 (list_raffle_id and list_raffle_id['entries'] is None):
                                     # Cancel game
-                                    cancelled_status = await self.raffle_cancel_id(each_raffle['id'])
-                                    msg_raffle = "Cancelled raffle #{} in guild {}: **Shortage of users**. User entry fee refund!".format(each_raffle['id'], each_raffle['guild_name'])
+                                    await self.raffle_cancel_id(each_raffle['id'])
+                                    msg_raffle = "Cancelled raffle #{} in guild {}: **Shortage of users**. User entry fee refund!".format(
+                                        each_raffle['id'], each_raffle['guild_name']
+                                    )
                                     serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
                                     if serverinfo['raffle_channel']:
                                         raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
@@ -328,9 +400,13 @@ class Guild(commands.Cog):
                                     else:
                                         self.raffle_ongoing.append(each_raffle['id'])
                                     # change status from Open to ongoing
-                                    update_status = await self.raffle_update_id(each_raffle['id'], 'ONGOING', None, None, None, None, None, None, None, None, None, None)
+                                    update_status = await self.raffle_update_id(
+                                        each_raffle['id'], 'ONGOING', None, None, None, None, None, None, None, None, None, None
+                                    )
                                     if update_status:
-                                        msg_raffle = "Changed raffle #{} status to **ONGOING** in guild {}/{}! ".format(each_raffle['id'], each_raffle['guild_name'], each_raffle['guild_id'])
+                                        msg_raffle = "Changed raffle #{} status to **ONGOING** in guild {}/{}! ".format(
+                                            each_raffle['id'], each_raffle['guild_name'], each_raffle['guild_id']
+                                        )
                                         msg_raffle += "Raffle will start in **{}**".format(seconds_str(to_close_fromopen))
                                         serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])                                        
                                         if serverinfo['raffle_channel']:
@@ -382,8 +458,10 @@ class Guild(commands.Cog):
                                 # This is redundant with above!
                                 if list_raffle_id and list_raffle_id['entries'] and len(list_raffle_id['entries']) < 3:
                                     # Cancel game
-                                    cancelled_status = await self.raffle_cancel_id(each_raffle['id'])
-                                    msg_raffle = "Cancelled raffle #{} in guild {}: shortage of users. User entry fee refund!".format(each_raffle['id'], each_raffle['guild_id'])
+                                    await self.raffle_cancel_id(each_raffle['id'])
+                                    msg_raffle = "Cancelled raffle #{} in guild {}: shortage of users. User entry fee refund!".format(
+                                        each_raffle['id'], each_raffle['guild_id']
+                                    )
                                     if serverinfo['raffle_channel']:
                                         raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
                                         if raffle_chan:
@@ -428,16 +506,61 @@ class Guild(commands.Cog):
                                     list_losers.remove(user_entries_id[winner_3])
                                     won_amounts.append(float(total_reward) * self.raffle_pot_fee)
                                     # channel_id = RAFFLE
-                                    update_status = await self.raffle_update_id(each_raffle['id'], 'COMPLETED', coin_name, list_winners, won_amounts, list_losers, float(each_raffle['amount']), coin_decimal, unit_price_usd, contract, each_raffle['guild_id'], "RAFFLE")
-                                    embed = disnake.Embed(title = "RAFFLE #{} / {}".format(each_raffle['id'], each_raffle['guild_name']), timestamp=datetime.fromtimestamp(int(time.time())))
-                                    embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(each_raffle['amount'], coin_name, coin_decimal, False), coin_name), inline=True)
-                                    embed.add_field(name="1st WINNER: {}".format(winner_1_name), value="{} {}".format(num_format_coin(won_amounts[0], coin_name, coin_decimal, False), coin_name), inline=False)
-                                    embed.add_field(name="2nd WINNER: {}".format(winner_2_name), value="{} {}".format(num_format_coin(won_amounts[1], coin_name, coin_decimal, False), coin_name), inline=False)
-                                    embed.add_field(name="3rd WINNER: {}".format(winner_3_name), value="{} {}".format(num_format_coin(won_amounts[2], coin_name, coin_decimal, False), coin_name), inline=False)
-                                    embed.set_footer(text="Raffle for {} by {}".format(each_raffle['guild_name'], each_raffle['created_username']))
+                                    update_status = await self.raffle_update_id(
+                                        each_raffle['id'], 'COMPLETED', coin_name, list_winners, won_amounts, list_losers,
+                                        float(each_raffle['amount']), coin_decimal, unit_price_usd, contract,
+                                        each_raffle['guild_id'], "RAFFLE"
+                                    )
+                                    embed = disnake.Embed(
+                                        title = "RAFFLE #{} / {}".format(
+                                            each_raffle['id'], each_raffle['guild_name']
+                                        ),
+                                        timestamp=datetime.fromtimestamp(int(time.time()))
+                                    )
+                                    embed.add_field(
+                                        name="ENTRY FEE",
+                                        value="{} {}".format(
+                                            num_format_coin(each_raffle['amount'], coin_name, coin_decimal, False),
+                                            coin_name
+                                        ),
+                                        inline=True
+                                    )
+                                    embed.add_field(
+                                        name="1st WINNER: {}".format(winner_1_name),
+                                        value="{} {}".format(
+                                            num_format_coin(won_amounts[0], coin_name, coin_decimal, False),
+                                            coin_name
+                                        ),
+                                        inline=False
+                                    )
+                                    embed.add_field(
+                                        name="2nd WINNER: {}".format(winner_2_name),
+                                        value="{} {}".format(
+                                            num_format_coin(won_amounts[1], coin_name, coin_decimal, False),
+                                            coin_name
+                                        ),
+                                        inline=False
+                                    )
+                                    embed.add_field(
+                                        name="3rd WINNER: {}".format(winner_3_name),
+                                        value="{} {}".format(
+                                            num_format_coin(won_amounts[2], coin_name, coin_decimal, False),
+                                            coin_name
+                                        ),
+                                        inline=False
+                                    )
+                                    embed.set_footer(
+                                        text="Raffle for {} by {}".format(each_raffle['guild_name'], each_raffle['created_username'])
+                                    )
                                     
-                                    msg_raffle = "**Completed raffle #{} in guild {}! Winner entries: #1: {}, #2: {}, #3: {}**\n".format(each_raffle['id'], each_raffle['guild_name'], winner_1_name, winner_2_name, winner_3_name)
-                                    msg_raffle += "```Three winners get reward of #1: {}{}, #2: {}{}, #3: {}{}```".format(num_format_coin(won_amounts[0], coin_name, coin_decimal, False), coin_name, num_format_coin(won_amounts[1], coin_name, coin_decimal, False), coin_name, num_format_coin(won_amounts[2], coin_name, coin_decimal, False), coin_name)
+                                    msg_raffle = "**Completed raffle #{} in guild {}! Winner entries: #1: {}, #2: {}, #3: {}**\n".format(
+                                        each_raffle['id'], each_raffle['guild_name'], winner_1_name, winner_2_name, winner_3_name
+                                    )
+                                    msg_raffle += "```Three winners get reward of #1: {}{}, #2: {}{}, #3: {}{}```".format(
+                                        num_format_coin(won_amounts[0], coin_name, coin_decimal, False), coin_name,
+                                        num_format_coin(won_amounts[1], coin_name, coin_decimal, False), coin_name,
+                                        num_format_coin(won_amounts[2], coin_name, coin_decimal, False), coin_name
+                                    )
                                     if serverinfo['raffle_channel']:
                                         raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
                                         if raffle_chan:
@@ -487,41 +610,71 @@ class Guild(commands.Cog):
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:
                     if list_winner is None and list_amounts is None:
-                        sql = """ UPDATE guild_raffle SET `status`=%s WHERE `id`=%s """	
+                        sql = """ UPDATE `guild_raffle` SET `status`=%s WHERE `id`=%s """	
                         await cur.execute(sql, (status.upper(), raffle_id))
                         await conn.commit()
                         return True
                     else:
                         values_list = []
                         if status.upper() == "COMPLETED" and list_winner and list_amounts:
-                            sql = """ UPDATE guild_raffle SET `status`=%s, `winner_userid_1st`=%s,
+                            sql = """ UPDATE `guild_raffle` SET `status`=%s, `winner_userid_1st`=%s,
                                       `winner_1st_amount`=%s, `winner_userid_2nd`=%s,
                                       `winner_2nd_amount`=%s, `winner_userid_3rd`=%s,
                                       `winner_3rd_amount`=%s, `raffle_fund_pot`=%s WHERE `id`=%s """
-                            await cur.execute(sql, (status.upper(), list_winner[0], list_amounts[0], 
-                                                    list_winner[1], list_amounts[1], list_winner[2],
-                                                    list_amounts[2], list_amounts[3], raffle_id))
+                            await cur.execute(sql, (
+                                status.upper(), list_winner[0], list_amounts[0], 
+                                list_winner[1], list_amounts[1], list_winner[2],
+                                list_amounts[2], list_amounts[3], raffle_id
+                            ))
 
                             # Update # guild_raffle_entries
-                            update_status = [('WINNER', list_amounts[0], raffle_id, list_winner[0]), ('WINNER', list_amounts[1], raffle_id, list_winner[1]), ('WINNER', list_amounts[2], raffle_id, list_winner[2])]
+                            update_status = [
+                                ('WINNER', list_amounts[0], raffle_id, list_winner[0]),
+                                ('WINNER', list_amounts[1], raffle_id, list_winner[1]),
+                                ('WINNER', list_amounts[2], raffle_id, list_winner[2])
+                            ]
                             for each_loser in list_entries:
                                 update_status.append(( 'LOST', amount_each, raffle_id, each_loser ))
-                            sql = """ UPDATE guild_raffle_entries SET `status`=%s, `won_amount`=%s WHERE `raffle_id`=%s 
+                            sql = """ UPDATE `guild_raffle_entries` SET `status`=%s, `won_amount`=%s WHERE `raffle_id`=%s 
                                       AND `user_id`=%s """
                             await cur.executemany(sql, update_status)
                             await conn.commit()
 
                             # Move from players to guild, then from guild to winner
                             for item in list_entries+[list_winner[0], list_winner[1], list_winner[2]]:
-                                values_list.append(( coin.upper(), contract, item, guild_id, guild_id, channel_id, amount_each, coin_decimal, "RAFFLE", currentTs, user_server, float(amount_each)*float(unit_price_usd), item, coin.upper(), user_server, -amount_each, currentTs, guild_id, coin.upper(), user_server, amount_each, currentTs, ))
+                                values_list.append((
+                                    coin.upper(), contract, item, guild_id, guild_id, channel_id, amount_each, coin_decimal,
+                                    "RAFFLE", currentTs, user_server, float(amount_each)*float(unit_price_usd), item, coin.upper(),
+                                    user_server, -amount_each, currentTs, guild_id, coin.upper(), user_server, amount_each, currentTs
+                                ))
                             # reward to winners
                             # 1st
-                            values_list.append(( coin.upper(), contract, guild_id, list_winner[0], guild_id, channel_id, list_amounts[0], coin_decimal, "RAFFLE", currentTs, user_server, unit_price_usd*list_amounts[0], guild_id, coin.upper(), user_server, -list_amounts[0], currentTs, list_winner[0], coin.upper(), user_server, list_amounts[0], currentTs ))
-                            values_list.append(( coin.upper(), contract, guild_id, list_winner[1], guild_id, channel_id, list_amounts[1], coin_decimal, "RAFFLE", currentTs, user_server, unit_price_usd*list_amounts[1], guild_id, coin.upper(), user_server, -list_amounts[1], currentTs, list_winner[1], coin.upper(), user_server, list_amounts[1], currentTs ))
-                            values_list.append(( coin.upper(), contract, guild_id, list_winner[2], guild_id, channel_id, list_amounts[2], coin_decimal, "RAFFLE", currentTs, user_server, unit_price_usd*list_amounts[2], guild_id, coin.upper(), user_server, -list_amounts[2], currentTs, list_winner[2], coin.upper(), user_server, list_amounts[2], currentTs ))
+                            values_list.append((
+                                coin.upper(), contract, guild_id, list_winner[0], guild_id, channel_id, list_amounts[0], 
+                                coin_decimal, "RAFFLE", currentTs, user_server, unit_price_usd*list_amounts[0], guild_id, 
+                                coin.upper(), user_server, -list_amounts[0], currentTs, list_winner[0], coin.upper(), 
+                                user_server, list_amounts[0], currentTs
+                            ))
+                            values_list.append((
+                                coin.upper(), contract, guild_id, list_winner[1], guild_id, channel_id, list_amounts[1],
+                                coin_decimal, "RAFFLE", currentTs, user_server, unit_price_usd*list_amounts[1], guild_id,
+                                coin.upper(), user_server, -list_amounts[1], currentTs, list_winner[1], coin.upper(),
+                                user_server, list_amounts[1], currentTs
+                            ))
+                            values_list.append((
+                                coin.upper(), contract, guild_id, list_winner[2], guild_id, channel_id, list_amounts[2],
+                                coin_decimal, "RAFFLE", currentTs, user_server, unit_price_usd*list_amounts[2], guild_id,
+                                coin.upper(), user_server, -list_amounts[2], currentTs, list_winner[2], coin.upper(),
+                                user_server, list_amounts[2], currentTs
+                            ))
                             # raffle pot fee 0.01
-                            values_list.append(( coin.upper(), contract, guild_id, "RAFFLE", guild_id, channel_id, list_amounts[3], coin_decimal, "RAFFLE", currentTs, user_server, unit_price_usd*list_amounts[3], guild_id, coin.upper(), user_server, -list_amounts[3], currentTs, "RAFFLE", coin.upper(), user_server, list_amounts[3], currentTs ))
-                            sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`, `real_amount_usd`) 
+                            values_list.append((
+                                coin.upper(), contract, guild_id, "RAFFLE", guild_id, channel_id, list_amounts[3], coin_decimal,
+                                "RAFFLE", currentTs, user_server, unit_price_usd*list_amounts[3], guild_id, coin.upper(),
+                                user_server, -list_amounts[3], currentTs, "RAFFLE", coin.upper(), user_server, list_amounts[3], currentTs
+                            ))
+                            sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, `to_userid`, 
+                            `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, `date`, `user_server`, `real_amount_usd`) 
                             VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s);
                         
                             INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
@@ -570,7 +723,7 @@ class Guild(commands.Cog):
             await store.openConnection()	
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM guild_raffle 
+                    sql = """ SELECT * FROM `guild_raffle` 
                     WHERE `user_server`=%s AND `status` IN ('OPENED', 'ONGOING')
                     """
                     await cur.execute(sql, (user_server))
@@ -587,12 +740,12 @@ class Guild(commands.Cog):
             await store.openConnection()	
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:	
-                    sql = """ SELECT * FROM guild_raffle 
+                    sql = """ SELECT * FROM `guild_raffle` 
                               WHERE `id`=%s AND `user_server`=%s LIMIT 1 """
                     await cur.execute(sql, (idx, user_server))
                     result = await cur.fetchone()
                     if result:
-                        sql = """ SELECT * FROM guild_raffle_entries 
+                        sql = """ SELECT * FROM `guild_raffle_entries` 
                         WHERE `raffle_id`=%s AND `user_server`=%s 
                         ORDER BY `entry_id` DESC
                         """
@@ -601,7 +754,7 @@ class Guild(commands.Cog):
                         if result_list and len(result_list) > 0:
                             result['entries'] = result_list
                             if user_check:
-                                sql = """ SELECT * FROM guild_raffle_entries 
+                                sql = """ SELECT * FROM `guild_raffle_entries` 
                                 WHERE `raffle_id`=%s AND `user_server`=%s AND `user_id`=%s LIMIT 1
                                 """
                                 await cur.execute(sql, (idx, user_server, user_check))
@@ -624,8 +777,9 @@ class Guild(commands.Cog):
             await store.openConnection()	
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM guild_raffle 
-                    WHERE `guild_id`=%s AND `user_server`=%s ORDER BY `id` DESC LIMIT 1 """
+                    sql = """ SELECT * FROM `guild_raffle` 
+                    WHERE `guild_id`=%s AND `user_server`=%s ORDER BY `id` DESC LIMIT 1
+                    """
                     if last_play: sql += "OFFSET 1"
                     await cur.execute(sql, (guild, user_server))
                     result = await cur.fetchone()
@@ -645,9 +799,10 @@ class Guild(commands.Cog):
             await store.openConnection()	
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:	
-                    sql = """ INSERT INTO guild_raffle_entries (`raffle_id`, `guild_id`, `amount`, `decimal`, 
+                    sql = """ INSERT INTO `guild_raffle_entries` (`raffle_id`, `guild_id`, `amount`, `decimal`, 
                     `coin_name`, `user_id`, `user_name`, `entry_ts`, `user_server`) 	
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """	
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """	
                     await cur.execute(sql, (
                         raffle_id, guild_id, amount, decimal, coin_name, user_id,
                         user_name, int(time.time()), user_server
@@ -669,7 +824,7 @@ class Guild(commands.Cog):
             await store.openConnection()	
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:	
-                    sql = """ INSERT INTO guild_raffle (`guild_id`, `guild_name`, `amount`, `decimal`, 
+                    sql = """ INSERT INTO `guild_raffle` (`guild_id`, `guild_name`, `amount`, `decimal`, 
                     `coin_name`, `created_userid`, `created_username`, `created_ts`, 
                     `ending_ts`, `user_server`) 	
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -745,10 +900,17 @@ class Guild(commands.Cog):
                                         guild_found = self.bot.get_guild(int(each_guild['serverid']))
                                         user_found = self.bot.get_user(guild_found.owner.id)
                                         if user_found is not None:
-                                            await user_found.send(f"Currently, your guild's balance of {coin_name} is lower than 10x reward: {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. Vote reward is disable.")
+                                            await user_found.send(
+                                                f"Currently, your guild's balance of {coin_name} is lower than 10x reward: "\
+                                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
+                                                f"Vote reward is disable."
+                                            )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
-                                    await self.vote_logchan(f'[{SERVER_BOT}] Disable vote reward for {guild_found.name} / {guild_found.id}. Guild\'s balance below 10x: {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}.')
+                                    await self.vote_logchan(f"[{SERVER_BOT}] Disable vote reward for {guild_found.name} / "\
+                                        f"{guild_found.id}. Guild\'s balance below 10x: "\
+                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}."
+                                    )
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
@@ -847,7 +1009,7 @@ class Guild(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE discord_server SET `"""+secret+"""`=%s WHERE `serverid`=%s LIMIT 1
+                    sql = """ UPDATE `discord_server` SET `"""+secret+"""`=%s WHERE `serverid`=%s LIMIT 1
                     """
                     await cur.execute(sql, (key, guild_id))
                     await conn.commit()
@@ -864,14 +1026,14 @@ class Guild(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if disable is True:
-                        sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, 
+                        sql = """ UPDATE `discord_server` SET `vote_reward_amount`=%s, 
                         `vote_reward_coin`=%s, `vote_reward_channel`=%s WHERE `serverid`=%s LIMIT 1
                         """
                         await cur.execute(sql, ( None, None, guild_id, None ))
                         await conn.commit()
                         return cur.rowcount
                     else:
-                        sql = """ UPDATE discord_server SET `vote_reward_amount`=%s, 
+                        sql = """ UPDATE `discord_server` SET `vote_reward_amount`=%s, 
                         `vote_reward_coin`=%s, `vote_reward_channel`=%s WHERE `serverid`=%s LIMIT 1
                         """
                         await cur.execute(sql, ( amount, coin_name.upper(), channel, guild_id  ))
@@ -890,7 +1052,7 @@ class Guild(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if disable is True:
-                        sql = """ UPDATE discord_server SET `faucet_amount`=%s, 
+                        sql = """ UPDATE `discord_server` SET `faucet_amount`=%s, 
                         `faucet_coin`=%s, `faucet_channel`=%s, `faucet_duration`=%s 
                         WHERE `serverid`=%s LIMIT 1
                         """
@@ -898,7 +1060,7 @@ class Guild(commands.Cog):
                         await conn.commit()
                         return cur.rowcount
                     else:
-                        sql = """ UPDATE discord_server 
+                        sql = """ UPDATE `discord_server` 
                         SET `faucet_amount`=%s, `faucet_coin`=%s, `faucet_channel`=%s, 
                         `faucet_duration`=%s WHERE `serverid`=%s LIMIT 1
                         """
@@ -917,7 +1079,7 @@ class Guild(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE discord_server SET `tiptalk_amount`=%s, 
+                    sql = """ UPDATE `discord_server` SET `tiptalk_amount`=%s, 
                     `tiptallk_coin`=%s, `tiptalk_channel`=%s, `tiptalk_duration`=%s, `tiptalk_role_id`=%s 
                     WHERE `serverid`=%s LIMIT 1
                     """
@@ -936,7 +1098,7 @@ class Guild(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_server  
+                    sql = """ SELECT * FROM `discord_server`  
                     WHERE `tiptalk_amount`>0
                     """
                     await cur.execute(sql,)
@@ -951,7 +1113,7 @@ class Guild(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_tiptalker  
+                    sql = """ SELECT * FROM `discord_tiptalker`  
                     WHERE `guild_id`=%s ORDER BY `id` DESC LIMIT 1
                     """
                     await cur.execute(sql, ( guild_id ))
@@ -970,7 +1132,7 @@ class Guild(commands.Cog):
             await store.openConnection()	
             async with store.pool.acquire() as conn:	
                 async with conn.cursor() as cur:	
-                    sql = """ INSERT INTO discord_tiptalker (`guild_id`, `guild_name`, 
+                    sql = """ INSERT INTO `discord_tiptalker` (`guild_id`, `guild_name`, 
                     `channel_id`, `token_name`, `token_decimal`, `total_amount`, `each_amount`, 
                     `numb_receivers`, `list_receivers_id`, `list_receivers_name`, spread_time) 	
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -1019,7 +1181,7 @@ class Guild(commands.Cog):
         ],
         description="Create a raffle in your guild."
     )
-    async def createraffle(
+    async def guild_create_raffle(
         self, 
         ctx, 
         amount: float, 
@@ -1094,14 +1256,17 @@ class Guild(commands.Cog):
         try:
             num_online = len([member for member in ctx.guild.members if member.bot == False and member.status != disnake.Status.offline])
             if num_online < self.raffle_min_useronline:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least: {str(self.raffle_min_useronline)} users online!"
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least: "\
+                    f"{str(self.raffle_min_useronline)} users online!"
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
         if amount < min_tip or amount > max_tip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} amount has to be between `{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}` and `{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}`.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, amount has to be between "\
+                f"`{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}` "\
+                f"and `{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}`."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -1115,7 +1280,7 @@ class Guild(commands.Cog):
             duration_in_s = 0
             try:
                 if "D" in duration and "H" in duration:
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **INVALID DATE**! Please use {duration_accepted_list}."
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid date! Please use {duration_accepted_list}."
                     await ctx.edit_original_message(content=msg)
                     return
                 elif "D" in duration:
@@ -1123,20 +1288,27 @@ class Guild(commands.Cog):
                 elif "H" in duration:
                     duration_in_s = int(duration.replace("H", ""))*3600 # convert to second
             except ValueError:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention} invalid duration!"
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid duration!"
                 await ctx.edit_original_message(content=msg)
                 return
 
             if duration_in_s <= 0:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention} invalid duration!"
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid duration!"
                 await ctx.edit_original_message(content=msg)
                 return
             try:
                 start_ts = int(time.time())
-                message_raffle = "{}#{} created a raffle for **{} {}** in guild `{}`. Raffle in **{}**.".format(ctx.author.name, ctx.author.discriminator, num_format_coin(amount, coin_name, coin_decimal, False), coin_name, ctx.guild.name, duration)
+                message_raffle = "{}#{} created a raffle for **{} {}** in guild `{}`. Raffle in **{}**.".format(
+                    ctx.author.name, ctx.author.discriminator,
+                    num_format_coin(amount, coin_name, coin_decimal, False),
+                    coin_name, ctx.guild.name, duration
+                )
                 try:
                     await ctx.edit_original_message(content=message_raffle)
-                    insert_raffle = await self.raffle_insert_new(str(ctx.guild.id), ctx.guild.name, amount, coin_decimal, coin_name, str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), start_ts, start_ts+duration_in_s, SERVER_BOT)
+                    await self.raffle_insert_new(
+                        str(ctx.guild.id), ctx.guild.name, amount, coin_decimal, coin_name, str(ctx.author.id), 
+                        '{}#{}'.format(ctx.author.name, ctx.author.discriminator), start_ts, start_ts+duration_in_s, SERVER_BOT
+                    )
                     await logchanbot(message_raffle)
                     return
                 except Exception:
@@ -1145,15 +1317,15 @@ class Guild(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
-    @createraffle.autocomplete("coin")
+    @guild_create_raffle.autocomplete("coin")
     async def createraffle_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
         string = string.lower()
         return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     @guild.sub_command(
-        usage="guild raffle [info|join|check]", 
+        usage="guild raffle [info|join|check|cancel]", 
         options=[
-            Option('subc', 'subc', OptionType.string, required=False, choices=[
+            Option('subc', 'subc', OptionType.string, required=True, choices=[
                 OptionChoice("Get Information", "INFO"),
                 OptionChoice("Join opened raffle", "JOIN"),
                 OptionChoice("Check raffle's status", "CHECK"),
@@ -1163,7 +1335,7 @@ class Guild(commands.Cog):
         ],
         description="Raffle commands."
     )
-    async def raffle(
+    async def guild_raffle(
         self, 
         ctx, 
         subc: str=None
@@ -1186,10 +1358,13 @@ class Guild(commands.Cog):
             add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
 
-        if serverinfo['raffle_channel']:
+        if serverinfo['raffle_channel'] is not None:
             raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
-            if not raffle_chan:
+            if raffle_chan is None:
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, can not find raffle channel or invalid.")
+                return
+            elif raffle_chan is not None and raffle_chan.id != int(serverinfo['raffle_channel']):
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, please execute in the assigned channel {raffle_chan.mention}.")
                 return
         else:
             await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, there is no raffle channel yet.")
@@ -1249,7 +1424,8 @@ class Guild(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif subc == "CANCEL":
-            if not ctx.author.guild_permissions.manage_channels:
+            get_user = ctx.guild.get_member(ctx.author.id)
+            if get_user.guild_permissions['manage_channels'] is False:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have permission to cancel current raffle."
                 await ctx.edit_original_message(content=msg)
             if get_raffle is None:
@@ -1885,7 +2061,8 @@ class Guild(commands.Cog):
             if insert_key:
                 try:
                     await ctx.edit_original_message(
-                        content=f"Your guild {ctx.guild.name}\'s topgg key: `{random_string}`\nWebook URL: `{self.bot.config['topgg']['guild_vote_url']}`"
+                        content=f"Your guild {ctx.guild.name}\'s topgg key: `{random_string}`\nWebook URL: "\
+                            f"`{self.bot.config['topgg']['guild_vote_url']}`"
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -1898,7 +2075,8 @@ class Guild(commands.Cog):
             # Just display
             try:
                 await ctx.edit_original_message(
-                    content=f"Your guild {ctx.guild.name}\'s topgg key: `{get_guild_by_key}`\nWebook URL: `{self.bot.config['topgg']['guild_vote_url']}`"
+                    content=f"Your guild {ctx.guild.name}\'s topgg key: `{get_guild_by_key}`\n"\
+                        f"Webook URL: `{self.bot.config['topgg']['guild_vote_url']}`"
                 )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -1909,7 +2087,8 @@ class Guild(commands.Cog):
             if insert_key:
                 try:
                     await ctx.edit_original_message(
-                        content=f"Your guild {ctx.guild.name}\'s topgg updated key: `{random_string}`\nWebook URL: `{self.bot.config['topgg']['guild_vote_url']}`"
+                        content=f"Your guild {ctx.guild.name}\'s topgg updated key: `{random_string}`\n"\
+                            f"Webook URL: `{self.bot.config['topgg']['guild_vote_url']}`"
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -1918,7 +2097,6 @@ class Guild(commands.Cog):
                     await ctx.edit_original_message(content=f'Internal error! Please report!')
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-
 
     @commands.has_permissions(administrator=True)
     @guild.sub_command(
@@ -1956,7 +2134,8 @@ class Guild(commands.Cog):
             if insert_key:
                 try:
                     await ctx.edit_original_message(
-                        content=f"Your guild {ctx.guild.name}\'s discordlist key: `{random_string}`\nWebook URL: `{self.bot.config['discordlist']['guild_vote_url']}`"
+                        content=f"Your guild {ctx.guild.name}\'s discordlist key: `{random_string}`\n"\
+                            f"Webook URL: `{self.bot.config['discordlist']['guild_vote_url']}`"
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -1969,7 +2148,8 @@ class Guild(commands.Cog):
             # Just display
             try:
                 await ctx.edit_original_message(
-                    content=f"Your guild {ctx.guild.name}\'s discordlist key: `{get_guild_by_key}`\nWebook URL: `{self.bot.config['discordlist']['guild_vote_url']}`"
+                    content=f"Your guild {ctx.guild.name}\'s discordlist key: `{get_guild_by_key}`\n"\
+                        f"Webook URL: `{self.bot.config['discordlist']['guild_vote_url']}`"
                 )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -1980,7 +2160,8 @@ class Guild(commands.Cog):
             if insert_key:
                 try:
                     await ctx.edit_original_message(
-                        content=f"Your guild {ctx.guild.name}\'s discordlist updated key: `{random_string}`\nWebook URL: `{self.bot.config['discordlist']['guild_vote_url']}`"
+                        content=f"Your guild {ctx.guild.name}\'s discordlist updated key: `{random_string}`\n"\
+                            f"Webook URL: `{self.bot.config['discordlist']['guild_vote_url']}`"
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -2031,11 +2212,19 @@ class Guild(commands.Cog):
             fee_txt = ""
             guild_note = " This is guild's deposit address and NOT YOURS."
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-            if getattr(getattr(self.bot.coin_list, coin_name), "deposit_note") and len(getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")) > 0:
+            if getattr(getattr(self.bot.coin_list, coin_name), "deposit_note") and \
+                len(getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")) > 0:
                 description = getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")
-            if getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee") and getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee") > 0:
-                fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum. ".format(getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee"), token_display)
-            embed = disnake.Embed(title=f'Deposit for guild {ctx.guild.name}', description=description + fee_txt + guild_note, timestamp=datetime.fromtimestamp(int(time.time())))
+            if getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee") and \
+                getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee") > 0:
+                fee_txt = " **{} {}** will be deducted from your deposit when it reaches minimum. ".format(
+                    getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee"), token_display
+                )
+            embed = disnake.Embed(
+                title=f'Deposit for guild {ctx.guild.name}',
+                description=description + fee_txt + guild_note,
+                timestamp=datetime.fromtimestamp(int(time.time()))
+            )
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             try:
                 gen_qr_address = await self.wallet_api.generate_qr_address(wallet_address)
@@ -2044,8 +2233,13 @@ class Guild(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
             plain_msg = 'Guild {} deposit address: ```{}```'.format(ctx.guild.name, wallet_address)
             embed.add_field(name="Guild {}".format(ctx.guild.name), value="`{}`".format(wallet_address), inline=False)
-            if getattr(getattr(self.bot.coin_list, coin_name), "explorer_link") and len(getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")) > 0:
-                embed.add_field(name="Other links", value="[{}]({})".format("Explorer", getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")), inline=False)
+            if getattr(getattr(self.bot.coin_list, coin_name), "explorer_link") and \
+                len(getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")) > 0:
+                embed.add_field(
+                    name="Other links",
+                    value="[{}]({})".format("Explorer", getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")),
+                    inline=False
+                )
             embed.set_footer(text="Use: deposit plain (for plain text)")
             try:
                 if plain and plain.lower() == 'plain' or plain.lower() == 'text':
@@ -2155,9 +2349,9 @@ class Guild(commands.Cog):
             wallet_address = get_deposit['destination_tag']
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-        userdata_balance = await self.wallet_api.user_balance(str(ctx.guild.id), coin_name, wallet_address, 
-                                                              type_coin, height, deposit_confirm_depth, 
-                                                              SERVER_BOT)
+        userdata_balance = await self.wallet_api.user_balance(
+            str(ctx.guild.id), coin_name, wallet_address, 
+            type_coin, height, deposit_confirm_depth, SERVER_BOT)
         actual_balance = float(userdata_balance['adjust'])
 
         amount = amount.replace(",", "")
@@ -2168,17 +2362,21 @@ class Guild(commands.Cog):
             return
         # We assume max reward by max_tip / 10
         elif amount < min_tip or amount > max_tip / 10:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, faucet cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, faucet cannot be smaller than "\
+                f"{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} "\
+                f"or bigger than {num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. "\
+                f"100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} {token_display}. Check with `/guild balance`."
             await ctx.edit_original_message(content=msg)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
             population = len(ctx.guild.members)
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least {str(population)}x reward balance. {str(population)}x rewards = {num_format_coin(amount*population, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least {str(population)}x reward balance. "\
+                f"{str(population)}x rewards = {num_format_coin(amount*population, coin_name, coin_decimal, False)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         else:
@@ -2186,7 +2384,8 @@ class Guild(commands.Cog):
             get_channel = self.bot.get_channel(int(channel.id))
             channel_str = str(channel.id)
             # Test message
-            msg = f"New guild /faucet set to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} by {ctx.author.name}#{ctx.author.discriminator} and message here."
+            msg = f"New guild /faucet set to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} "\
+                f"by {ctx.author.name}#{ctx.author.discriminator} and message here."
             try:
                 await get_channel.send(msg)
             except Exception:
@@ -2208,10 +2407,15 @@ class Guild(commands.Cog):
 
             update_faucet = await self.update_faucet(str(ctx.guild.id), float(amount), coin_name, duration_s, False, channel_str)
             if update_faucet > 0:
-                msg = f'{ctx.author.mention} Successfully faucet in guild {ctx.guild.name} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}.'
+                msg = f"{ctx.author.mention}, successfully faucet in guild {ctx.guild.name} to "\
+                    f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}."
                 await ctx.edit_original_message(content=msg)
                 try:
-                    await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set /faucet in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}.')
+                    await logchanbot(
+                        f"[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set "\
+                        f"/faucet in guild {ctx.guild.name} / {ctx.guild.id} to "\
+                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}."
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:

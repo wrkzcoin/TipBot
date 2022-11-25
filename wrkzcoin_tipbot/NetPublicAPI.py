@@ -17,8 +17,8 @@ from decimal import Decimal
 import aiomysql
 from aiohttp import web
 from aiomysql.cursors import DictCursor
+from sqlitedict import SqliteDict
 
-import redis_utils
 from config import load_config
 
 app = FastAPI()
@@ -30,6 +30,21 @@ class DBStore():
         # DB
         self.pool = None
         self.enable_trade_coin = []
+        self.cache_kv_db_test = SqliteDict(config['cache']['temp_leveldb_gen'], tablename="test", flag='r')
+        self.cache_kv_db_general = SqliteDict(config['cache']['temp_leveldb_gen'], tablename="general", flag='r')
+        self.cache_kv_db_block = SqliteDict(config['cache']['temp_leveldb_gen'], tablename="block", flag='r')
+
+    def get_cache_kv(self, table: str, key: str):
+        try:
+            if table.lower() == "test":
+                return self.cache_kv_db_test[key.upper()]
+            elif table.lower() == "general":
+                return self.cache_kv_db_general[key.upper()]
+            elif table.lower() == "block":
+                return self.cache_kv_db_block[key.upper()]
+        except KeyError:
+            pass
+        return None
 
     async def openConnection(self):
         try:
@@ -47,7 +62,8 @@ class DBStore():
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `coin_settings` """
+                    sql = """ SELECT * FROM `coin_settings` WHERE `enable`=1
+                    """
                     await cur.execute(sql, )
                     result = await cur.fetchall()
                     if result: return result
@@ -429,7 +445,6 @@ async def check_information_by_ticker(coin_name: str):
 @app.get("/coininfo")
 async def list_all_coin_information():
     get_all_coins = await app.db.get_all_coin()
-    redis_utils.openRedis()
     if len(get_all_coins) > 0:
         all_coins = []
         for c in get_all_coins:
@@ -454,14 +469,20 @@ async def list_all_coin_information():
             coin_name = c['coin_name']
             try:
                 if type_coin in ["ERC-20", "TRC-20"]:
-                    height = int(redis_utils.redis_conn.get(
-                        f"{config['redis']['prefix'] + config['redis']['daemon_height']}{net_name}").decode())
+                    height = app.db.get_cache_kv(
+                        "block",
+                        f"{config['kv_db']['prefix'] + config['kv_db']['daemon_height']}{net_name}"
+                    )
                 elif type_coin in ["XLM", "NEO", "VITE"]:
-                    height = int(redis_utils.redis_conn.get(
-                        f"{config['redis']['prefix'] + config['redis']['daemon_height']}{type_coin}").decode())
+                    height = app.db.get_cache_kv(
+                        "block",
+                        f"{config['kv_db']['prefix'] + config['kv_db']['daemon_height']}{type_coin}"
+                    )
                 else:
-                    height = int(redis_utils.redis_conn.get(
-                        f"{config['redis']['prefix'] + config['redis']['daemon_height']}{coin_name}").decode())
+                    height = app.db.get_cache_kv(
+                        "block",
+                        f"{config['kv_db']['prefix'] + config['kv_db']['daemon_height']}{coin_name}"
+                    )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             all_coins.append(

@@ -11226,7 +11226,14 @@ class Wallet(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
                 # add penalty:
                 try:
-                    faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.author.id), True, SERVER_BOT)
+                    key = self.bot.config['kv_db']['prefix_faucet_take_penalty'] + SERVER_BOT + "_" + str(ctx.author.id)
+                    self.utils.set_cache_kv(
+                        "faucet",
+                        key,
+                        {
+                            'penalty_at': int(time.time())
+                        }
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 return
@@ -11316,20 +11323,16 @@ class Wallet(commands.Cog):
         try:
             # check penalty:
             try:
-                faucet_penalty = await store.sql_faucet_penalty_checkuser(str(ctx.author.id), False, SERVER_BOT)
-                if faucet_penalty and not info:
-                    if half_claim_interval * 3600 - int(time.time()) + int(faucet_penalty['penalty_at']) > 0:
-                        # time_waiting = seconds_str(
-                        #    half_claim_interval * 3600 - int(time.time()) + int(faucet_penalty['penalty_at'])
-                        # )
-                        time_waiting = disnake.utils.format_dt(
-                            half_claim_interval * 3600 + int(faucet_penalty['penalty_at']),
-                            style='R'
-                        )
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel within "\
-                            f"last {str(half_claim_interval)}h. Waiting time {time_waiting} for next `/take` "\
+                key = self.bot.config['kv_db']['prefix_faucet_take_penalty'] + SERVER_BOT + "_" + str(ctx.author.id)
+                faucet_penalty = self.utils.get_cache_kv("faucet",  key)
+                if faucet_penalty is not None and not info:
+                    if half_claim_interval * 3600 - int(time.time()) + faucet_penalty['penalty_at'] > 0:
+                        time_waiting = "<t:{}:R>".format(half_claim_interval * 3600 + faucet_penalty['penalty_at'])
+                        penalty_at = "<t:{}:f>".format(faucet_penalty['penalty_at'])
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel "\
+                            f"{penalty_at}. Waiting time {time_waiting} for next `/take` "\
                             f"and be sure to be the right channel set by the guild. Use /claim "\
-                            f"to vote TipBot and get reward.{extra_take_text}'
+                            f"to vote TipBot and get reward.{extra_take_text}"
                         await ctx.edit_original_message(content=msg)
                         return
             except Exception:

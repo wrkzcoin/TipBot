@@ -345,7 +345,8 @@ class WalletTG:
                     async with conn.cursor() as cur:
                         coin_list = {}
                         coin_list_name = []
-                        sql = """ SELECT * FROM `coin_settings` WHERE `enable_telegram`=1 """
+                        sql = """ SELECT * FROM `coin_settings` 
+                        WHERE `enable_telegram`=1 """
                         await cur.execute(sql, )
                         result = await cur.fetchall()
                         if result and len(result) > 0:
@@ -4180,335 +4181,249 @@ async def echo(message: types.Message):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-# Notify user
-async def notify_new_tx_user():
-    time_lap = 5  # seconds
-    while True:
-        await asyncio.sleep(time_lap)
-        try:
-            WalletAPI = WalletTG()
-            await WalletAPI.get_coin_setting()
-            pending_tx = await WalletAPI.sql_get_new_tx_table('NO', 'NO', SERVER_BOT)
-            if len(pending_tx) > 0:
-                # let's notify_new_tx_user
-                for eachTx in pending_tx:
-                    try:
-                        coin_name = eachTx['coin_name']
-                        coin_family = getattr(getattr(WalletAPI.coin_list, coin_name), "type")
-                        coin_decimal = getattr(getattr(WalletAPI.coin_list, coin_name), "decimal")
-                        if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR", "BTC", "CHIA", "NANO"]:
-                            user_tx = await store.sql_get_userwallet_by_paymentid(
-                                eachTx['payment_id'], eachTx['coin_name'], coin_family
+async def notify_new_tx_coin(table: str, id_tx: str):
+    try:
+        WalletAPI = WalletTG()
+        await WalletAPI.get_coin_setting()
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * FROM `"""+table+"""` 
+                WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s
+                """
+                await cur.execute(sql, ("NO", "NO", SERVER_BOT))
+                result = await cur.fetchall()
+                if result and len(result) > 0:
+                    for eachTx in result:
+                        if eachTx['user_id'] and eachTx['user_server'] == SERVER_BOT:
+                            coin_name = eachTx['coin_name']
+                            coin_decimal = getattr(getattr(WalletAPI.coin_list, coin_name), "decimal")
+                            coin_family = getattr(getattr(WalletAPI.coin_list, coin_name), "type")
+                            net_name = getattr(getattr(WalletAPI.coin_list, coin_name), "net_name")
+                            type_coin = getattr(getattr(WalletAPI.coin_list, coin_name), "type")
+                            get_deposit = await WalletAPI.sql_get_userwallet(
+                                eachTx['user_id'], coin_name, net_name, type_coin, SERVER_BOT, None
                             )
-                            if user_tx and user_tx['chat_id']:
-                                is_notify_failed = False
-                                to_user = user_tx['chat_id']
-                                message_text = None
+                            if get_deposit and get_deposit['chat_id']:
+                                to_user = get_deposit['chat_id']
+                                message_text = text(bold(f"You got a new deposit {coin_name}"),
+                                                    ". it could take a few minutes to credit:\n",
+                                                    markdown.pre(
+                                                        "\nTx/Block: {}\nAmount: {}".format(eachTx[id_tx],
+                                                        num_format_coin(eachTx['amount'], coin_name, coin_decimal, False)
+                                                        )
+                                                    )
+                                )
                                 try:
-                                    if coin_family == "NANO":
-                                        message_text = "You got a new deposit: " + "Coin: {}\nAmount: {}".format(
-                                            eachTx['coin_name'],
-                                            num_format_coin(eachTx['amount'], coin_name, coin_decimal, False))
-                                    elif coin_family != "BTC":
-                                        message_text = "You got a new deposit confirmed: " + "Coin: {}\nTx: {}\nAmount: {}\nHeight: {:,.0f}".format(
-                                            eachTx['coin_name'], eachTx['txid'],
-                                            num_format_coin(eachTx['amount'], coin_name, coin_decimal, False),
-                                            eachTx['height'])
+                                    send_msg = await bot.send_message(
+                                        chat_id=to_user, text=message_text,
+                                        parse_mode=ParseMode.MARKDOWN_V2
+                                    )
+                                    if send_msg:
+                                        sql = """ UPDATE `"""+table+"""` SET `notified_confirmation`=%s, `time_notified`=%s 
+                                        WHERE `"""+id_tx+"""`=%s AND `coin_name`=%s LIMIT 1
+                                        """
+                                        await cur.execute(sql, (
+                                            "YES", int(time.time()), eachTx[id_tx], coin_name
+                                        ))
+                                        await conn.commit()
+                                        is_notify_failed = False
                                     else:
-                                        message_text = "You got a new deposit confirmed: " + "Coin: {}\nTx: {}\nAmount: {}\nBlock Hash: {}".format(
-                                            eachTx['coin_name'], eachTx['txid'],
-                                            num_format_coin(eachTx['amount'], coin_name, coin_decimal, False),
-                                            eachTx['blockhash'])
-                                    if message_text:
-                                        try:
-                                            send_msg = await bot.send_message(
-                                                chat_id=to_user, text=message_text,
-                                                parse_mode=ParseMode.MARKDOWN_V2
-                                            )
-                                            if send_msg:
-                                                is_notify_failed = False
-                                            else:
-                                                await logchanbot("[{}] Can not send message to {}".format(SERVER_BOT, user_tx['chat_id']))
-                                                is_notify_failed = True
-                                        except exceptions.BotBlocked:
-                                            await logchanbot(f"[{SERVER_BOT}] {coin_name} Target [ID:{to_user}]: blocked by user")
-                                            await store.sql_update_notify_tx_table(eachTx['payment_id'], user_tx['user_id'], user_tx['user_id'], 'YES', 'YES', eachTx['txid'])
-                                        except exceptions.ChatNotFound:
-                                            await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: invalid user ID")
-                                        except exceptions.RetryAfter as e:
-                                            await logchanbot(
-                                                f"[{SERVER_BOT}] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
-                                            await asyncio.sleep(e.timeout)
-                                            return await bot.send_message(chat_id=to_user,
-                                                                          text=message_text)  # Recursive call
-                                        except exceptions.UserDeactivated:
-                                            await logchanbot(
-                                                f"[{SERVER_BOT}] Target [ID:{to_user}]: user is deactivated")
-                                        except exceptions.TelegramAPIError:
-                                            await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: failed")
-                                        except Exception as e:
-                                            traceback.print_exc(file=sys.stdout)
-                                            is_notify_failed = True
-                                        finally:
-                                            await store.sql_update_notify_tx_table(
-                                                eachTx['payment_id'], user_tx['user_id'], user_tx['user_id'], 'YES', 
-                                                'NO' if is_notify_failed == False else 'YES', eachTx['txid']
-                                            )
+                                        await logchanbot("[{}] Can not send message to {}".format(
+                                            SERVER_BOT, get_deposit['chat_id'])
+                                        )
+                                        is_notify_failed = True
+                                except exceptions.BotBlocked:
+                                    await logchanbot(f"[{SERVER_BOT}] {coin_name} Target [ID:{to_user}]: blocked by user")
+                                    sql = """ UPDATE `"""+table+"""` SET `notified_confirmation`=%s, `failed_notification`=%s 
+                                    WHERE `"""+id_tx+"""`=%s AND `coin_name`=%s LIMIT 1
+                                    """
+                                    await cur.execute(sql, ("NO", "YES", eachTx[id_tx], coin_name))
+                                    await conn.commit()
+                                except exceptions.ChatNotFound:
+                                    await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: invalid user ID")
+                                except exceptions.RetryAfter as e:
+                                    await logchanbot(
+                                        f"[{SERVER_BOT}] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
+                                    await asyncio.sleep(e.timeout)
+                                    return await bot.send_message(
+                                        chat_id=to_user, text=message_text
+                                    )  # Recursive call
+                                except exceptions.UserDeactivated:
+                                    await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: user is deactivated")
+                                except exceptions.TelegramAPIError:
+                                    await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: failed")
+                                    sql = """ UPDATE `"""+table+"""` SET `notified_confirmation`=%s, `failed_notification`=%s 
+                                    WHERE `txid`=%s AND `coin_name`=%s LIMIT 1
+                                    """
+                                    await cur.execute(sql, ("NO", "YES", eachTx[id_tx], coin_name))
+                                    await conn.commit()
                                 except Exception as e:
                                     traceback.print_exc(file=sys.stdout)
-                    except Exception as e:
-                        traceback.print_exc(file=sys.stdout)
+                                    sql = """ UPDATE `"""+table+"""` SET `notified_confirmation`=%s, `failed_notification`=%s 
+                                    WHERE `txid`=%s AND `coin_name`=%s LIMIT 1
+                                    """
+                                    await cur.execute(sql, ("NO", "YES", eachTx[id_tx], coin_name))
+                                    await conn.commit()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+
+async def notify_new_confirmed_xch():
+    time_lap = 10  # seconds
+    while True:
+        try:
+            await asyncio.sleep(time_lap)
+            await notify_new_tx_coin("xch_get_transfers", "txid")
+            await asyncio.sleep(time_lap)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(time_lap)
+
+async def notify_new_confirmed_nano():
+    time_lap = 10  # seconds
+    while True:
+        try:
+            await asyncio.sleep(time_lap)
+            await notify_new_tx_coin("nano_move_deposit", "block")
+            await asyncio.sleep(time_lap)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+async def notify_new_confirmed_btc():
+    time_lap = 10  # seconds
+    while True:
+        try:
+            await asyncio.sleep(time_lap)
+            await notify_new_tx_coin("doge_get_transfers", "txid")
+            await asyncio.sleep(time_lap)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+async def notify_new_confirmed_cn():
+    time_lap = 10  # seconds
+    while True:
+        try:
+            await asyncio.sleep(time_lap)
+            await notify_new_tx_coin("cn_get_transfers", "txid")
+            await asyncio.sleep(time_lap)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 async def notify_new_confirmed_ada():
     time_lap = 10  # seconds
     while True:
-        await asyncio.sleep(time_lap)
-        WalletAPI = WalletTG()
-        await WalletAPI.get_coin_setting()
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `ada_get_transfers` 
-                    WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s
-                    """
-                    await cur.execute(sql, ("NO", "NO", SERVER_BOT))
-                    result = await cur.fetchall()
-                    if result and len(result) > 0:
-                        for eachTx in result:
-                            if eachTx['user_id'] and eachTx['user_server'] == SERVER_BOT:
-                                coin_name = eachTx['coin_name']
-                                coin_decimal = getattr(getattr(WalletAPI.coin_list, coin_name), "decimal")
-                                coin_family = getattr(getattr(WalletAPI.coin_list, coin_name), "type")
-                                net_name = getattr(getattr(WalletAPI.coin_list, coin_name), "net_name")
-                                type_coin = getattr(getattr(WalletAPI.coin_list, coin_name), "type")
-                                get_deposit = await WalletAPI.sql_get_userwallet(
-                                    eachTx['user_id'], coin_name, net_name, type_coin, SERVER_BOT, None
-                                )
-                                if get_deposit and get_deposit['chat_id']:
-                                    to_user = get_deposit['chat_id']
-                                    message_text = text(bold(f"You got a new deposit {coin_name}"),
-                                                        " (it could take a few minutes to credit):\n",
-                                                        markdown.pre(
-                                                            "\nTx: {}\nAmount: {}".format(eachTx['hash_id'],
-                                                            num_format_coin(eachTx['amount'], coin_name, coin_decimal, False)
-                                                            )
-                                                        )
-                                    )
-                                    try:
-                                        send_msg = await bot.send_message(
-                                            chat_id=to_user, text=message_text,
-                                            parse_mode=ParseMode.MARKDOWN_V2
-                                        )
-                                        if send_msg:
-                                            sql = """ UPDATE `ada_get_transfers` SET `notified_confirmation`=%s, `time_notified`=%s 
-                                            WHERE `hash_id`=%s AND `coin_name`=%s LIMIT 1
-                                            """
-                                            await cur.execute(sql, (
-                                                "YES", int(time.time()), eachTx['hash_id'], coin_name
-                                            ))
-                                            await conn.commit()
-                                            is_notify_failed = False
-                                        else:
-                                            await logchanbot("[{}] Can not send message to {}".format(
-                                                SERVER_BOT, get_deposit['chat_id'])
-                                            )
-                                            is_notify_failed = True
-                                    except exceptions.BotBlocked:
-                                        await logchanbot(f"[{SERVER_BOT}] {coin_name} Target [ID:{to_user}]: blocked by user")
-                                        sql = """ UPDATE `ada_get_transfers` SET `notified_confirmation`=%s, `failed_notification`=%s WHERE `hash_id`=%s AND `coin_name`=%s LIMIT 1 """
-                                        await cur.execute(sql, ("NO", "YES", eachTx['hash_id'], coin_name))
-                                        await conn.commit()
-                                    except exceptions.ChatNotFound:
-                                        await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: invalid user ID")
-                                    except exceptions.RetryAfter as e:
-                                        await logchanbot(
-                                            f"[{SERVER_BOT}] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
-                                        await asyncio.sleep(e.timeout)
-                                        return await bot.send_message(
-                                            chat_id=to_user, text=message_text
-                                        )  # Recursive call
-                                    except exceptions.UserDeactivated:
-                                        await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: user is deactivated")
-                                    except exceptions.TelegramAPIError:
-                                        await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: failed")
-                                    except Exception as e:
-                                        traceback.print_exc(file=sys.stdout)
-                                        sql = """ UPDATE `ada_get_transfers` SET `notified_confirmation`=%s, `failed_notification`=%s 
-                                        WHERE `hash_id`=%s AND `coin_name`=%s LIMIT 1
-                                        """
-                                        await cur.execute(sql, ("NO", "YES", eachTx['hash_id'], coin_name))
-                                        await conn.commit()
+            await asyncio.sleep(time_lap)
+            await notify_new_tx_coin("ada_get_transfers", "hash_id")
+            await asyncio.sleep(time_lap)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(time_lap)
 
 async def notify_new_confirmed_hnt():
     time_lap = 10  # seconds
     while True:
-        await asyncio.sleep(time_lap)
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `hnt_get_transfers` 
-                    WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s
-                    """
-                    await cur.execute(sql, ("NO", "NO", SERVER_BOT))
-                    result = await cur.fetchall()
-                    if result and len(result) > 0:
-                        for eachTx in result:
-                            if eachTx['user_id'] and eachTx['user_server'] == SERVER_BOT:
-                                coin_name = eachTx['coin_name']
-                                coin_decimal = getattr(getattr(WalletAPI.coin_list, coin_name), "decimal")
-                                coin_family = getattr(getattr(WalletAPI.coin_list, coin_name), "type")
-                                net_name = getattr(getattr(WalletAPI.coin_list, coin_name), "net_name")
-                                type_coin = getattr(getattr(WalletAPI.coin_list, coin_name), "type")
-                                get_deposit = await WalletAPI.sql_get_userwallet(eachTx['user_id'], coin_name, net_name,
-                                                                                 type_coin, SERVER_BOT, None)
-                                if get_deposit and get_deposit['chat_id']:
-                                    to_user = get_deposit['chat_id']
-                                    message_text = text(bold(f"You got a new deposit {coin_name}"), 
-                                        " (it could take a few minutes to credit):\n",
-                                        markdown.pre(
-                                            "\nTx: {}\nAmount: {}".format(
-                                                eachTx['txid'], num_format_coin(eachTx['amount'], coin_name, coin_decimal, False)
-                                            )
-                                        )
-                                    )
-                                    try:
-                                        send_msg = await bot.send_message(
-                                            chat_id=to_user, text=message_text,
-                                            parse_mode=ParseMode.MARKDOWN_V2
-                                        )
-                                        if send_msg:
-                                            sql = """ UPDATE `hnt_get_transfers` SET `notified_confirmation`=%s, `time_notified`=%s 
-                                            WHERE `txid`=%s AND `coin_name`=%s LIMIT 1
-                                            """
-                                            await cur.execute(sql, ("YES", int(time.time()), eachTx['txid'], coin_name))
-                                            await conn.commit()
-                                            is_notify_failed = False
-                                        else:
-                                            await logchanbot("[{}] Can not send message to {}".format(
-                                                SERVER_BOT, get_deposit['chat_id'])
-                                            )
-                                            is_notify_failed = True
-                                    except exceptions.BotBlocked:
-                                        await logchanbot(f"[{SERVER_BOT}] {coin_name} Target [ID:{to_user}]: blocked by user")
-                                        sql = """ UPDATE `hnt_get_transfers` SET `notified_confirmation`=%s, `failed_notification`=%s 
-                                        WHERE `txid`=%s AND `coin_name`=%s LIMIT 1
-                                        """
-                                        await cur.execute(sql, ("NO", "YES", eachTx['txid'], coin_name))
-                                        await conn.commit()
-                                    except exceptions.ChatNotFound:
-                                        await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: invalid user ID")
-                                    except exceptions.RetryAfter as e:
-                                        await logchanbot(
-                                            f"[{SERVER_BOT}] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
-                                        await asyncio.sleep(e.timeout)
-                                        return await bot.send_message(chat_id=to_user,
-                                                                      text=message_text)  # Recursive call
-                                    except exceptions.UserDeactivated:
-                                        await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: user is deactivated")
-                                    except exceptions.TelegramAPIError:
-                                        await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: failed")
-                                    except Exception as e:
-                                        traceback.print_exc(file=sys.stdout)
-                                        sql = """ UPDATE `hnt_get_transfers` SET `notified_confirmation`=%s, `failed_notification`=%s 
-                                        WHERE `txid`=%s AND `coin_name`=%s LIMIT 1
-                                        """
-                                        await cur.execute(sql, ("NO", "YES", eachTx['txid'], coin_name))
-                                        await conn.commit()
+            await asyncio.sleep(time_lap)
+            await notify_new_tx_coin("hnt_get_transfers", "txid")
+            await asyncio.sleep(time_lap)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(time_lap)
 
 async def notify_new_confirmed_xlm():
     time_lap = 10  # seconds
     while True:
-        await asyncio.sleep(time_lap)
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `xlm_get_transfers` 
-                    WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s
-                    """
-                    await cur.execute(sql, ("NO", "NO", SERVER_BOT))
-                    result = await cur.fetchall()
-                    if result and len(result) > 0:
-                        for eachTx in result:
-                            if eachTx['user_id'] and eachTx['user_server'] == SERVER_BOT:
-                                coin_name = eachTx['coin_name']
-                                coin_decimal = getattr(getattr(WalletAPI.coin_list, coin_name), "decimal")
-                                coin_family = getattr(getattr(WalletAPI.coin_list, coin_name), "type")
-                                net_name = getattr(getattr(WalletAPI.coin_list, coin_name), "net_name")
-                                type_coin = getattr(getattr(WalletAPI.coin_list, coin_name), "type")
-                                get_deposit = await WalletAPI.sql_get_userwallet(eachTx['user_id'], coin_name, net_name,
-                                                                                 type_coin, SERVER_BOT, None)
-                                if get_deposit and get_deposit['chat_id']:
-                                    to_user = get_deposit['chat_id']
-                                    message_text = text(bold(f"You got a new deposit {coin_name}"),
-                                                        " (it could take a few minutes to credit):\n",
-                                                        markdown.pre(
-                                                            "\nTx: {}\nAmount: {}".format(
-                                                                eachTx['txid'], num_format_coin(eachTx['amount'], coin_name, coin_decimal, False)
-                                                            )
-                                                        )
-                                    )
-                                    try:
-                                        send_msg = await bot.send_message(
-                                            chat_id=to_user, text=message_text,
-                                            parse_mode=ParseMode.MARKDOWN_V2
-                                        )
-                                        if send_msg:
-                                            sql = """ UPDATE `xlm_get_transfers` SET `notified_confirmation`=%s, `time_notified`=%s 
-                                            WHERE `txid`=%s AND `coin_name`=%s LIMIT 1
-                                            """
-                                            await cur.execute(sql, ("YES", int(time.time()), eachTx['txid'], coin_name))
-                                            await conn.commit()
-                                            is_notify_failed = False
-                                        else:
-                                            await logchanbot("[{}] Can not send message to {}".format(SERVER_BOT, get_deposit['chat_id']))
-                                            is_notify_failed = True
-                                    except exceptions.BotBlocked:
-                                        await logchanbot(f"[{SERVER_BOT}] {coin_name} Target [ID:{to_user}]: blocked by user")
-                                        sql = """ UPDATE `xlm_get_transfers` SET `notified_confirmation`=%s, `failed_notification`=%s 
-                                        WHERE `txid`=%s AND `coin_name`=%s LIMIT 1
-                                        """
-                                        await cur.execute(sql, ("NO", "YES", eachTx['txid'], coin_name))
-                                        await conn.commit()
-                                    except exceptions.ChatNotFound:
-                                        await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: invalid user ID")
-                                    except exceptions.RetryAfter as e:
-                                        await logchanbot(
-                                            f"[{SERVER_BOT}] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
-                                        await asyncio.sleep(e.timeout)
-                                        return await bot.send_message(chat_id=to_user,
-                                                                      text=message_text)  # Recursive call
-                                    except exceptions.UserDeactivated:
-                                        await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: user is deactivated")
-                                    except exceptions.TelegramAPIError:
-                                        await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: failed")
-                                    except Exception as e:
-                                        traceback.print_exc(file=sys.stdout)
-                                        sql = """ UPDATE `xlm_get_transfers` SET `notified_confirmation`=%s, `failed_notification`=%s 
-                                        WHERE `txid`=%s AND `coin_name`=%s LIMIT 1
-                                        """
-                                        await cur.execute(sql, ("NO", "YES", eachTx['txid'], coin_name))
-                                        await conn.commit()
+            await asyncio.sleep(time_lap)
+            await notify_new_tx_coin("xlm_get_transfers", "txid")
+            await asyncio.sleep(time_lap)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-        await asyncio.sleep(time_lap)
+
+# ERC
+async def notify_new_confirmed_spendable_erc20():
+    time_lap = 5  # seconds
+    await asyncio.sleep(time_lap)
+    try:
+        notify_list = await store.sql_get_pending_notification_users_erc20(SERVER_BOT)
+        if len(notify_list) > 0:
+            id_tx = "txn"
+            for eachTx in notify_list:
+                is_notify_failed = True
+                if eachTx['user_id'] and eachTx['user_server'] == SERVER_BOT:
+                    coin_name = eachTx['token_name']
+                    coin_decimal = getattr(getattr(WalletAPI.coin_list, coin_name), "decimal")
+                    coin_family = getattr(getattr(WalletAPI.coin_list, coin_name), "type")
+                    net_name = getattr(getattr(WalletAPI.coin_list, coin_name), "net_name")
+                    type_coin = getattr(getattr(WalletAPI.coin_list, coin_name), "type")
+                    get_deposit = await WalletAPI.sql_get_userwallet(
+                        eachTx['user_id'], coin_name, net_name, type_coin, SERVER_BOT, None
+                    )
+                    if get_deposit and get_deposit['chat_id']:
+                        to_user = get_deposit['chat_id']
+                        message_text = text(bold(f"You got a new deposit {coin_name}"),
+                                            ". it could take a few minutes to credit:\n",
+                                            markdown.pre(
+                                                "\nTx/Block: {}\nAmount: {}".format(eachTx[id_tx],
+                                                num_format_coin(eachTx['amount'], coin_name, coin_decimal, False)
+                                                )
+                                            )
+                        )
+                        try:
+                            send_msg = await bot.send_message(
+                                chat_id=to_user, text=message_text,
+                                parse_mode=ParseMode.MARKDOWN_V2
+                            )
+                            if send_msg:
+                                is_notify_failed = False
+                                await store.sql_updating_pending_move_deposit_erc20(
+                                    True, is_notify_failed, eachTx[id_tx]
+                                )                                
+                            else:
+                                await logchanbot("[{}] Can not send message to {}".format(
+                                    SERVER_BOT, get_deposit['chat_id'])
+                                )
+                        except exceptions.BotBlocked:
+                            await logchanbot(f"[{SERVER_BOT}] {coin_name} Target [ID:{to_user}]: blocked by user")
+                            await store.sql_updating_pending_move_deposit_erc20(
+                                False, is_notify_failed, eachTx[id_tx]
+                            )  
+                        except exceptions.ChatNotFound:
+                            await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: invalid user ID")
+                        except exceptions.RetryAfter as e:
+                            await logchanbot(
+                                f"[{SERVER_BOT}] Target [ID:{to_user}]: Flood limit is exceeded. Sleep {e.timeout} seconds")
+                            await asyncio.sleep(e.timeout)
+                            return await bot.send_message(
+                                chat_id=to_user, text=message_text
+                            )  # Recursive call
+                        except exceptions.UserDeactivated:
+                            await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: user is deactivated")
+                        except exceptions.TelegramAPIError:
+                            await logchanbot(f"[{SERVER_BOT}] Target [ID:{to_user}]: failed")
+                            await store.sql_updating_pending_move_deposit_erc20(
+                                False, is_notify_failed, eachTx[id_tx]
+                            )
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+                            await store.sql_updating_pending_move_deposit_erc20(
+                                False, is_notify_failed, eachTx[id_tx]
+                            )
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
 
 if __name__ == '__main__':
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    loop.create_task(notify_new_tx_user())
+    # ERC20
+    loop.create_task(notify_new_confirmed_spendable_erc20())
+    # XCH, XFX?
+    loop.create_task(notify_new_confirmed_xch())
+    # BAN, XNO?
+    loop.create_task(notify_new_confirmed_nano())
+    # BTC, DOGE, etc
+    loop.create_task(notify_new_confirmed_btc())
+    # BCN, XMR, ..
+    loop.create_task(notify_new_confirmed_cn())
     # ADA
     loop.create_task(notify_new_confirmed_ada())
     # HNT

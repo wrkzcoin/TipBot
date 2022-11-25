@@ -11,8 +11,7 @@ import asyncio
 import disnake
 import httpx
 import pymysql.cursors
-# redis
-import redis
+
 from aiohttp import TCPConnector
 from aiomysql.cursors import DictCursor
 from discord_webhook import DiscordWebhook
@@ -33,26 +32,10 @@ from Bot import decrypt_string, load_config
 
 config = load_config()
 
-redis_pool = None
-redis_conn = None
-redis_expired = 10
 pool = None
 pool_netmon = None
 conn = None
 sys.path.append("..")
-
-def init():
-    global redis_pool
-    print("PID %d: initializing redis pool..." % os.getpid())
-    redis_pool = redis.ConnectionPool(host='localhost', port=6379, decode_responses=True, db=8)
-
-def openRedis():
-    global redis_pool, redis_conn
-    if redis_conn is None:
-        try:
-            redis_conn = redis.Redis(connection_pool=redis_pool)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
 
 async def openConnection():
     global pool
@@ -3695,36 +3678,6 @@ async def sql_discord_userinfo_get(user_id: str, user_server: str = 'DISCORD'):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
-
-async def sql_faucet_penalty_checkuser(
-    user_id: str, penalty_add: False, user_server: str = 'DISCORD'
-):
-    global pool, redis_conn, redis_pool
-    user_server = user_server.upper()
-    if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
-        return
-    # Check if in redis already:
-    key = config['redis']['prefix_faucet_take_penalty'] + user_server + "_" + user_id
-    result = None
-    if penalty_add == False:
-        try:
-            if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
-            if redis_conn and redis_conn.exists(key):
-                penalty_at = redis_conn.get(key).decode()
-                result = {'penalty_at': penalty_at}
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-    else:
-        # add
-        try:
-            if redis_conn is None: redis_conn = redis.Redis(connection_pool=redis_pool)
-            if redis_conn: redis_conn.set(
-                key, str(int(time.time())),
-                int(int(config['faucet']['interval']) * 3600 / 2)
-            )  # 12h
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-    return result
 
 async def sql_roach_get_by_id(roach_id: str, user_server: str = 'DISCORD'):
     global pool

@@ -155,7 +155,7 @@ intents.members = True
 intents.presences = True
 bot = AutoShardedBot(
     shard_count=shard_number, command_prefix=when_mentioned,
-    intents=intents, help_command=None
+    strip_after_prefix=True, intents=intents, help_command=None,
 )
 bot.config = load_config()
 

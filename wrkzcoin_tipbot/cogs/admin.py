@@ -1249,7 +1249,7 @@ class Admin(commands.Cog):
         text: str
     ):
         try:
-            if ctx.author.id != self.bot.config['discord']['owner'] and not ctx.author.guild_permissions.manage_messages:
+            if ctx.author.id != self.bot.config['discord']['owner']:
                 await ctx.response.send_message(f"You have no permission!", ephemeral=True)
             else:
                 # let bot post some message (testing) etc.

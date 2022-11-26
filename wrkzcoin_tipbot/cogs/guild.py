@@ -1158,6 +1158,7 @@ class Guild(commands.Cog):
 
     @commands.has_permissions(manage_channels=True)
     @guild.sub_command(
+        name="createraffle",
         usage="guild createraffle <amount> <coin> <duration>", 
         options=[
             Option('amount', 'amount', OptionType.number, required=True),
@@ -1203,7 +1204,7 @@ class Guild(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
 
         if serverinfo['raffle_channel']:
@@ -1323,6 +1324,7 @@ class Guild(commands.Cog):
         return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     @guild.sub_command(
+        name="raffle",
         usage="guild raffle [info|join|check|cancel]", 
         options=[
             Option('subc', 'subc', OptionType.string, required=True, choices=[
@@ -1355,7 +1357,7 @@ class Guild(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
 
         if serverinfo['raffle_channel'] is not None:
@@ -1510,9 +1512,16 @@ class Guild(commands.Cog):
                                     msg = f"{ctx.author.mention}, you already on queue of joinining."
                                     await ctx.edit_original_message(content=msg)
                                     return
-                                insert_entry = await self.raffle_insert_new_entry(get_raffle['id'], str(ctx.guild.id), get_raffle['amount'], get_raffle['decimal'], get_raffle['coin_name'], str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), SERVER_BOT)
-                                note_entry = num_format_coin(get_raffle['amount'], get_raffle['coin_name'], get_raffle['decimal'], False) + " " + get_raffle['coin_name'] + " is deducted from your balance."
-                                msg = f'{ctx.author.mention}, successfully registered your Entry for raffle #**{raffle_id}** in {ctx.guild.name}! {note_entry}'
+                                await self.raffle_insert_new_entry(
+                                    get_raffle['id'], str(ctx.guild.id), get_raffle['amount'], get_raffle['decimal'],
+                                    get_raffle['coin_name'], str(ctx.author.id),
+                                    '{}#{}'.format(ctx.author.name, ctx.author.discriminator), SERVER_BOT
+                                )
+                                note_entry = num_format_coin(
+                                    get_raffle['amount'], get_raffle['coin_name'], get_raffle['decimal'], False) \
+                                        + " " + get_raffle['coin_name'] + " is deducted from your balance."
+                                msg = f"{ctx.author.mention}, successfully registered your Entry for raffle "\
+                                    f"#**{raffle_id}** in {ctx.guild.name}! {note_entry}"
                                 await ctx.edit_original_message(content=msg)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -1555,8 +1564,8 @@ class Guild(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
 
-
     @guild.sub_command(
+        name="balance",
         usage="guild balance", 
         description="Show guild's balance"
     )
@@ -1564,7 +1573,6 @@ class Guild(commands.Cog):
         self,
         ctx
     ):
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
         await ctx.response.send_message(msg)
 
@@ -1614,7 +1622,9 @@ class Guild(commands.Cog):
                 total_balance = userdata_balance['adjust']
                 if total_balance > 0:
                     has_none_balance = False
-                    coin_balance_list[coin_name] = "{} {}".format(num_format_coin(total_balance, coin_name, coin_decimal, False), token_display)
+                    coin_balance_list[coin_name] = "{} {}".format(
+                        num_format_coin(total_balance, coin_name, coin_decimal, False), token_display
+                    )
                     coin_balance[coin_name] = total_balance
                     usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                     coin_balance_usd[coin_name] = 0.0
@@ -1696,11 +1706,11 @@ class Guild(commands.Cog):
                     view = MenuPage(ctx, all_pages, timeout=30, disable_remove=True)
                     view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
                 except Exception:
-                    msg = f'{ctx.author.mention}, internal error when checking /guild balance. Try again later. If problem still persists, contact TipBot dev.'
+                    msg = f"{ctx.author.mention}, internal error when checking /guild balance. Try again later. "\
+                        "If problem still persists, contact TipBot dev."
                     await ctx.edit_original_message(content=msg)
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(f"[ERROR] /guild balance with {ctx.guild.name} / {ctx.guild.id}")
-
 
     @commands.has_permissions(administrator=True)
     @guild.sub_command(
@@ -1781,17 +1791,23 @@ class Guild(commands.Cog):
             return
         # We assume max reward by max_tip / 10
         elif amount < min_tip or amount > max_tip / 10:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than "\
+                f"{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} "\
+                f"or bigger than {num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. 100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x "\
+                f"reward balance. 100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} "\
+                f"{token_display}. Check with `/guild balance`."
             await ctx.edit_original_message(content=msg)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
             population = len(ctx.guild.members)
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x reward balance. {str(population)}x rewards = {num_format_coin(amount*population, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x "\
+                f"reward balance. {str(population)}x rewards = "\
+                f"{num_format_coin(amount*population, coin_name, coin_decimal, False)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         else:
@@ -1799,7 +1815,8 @@ class Guild(commands.Cog):
             get_channel = self.bot.get_channel(int(channel.id))
             channel_str = str(channel.id)
             # Test message
-            msg = f"New vote reward set to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} by {ctx.author.name}#{ctx.author.discriminator} and message here."
+            msg = f"New vote reward set to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}"\
+                f" by {ctx.author.name}#{ctx.author.discriminator} and message here."
             try:
                 await get_channel.send(msg)
             except Exception:
@@ -1813,17 +1830,22 @@ class Guild(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo is None:
                     # Let's add some info if server return None
-                    add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+                    await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             except Exception:
                 msg = f'{ctx.author.mention}, internal error. Please report.'
                 await ctx.edit_original_message(content=msg)
                 traceback.print_exc(file=sys.stdout)
             update_reward = await self.update_reward(str(ctx.guild.id), float(amount), coin_name, False, channel_str)
             if update_reward > 0:
-                msg = f'{ctx.author.mention} Successfully set reward for voting in guild {ctx.guild.name} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.'
+                msg = f"{ctx.author.mention} Successfully set reward for voting in guild {ctx.guild.name} to "\
+                    f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}."
                 await ctx.edit_original_message(content=msg)
                 try:
-                    await self.vote_logchan(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set a vote reward in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.')
+                    await self.vote_logchan(
+                        f"[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} "\
+                        f"set a vote reward in guild {ctx.guild.name} / {ctx.guild.id} to "\
+                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}."
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
@@ -1950,12 +1972,15 @@ class Guild(commands.Cog):
                 return
                 
             if amount > actual_balance:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to deposit {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}.'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to deposit "\
+                    f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}."
                 await ctx.edit_original_message(content=msg)
                 return
 
             elif amount < min_tip or amount > max_tip:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}.'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than "\
+                    f"{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} "\
+                    f"or bigger than {num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}."
                 await ctx.edit_original_message(content=msg)
                 return
 
@@ -1996,10 +2021,15 @@ class Guild(commands.Cog):
                             del self.bot.user_balance_cache[key_coin]
                     except Exception:
                         pass
-                    tip = await store.sql_user_balance_mv_single(str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id), amount, coin_name, 'GUILDDEPOSIT', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
+                    tip = await store.sql_user_balance_mv_single(
+                        str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id),
+                        amount, coin_name, 'GUILDDEPOSIT', coin_decimal, SERVER_BOT, contract, amount_in_usd, None
+                    )
                     if tip:
                         try:
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} was transferred to {ctx.guild.name}.'
+                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} "\
+                                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**"\
+                                f"{equivalent_usd} was transferred to {ctx.guild.name}."
                             await ctx.edit_original_message(content=msg)
                         except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                             pass
@@ -2009,7 +2039,12 @@ class Guild(commands.Cog):
                             notifyList = await store.sql_get_tipnotify()
                             if str(guild_found.owner.id) not in notifyList:
                                 try:
-                                    await user_found.send(f'Your guild **{ctx.guild.name}** got a deposit of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in `#{ctx.channel.name}`\n{NOTIFICATION_OFF_CMD}')
+                                    await user_found.send(
+                                        f"Your guild **{ctx.guild.name}** got a deposit of "\
+                                        f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**"\
+                                        f"{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in "\
+                                        f"`#{ctx.channel.name}`\n{NOTIFICATION_OFF_CMD}"
+                                    )
                                 except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                                     pass
                 except Exception:
@@ -2040,7 +2075,6 @@ class Guild(commands.Cog):
         ctx,
         resetkey: str=None
     ):
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
         await ctx.response.send_message(msg, ephemeral=True)
 
@@ -2203,9 +2237,13 @@ class Guild(commands.Cog):
         try:
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1
+                )
                 
             wallet_address = get_deposit['balance_wallet_address']
             description = ""
@@ -2399,7 +2437,7 @@ class Guild(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo is None:
                     # Let's add some info if server return None
-                    add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+                    await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 msg = f'{ctx.author.mention}, internal error. Please report.'
@@ -2559,9 +2597,10 @@ class Guild(commands.Cog):
             wallet_address = get_deposit['destination_tag']
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-        userdata_balance = await self.wallet_api.user_balance(str(ctx.guild.id), coin_name, wallet_address, 
-                                                              type_coin, height, deposit_confirm_depth, 
-                                                              SERVER_BOT)
+        userdata_balance = await self.wallet_api.user_balance(
+            str(ctx.guild.id), coin_name, wallet_address, 
+            type_coin, height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
 
         amount = amount.replace(",", "")
@@ -2571,7 +2610,7 @@ class Guild(commands.Cog):
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
-                add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+                await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -2595,17 +2634,24 @@ class Guild(commands.Cog):
             
         # We assume max reward by max_tip / 10
         elif amount < min_tip or amount > max_tip / 10:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, activedrop/tiptalker amount cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, activedrop/tiptalker amount cannot be smaller than "\
+                f"{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than "\
+                f"{num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}."
             await ctx.edit_original_message(content=msg)
             try:
-                await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} disable activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id}.')
+                await logchanbot(
+                    f"[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} disable "\
+                    f"activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id}."
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             return
 
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x `active drop amount`. 100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} {token_display}. Check with `/guild balance`.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x `active drop amount`"\
+                f". 100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} {token_display}."\
+                f" Check with `/guild balance`."
             await ctx.edit_original_message(content=msg)
             return
         else:
@@ -2613,11 +2659,13 @@ class Guild(commands.Cog):
             get_channel = self.bot.get_channel(int(channel.id))
             channel_str = str(channel.id)
             # Test message
-            msg = f"New guild's active drop set to `{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}` by {ctx.author.name}#{ctx.author.discriminator} and always rewards to active users in this channel every `{original_duration}`."
+            msg = f"New guild's active drop set to `{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                f"{token_display}` by {ctx.author.name}#{ctx.author.discriminator} and always rewards "\
+                f"to active users in this channel every `{original_duration}`."
             try:
                 await get_channel.send(msg)
             except Exception:
-                msg = f'{ctx.author.mention}, failed to message channel {channel.mention}. Set active drop denied!'
+                msg = f"{ctx.author.mention}, failed to message channel {channel.mention}. Set active drop denied!"
                 await ctx.edit_original_message(content=msg)
                 traceback.print_exc(file=sys.stdout)
                 return
@@ -2628,7 +2676,8 @@ class Guild(commands.Cog):
                     role_id = str(get_role.id)
             update_tiptalk = await self.update_activedrop(str(ctx.guild.id), float(amount), coin_name, duration_s, channel_str, role_id)
             if update_tiptalk > 0:
-                msg = f'{ctx.author.mention}, successfully set activedrop/tiptalker in guild {ctx.guild.name} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}.'
+                msg = f"{ctx.author.mention}, successfully set activedrop/tiptalker in guild {ctx.guild.name} to"\
+                    f" {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}."
                 try:
                     if serverinfo['tiptalk_channel'] and channel_str != serverinfo['tiptalk_channel']:
                         msg += " You guild's previous /tiptalk set in channel <#{}> is deleted.".format( serverinfo['tiptalk_channel'] )
@@ -2636,7 +2685,12 @@ class Guild(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
                 await ctx.edit_original_message(content=msg)
                 try:
-                    await logchanbot(f'[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration} in channel #{ctx.channel.name}.')
+                    await logchanbot(
+                        f"[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set "\
+                        f"activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id} to "\
+                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for"\
+                        f" every {duration} in channel #{ctx.channel.name}."
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
@@ -2657,7 +2711,7 @@ class Guild(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
 
         embed = disnake.Embed(title = "Guild {} / {}".format(ctx.guild.name, ctx.guild.id), timestamp=datetime.now())
@@ -2669,24 +2723,52 @@ class Guild(commands.Cog):
             nos_categories = len(ctx.guild.categories)
             num_online = len([member for member in ctx.guild.members if member.bot == False and member.status != disnake.Status.offline])
             num_bot = len([member for member in ctx.guild.members if member.bot == True])
-            m_statistics = "Owner: <@{}>\n```Total Members: {}\nOnline: {}\nBots: {}\nRoles: {}\nCategories: {}\nText Channels: {}```".format(owner_id, total_number, num_online, num_bot, total_roles, nos_categories, nos_text_channel)
+            m_statistics = "Owner: <@{}>\n```Total Members: {}\nOnline: {}\nBots: {}\nRoles: {}\nCategories: {}\nText Channels: {}```".format(
+                owner_id, total_number, num_online, num_bot, total_roles, nos_categories, nos_text_channel
+            )
             embed.add_field(name="Statistics", value=m_statistics, inline=False)
             if ctx.guild.icon:
                 embed.set_thumbnail(url=str(ctx.guild.icon))
         except Exception:
             traceback.print_exc(file=sys.stdout)
         if serverinfo['tiponly'] is not None:
-            embed.add_field(name="Allowed Coins (Tip)", value="{}".format(serverinfo['tiponly']), inline=True)
+            embed.add_field(
+                name="Allowed Coins (Tip)",
+                value="{}".format(serverinfo['tiponly']),
+                inline=True
+            )
         if serverinfo['enable_faucet'] == "YES" and serverinfo['faucet_channel']:
-            embed.add_field(name="Faucet {} {}".format(serverinfo['faucet_amount'], serverinfo['faucet_coin']), value="<#{}>".format(serverinfo['faucet_channel']), inline=True)
+            embed.add_field(
+                name="Faucet {} {}".format(serverinfo['faucet_amount'], serverinfo['faucet_coin']),
+                value="<#{}>".format(serverinfo['faucet_channel']),
+                inline=True
+            )
         if serverinfo['botchan']:
-            embed.add_field(name="Bot Channel", value="<#{}>".format(serverinfo['botchan']), inline=True)
+            embed.add_field(
+                name="Bot Channel",
+                value="<#{}>".format(serverinfo['botchan']),
+                inline=True
+            )
         if serverinfo['tiptalk_channel'] and serverinfo['tiptalk_amount'] > 0 and serverinfo['tiptallk_coin']:
-            embed.add_field(name="TipTalk", value="`{} {} @ {}`".format(serverinfo['tiptalk_amount'], serverinfo['tiptallk_coin'], seconds_str(serverinfo['tiptalk_duration'])), inline=True)
+            embed.add_field(
+                name="TipTalk",
+                value="`{} {} @ {}`".format(
+                    serverinfo['tiptalk_amount'], serverinfo['tiptallk_coin'], seconds_str(serverinfo['tiptalk_duration'])
+                ),
+                inline=True
+            )
         if serverinfo['economy_channel'] and serverinfo['enable_economy'] == "YES":
-            embed.add_field(name="Economy Channel", value="<#{}>".format(serverinfo['economy_channel']), inline=True)
+            embed.add_field(
+                name="Economy Channel",
+                value="<#{}>".format(serverinfo['economy_channel']),
+                inline=True
+            )
         if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_coin'] and serverinfo['vote_reward_channel']:
-            embed.add_field(name="Vote Reward {} {}".format(serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin']), value="<#{}> | https://top.gg/servers/{}/vote".format(serverinfo['vote_reward_channel'], ctx.guild.id), inline=False)
+            embed.add_field(
+                name="Vote Reward {} {}".format(serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin']),
+                value="<#{}> | https://top.gg/servers/{}/vote".format(serverinfo['vote_reward_channel'], ctx.guild.id),
+                inline=False
+            )
         try:
             if serverinfo['feature_roles'] and len(serverinfo['feature_roles'].keys()) > 0:
                 list_featureroles = []
@@ -2694,8 +2776,14 @@ class Guild(commands.Cog):
                     faucet_str = '{:,.2f}'.format(v['faucet_multipled_by'])
                     vote_str = '{:,.2f}'.format(v['guild_vote_multiplied_by'])
                     cut_str = '{:,.0f}{}'.format(v['faucet_cut_time_percent']*100, "%")
-                    list_featureroles.append("<@&{}>:\nFaucet (x): {}\nFaucet Reduced Time: {}\nVote Reward (x): {}".format(k, faucet_str, cut_str, vote_str))
-                embed.add_field(name="Featured Role(s)", value="\n\n".join(list_featureroles), inline=False)
+                    list_featureroles.append("<@&{}>:\nFaucet (x): {}\nFaucet Reduced Time: {}\nVote Reward (x): {}".format(
+                        k, faucet_str, cut_str, vote_str
+                    ))
+                embed.add_field(
+                    name="Featured Role(s)",
+                    value="\n\n".join(list_featureroles),
+                    inline=False
+                )
         except Exception:
             traceback.print_exc(file=sys.stdout)
         embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
@@ -2778,7 +2866,9 @@ class Guild(commands.Cog):
                     faucet_str = '{:,.2f}'.format(v['faucet_multipled_by'])
                     vote_str = '{:,.2f}'.format(v['guild_vote_multiplied_by'])
                     cut_str = '{:,.0f}{}'.format(v['faucet_cut_time_percent']*100, "%")
-                    list_featureroles.append("<@&{}>:\nFaucet (x): {}\nFaucet Reduced Time: {}\nVote Reward (x): {}".format(k, faucet_str, cut_str, vote_str))
+                    list_featureroles.append("<@&{}>:\nFaucet (x): {}\nFaucet Reduced Time: {}\nVote Reward (x): {}".format(
+                        k, faucet_str, cut_str, vote_str
+                    ))
                 embed.add_field(name="Featured Role(s)", value="\n\n".join(list_featureroles), inline=False)
                 await ctx.edit_original_message(content=None, embed=embed)
         except Exception:
@@ -2842,7 +2932,9 @@ class Guild(commands.Cog):
             if role.name == "@everyone" or role.name == "@here":
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, can't use this role."
                 await ctx.edit_original_message(content=msg)
-                await logchanbot(f"/featurerole User `{str(ctx.author.id)}` commanded by Guild `{str(ctx.guild.id)}` tried with role {role.name}.")
+                await logchanbot(
+                    f"/featurerole User `{str(ctx.author.id)}` commanded by Guild `{str(ctx.guild.id)}` tried with role {role.name}."
+                )
                 return
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if serverinfo and serverinfo['feature_roles'] is not None and str(role.id) in serverinfo['feature_roles']:
@@ -2858,7 +2950,10 @@ class Guild(commands.Cog):
             if serverinfo and serverinfo['feature_roles'] and len(serverinfo['feature_roles'].keys()) >= self.max_featurerole:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, reach maximum /featurerole"
                 await ctx.edit_original_message(content=msg)
-                await logchanbot(f"/featurerole User `{str(ctx.author.id)}` commanded by Guild `{str(ctx.guild.id)}` but reached `max_featurerole`.")
+                await logchanbot(
+                    f"/featurerole User `{str(ctx.author.id)}` commanded by Guild `{str(ctx.guild.id)}` "\
+                    "but reached `max_featurerole`."
+                )
                 return
 
             new_faucet = float(faucet_multiplied)
@@ -2899,14 +2994,19 @@ class Guild(commands.Cog):
                     f"**Previous values**:\nFaucet (x): {prev_faucet}\nFaucet cutting time: {prev_cut}\nGuild Vote (x): {prev_vote}\n\n"\
                     f"**New values**:\nFaucet (x): {new_faucet_str}\nFaucet cutting time: {new_cut_str}\nGuild Vote (x): {new_vote_str}"
                     await ctx.edit_original_message(content=msg)
-                    await logchanbot(f"[FEATUREROLE] User `{str(ctx.author.id)}` "
-                                     f"adjusted role in Guild {ctx.guild.name} / `{str(ctx.guild.id)}`.\n"
-                                     f"**Previous values**:\nFaucet (x): {prev_faucet}\nFaucet cutting time: {prev_cut}\nGuild Vote (x): {prev_vote}\n\n"
-                                     f"**New values**:\nFaucet (x): {new_faucet_str}\nFaucet cutting time: {new_cut_str}\nGuild Vote (x): {new_vote_str}")
+                    await logchanbot(
+                        f"[FEATUREROLE] User `{str(ctx.author.id)}` "
+                        f"adjusted role in Guild {ctx.guild.name} / `{str(ctx.guild.id)}`.\n"
+                        f"**Previous values**:\nFaucet (x): {prev_faucet}\nFaucet cutting time: {prev_cut}\nGuild Vote (x): {prev_vote}\n\n"
+                        f"**New values**:\nFaucet (x): {new_faucet_str}\nFaucet cutting time: {new_cut_str}\nGuild Vote (x): {new_vote_str}"
+                    )
                 else:
-                    msg = f'{ctx.author.mention}, internal error. Please report.'
+                    msg = f"{ctx.author.mention}, internal error. Please report."
                     await ctx.edit_original_message(content=msg)
-                    await logchanbot(f"[FEATUREROLE] Failed to adjust by User `{str(ctx.author.id)}` in Guild {ctx.guild.name} / `{str(ctx.guild.id)}`.")
+                    await logchanbot(
+                        f"[FEATUREROLE] Failed to adjust by User `{str(ctx.author.id)}` "\
+                        f"in Guild {ctx.guild.name} / `{str(ctx.guild.id)}`."
+                    )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         except Exception:
@@ -2944,11 +3044,14 @@ class Guild(commands.Cog):
             if check_exist is True:
                 delete_feature = await self.guild_delete_featurerole(str(ctx.guild.id), str(role.id))
                 if delete_feature is True:
-                    msg = f'{ctx.author.mention}, successfully deleted feature role for `{role.name}`. You can add again later!'
+                    msg = f"{ctx.author.mention}, successfully deleted feature role for `{role.name}`. You can add again later!"
                     await ctx.edit_original_message(content=msg)
-                    await logchanbot(f"[FEATUREROLE] User `{str(ctx.author.id)}` in Guild {ctx.guild.name} / `{str(ctx.guild.id)}` deleted feature role `{role.name}`.")
+                    await logchanbot(
+                        f"[FEATUREROLE] User `{str(ctx.author.id)}` in Guild {ctx.guild.name} / `{str(ctx.guild.id)}` "\
+                        f"deleted feature role `{role.name}`."
+                    )
             else:
-                msg = f'{ctx.author.mention}, there\'s no featurerole set for role `{role.name}`.'
+                msg = f"{ctx.author.mention}, there\'s no featurerole set for role `{role.name}`."
                 await ctx.edit_original_message(content=msg)
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -2985,7 +3088,10 @@ class Guild(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
             if serverinfo and serverinfo['enable_faucet'] == "NO":
                 if self.enable_logchan:
-                    await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried `/faucet` in {ctx.guild.name} / {ctx.guild.id} which is disable.')
+                    await self.botLogChan.send(
+                        f"{ctx.author.name} / {ctx.author.id} tried `/faucet` in "\
+                        f"{ctx.guild.name} / {ctx.guild.id} which is disable."
+                    )
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **/faucet** in this guild is disable."
                 await ctx.edit_original_message(content=msg)
                 return
@@ -3037,7 +3143,9 @@ class Guild(commands.Cog):
                 get_last_claim = await self.get_faucet_claim_user_guild(str(ctx.author.id), str(ctx.guild.id), SERVER_BOT)
                 extra_msg = ""
                 if cutting_duration > 0:
-                    extra_msg = " You have active guild's role(s) that cut /faucet's waiting time by: **{}**.".format(seconds_str_days(cutting_duration))
+                    extra_msg = " You have active guild's role(s) that cut /faucet's waiting time by: **{}**.".format(
+                        seconds_str_days(cutting_duration)
+                    )
                 if get_last_claim is not None and int(time.time()) - get_last_claim['date'] < duration - cutting_duration:
                     # last_duration = seconds_str(int(time.time()) - get_last_claim['date'])
                     last_duration = disnake.utils.format_dt(
@@ -3066,9 +3174,13 @@ class Guild(commands.Cog):
                     max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
                     usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
-                    get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
+                    get_deposit = await self.wallet_api.sql_get_userwallet(
+                        str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
                     if get_deposit is None:
-                        get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1)
+                        get_deposit = await self.wallet_api.sql_register_user(
+                            str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1
+                        )
 
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -3077,7 +3189,9 @@ class Guild(commands.Cog):
                         wallet_address = get_deposit['destination_tag']
 
                     height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                    userdata_balance = await store.sql_user_balance_single(str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                    userdata_balance = await store.sql_user_balance_single(
+                        str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+                    )
                     actual_balance = float(userdata_balance['adjust'])
                     # Check if tx in progress
                     if ctx.guild.id in self.bot.TX_IN_PROCESS:
@@ -3091,11 +3205,14 @@ class Guild(commands.Cog):
                         return
 
                     if amount + extra_amount > actual_balance:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, guild has insufficient balance for {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {token_display}.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, guild has insufficient balance for "\
+                            f"{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {token_display}."
                         await ctx.edit_original_message(content=msg)
                         return
                     elif amount + extra_amount < min_tip or amount + extra_amount > max_tip:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than "\
+                            f"{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or "\
+                            f"bigger than {num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}."
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -3128,12 +3245,20 @@ class Guild(commands.Cog):
                                     del self.bot.user_balance_cache[key_coin]
                             except Exception:
                                 pass
-                            tip = await store.sql_user_balance_mv_single(str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), amount + extra_amount, coin_name, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
+                            tip = await store.sql_user_balance_mv_single(
+                                str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id),
+                                amount + extra_amount, coin_name, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd, None
+                            )
                             if tip:
                                 extra_msg = ""
                                 if extra_amount > 0:
-                                    extra_msg = " You have a guild's role that give you additional bonus **" + num_format_coin(extra_amount, coin_name, coin_decimal, False) + " " + coin_name + "**."
-                                msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of **{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}**{equivalent_usd} from `{ctx.guild.name}`.{extra_msg} Other reward command `/take` and `/claim`. Invite me to your guild? Click on my name and "Add to Server".'
+                                    extra_msg = " You have a guild's role that give you additional bonus **" + \
+                                        num_format_coin(extra_amount, coin_name, coin_decimal, False) + " " + coin_name + "**."
+                                msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of "\
+                                    f"**{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)}"\
+                                    f" {coin_name}**{equivalent_usd} from `{ctx.guild.name}`.{extra_msg} "\
+                                    f"Other reward command `/take` and `/claim`. Invite me to your guild? "\
+                                    f"Click on my name and `Add to Server`."
                                 await ctx.edit_original_message(content=msg)
                                 await logchanbot(
                                     f"[{SERVER_BOT}] User {ctx.author.name}#{ctx.author.discriminator} "\
@@ -3161,10 +3286,14 @@ class Guild(commands.Cog):
 
     # Setting command
     @commands.guild_only()
-    @commands.slash_command(description="Guild setting commands.")
-    async def setting(self, ctx):
+    @commands.slash_command(
+        dm_permission=False,
+        description="Guild setting commands."
+    )
+    async def setting(
+        self, ctx
+    ):
         pass
-
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3179,14 +3308,16 @@ class Guild(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
 
         coin_list = coin_list.upper()
         if coin_list in ["ALLCOIN", "*", "ALL", "TIPALL", "ANY"]:
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', "ALLCOIN")
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', "ALLCOIN")
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `ALLCOIN`')
+                await self.botLogChan.send(
+                    f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `ALLCOIN`'
+                )
             msg = f'{ctx.author.mention}, all coins will be allowed in here.'
             await ctx.response.send_message(msg)
             return
@@ -3206,10 +3337,12 @@ class Guild(commands.Cog):
             if contained and len(contained) >= 2:
                 tiponly_value = ','.join(contained)
                 if self.enable_logchan:
-                    await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{tiponly_value}`')
+                    await self.botLogChan.send(
+                        f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{tiponly_value}`'
+                    )
                 msg = f'{ctx.author.mention} TIPONLY for guild {ctx.guild.name} set to: **{tiponly_value}**.'
                 await ctx.response.send_message(msg)
-                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
+                await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
             else:
                 msg = f'{ctx.author.mention} No known coin in **{coin_list}**. TIPONLY is remained unchanged in guild `{ctx.guild.name}`.'
                 await ctx.response.send_message(msg)
@@ -3220,12 +3353,13 @@ class Guild(commands.Cog):
                 await ctx.response.send_message(msg)
             else:
                 # coin_list is single coin set_coin
-                changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', coin_list)
+                await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', coin_list)
                 if self.enable_logchan:
-                    await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{coin_list}`')
+                    await self.botLogChan.send(
+                        f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{coin_list}`'
+                    )
                 msg = f'{ctx.author.mention} {coin_list} will be the only tip here in guild `{ctx.guild.name}`.'
                 await ctx.response.send_message(msg)
-
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3240,25 +3374,28 @@ class Guild(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                                                                 
         if serverinfo and serverinfo['enable_trade'] == "YES":
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'NO')
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'NO')
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await self.botLogChan.send(
+                    f'{ctx.author.name} / {ctx.author.id} DISABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}'
+                )
             msg = f"{ctx.author.mention} DISABLE TRADE feature in this guild {ctx.guild.name}."
             await ctx.response.send_message(msg)
         elif serverinfo and serverinfo['enable_trade'] == "NO":
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'YES')
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'YES')
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await self.botLogChan.send(
+                    f'{ctx.author.name} / {ctx.author.id} ENABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}'
+                )
             msg = f"{ctx.author.mention} ENABLE TRADE feature in this guild {ctx.guild.name}."
             await ctx.response.send_message(msg)
         else:
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
             await ctx.response.send_message(msg)
-
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3273,19 +3410,23 @@ class Guild(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                                                                 
         if serverinfo and serverinfo['enable_memepls'] == "YES":
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_memepls', 'NO')
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_memepls', 'NO')
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE /memepls in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await self.botLogChan.send(
+                    f'{ctx.author.name} / {ctx.author.id} DISABLE /memepls in their guild {ctx.guild.name} / {ctx.guild.id}'
+                )
             msg = f"{ctx.author.mention} DISABLE /memepls feature in this guild {ctx.guild.name}."
             await ctx.response.send_message(msg)
         elif serverinfo and serverinfo['enable_memepls'] == "NO":
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_memepls', 'YES')
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_memepls', 'YES')
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE /memepls in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await self.botLogChan.send(
+                    f'{ctx.author.name} / {ctx.author.id} ENABLE /memepls in their guild {ctx.guild.name} / {ctx.guild.id}'
+                )
             msg = f"{ctx.author.mention} ENABLE /memepls feature in this guild {ctx.guild.name}."
             await ctx.response.send_message(msg)
         else:
@@ -3305,25 +3446,28 @@ class Guild(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
 
         if serverinfo and serverinfo['enable_nsfw'] == "YES":
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_nsfw', 'NO')
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_nsfw', 'NO')
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE NSFW in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await self.botLogChan.send(
+                    f'{ctx.author.name} / {ctx.author.id} DISABLE NSFW in their guild {ctx.guild.name} / {ctx.guild.id}'
+                )
             msg = f"{ctx.author.mention} DISABLE NSFW command in this guild {ctx.guild.name}."
             await ctx.response.send_message(msg)
         elif serverinfo and serverinfo['enable_nsfw'] == "NO":
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_nsfw', 'YES')
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_nsfw', 'YES')
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE NSFW in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await self.botLogChan.send(
+                    f'{ctx.author.name} / {ctx.author.id} ENABLE NSFW in their guild {ctx.guild.name} / {ctx.guild.id}'
+                )
             msg = f"{ctx.author.mention} ENABLE NSFW command in this guild {ctx.guild.name}."
             await ctx.response.send_message(msg)
         else:
             msg = f"{ctx.author.mention} Internal error when calling serverinfo function."
             await ctx.response.send_message(msg)
-
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3338,24 +3482,27 @@ class Guild(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and serverinfo['enable_game'] == "YES":
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'NO')
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'NO')
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE game in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await self.botLogChan.send(
+                    f'{ctx.author.name} / {ctx.author.id} DISABLE game in their guild {ctx.guild.name} / {ctx.guild.id}'
+                )
             msg = f"{ctx.author.mention} DISABLE GAME feature in this guild {ctx.guild.name}."
             await ctx.response.send_message(msg)
         elif serverinfo and serverinfo['enable_game'] == "NO":
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'YES')
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'YES')
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE game in their guild {ctx.guild.name} / {ctx.guild.id}')
+                await self.botLogChan.send(
+                    f'{ctx.author.name} / {ctx.author.id} ENABLE game in their guild {ctx.guild.name} / {ctx.guild.id}'
+                )
             msg = f"{ctx.author.mention} ENABLE GAME feature in this guild {ctx.guild.name}."
             await ctx.response.send_message(msg)
         else:
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
             await ctx.response.send_message(msg)
-
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3370,7 +3517,7 @@ class Guild(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo['botchan']:
             try: 
@@ -3380,22 +3527,23 @@ class Guild(commands.Cog):
                     return
                 else:
                     # change channel info
-                    changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
+                    await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
                     msg = f'Bot channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
                     await ctx.response.send_message(msg)
                     if self.enable_logchan:
-                        await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} change bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+                        await self.botLogChan.send(
+                            f'{ctx.author.name} / {ctx.author.id} change bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.'
+                        )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("guild " +str(traceback.format_exc()))
         else:
             # change channel info
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
             msg = f'Bot channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
             await ctx.response.send_message(msg)
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
-
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3410,7 +3558,7 @@ class Guild(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo['economy_channel']:
             try: 
@@ -3420,7 +3568,7 @@ class Guild(commands.Cog):
                     return
                 else:
                     # change channel info
-                    changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'economy_channel', str(ctx.channel.id))
+                    await store.sql_changeinfo_by_server(str(ctx.guild.id), 'economy_channel', str(ctx.channel.id))
                     msg = f'Economy game channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
                     await ctx.response.send_message(msg)
                     if self.enable_logchan:
@@ -3430,12 +3578,14 @@ class Guild(commands.Cog):
                 await logchanbot("guild " +str(traceback.format_exc()))
         else:
             # change channel info
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'economy_channel', str(ctx.channel.id))
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'economy_channel', str(ctx.channel.id))
             msg = f'Economy game channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
             await ctx.response.send_message(msg)
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed economy game channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
-
+                await self.botLogChan.send(
+                    f"{ctx.author.name} / {ctx.author.id} changed economy game channel "\
+                    f"{ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
+                )
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3450,17 +3600,17 @@ class Guild(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
 
         if serverinfo and serverinfo['enable_faucet'] == "YES":
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_faucet', 'NO')
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_faucet', 'NO')
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE faucet (take) command in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} DISABLE faucet (take/claim) command in this guild {ctx.guild.name}."
             await ctx.response.send_message(msg)
         elif serverinfo and serverinfo['enable_faucet'] == "NO":
-            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_faucet', 'YES')
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_faucet', 'YES')
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE faucet (take) command in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} ENABLE faucet (take/claim) command in this guild {ctx.guild.name}."
@@ -3487,7 +3637,7 @@ class Guild(commands.Cog):
                 index_game = "game_" + game + "_channel"
                 if serverinfo is None:
                     # Let's add some info if server return None
-                    add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+                    await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
                     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo[index_game]:
                     try: 
@@ -3497,7 +3647,7 @@ class Guild(commands.Cog):
                             return
                         else:
                             # change channel info
-                            changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
+                            await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
                             msg = f'{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}.'
                             await ctx.response.send_message(msg)
                             if self.enable_logchan:
@@ -3508,11 +3658,14 @@ class Guild(commands.Cog):
                         await logchanbot("guild " +str(traceback.format_exc()))
                 else:
                     # change channel info
-                    changeinfo = await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
+                    await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
                     msg = f'{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}.'
                     await ctx.response.send_message(msg)
                     if self.enable_logchan:
-                        await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} set game **{game}** channel in {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+                        await self.botLogChan.send(
+                            f"{ctx.author.name} / {ctx.author.id} set game **{game}** channel "\
+                            f"in {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
+                        )
                     return
 
     @commands.has_permissions(manage_channels=True)

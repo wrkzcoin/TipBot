@@ -103,8 +103,10 @@ class MathButton(disnake.ui.View):
                     total_equivalent_usd = " ~ {:,.4f} USD".format(each_amount_in_usd)
 
             embed = disnake.Embed(
-                title=f"🧮 Math Tip {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {total_equivalent_usd} - Total answer {total_answer}",
-                description=get_mathtip['eval_content'], timestamp=datetime.fromtimestamp(get_mathtip['math_endtime']))
+                title=f"🧮 Math Tip {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {total_equivalent_usd} - "\
+                    "Total answer {total_answer}",
+                description=get_mathtip['eval_content'], timestamp=datetime.fromtimestamp(get_mathtip['math_endtime'])
+            )
             embed.add_field(
                 name="Correct answer",
                 value=get_mathtip['eval_answer'],
@@ -114,7 +116,8 @@ class MathButton(disnake.ui.View):
                 name="Correct ( {} )".format(len(answered_msg_id['right_ids'])),
                 value="{}".format(
                     " | ".join(answered_msg_id['right_names']) if len(answered_msg_id['right_names']) > 0 else "N/A"),
-                inline=False)
+                inline=False
+            )
             embed.add_field(
                 name="Incorrect ( {} )".format(len(answered_msg_id['wrong_ids'])),
                 value="{}".format(
@@ -184,7 +187,8 @@ class MathTips(commands.Cog):
         if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
             'tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']
-            msg = f'{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
+            msg = f"{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. "\
+                "You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`"
             await ctx.edit_original_message(content=msg)
             return
 

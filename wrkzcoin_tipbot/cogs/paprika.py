@@ -209,8 +209,16 @@ class Paprika(commands.Cog):
                                 await store.openConnection()
                                 async with store.pool.acquire() as conn:
                                     async with conn.cursor() as cur:
-                                        sql = """ INSERT INTO coin_paprika_list (`id`, `symbol`, `name`, `rank`, `circulating_supply`, `total_supply`, `max_supply`, `price_usd`, `price_time`, `last_updated`, `quotes_USD_price`, `quotes_USD_volume_24h`, `quotes_USD_volume_24h_change_24h`, `quotes_USD_market_cap`, `quotes_USD_market_cap_change_24h`, `quotes_USD_percent_change_15m`, `quotes_USD_percent_change_30m`, `quotes_USD_percent_change_1h`, `quotes_USD_percent_change_6h`, `quotes_USD_percent_change_12h`, `quotes_USD_percent_change_24h`, `quotes_USD_percent_change_7d`, `quotes_USD_percent_change_30d`, `quotes_USD_percent_change_1y`, `quotes_USD_ath_price`, `quotes_USD_ath_date`, `quotes_USD_percent_from_price_ath`) 
-                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY 
+                                        sql = """ INSERT INTO coin_paprika_list 
+                                        (`id`, `symbol`, `name`, `rank`, `circulating_supply`, `total_supply`, `max_supply`, 
+                                        `price_usd`, `price_time`, `last_updated`, `quotes_USD_price`, `quotes_USD_volume_24h`, 
+                                        `quotes_USD_volume_24h_change_24h`, `quotes_USD_market_cap`, `quotes_USD_market_cap_change_24h`, 
+                                        `quotes_USD_percent_change_15m`, `quotes_USD_percent_change_30m`, `quotes_USD_percent_change_1h`, 
+                                        `quotes_USD_percent_change_6h`, `quotes_USD_percent_change_12h`, `quotes_USD_percent_change_24h`, 
+                                        `quotes_USD_percent_change_7d`, `quotes_USD_percent_change_30d`, `quotes_USD_percent_change_1y`, 
+                                        `quotes_USD_ath_price`, `quotes_USD_ath_date`, `quotes_USD_percent_from_price_ath`) 
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+                                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY 
                                         UPDATE 
                                         `rank`=VALUES(`rank`), 
                                         `circulating_supply`=VALUES(`circulating_supply`), 
@@ -305,7 +313,8 @@ class Paprika(commands.Cog):
                             display_id = random.choice(self.display_list)
                             self.display_list.remove(display_id)
                             fetch_tradeview = functools.partial(
-                                get_trade_view_by_id, display_id, self.bot.config['selenium_setting'], self.tradeview_url + id, id, self.tradeview_path, option
+                                get_trade_view_by_id, display_id, self.bot.config['selenium_setting'], 
+                                self.tradeview_url + id, id, self.tradeview_path, option
                             )
                             self.display_list.append(display_id)
                             tv_image = await self.bot.loop.run_in_executor(None, fetch_tradeview)
@@ -372,12 +381,14 @@ class Paprika(commands.Cog):
                             trading_at = "${:.4f}".format(float(j['quotes']['USD']['price']))
                         else:
                             trading_at = "${:.8f}".format(float(j['quotes']['USD']['price']))
-                        response_text = "{} ({}) is #{} by marketcap (${:,.2f}), trading at {} with a 24h vol of ${:,.2f}. It's changed {}% over 24h, {}% over 7d, {}% over 30d, and {}% over 1y with an ath of ${} on {}.".format(
-                            j['name'], j['symbol'], j['rank'], float(j['quotes']['USD']['market_cap']), trading_at,
-                            float(j['quotes']['USD']['volume_24h']), j['quotes']['USD']['percent_change_24h'],
-                            j['quotes']['USD']['percent_change_7d'], j['quotes']['USD']['percent_change_30d'],
-                            j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'],
-                            j['quotes']['USD']['ath_date'])
+                        response_text = "{} ({}) is #{} by marketcap (${:,.2f}), trading at {} with a 24h vol of ${:,.2f}. "\
+                            "It's changed {}% over 24h, {}% over 7d, {}% over 30d, and {}% over 1y with an ath of ${} on {}.".format(
+                                j['name'], j['symbol'], j['rank'], float(j['quotes']['USD']['market_cap']), trading_at,
+                                float(j['quotes']['USD']['volume_24h']), j['quotes']['USD']['percent_change_24h'],
+                                j['quotes']['USD']['percent_change_7d'], j['quotes']['USD']['percent_change_30d'],
+                                j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'],
+                                j['quotes']['USD']['ath_date']
+                            )
                         try:
                             self.paprika_coin_cache[key] = response_text
                         except Exception:
@@ -419,7 +430,8 @@ class Paprika(commands.Cog):
                                     display_id = random.choice(self.display_list)
                                     self.display_list.remove(display_id)
                                     fetch_tradeview = functools.partial(
-                                        get_trade_view_by_id, display_id, self.bot.config['selenium_setting'], self.tradeview_url + id, id, self.tradeview_path, option
+                                        get_trade_view_by_id, display_id, self.bot.config['selenium_setting'],
+                                        self.tradeview_url + id, id, self.tradeview_path, option
                                     )
                                     self.display_list.append(display_id)
                                     tv_image = await self.bot.loop.run_in_executor(None, fetch_tradeview)

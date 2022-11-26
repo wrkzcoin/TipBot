@@ -1649,6 +1649,8 @@ class Admin(commands.Cog):
             await ctx.reply(msg)
             return
         else:
+            list_user_balances = []
+            list_user_balances.append("user id, server, balance, coin name")
             try:
                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
@@ -1693,6 +1695,12 @@ class Admin(commands.Cog):
                             each_user_id['user_server']
                         )
                         total_balance = userdata_balance['adjust']
+                        list_user_balances.append("{},{},{},{}".format(
+                            each_user_id['user_id'],
+                            each_user_id['user_server'],
+                            total_balance,
+                            coin_name
+                        ))
                         if total_balance < 0:
                             negative_users.append(negative_users)
                         sum_balance += total_balance
@@ -1748,12 +1756,21 @@ class Admin(commands.Cog):
                         msg_checkcoin += "Negative users: " + ", ".join(negative_users)
                     msg_checkcoin += "Time token: {}s".format(duration)
                     msg_checkcoin += "```"
+                    # List balance sheet
+                    balance_sheet_file = disnake.File(
+                        BytesIO(("\n".join(list_user_balances)).encode()),
+                        filename=f"balance_sheet_{coin_name}_{str(int(time.time()))}.csv"
+                    )
                     if len(msg_checkcoin) > 1000:
-                        data_file = disnake.File(BytesIO(msg_checkcoin.encode()),
-                                                 filename=f"auditcoin_{coin_name}_{str(int(time.time()))}.txt")
-                        await ctx.reply(file=data_file)
+                        data_file = disnake.File(
+                            BytesIO(msg_checkcoin.encode()),
+                            filename=f"auditcoin_{coin_name}_{str(int(time.time()))}.txt"
+                        )
+                        reply_msg = await ctx.reply(file=data_file)
+                        await reply_msg.reply(file=balance_sheet_file)
                     else:
-                        await ctx.reply(msg_checkcoin)
+                        reply_msg = await ctx.reply(msg_checkcoin)
+                        await reply_msg.reply(file=balance_sheet_file)
                 else:
                     msg = f"{ctx.author.mention}, {coin_name}: there is no users for this."
                     await ctx.reply(msg)

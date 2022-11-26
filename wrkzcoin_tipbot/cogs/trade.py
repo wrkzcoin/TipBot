@@ -67,12 +67,15 @@ class Trade(commands.Cog):
         if coin2 is None:
             get_markets = await store.sql_get_open_order_by_alluser(coin1.upper(), 'OPEN', option.upper(), 200)
             title = "**MARKET {}**".format(coin1.upper())
-            no_trading_msg = f"Currently, no opening selling or buying market for {coin1.upper()}. Please make some open order for others."
+            no_trading_msg = f"Currently, no opening selling or buying market for {coin1.upper()}. "\
+                f"Please make some open order for others."
         else:
-            get_markets = await store.sql_get_open_order_by_alluser_by_coins(coin1.upper(), coin2.upper(), "OPEN",
-                                                                             option)
+            get_markets = await store.sql_get_open_order_by_alluser_by_coins(
+                coin1.upper(), coin2.upper(), "OPEN", option
+            )
             title = "**MARKET {}/{}**".format(coin1.upper(), coin2.upper())
-            no_trading_msg = f"Currently, no opening selling market pair for {coin1.upper()} with {coin2.upper()}. Please make some open order for others."
+            no_trading_msg = f"Currently, no opening selling market pair for {coin1.upper()} with {coin2.upper()}. "\
+                f"Please make some open order for others."
 
         if get_markets and len(get_markets) > 0:
             list_numb = 0
@@ -195,7 +198,8 @@ class Trade(commands.Cog):
         # get opened order:
         user_count_order = await store.sql_count_open_order_by_sellerid(str(ctx.author.id), SERVER_BOT)
         if user_count_order >= self.bot.config['trade']['Max_Open_Order']:
-            msg = f"{ctx.author.mention}, you have maximum opened selling **{self.bot.config['trade']['Max_Open_Order']}**. Please cancel some or wait."
+            msg = f"{ctx.author.mention}, you have maximum opened selling **{self.bot.config['trade']['Max_Open_Order']}**. "\
+                f"Please cancel some or wait."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -211,15 +215,19 @@ class Trade(commands.Cog):
         max_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_max_buysell")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
         if sell_amount < min_tx or sell_amount > max_tx:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade for {coin_name} cannot be smaller than {num_format_coin(min_tx, coin_name, coin_decimal_sell, False)} {token_display} or bigger than {num_format_coin(max_tx, coin_name, coin_decimal_sell, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, trade for {coin_name} cannot be smaller than "\
+                f"{num_format_coin(min_tx, coin_name, coin_decimal_sell, False)} {token_display} or bigger than "\
+                f"{num_format_coin(max_tx, coin_name, coin_decimal_sell, False)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         # Get balance user
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+            )
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -291,7 +299,9 @@ class Trade(commands.Cog):
                     await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                            f"{ctx.author.name} / {ctx.author.id} tried **trade/market command** in "\
+                            f"{ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
+                        )
                     return
         except Exception:
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
@@ -336,7 +346,9 @@ class Trade(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                            f"{ctx.author.name} / {ctx.author.id} tried **trade/market command** in "\
+                            f"{ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
+                        )
                     return
         except Exception:
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
@@ -387,12 +399,14 @@ class Trade(commands.Cog):
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. "\
-                    "Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. "\
+                    "Please request Guild owner to enable by `/SETTING TRADE`"
                     await ctx.edit_original_message(content=msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                            f"{ctx.author.name} / {ctx.author.id} tried **trade/market command** in "\
+                            f"{ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
+                        )
                     return
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -555,11 +569,14 @@ class Trade(commands.Cog):
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. "\
+                        f"Please request Guild owner to enable by `/SETTING TRADE`"
                     await ctx.edit_original_message(content=msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                            f"{ctx.author.name} / {ctx.author.id} tried **trade/market command** in "\
+                            f"{ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
+                        )
                     return
         except Exception:
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
@@ -620,7 +637,8 @@ class Trade(commands.Cog):
                             cancel_order = await store.sql_cancel_open_order_by_sellerid(str(ctx.author.id), order_num)
                             if cancel_order: cancelled = True
                     if cancelled is False:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you do not have sell #**{order_num}**. Please check command `/myorder`.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have sell #**{order_num}**. "\
+                            "Please check command `/myorder`."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
@@ -655,11 +673,14 @@ class Trade(commands.Cog):
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. "\
+                        f"Please request Guild owner to enable by `/SETTING TRADE`"
                     await ctx.edit_original_message(content=msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                            f"{ctx.author.name} / {ctx.author.id} tried **trade/market command** "\
+                            f"in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
+                        )
                     return
         except Exception:
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
@@ -722,7 +743,7 @@ class Trade(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
             else:
-                msg = f'{ctx.author.mention}, no opening selling **{coin_name}**. Please make some open order for others.'
+                msg = f"{ctx.author.mention}, no opening selling **{coin_name}**. Please make some open order for others."
                 await ctx.edit_original_message(content=msg)
                 return
         else:
@@ -741,11 +762,13 @@ class Trade(commands.Cog):
                     net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                     type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                     deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                    get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name,
-                                                                           type_coin, SERVER_BOT, 0)
+                    get_deposit = await self.wallet_api.sql_get_userwallet(
+                        str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
                     if get_deposit is None:
-                        get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name,
-                                                                              type_coin, SERVER_BOT, 0, 0)
+                        get_deposit = await self.wallet_api.sql_register_user(
+                            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                        )
 
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -850,7 +873,7 @@ class Trade(commands.Cog):
                             await ctx.edit_original_message(content=msg)
                             return
             else:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** does not exist or already completed.'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** does not exist or already completed."
                 await ctx.edit_original_message(content=msg)
 
     @market.sub_command(
@@ -885,11 +908,14 @@ class Trade(commands.Cog):
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. "\
+                        "Please request Guild owner to enable by `/SETTING TRADE`"
                     await ctx.edit_original_message(content=msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                            f"{ctx.author.name} / {ctx.author.id} tried **trade/market command** in "\
+                            f"{ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
+                        )
                     return
         except Exception:
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
@@ -987,7 +1013,7 @@ class Trade(commands.Cog):
             no_open = ""
             if coin_pair and len(coin_pair) == 2:
                 no_open = " for {}/{}".format(coin_pair[0], coin_pair[1])
-            msg = f'{ctx.author.mention}, there is no result{no_open}. Please create opened order with /market sell command.'
+            msg = f"{ctx.author.mention}, there is no result{no_open}. Please create opened order with /market sell command."
             await ctx.edit_original_message(content=msg)
             return
 

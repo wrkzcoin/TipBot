@@ -380,7 +380,9 @@ class GShop(commands.Cog):
                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, role shop is disable in this Guild. "\
                     f"Contact TipBot\'s dev."
                 await ctx.edit_original_message(content=msg)
-                await logchanbot(f"[GSHOP] User `{str(ctx.author.id)}` in Guild `{str(ctx.guild.id)}` tried with /gshop which disable in their Guild.")
+                await logchanbot(
+                    f"[GSHOP] User `{str(ctx.author.id)}` in Guild `{str(ctx.guild.id)}` tried with /gshop which disable in their Guild."
+                )
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -398,7 +400,10 @@ class GShop(commands.Cog):
                     f"[GSHOP] server {str(ctx.guild.id)}, user `{str(ctx.author.id)}` removed item `{item_id}`."
                 )
                 if ctx.author.id != ctx.guild.owner.id:
-                    await ctx.guild.owner.send(f"User `{str(ctx.author.id)}` just removed listing item `{item_id}` from Guild `{str(ctx.guild.id)} / {ctx.guild.name}`.")
+                    await ctx.guild.owner.send(
+                        f"User `{str(ctx.author.id)}` just removed listing item `{item_id}` "\
+                        f"from Guild `{str(ctx.guild.id)} / {ctx.guild.name}`."
+                    )
             else:
                 msg = f"{ctx.author.mention}, internal error when deleting! Please report!"
                 await ctx.edit_original_message(content=msg)
@@ -432,7 +437,9 @@ class GShop(commands.Cog):
                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, role shop is disable in this Guild. "\
                     "Contact TipBot's dev."
                 await ctx.edit_original_message(content=msg)
-                await logchanbot(f"[GSHOP] User `{str(ctx.author.id)}` in Guild `{str(ctx.guild.id)}` tried with /gshop which disable in their Guild.")
+                await logchanbot(
+                    f"[GSHOP] User `{str(ctx.author.id)}` in Guild `{str(ctx.guild.id)}` tried with /gshop which disable in their Guild."
+                )
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -608,13 +615,23 @@ class GShop(commands.Cog):
                                 f"`{item_id}` for `{cost}` with role `{role.name}` for period {duration}!"
                             await ctx.edit_original_message(content=msg)
                             # Try DM guild owner
-                            await logchanbot(f"[GSHOP] user `{str(ctx.author.id)}` has successfully purchased `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`. Guild's credit added: `{cost}`.")
+                            await logchanbot(
+                                f"[GSHOP] user `{str(ctx.author.id)}` has successfully purchased `{item_id}` in "\
+                                f"Guild `{str(ctx.guild.id)} / {ctx.guild.name}`. Guild's credit added: `{cost}`."
+                            )
                             try:
-                                await ctx.guild.owner.send(f"User `{str(ctx.author.id)}` just purchased role item `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}` with amount `{amount} {coin_name}` credit to Guild's wallet.")
+                                await ctx.guild.owner.send(
+                                    f"User `{str(ctx.author.id)}` just purchased role item `{item_id}` in "\
+                                    f"Guild `{str(ctx.guild.id)} / {ctx.guild.name}` with amount `{amount} {coin_name}` "\
+                                    f"credit to Guild's wallet."
+                                )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                         else:
-                            await logchanbot(f"[GSHOP] failed to move balance of purchase role `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}` by user `{str(ctx.author.id)}`.")
+                            await logchanbot(
+                                f"[GSHOP] failed to move balance of purchase role `{item_id}` in "\
+                                f"Guild `{str(ctx.guild.id)} / {ctx.guild.name}` by user `{str(ctx.author.id)}`."
+                            )
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error. Please report!"
                             await ctx.edit_original_message(content=msg)
                     else:
@@ -770,12 +787,14 @@ class GShop(commands.Cog):
                 )
                 return
             # Check max if set in guild
-            if serverinfo and len(get_guild_items) >= serverinfo['max_role_shop_items'] and ctx.author.id != self.bot.config['discord']['owner_id']:
+            if serverinfo and len(get_guild_items) >= serverinfo['max_role_shop_items'] and \
+                ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there are maximum number of "\
                     "role items listed already!"
                 await ctx.edit_original_message(content=msg)
                 return
-            elif serverinfo is None and len(get_guild_items) >= self.max_default_guild_item and ctx.author.id != self.bot.config['discord']['owner_id']:
+            elif serverinfo is None and len(get_guild_items) >= self.max_default_guild_item and \
+                ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there are maximum number of role "\
                     "items listed already!"
                 await ctx.edit_original_message(content=msg)
@@ -823,7 +842,10 @@ class GShop(commands.Cog):
             await ctx.edit_original_message(content=msg)
             await logchanbot(f"[GSHOP] new item added `{item_id}` in Guild `{str(ctx.guild.id)} / {ctx.guild.name}`.")
             if ctx.author.id != ctx.guild.owner.id:
-                await ctx.guild.owner.send(f"User `{str(ctx.author.id)}` just add a listing item `{item_id}` to sell in Guild `{str(ctx.guild.id)} / {ctx.guild.name}` for role `{role.name}`.")
+                await ctx.guild.owner.send(
+                    f"User `{str(ctx.author.id)}` just add a listing item `{item_id}` to sell in "\
+                    f"Guild `{str(ctx.guild.id)} / {ctx.guild.name}` for role `{role.name}`."
+                )
         else:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error!"
             await ctx.edit_original_message(content=msg)

@@ -172,7 +172,7 @@ async def near_get_status(url: str, timeout: int=16):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def near_check_balance(url: str, account_id: str, timeout: int=32):
+async def near_check_balance(url: str, account_id: str, timeout: int=60):
     try:
         data = {
             "method": "query",
@@ -199,7 +199,7 @@ async def near_check_balance(url: str, account_id: str, timeout: int=32):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def near_check_balance_token(url: str, contract_id: str, account_id: str, timeout: int=32):
+async def near_check_balance_token(url: str, contract_id: str, account_id: str, timeout: int=60):
     try:
         decode_account = '{"account_id":"'+account_id+'"}'
         data = '{"method":"query","params":{"request_type": "call_function", "account_id": "'+contract_id+'","method_name": "ft_balance_of", "args_base64": "'+str(base64.b64encode(bytes(decode_account, encoding='utf-8')).decode()).replace("\n", "")+'", "finality": "final"},"id":1,"jsonrpc":"2.0"}'
@@ -263,7 +263,7 @@ def tezos_check_token_balance(url: str, token_contract: str, address, coin_decim
         traceback.print_exc(file=sys.stdout)
     return {}
 
-async def tezos_check_reveal(url: str, address: str, timeout: int=32):
+async def tezos_check_reveal(url: str, address: str, timeout: int=60):
     headers = {
         'Content-Type': 'application/json'
     }
@@ -287,7 +287,7 @@ def tezos_reveal_address(url: str, key: str):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def tezos_get_head(url: str, timeout: int=32):
+async def tezos_get_head(url: str, timeout: int=60):
     headers = {
         'Content-Type': 'application/json'
     }
@@ -364,7 +364,7 @@ async def xrp_get_latest_transactions(url: str, address: str):
         traceback.print_exc(file=sys.stdout)
     return []
 
-async def xrp_get_account_info(url: str, address: str, timeout=32):
+async def xrp_get_account_info(url: str, address: str, timeout=60):
     try:
         data = {
             "method": "account_info",
@@ -390,7 +390,7 @@ async def xrp_get_account_info(url: str, address: str, timeout=32):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def xrp_get_account_lines(url: str, address: str, timeout=32):
+async def xrp_get_account_lines(url: str, address: str, timeout=60):
     try:
         data = {
             "method": "account_lines",
@@ -416,7 +416,7 @@ async def xrp_get_account_lines(url: str, address: str, timeout=32):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def zil_get_status(url: str, timeout=32):
+async def zil_get_status(url: str, timeout=60):
     try:
         data = {
             "id": "1",
@@ -455,7 +455,7 @@ def zil_check_balance(key: str):
         traceback.print_exc(file=sys.stdout)
     return 0.0
 
-async def zil_check_token_balance(url: str, contract: str, address_0x: str, timeout: int=32):
+async def zil_check_token_balance(url: str, contract: str, address_0x: str, timeout: int=60):
     try:
         data = {
             "id": "1",
@@ -579,7 +579,7 @@ def vet_move_token(
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def vet_get_status(url: str, timeout=32):
+async def vet_get_status(url: str, timeout=60):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -626,7 +626,7 @@ async def vite_get_height(url: str):
             "ledger_getSnapshotChainHeight", "params": []
         }
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=data, timeout=32) as response:
+            async with session.post(url, json=data, timeout=60) as response:
                 if response.status == 200:
                     res_data = await response.read()
                     res_data = res_data.decode('utf-8')
@@ -647,7 +647,7 @@ async def vite_ledger_getAccountBlocksByAddress(url: str, address: str, last: in
             "params": [address, 0, last]
         }
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=data, timeout=32) as response:
+            async with session.post(url, json=data, timeout=60) as response:
                 res_data = await response.read()
                 res_data = res_data.decode('utf-8')
                 json_resp = json.loads(res_data)
@@ -665,7 +665,7 @@ async def vite_ledger_getAccountBlockByHash(url: str, tx_hash: str):
             "params": [tx_hash]
         }
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=data, timeout=32) as response:
+            async with session.post(url, json=data, timeout=60) as response:
                 res_data = await response.read()
                 res_data = res_data.decode('utf-8')
                 json_resp = json.loads(res_data)
@@ -694,7 +694,7 @@ async def vite_send_tx(
             }]
         }
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=32) as response:
+            async with session.post(url, json=payload, timeout=60) as response:
                 res_data = await response.read()
                 res_data = res_data.decode('utf-8')
                 json_resp = json.loads(res_data)
@@ -832,7 +832,7 @@ class WalletAPI(commands.Cog):
             url = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(url + method, headers=headers, timeout=32) as response:
+                    async with session.get(url + method, headers=headers, timeout=60) as response:
                         json_resp = await response.json()
                         if response.status == 200 or response.status == 201:
                             balance = float(Decimal(json_resp['unlocked']) / Decimal(10 ** coin_decimal))
@@ -846,7 +846,7 @@ class WalletAPI(commands.Cog):
             }
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=json_data, headers=headers, timeout=32) as response:
+                    async with session.post(url, json=json_data, headers=headers, timeout=60) as response:
                         if response.status == 200:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
@@ -869,7 +869,7 @@ class WalletAPI(commands.Cog):
             }
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=json_data, headers=headers, timeout=32) as response:
+                    async with session.post(url, json=json_data, headers=headers, timeout=60) as response:
                         if response.status == 200:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
@@ -883,7 +883,7 @@ class WalletAPI(commands.Cog):
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.post(url, data='{"jsonrpc": "1.0", "id":"' + str(
-                            uuid.uuid4()) + '", "method": "getbalance", "params": [] }', timeout=32) as response:
+                            uuid.uuid4()) + '", "method": "getbalance", "params": [] }', timeout=60) as response:
                         if response.status == 200:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
@@ -902,7 +902,7 @@ class WalletAPI(commands.Cog):
             try:
                 url = getattr(getattr(self.bot.coin_list, coin_name), "rpchost") + '/' + "get_wallet_balance"
                 async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=json_data, headers=headers, timeout=32) as response:
+                    async with session.post(url, json=json_data, headers=headers, timeout=60) as response:
                         if response.status == 200:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
@@ -922,7 +922,7 @@ class WalletAPI(commands.Cog):
             }
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.post(url, headers=headers, json=json_data, timeout=32) as response:
+                    async with session.post(url, headers=headers, json=json_data, timeout=60) as response:
                         if response.status == 200:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
@@ -1011,7 +1011,7 @@ class WalletAPI(commands.Cog):
                     }
                 }
                 async with aiohttp.ClientSession() as session:
-                    async with session.post(wallet_host, headers=headers, json=json_data, timeout=32) as response:
+                    async with session.post(wallet_host, headers=headers, json=json_data, timeout=60) as response:
                         if response.status == 200:
                             res_data = await response.read()
                             res_data = res_data.decode('utf-8')
@@ -2658,9 +2658,9 @@ class WalletAPI(commands.Cog):
     ):
         coin_name = coin.upper()
         user_server = user_server.upper()
-        time_out = 32
+        time_out = 150
         if coin_name == "DEGO":
-            time_out = 120
+            time_out = 300
         try:
             if type_coin == "XMR":
                 acc_index = 0
@@ -2948,7 +2948,7 @@ class WalletAPI(commands.Cog):
     async def send_external_hnt(
         self, user_id: str, wallet_host: str, password: str, from_address: str, payee: str,
         amount: float, coin_decimal: int, user_server: str, coin: str, withdraw_fee: float,
-        time_out=32
+        time_out=60
     ):
         coin_name = coin.upper()
         if from_address == payee: return None
@@ -3072,7 +3072,7 @@ class WalletAPI(commands.Cog):
     async def send_external_xlm(
         self, url: str, withdraw_keypair: str, user_id: str, amount: float, to_address: str,
         coin_decimal: int, user_server: str, coin: str, withdraw_fee: float,
-        asset_ticker: str = None, asset_issuer: str = None, time_out=32
+        asset_ticker: str = None, asset_issuer: str = None, time_out=60
     ):
         coin_name = coin.upper()
         asset_sending = Asset.native()
@@ -3122,7 +3122,7 @@ class WalletAPI(commands.Cog):
     async def send_external_ada(
         self, user_id: str, amount: float, coin_decimal: int,
         user_server: str, coin: str, withdraw_fee: float,
-        to_address: str, time_out=32
+        to_address: str, time_out=60
     ):
         coin_name = coin.upper()
         try:
@@ -3224,7 +3224,7 @@ class WalletAPI(commands.Cog):
     async def send_external_ada_asset(
         self, user_id: str, amount: float, coin_decimal: int, user_server: str, coin: str,
         withdraw_fee: float, to_address: str, asset_name: str, policy_id: str,
-        time_out=32
+        time_out=60
     ):
         coin_name = coin.upper()
         try:
@@ -4273,9 +4273,9 @@ class Wallet(commands.Cog):
         self.pool = None
         self.ttlcache = TTLCache(maxsize=1024, ttl=60.0)
         self.mv_xtz_cache = TTLCache(maxsize=1024, ttl=30.0)
-        
+
         # cache withdraw of a coin to avoid fast withdraw
-        self.withdraw_tx = TTLCache(maxsize=2048, ttl=60.0) # key = user_id + coin => time
+        self.withdraw_tx = TTLCache(maxsize=2048, ttl=300.0) # key = user_id + coin => time
 
 
     async def openConnection(self):
@@ -6848,7 +6848,7 @@ class Wallet(commands.Cog):
     async def update_balance_tasks_trtl_api(self, coin_name: str, debug: bool):
         if debug is True:
             print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
-        gettopblock = await self.gettopblock(coin_name, time_out=32)
+        gettopblock = await self.gettopblock(coin_name, time_out=60)
         if gettopblock is None:
             print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Got None for top block {coin_name}", color="yellow")
             return
@@ -7025,7 +7025,7 @@ class Wallet(commands.Cog):
     async def update_balance_tasks_trtl_service(self, coin_name: str, debug: bool):
         if debug is True:
             print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
-        gettopblock = await self.gettopblock(coin_name, time_out=32)
+        gettopblock = await self.gettopblock(coin_name, time_out=60)
         if gettopblock is None:
             print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} gettopblock {coin_name} got None", color="red")
             return
@@ -7146,7 +7146,7 @@ class Wallet(commands.Cog):
     async def update_balance_tasks_xmr(self, coin_name: str, debug: bool):
         if debug is True:
             print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
-        gettopblock = await self.gettopblock(coin_name, time_out=32)
+        gettopblock = await self.gettopblock(coin_name, time_out=60)
         if gettopblock is None:
             print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Got None for top block {coin_name}", color="yellow")
             return
@@ -7651,7 +7651,7 @@ class Wallet(commands.Cog):
     async def update_balance_tasks_chia(self, coin_name: str, debug: bool):
         if debug is True:
             print_color(f"{datetime.now():%Y-%m-%d %H:%M:%S} Check balance {coin_name}", color="yellow")
-        gettopblock = await self.gettopblock(coin_name, time_out=32)
+        gettopblock = await self.gettopblock(coin_name, time_out=60)
         if gettopblock is None:
             return False
         height = int(gettopblock['height'])
@@ -8218,7 +8218,7 @@ class Wallet(commands.Cog):
     async def check_confirming_near(self):
         time_lap = 5  # seconds
 
-        async def near_get_tx(url: str, tx_hash: str, timeout: int=32):
+        async def near_get_tx(url: str, tx_hash: str, timeout: int=60):
             headers = {
                 'Content-Type': 'application/json'
             }
@@ -9474,7 +9474,7 @@ class Wallet(commands.Cog):
         blockCount: int = 200000
     ):
         coin_name = coin.upper()
-        time_out = 64
+        time_out = 60
         payload = {
             'firstBlockIndex': firstBlockIndex if firstBlockIndex > 0 else 1,
             'blockCount': blockCount,

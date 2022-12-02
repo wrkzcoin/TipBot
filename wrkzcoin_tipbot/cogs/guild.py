@@ -269,12 +269,16 @@ class Guild(commands.Cog):
                                         )
                                         list_mentioned = [f"<@{each}>" for each in list_receivers]
                                         msg = ", ".join(list_mentioned) + f" active talker(s) in the last {lap_str}."
-                                        msg_no_embed = ", ".join(list_receiver_names) + " got {} {} each. Next drop in {}.".format(
+                                        each_msg = "each"
+                                        if len(list_mentioned) == 1:
+                                            each_msg = "alone"
+                                        msg_no_embed = ", ".join(list_receiver_names) + " got {} {} {}. Next drop in {}.".format(
                                             num_format_coin(
                                                 each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'],
                                                 coin_name, coin_decimal, False
                                             ),
                                             coin_name,
+                                            each_msg,
                                             seconds_str(each_drop['tiptalk_duration'])
                                         )
                                         if len(msg) > 999:

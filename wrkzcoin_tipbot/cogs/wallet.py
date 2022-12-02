@@ -9798,6 +9798,12 @@ class Wallet(commands.Cog):
                     "The fee{} will be deducted from your deposit amount.".format(
                         num_format_coin(real_min_deposit, coin_name, coin_decimal, False), token_display, real_deposit_fee_text
                         )
+            elif getattr(getattr(self.bot.coin_list, coin_name), "min_move_deposit") and getattr(
+                    getattr(self.bot.coin_list, coin_name), "min_move_deposit") > 0:
+                min_move_deposit = getattr(getattr(self.bot.coin_list, coin_name), "min_move_deposit")
+                fee_txt = " You should deposit at least {} {}.".format(
+                        num_format_coin(min_move_deposit, coin_name, coin_decimal, False), token_display
+                        )
             embed = disnake.Embed(
                 title=f'Deposit for {ctx.author.name}#{ctx.author.discriminator}',
                 description=description + fee_txt,
@@ -10009,7 +10015,7 @@ class Wallet(commands.Cog):
 
     # Balances
     async def async_balances(self, ctx, tokens: str = None):
-        await ctx.response.send_message(content=f"{ctx.author.mention} balance loading...")
+        await ctx.response.send_message(content=f"{ctx.author.mention} balance loading...", ephemeral=True)
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/balances", int(time.time())))
@@ -11484,7 +11490,7 @@ class Wallet(commands.Cog):
         list_coins_str = ", ".join(list_coin_names)
         if token is None:
             embed = disnake.Embed(
-                title=f'Faucet Claim{title_text}',
+                title=f'TipBot Vote Reward{title_text}',
                 description=f"```1] Set your reward coin claim with any of this {list_coins_str} with command /claim "\
                     f"token_name\n\n2] Vote for TipBot in below links.\n\n```",
                 timestamp=datetime.fromtimestamp(int(time.time()))

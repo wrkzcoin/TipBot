@@ -84,7 +84,7 @@ class Stats(commands.Cog):
                 )
                 try:
                     get_tip_stats = await self.get_coin_tipping_stats(coin_name)
-                    if get_tip_stats:
+                    if get_tip_stats is not None:
                         embed.add_field(
                             name="Tip/DB Records: {:,.0f}".format(get_tip_stats['numb_tip']),
                             value="`{}`".format(simple_number(get_tip_stats['amount_tip'])),

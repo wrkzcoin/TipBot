@@ -341,7 +341,7 @@ class QuickDrop(commands.Cog):
                 msg = await ctx.channel.send(content=None, embed=embed, view=view)
                 view.message = msg
                 view.channel_interact = ctx.channel.id
-                quick = await store.insert_quickdrop_create(
+                await store.insert_quickdrop_create(
                     coin_name, contract, str(ctx.author.id),
                     owner_displayname, str(view.message.id),
                     str(ctx.guild.id), str(ctx.channel.id), 
@@ -350,6 +350,8 @@ class QuickDrop(commands.Cog):
                     drop_end, "ONGOING"
                 )
                 await ctx.delete_original_message()
+            except disnake.errors.Forbidden:
+                await ctx.edit_original_message(content="Missing permission! Or failed to send embed message.")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             if ctx.author.id in self.bot.TX_IN_PROCESS:

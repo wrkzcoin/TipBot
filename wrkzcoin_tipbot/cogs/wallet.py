@@ -3380,7 +3380,8 @@ class WalletAPI(commands.Cog):
                                         )
                             else:
                                 print(
-                                    f"send_external_ada_asset: cannot get estimated fee for sending asset `{asset_name}`"
+                                    f"send_external_ada_asset: cannot get estimated fee for sending asset `{asset_name}`" \
+                                    f"for amount `{str(amount)} {coin_name}`"
                                 )
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -5324,7 +5325,7 @@ class Wallet(commands.Cog):
                                                     policy_id = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                                                     send_tx = await self.wallet_api.send_external_ada_asset(
                                                         each_msg['sender_id'], amount, coin_decimal, user_server,
-                                                        coin_name, NetFee, address, asset_name, policy_id, 60)
+                                                        coin_name, NetFee, address, asset_name, policy_id, 120)
                                                     if "status" in send_tx and send_tx['status'] == "pending":
                                                         tx_hash = send_tx['id']
                                                         gas_coin_msg = ""
@@ -10934,9 +10935,9 @@ class Wallet(commands.Cog):
                                 str(ctx.author.id), amount,
                                 coin_decimal, SERVER_BOT, coin_name,
                                 NetFee, address, asset_name,
-                                policy_id, 60
+                                policy_id, 120
                             )
-                            if "status" in send_tx and send_tx['status'] == "pending":
+                            if send_tx is not None and "status" in send_tx and send_tx['status'] == "pending":
                                 tx_hash = send_tx['id']
                                 gas_coin_msg = ""
                                 if GAS_COIN is not None:

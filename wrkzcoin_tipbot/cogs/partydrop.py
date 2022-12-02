@@ -540,6 +540,8 @@ class PartyDrop(commands.Cog):
                 party_end, "ONGOING"
             )
             await ctx.edit_original_message(content="/partydrop created 👇")
+        except disnake.errors.Forbidden:
+            await ctx.edit_original_message(content="Missing permission! Or failed to send embed message.")
         except Exception:
             traceback.print_exc(file=sys.stdout)
         if ctx.author.id in self.bot.TX_IN_PROCESS:

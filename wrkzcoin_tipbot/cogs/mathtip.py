@@ -497,6 +497,8 @@ class MathTips(commands.Cog):
                 int(time.time()) + duration_s, net_name
             )
             await ctx.edit_original_message(content=None, embed=embed, view=view)
+        except disnake.errors.Forbidden:
+            await ctx.edit_original_message(content="Missing permission! Or failed to send embed message.")
         except Exception:
             traceback.print_exc(file=sys.stdout)
         if ctx.author.id in self.bot.TX_IN_PROCESS:

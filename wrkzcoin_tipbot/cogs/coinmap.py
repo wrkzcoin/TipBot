@@ -58,7 +58,11 @@ def get_coin360(display_id: str, static_coin360_path, selenium_setting, coin360)
 
         # https://stackoverflow.com/questions/8900073/webdriver-screenshot
         # now that we have the preliminary stuff out of the way time to get that image :D
-        element = driver.find_element_by_id(coin360['id_crop'])  # find part of the page you want image of
+        # Lib updated: https://stackoverflow.com/questions/72773206/selenium-python-attributeerror-webdriver-object-has-no-attribute-find-el
+        # find_element(By.ID, ‘id’)
+        # find_element(By.NAME, ‘name’)
+        # find_element(By.XPATH, ‘xpath’)
+        element = driver.find_element(By.ID, coin360['id_crop'])  # find part of the page you want image of
         location = element.location
         size = element.size
         png = driver.get_screenshot_as_png()  # saves screenshot of entire page

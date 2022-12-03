@@ -313,8 +313,9 @@ class TriviaTips(commands.Cog):
         # end of check if amount is all
 
         # Check if tx in progress
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+        if str(ctx.author.id) in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -399,8 +400,8 @@ class TriviaTips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if ctx.author.id not in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+        if str(ctx.author.id) not in self.bot.tipping_in_progress:
+            self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
 
         equivalent_usd = ""
         total_in_usd = 0.0
@@ -477,8 +478,10 @@ class TriviaTips(commands.Cog):
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+        try:
+            del self.bot.tipping_in_progress[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)

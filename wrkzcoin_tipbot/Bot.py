@@ -179,14 +179,6 @@ bot.coin_coingecko_symbol_list = None
 bot.coin_price_dex = []
 bot.coin_price_dex_from = {}
 
-bot.TX_IN_PROCESS = []
-bot.MINGPOOLSTAT_IN_PROCESS = []
-bot.GAME_INTERACTIVE_ECO = []
-bot.GAME_INTERACTIVE_PROGRESS = []
-bot.GAME_SLOT_IN_PROGRESS = []
-bot.GAME_MAZE_IN_PROCESS = []
-bot.GAME_DICE_IN_PROGRESS = []
-bot.GAME_RAFFLE_QUEUE = []
 bot.LOG_CHAN = bot.config['discord']['logchan']
 
 bot.erc_node_list = {
@@ -204,6 +196,14 @@ bot.erc_node_list = {
 }
 bot.commandings = []
 bot.user_balance_cache = TTLCache(maxsize=20480, ttl=120.0) # userid_coin
+bot.tx_in_progress = TTLCache(maxsize=20480, ttl=300.0) # replacing bot.TX_IN_PROCESS
+bot.tipping_in_progress = TTLCache(maxsize=20480, ttl=600.0)
+bot.queue_game_economy = TTLCache(maxsize=2048, ttl=60.0) # replacing bot.GAME_INTERACTIVE_ECO
+bot.queue_game_raffle = TTLCache(maxsize=2048, ttl=60.0) # replacing bot.GAME_RAFFLE_QUEUE
+bot.queue_game_slot = TTLCache(maxsize=2048, ttl=60.0) # replacing bot.GAME_SLOT_IN_PROGRESS
+bot.queue_game_dice = TTLCache(maxsize=2048, ttl=60.0) # replacing bot.GAME_DICE_IN_PROGRESS
+bot.queue_game_interactive = TTLCache(maxsize=2048, ttl=60.0) # replacing bot.GAME_INTERACTIVE_PROGRESS
+bot.queue_miningpoolstats = TTLCache(maxsize=2048, ttl=60.0) # replacing bot.MINGPOOLSTAT_IN_PROCESS
 
 
 @bot.command(usage="load <cog>")

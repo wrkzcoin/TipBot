@@ -1383,8 +1383,9 @@ class Twitter(commands.Cog):
                         wallet_address = get_deposit['destination_tag']
 
                     # Check if tx in progress
-                    if ctx.author.id in self.bot.TX_IN_PROCESS:
-                        msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+                    if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                        int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -1440,17 +1441,21 @@ class Twitter(commands.Cog):
                     actual_balance = float(userdata_balance['adjust'])
 
                     if amount > max_tip or amount < min_tip:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than "\
+                            f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
+                            f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
                         await ctx.edit_original_message(content=msg)
                         return
                     elif amount > actual_balance:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a random tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a random tip of "\
+                            f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
                         await ctx.edit_original_message(content=msg)
                         return
 
-                    # add queue also randtip
-                    if ctx.author.id in self.bot.TX_IN_PROCESS:
-                        msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE}, you have another tx in progress.'
+                    # add queue
+                    if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                        int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -1472,8 +1477,8 @@ class Twitter(commands.Cog):
                                 equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
 
                     tip = None
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                        self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                     user_to = await self.wallet_api.sql_get_userwallet(
                         get_user['discord_user_id'], coin_name, net_name, type_coin, SERVER_BOT, 0
                     )
@@ -1508,9 +1513,10 @@ class Twitter(commands.Cog):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot("twitter " +str(traceback.format_exc()))
-                    # remove queue from randtip
-                    if ctx.author.id in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                    try:
+                        del self.bot.tipping_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                     if tip:
                         # tipper shall always get DM. Ignore notifyList
                         try:

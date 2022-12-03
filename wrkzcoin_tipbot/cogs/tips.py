@@ -628,8 +628,9 @@ class Tips(commands.Cog):
             wallet_address = get_deposit['destination_tag']
 
         # Check if tx in progress
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
+        if str(ctx.author.id) in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -788,12 +789,13 @@ class Tips(commands.Cog):
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} {token_display} not enough member for random tip."
                 await ctx.edit_original_message(content=msg)
-                if ctx.author.id in self.bot.TX_IN_PROCESS:
-                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
-                return
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("tips " +str(traceback.format_exc()))
+        try:
+            del self.bot.tipping_in_progress[str(ctx.author.id)]
+        except Exception:
+            pass
 
         notifying_list = await store.sql_get_tipnotify()
         userdata_balance = await store.sql_user_balance_single(
@@ -814,8 +816,9 @@ class Tips(commands.Cog):
             return
 
         # add queue also randtip
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f"{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE}, you have another tx in progress."
+        if str(ctx.author.id) in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -842,8 +845,8 @@ class Tips(commands.Cog):
 
         tip = None
         if rand_user is not None:
-            if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.append(ctx.author.id)
+            if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
             user_to = await self.wallet_api.sql_get_userwallet(
                 str(rand_user.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -873,14 +876,18 @@ class Tips(commands.Cog):
                 await logchanbot("tips " +str(traceback.format_exc()))
         else:
             # remove queue from randtip
-            if ctx.author.id in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+            try:
+                del self.bot.tipping_in_progress[str(ctx.author.id)]
+            except Exception:
+                pass
             await logchanbot(f"{ctx.author.id} randtip got None rand_user.")
             return
 
         # remove queue from randtip
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+        try:
+            del self.bot.tipping_in_progress[str(ctx.author.id)]
+        except Exception:
+            pass
 
         if tip:
             # tipper shall always get DM. Ignore notifying_list
@@ -1019,8 +1026,9 @@ class Tips(commands.Cog):
             wallet_address = get_deposit['destination_tag']
 
         # Check if tx in progress
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+        if str(ctx.author.id) in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -1171,8 +1179,8 @@ class Tips(commands.Cog):
             comment_str = ""
             if comment and len(comment) > 0:
                 comment_str = comment
-            if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.append(ctx.author.id)
+            if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                 try:
                     view = FreeTip_Button(ctx, self.bot, duration_s)
                     view.message = await ctx.original_message()
@@ -1191,8 +1199,10 @@ class Tips(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+        try:
+            del self.bot.tipping_in_progress[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
@@ -1288,8 +1298,9 @@ class Tips(commands.Cog):
             wallet_address = get_deposit['destination_tag']
 
         # Check if tx in progress
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+        if str(ctx.author.id) in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -1455,8 +1466,8 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if ctx.author.id not in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+        if str(ctx.author.id) not in self.bot.tipping_in_progress:
+            self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
             try:
                 try:
                     key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
@@ -1478,11 +1489,14 @@ class Tips(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("tips " +str(traceback.format_exc()))
-            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
         else:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish."
             await ctx.edit_original_message(content=msg)
             return
+        try:
+            del self.bot.tipping_in_progress[str(ctx.author.id)]
+        except Exception:
+            pass
 
         if tips:
             # Message mention all in public
@@ -2427,8 +2441,10 @@ class Tips(commands.Cog):
                     tip_type = "TIP"
                     if len(list_member_ids) > 1:
                         tip_type = "TIPS"
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+
+                    if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                        self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
+
                     for k, v in list_amount_and_tokens.items():
                         try:
                             try:
@@ -2454,8 +2470,10 @@ class Tips(commands.Cog):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot("tips " +str(traceback.format_exc()))
-                if int(ctx.author.id) in self.bot.TX_IN_PROCESS:
-                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                try:
+                    del self.bot.tipping_in_progress[str(ctx.author.id)]
+                except Exception:
+                    pass
                 if len(passed_tips) > 0:
                     list_mentions = []
                     # tipper shall always get DM. Ignore notifying_list
@@ -2559,8 +2577,9 @@ class Tips(commands.Cog):
         )
         actual_balance = float(userdata_balance['adjust'])
         # Check if tx in progress
-        if int(id_tipper) in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, another tx in progress.'
+        if id_tipper in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[id_tipper] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, there is another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -2705,9 +2724,9 @@ class Tips(commands.Cog):
             tip_type = "TIP"
             if len(memids) > 1:
                 tip_type = "TIPS"
-            if int(id_tipper) not in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.append(int(id_tipper))
 
+            if id_tipper not in self.bot.tipping_in_progress:
+                self.bot.tipping_in_progress[id_tipper] = int(time.time())
             try:
                 key_coin = id_tipper + "_" + coin_name + "_" + SERVER_BOT
                 if key_coin in self.bot.user_balance_cache:
@@ -2728,8 +2747,12 @@ class Tips(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("tips " +str(traceback.format_exc()))
-        if int(id_tipper) in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.remove(int(id_tipper))
+
+        try:
+            del self.bot.tipping_in_progress[id_tipper]
+        except Exception:
+            pass
+
         if tips:
             # tipper shall always get DM. Ignore notifying_list
             try:
@@ -2809,8 +2832,9 @@ class Tips(commands.Cog):
             wallet_address = get_deposit['destination_tag']
 
         # Check if tx in progress
-        if int(id_tipper) in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, there is another tx in progress.'
+        if id_tipper in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[id_tipper] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, there is another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -2963,10 +2987,10 @@ class Tips(commands.Cog):
             return
 
         # add queue also tip
-        if int(id_tipper) not in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.append(int(id_tipper))
+        if id_tipper not in self.bot.tipping_in_progress:
+            self.bot.tipping_in_progress[id_tipper] = int(time.time())
         else:
-            msg = f"{EMOJI_ERROR} {ctx.author.mention}, there is another tx in progress."
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, there is another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -2997,8 +3021,8 @@ class Tips(commands.Cog):
                     total_equivalent_usd = " ~ {:,.4f} USD".format(total_amount_in_usd)
 
         try:
-            if int(id_tipper) not in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.append(int(id_tipper))
+            if id_tipper not in self.bot.tipping_in_progress:
+                self.bot.tipping_in_progress[id_tipper] = int(time.time())
             try:
                 key_coin = id_tipper + "_" + coin_name + "_" + SERVER_BOT
                 if key_coin in self.bot.user_balance_cache:
@@ -3021,8 +3045,10 @@ class Tips(commands.Cog):
             await logchanbot("tips " +str(traceback.format_exc()))
 
         # remove queue from tip
-        if int(id_tipper) in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.remove(int(id_tipper))
+        try:
+            del self.bot.tipping_in_progress[id_tipper]
+        except Exception:
+            pass
 
         if tiptalk:
             # tipper shall always get DM. Ignore notifying_list
@@ -3153,9 +3179,10 @@ class Tips(commands.Cog):
                 )
                 actual_balance = float(userdata_balance['adjust'])
                 # Check if tx in progress
-                if int(ctx.author.id) in self.bot.TX_IN_PROCESS:
-                    msg = f'{EMOJI_ERROR} {ctx.author.mention}, another tx in progress.'
-                    await ctx.reply(msg)
+                if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                    int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+                    msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
+                    await ctx.edit_original_message(content=msg)
                     return
 
                 # check if amount is all
@@ -3310,11 +3337,11 @@ class Tips(commands.Cog):
                         return
 
                     # add queue also tip
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                        self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                     else:
-                        msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
-                        await ctx.reply(msg)
+                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
+                        await ctx.edit_original_message(content=msg)
                         return
 
                     tip = None
@@ -3344,8 +3371,9 @@ class Tips(commands.Cog):
                                 total_equivalent_usd = " ~ {:,.4f} USD".format(total_amount_in_usd)
 
                     try:
-                        if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                            self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
+
                         try:
                             key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
                             if key_coin in self.bot.user_balance_cache:
@@ -3366,9 +3394,10 @@ class Tips(commands.Cog):
                         await logchanbot("tips " +str(traceback.format_exc()))
 
                     # remove queue from tip
-                    if ctx.author.id in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
-
+                    try:
+                        del self.bot.tipping_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                     if tip is not None:
                         # tipper shall always get DM. Ignore notifying_list
                         try:

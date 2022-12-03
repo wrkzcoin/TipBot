@@ -218,8 +218,9 @@ class Voucher(commands.Cog):
         elif type_coin in ["XRP"]:
             wallet_address = get_deposit['destination_tag']
         # Check if tx in progress
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+        if str(ctx.author.id) in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -422,8 +423,8 @@ class Voucher(commands.Cog):
                     voucher_make = None
                     try:
                         img_frame.save(self.path_voucher_create + unique_filename + ".png")
-                        if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                            self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                             try:
                                 voucher_make = await self.sql_send_to_voucher(
                                     str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
@@ -436,12 +437,15 @@ class Voucher(commands.Cog):
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                                 await logchanbot("voucher " +str(traceback.format_exc()))
-                            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                         else:
                             # reject and tell to wait
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                             await ctx.edit_original_message(content=msg)
                             return
+                        try:
+                            del self.bot.tipping_in_progress[str(ctx.author.id)]
+                        except Exception:
+                            pass
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot("voucher " +str(traceback.format_exc()))
@@ -530,8 +534,8 @@ class Voucher(commands.Cog):
                 voucher_make = None
                 try:
                     img_frame.save(self.path_voucher_create + unique_filename + ".png")
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                        self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                         try:
                             voucher_make = await self.sql_send_to_voucher(
                                 str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
@@ -543,13 +547,16 @@ class Voucher(commands.Cog):
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                             await logchanbot("voucher " +str(traceback.format_exc()))
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
                             "Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
+                    try:
+                        del self.bot.tipping_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot("voucher " +str(traceback.format_exc()))

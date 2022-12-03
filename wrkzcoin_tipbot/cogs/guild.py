@@ -1510,12 +1510,13 @@ class Guild(commands.Cog):
                             # Let's add
                             try:
                                 ## add QUEUE:
-                                if ctx.author.id not in self.bot.GAME_RAFFLE_QUEUE:
-                                    self.bot.GAME_RAFFLE_QUEUE.append(ctx.author.id)
+                                if str(ctx.author.id) not in self.bot.queue_game_raffle:
+                                    self.bot.queue_game_raffle[str(ctx.author.id)] = int(time.time())
                                 else:
-                                    msg = f"{ctx.author.mention}, you already on queue of joinining."
+                                    msg = f"{EMOJI_ERROR} {ctx.author.mention}, you already on queue of joinining."
                                     await ctx.edit_original_message(content=msg)
                                     return
+
                                 await self.raffle_insert_new_entry(
                                     get_raffle['id'], str(ctx.guild.id), get_raffle['amount'], get_raffle['decimal'],
                                     get_raffle['coin_name'], str(ctx.author.id),
@@ -1530,8 +1531,10 @@ class Guild(commands.Cog):
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             ## remove QUEUE: reply
-                            if ctx.author.id in self.bot.GAME_RAFFLE_QUEUE:
-                                self.bot.GAME_RAFFLE_QUEUE.remove(ctx.author.id)
+                            try:
+                                del self.bot.queue_game_raffle[str(ctx.author.id)]
+                            except Exception:
+                                pass
                             return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -2007,13 +2010,13 @@ class Guild(commands.Cog):
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
 
             # OK, move fund
-            if ctx.author.id in self.bot.TX_IN_PROCESS:
+            if str(ctx.author.id) in self.bot.tipping_in_progress:
                 await ctx.edit_original_message(
                     content=f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
                 )
                 return
             else:
-                self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                 try:
                     try:
                         key_coin = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
@@ -2053,10 +2056,12 @@ class Guild(commands.Cog):
                                     pass
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                if ctx.author.id in self.bot.TX_IN_PROCESS:
-                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        try:
+            del self.bot.tipping_in_progress[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @deposit.autocomplete("coin")
     async def guilddeposit_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
@@ -3074,8 +3079,9 @@ class Guild(commands.Cog):
         await self.bot_log()
         msg = f'{ctx.author.mention}, checking guild\'s faucet...'
         await ctx.response.send_message(msg)
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+        if str(ctx.author.id) in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -3198,8 +3204,9 @@ class Guild(commands.Cog):
                     )
                     actual_balance = float(userdata_balance['adjust'])
                     # Check if tx in progress
-                    if ctx.guild.id in self.bot.TX_IN_PROCESS:
-                        msg = f'{EMOJI_ERROR} {ctx.author.mention}, another tx in progress with this guild.'
+                    if str(ctx.guild.id) in self.bot.tipping_in_progress and \
+                        int(time.time()) - self.bot.tipping_in_progress[str(ctx.guild.id)] < 150:
+                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, another transaction in progress with this guild."
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -3236,8 +3243,8 @@ class Guild(commands.Cog):
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount + extra_amount))
                             if amount_in_usd > 0.0001:
                                 equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
-                    if ctx.guild.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.guild.id)
+                    if str(ctx.guild.id) not in self.bot.tipping_in_progress:
+                        self.bot.tipping_in_progress[str(ctx.guild.id)] = int(time.time())
                         try:
                             try:
                                 key_coin = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
@@ -3271,8 +3278,10 @@ class Guild(commands.Cog):
                                 )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
-                        if ctx.guild.id in self.bot.TX_IN_PROCESS:
-                            self.bot.TX_IN_PROCESS.remove(ctx.guild.id)
+                        try:
+                            del self.bot.tipping_in_progress[str(ctx.guild.id)]
+                        except Exception:
+                            pass
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, this guild `{ctx.guild.name}` has no guild's faucet. "\
                     f"You can ask Guild'owner to deposit to Guild with `/guild deposit` and create it with `/guild faucetclaim`."

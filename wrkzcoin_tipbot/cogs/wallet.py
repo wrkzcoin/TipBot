@@ -10286,7 +10286,8 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        if str(ctx.author.id) in self.bot.TX_IN_PROCESS:
+        if str(ctx.author.id) in self.bot.tx_in_progress and \
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
             await ctx.edit_original_message(content=msg)
             return
@@ -10332,7 +10333,8 @@ class Wallet(commands.Cog):
                 wallet_address = get_deposit['destination_tag']
 
             # Check if tx in progress
-            if ctx.author.id in self.bot.TX_IN_PROCESS:
+            if str(ctx.author.id) in self.bot.tx_in_progress and \
+                int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
                 msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
                 await ctx.edit_original_message(content=msg)
                 return
@@ -10449,7 +10451,8 @@ class Wallet(commands.Cog):
                         if total_in_usd >= 0.0001:
                             equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
 
-                if str(ctx.author.id) in self.bot.TX_IN_PROCESS:
+                if str(ctx.author.id) in self.bot.tx_in_progress and \
+                    int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
                     msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
                     await ctx.edit_original_message(content=msg)
                     return
@@ -10475,8 +10478,8 @@ class Wallet(commands.Cog):
                         return
 
                     send_tx = None
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         try:
                             url = self.bot.erc_node_list[net_name]
                             chain_id = getattr(getattr(self.bot.coin_list, coin_name), "chain_id")
@@ -10491,13 +10494,15 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 "wallet /withdraw " + str(traceback.format_exc())
                             )
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
-
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                     if send_tx:
                         fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
                             num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
@@ -10530,8 +10535,8 @@ class Wallet(commands.Cog):
                         )
                 elif type_coin in ["TRC-20", "TRC-10"]:
                     send_tx = None
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         try:
                             send_tx = await self.send_external_trc20(
                                 str(ctx.author.id), address, amount, coin_name,
@@ -10544,12 +10549,15 @@ class Wallet(commands.Cog):
                                 "withdraw", 
                                 "wallet /withdraw " + str(traceback.format_exc())
                             )
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
                         await ctx.ctx.edit_original_message(content=msg)
                         return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
 
                     if send_tx:
                         fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
@@ -10590,8 +10598,8 @@ class Wallet(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
-                        if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        if str(ctx.author.id) not in self.bot.tx_in_progress:
+                            self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                             try:
                                 main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                                 send_tx = await self.wallet_api.send_external_nano(
@@ -10627,15 +10635,18 @@ class Wallet(commands.Cog):
                                     "withdraw",
                                     "wallet /withdraw " + str(traceback.format_exc())
                                 )
-                            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                         else:
                             # reject and tell to wait
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
                             await ctx.edit_original_message(content=msg)
                             return
+                        try:
+                            del self.bot.tx_in_progress[str(ctx.author.id)]
+                        except Exception:
+                            pass
                 elif type_coin == "CHIA":
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         send_tx = await self.wallet_api.send_external_xch(
                             str(ctx.author.id), amount, address, coin_name,
                             coin_decimal, tx_fee, NetFee, SERVER_BOT
@@ -10664,15 +10675,18 @@ class Wallet(commands.Cog):
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 elif type_coin == "HNT":
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         wallet_host = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
                         main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -10706,12 +10720,15 @@ class Wallet(commands.Cog):
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 elif type_coin == "VITE":
                     url = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
                     main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
@@ -10725,8 +10742,8 @@ class Wallet(commands.Cog):
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
                         await ctx.edit_original_message(content=msg)
                         return
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         send_tx = await vite_send_tx(url, main_address, address, atomic_amount, "", contract, priv)
                         if send_tx:
                             tx_hash = send_tx['hash']
@@ -10782,8 +10799,8 @@ class Wallet(commands.Cog):
                                 f"The destination account may not trust the asset you are attempting to send!"
                             await ctx.edit_original_message(content=msg)
                             return
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         wallet_host = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                         withdraw_keypair = decrypt_string(getattr(getattr(self.bot.coin_list, coin_name), "walletkey"))
@@ -10820,20 +10837,23 @@ class Wallet(commands.Cog):
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 elif type_coin == "ADA":
                     if not address.startswith("addr1"):
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid address. It should start with `addr1`."
                         await ctx.edit_original_message(content=msg)
                         return
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
                         if coin_name == "ADA":
-                            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                            self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                             fee_limit = getattr(getattr(self.bot.coin_list, coin_name), "fee_limit")
                             # Use fee limit as NetFee
@@ -10876,7 +10896,10 @@ class Wallet(commands.Cog):
                                 )
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
                                 await ctx.edit_original_message(content=msg)
-                            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                            try:
+                                del self.bot.tx_in_progress[str(ctx.author.id)]
+                            except Exception:
+                                pass
                             return
                         else:
                             ## 
@@ -10927,7 +10950,7 @@ class Wallet(commands.Cog):
                                 )
                                 return
 
-                            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                            self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                             asset_name = getattr(getattr(self.bot.coin_list, coin_name), "header")
                             policy_id = getattr(getattr(self.bot.coin_list, coin_name), "contract")
@@ -10976,15 +10999,17 @@ class Wallet(commands.Cog):
                                 )
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
                                 await ctx.edit_original_message(content=msg)
-                            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
-                            return
                     else:
                         # reject and tell to wait
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 elif type_coin == "XTZ":
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
                         url = self.bot.erc_node_list['XTZ']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "XTZ"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "XTZ"), "MainAddress")
@@ -10993,7 +11018,7 @@ class Wallet(commands.Cog):
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`."
                             await ctx.edit_original_message(content=msg)
                             return
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         send_tx = None
                         if coin_name == "XTZ":
                             send_tx = await self.wallet_api.send_external_xtz(
@@ -11036,9 +11061,13 @@ class Wallet(commands.Cog):
                         # reject and tell to wait
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
-                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                        return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 elif type_coin == "ZIL":
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "ZIL"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "ZIL"), "MainAddress")
                         if address == main_address:
@@ -11046,7 +11075,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
                             await ctx.edit_original_message(content=msg)
                             return
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         send_tx = None
                         if coin_name == "ZIL":
                             send_tx = await self.wallet_api.send_external_zil(
@@ -11088,9 +11117,13 @@ class Wallet(commands.Cog):
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
                             "Please wait it to finish.'
                         await ctx.edit_original_message(content=msg)
-                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                        return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 elif type_coin == "VET":
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "VET"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "VET"), "MainAddress")
                         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
@@ -11099,7 +11132,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
                             await ctx.edit_original_message(content=msg)
                             return
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         transaction = functools.partial(
                             vet_move_token, self.bot.erc_node_list['VET'], coin_name, contract,
                             address, key, key, int(amount*10**coin_decimal)
@@ -11138,9 +11171,13 @@ class Wallet(commands.Cog):
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
                             "Please wait it to finish.'
                         await ctx.edit_original_message(content=msg)
-                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                        return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 elif type_coin == "XRP":
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
                         url = self.bot.erc_node_list['XRP']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "XRP"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "XRP"), "MainAddress")
@@ -11149,7 +11186,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
                             await ctx.edit_original_message(content=msg)
                             return
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         issuer = getattr(getattr(self.bot.coin_list, coin_name), "header")
                         currency_code = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                         send_tx = await self.wallet_api.send_external_xrp(url, key, str(ctx.author.id), address, amount, NetFee, coin_name, issuer, currency_code, coin_decimal, SERVER_BOT)
@@ -11181,9 +11218,13 @@ class Wallet(commands.Cog):
                         # reject and tell to wait
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
-                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                        return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 elif type_coin == "NEAR":
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
                         url = self.bot.erc_node_list['NEAR']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "NEAR"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "NEAR"), "MainAddress")
@@ -11193,7 +11234,7 @@ class Wallet(commands.Cog):
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
                             await ctx.edit_original_message(content=msg)
                             return
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         send_tx = await self.wallet_api.send_external_near(
                             url, token_contract, key, str(ctx.author.id), main_address, amount,
                             address, coin_name, coin_decimal, NetFee, SERVER_BOT
@@ -11225,10 +11266,14 @@ class Wallet(commands.Cog):
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         await ctx.edit_original_message(content=msg)
-                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                        return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 elif type_coin == "SOL" or type_coin == "SPL":
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         tx_fee = getattr(getattr(self.bot.coin_list, coin_name), "tx_fee")
                         send_tx = await self.wallet_api.send_external_sol(
                             self.bot.erc_node_list['SOL'],
@@ -11259,16 +11304,19 @@ class Wallet(commands.Cog):
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
                             "Please wait it to finish.'
                         await ctx.edit_original_message(content=msg)
                         return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 elif type_coin == "BTC":
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         send_tx = await self.wallet_api.send_external_doge(
                             str(ctx.author.id), amount, address, coin_name, 0, NetFee, SERVER_BOT
                         )  # tx_fee=0
@@ -11296,16 +11344,19 @@ class Wallet(commands.Cog):
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
                             "Please wait it to finish.'
                         await ctx.edit_original_message(content=msg)
                         return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 elif type_coin == "NEO":
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                         send_tx = await self.wallet_api.send_external_neo(
                             str(ctx.author.id), coin_decimal, contract, amount, address, coin_name, NetFee, SERVER_BOT
@@ -11334,15 +11385,18 @@ class Wallet(commands.Cog):
                                 f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
                         await ctx.edit_original_message(content=msg)
                         return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 elif type_coin == "XMR" or type_coin == "TRTL-API" or type_coin == "TRTL-SERVICE" or type_coin == "BCN":
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                         mixin = getattr(getattr(self.bot.coin_list, coin_name), "mixin")
                         wallet_address = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
@@ -11379,13 +11433,16 @@ class Wallet(commands.Cog):
                                 f"failed to execute to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
                     else:
                         # reject and tell to wait
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
                             "Please wait it to finish.'
                         await ctx.edit_original_message(content=msg)
                         return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -11665,8 +11722,9 @@ class Wallet(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+        if str(ctx.author.id) in self.bot.tx_in_progress and \
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -11885,12 +11943,13 @@ class Wallet(commands.Cog):
             return
 
         tip = None
-        if ctx.author.id not in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.append(ctx.author.id)
-        else:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+        if str(ctx.author.id) in self.bot.tx_in_progress and \
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
             await ctx.edit_original_message(content=msg)
             return
+        else:
+            self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
         try:
             if not info:
                 amount_in_usd = 0.0
@@ -11949,12 +12008,18 @@ class Wallet(commands.Cog):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot("wallet /take_action " + str(traceback.format_exc()))
-                self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                try:
+                    del self.bot.tx_in_progress[str(ctx.author.id)]
+                except Exception:
+                    pass
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("wallet /take_action " + str(traceback.format_exc()))
-        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+        try:
+            del self.bot.tx_in_progress[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @commands.guild_only()
     @commands.slash_command(
@@ -12040,8 +12105,9 @@ class Wallet(commands.Cog):
             wallet_address = get_deposit['destination_tag']
                     
         # Check if tx in progress
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+        if str(ctx.author.id) in self.bot.tx_in_progress and \
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -12111,8 +12177,9 @@ class Wallet(commands.Cog):
             return
 
         # check queue
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE}, you have another tx in progress.'
+        if str(ctx.author.id) in self.bot.tx_in_progress and \
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -12132,8 +12199,9 @@ class Wallet(commands.Cog):
                 amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 if amount_in_usd > 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
-        if ctx.author.id not in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+
+        if str(ctx.author.id) not in self.bot.tx_in_progress:
+            self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
             try:
                 try:
                     key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
@@ -12164,7 +12232,10 @@ class Wallet(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("wallet /donate " + str(traceback.format_exc()))
-            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+            try:
+                del self.bot.tx_in_progress[str(ctx.author.id)]
+            except Exception:
+                pass
         else:
             msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE}, you have another tx in progress.'
             await ctx.edit_original_message(content=msg)
@@ -12519,7 +12590,8 @@ class Wallet(commands.Cog):
                     wallet_address = get_deposit['destination_tag']
 
                 # Check if tx in progress
-                if ctx.author.id in self.bot.TX_IN_PROCESS:
+                if str(ctx.author.id) in self.bot.tx_in_progress and \
+                    int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
                     msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
                     await ctx.edit_original_message(content=msg)
                     return
@@ -12563,8 +12635,8 @@ class Wallet(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot("wallet /swap " + str(traceback.format_exc()))
 
-                if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                    self.bot.TX_IN_PROCESS.append(ctx.author.id)
+                if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                     try:
                         swap = await self.swap_coin(
                             str(ctx.author.id), from_coin, amount, contract, coin_decimal,
@@ -12583,7 +12655,10 @@ class Wallet(commands.Cog):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot("wallet /swap " + str(traceback.format_exc()))
-                    self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                 else:
                     msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
                     await ctx.edit_original_message(content=msg)

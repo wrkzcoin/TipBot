@@ -11,7 +11,7 @@ import aiohttp
 import json
 from cachetools import TTLCache
 
-from Bot import logchanbot, RowButtonRowCloseAnyMessage, SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE
+from Bot import logchanbot, RowButtonRowCloseAnyMessage, SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE, EMOJI_ERROR
 import store
 from cogs.utils import MenuPage
 from cogs.utils import Utils
@@ -180,11 +180,11 @@ class Pools(commands.Cog):
                     get_pool_data = self.utils.get_cache_kv("pools",  key_data)
                     is_cache = 'YES'
                 else:
-                    if ctx.author.id not in self.bot.MINGPOOLSTAT_IN_PROCESS:
-                        self.bot.MINGPOOLSTAT_IN_PROCESS.append(ctx.author.id)
+                    if str(ctx.author.id) not in self.bot.queue_miningpoolstats:
+                        self.bot.queue_miningpoolstats[str(ctx.author.id)] = int(time.time())
                     else:
-                        await ctx.edit_original_message(
-                            content=f'{ctx.author.mention}, you have another check of pools stats in progress.')
+                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another check of pool stats in progress."
+                        await ctx.edit_original_message(content=msg)
                         return
                     try:
                         get_pool_data = await self.get_miningpoolstat_coin(coin_name)
@@ -419,12 +419,12 @@ class Pools(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
-                    if ctx.author.id in self.bot.MINGPOOLSTAT_IN_PROCESS:
-                        self.bot.MINGPOOLSTAT_IN_PROCESS.remove(ctx.author.id)
-            if ctx.author.id in self.bot.MINGPOOLSTAT_IN_PROCESS:
-                self.bot.MINGPOOLSTAT_IN_PROCESS.remove(ctx.author.id)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        try:
+            del self.bot.queue_miningpoolstats[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @commands.slash_command(
         usage="pools <coin>",

@@ -14,7 +14,7 @@ from disnake.enums import OptionType
 from disnake.ext import commands
 
 import store
-from Bot import logchanbot, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, seconds_str, \
+from Bot import logchanbot, EMOJI_RED_NO, EMOJI_INFORMATION, EMOJI_ERROR, num_format_coin, seconds_str, \
     SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE, remap_keys, DEFAULT_TICKER
 
 from games.blackjack import displayHands as blackjack_displayHands
@@ -1157,8 +1157,10 @@ class g2048_Buttons(disnake.ui.View):
         self.board = g2048_drawBoard(self.gameBoard)
         self.score = g2048_getScore(self.gameBoard)
         if g2048_isFull(self.gameBoard):
-            if self.ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-                self.bot.GAME_INTERACTIVE_PROGRESS.remove(self.ctx.author.id)
+            try:
+                del self.bot.queue_game_interactive[str(self.ctx.author.id)]
+            except Exception:
+                pass
             self.board = g2048_drawBoard(self.gameBoard)
             duration = seconds_str(int(time.time()) - self.time_start)
 
@@ -1266,8 +1268,10 @@ class g2048_Buttons(disnake.ui.View):
         self.board = g2048_drawBoard(self.gameBoard)
         self.score = g2048_getScore(self.gameBoard)
         if g2048_isFull(self.gameBoard):
-            if self.ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-                self.bot.GAME_INTERACTIVE_PROGRESS.remove(self.ctx.author.id)
+            try:
+                del self.bot.queue_game_interactive[str(self.ctx.author.id)]
+            except Exception:
+                pass
             self.board = g2048_drawBoard(self.gameBoard)
             duration = seconds_str(int(time.time()) - self.time_start)
 
@@ -1375,8 +1379,10 @@ class g2048_Buttons(disnake.ui.View):
         self.board = g2048_drawBoard(self.gameBoard)
         self.score = g2048_getScore(self.gameBoard)
         if g2048_isFull(self.gameBoard):
-            if self.ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-                self.bot.GAME_INTERACTIVE_PROGRESS.remove(self.ctx.author.id)
+            try:
+                del self.bot.queue_game_interactive[str(self.ctx.author.id)]
+            except Exception:
+                pass
             self.board = g2048_drawBoard(self.gameBoard)
             duration = seconds_str(int(time.time()) - self.time_start)
 
@@ -1483,8 +1489,10 @@ class g2048_Buttons(disnake.ui.View):
         self.board = g2048_drawBoard(self.gameBoard)
         self.score = g2048_getScore(self.gameBoard)
         if g2048_isFull(self.gameBoard):
-            if self.ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-                self.bot.GAME_INTERACTIVE_PROGRESS.remove(self.ctx.author.id)
+            try:
+                del self.bot.queue_game_interactive[str(self.ctx.author.id)]
+            except Exception:
+                pass
             self.board = g2048_drawBoard(self.gameBoard)
             duration = seconds_str(int(time.time()) - self.time_start)
 
@@ -2510,11 +2518,13 @@ class Games(commands.Cog):
 
         time_start = int(time.time())
 
-        if ctx.author.id not in self.bot.GAME_SLOT_IN_PROGRESS:
-            self.bot.GAME_SLOT_IN_PROGRESS.append(ctx.author.id)
+        if str(ctx.author.id) not in self.bot.queue_game_slot:
+            self.bot.queue_game_slot[str(ctx.author.id)] = int(time.time())
         else:
-            await ctx.edit_original_message(content=f"{ctx.author.mention} You are ongoing with one **game** play.")
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
+            await ctx.edit_original_message(content=msg)
             return
+
         won = False
         slotOutput_2 = '$ TRY AGAIN! $'
 
@@ -2559,15 +2569,15 @@ class Games(commands.Cog):
         )
         embed.set_footer(text="Randomed Coin: {}".format(', '.join(self.bot.config['game']['coin_game'])))
         try:
-            if ctx.author.id in self.bot.GAME_SLOT_IN_PROGRESS:
-                self.bot.GAME_SLOT_IN_PROGRESS.remove(ctx.author.id)
             await ctx.edit_original_message(content=None, embed=embed)
         except (disnake.errors.NotFound, disnake.errors.Forbidden, disnake.errors.NotFound) as e:
             pass
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        if ctx.author.id in self.bot.GAME_SLOT_IN_PROGRESS:
-            self.bot.GAME_SLOT_IN_PROGRESS.remove(ctx.author.id)
+        try:
+            del self.bot.queue_game_slot[str(ctx.author.id)]
+        except Exception:
+            pass
 
     async def game_maze(
         self,
@@ -2633,8 +2643,11 @@ class Games(commands.Cog):
         free_game = False
         won = False
 
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-            await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game** play.")
+        if str(ctx.author.id) not in self.bot.queue_game_interactive:
+            self.bot.queue_game_interactive[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
+            await ctx.edit_original_message(content=msg)
             return
 
         count_played = await self.db.sql_game_count_user(
@@ -2716,8 +2729,10 @@ class Games(commands.Cog):
         free_game = False
         won = False
 
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-            msg = f"{ctx.author.mention} You are ongoing with one **game** play."
+        if str(ctx.author.id) not in self.bot.queue_game_interactive:
+            self.bot.queue_game_interactive[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -2727,7 +2742,7 @@ class Games(commands.Cog):
         if count_played and count_played >= self.bot.config['game']['max_daily_play']:
             free_game = True
 
-        game_text = '''A player rolls two dice. Each die has six faces. 
+        game_text = """A player rolls two dice. Each die has six faces. 
     These faces contain 1, 2, 3, 4, 5, and 6 spots. 
     After the dice have come to rest, the sum of the spots on the two upward faces is calculated. 
 
@@ -2736,11 +2751,16 @@ class Games(commands.Cog):
     * If the sum is not 7 or 11 on the first throw, then the sum becomes the player's "point." 
     To win, you must continue rolling the dice until you "make your point." 
 
-    * The player loses if they got 7 or 11 for their points.'''
+    * The player loses if they got 7 or 11 for their points."""
         time_start = int(time.time())
         await ctx.edit_original_message(content=f"{ctx.author.mention},```{game_text}```")
-        if ctx.author.id not in self.bot.GAME_DICE_IN_PROGRESS:
-            self.bot.GAME_DICE_IN_PROGRESS.append(ctx.author.id)
+
+        if str(ctx.author.id) not in self.bot.queue_game_dice:
+            self.bot.queue_game_dice[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
+            await ctx.edit_original_message(content=msg)
+            return
 
         won = False
         game_over = False
@@ -2851,9 +2871,6 @@ class Games(commands.Cog):
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot(traceback.format_exc())
                 # End reward
-
-                if ctx.author.id in self.bot.GAME_DICE_IN_PROGRESS:
-                    self.bot.GAME_DICE_IN_PROGRESS.remove(ctx.author.id)
                 await msg.reply(f"{ctx.author.mention} **Dice: ** You threw dices **{dice_time}** times. {result}")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -2861,8 +2878,10 @@ class Games(commands.Cog):
             pass
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        if ctx.author.id in self.bot.GAME_DICE_IN_PROGRESS:
-            self.bot.GAME_DICE_IN_PROGRESS.remove(ctx.author.id)
+        try:
+            del self.bot.queue_game_dice[str(ctx.author.id)]
+        except Exception:
+            pass
 
     async def game_snail(
         self,
@@ -2930,8 +2949,11 @@ class Games(commands.Cog):
         free_game = False
         won = False
 
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-            await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game** play.")
+        if str(ctx.author.id) not in self.bot.queue_game_interactive:
+            self.bot.queue_game_interactive[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
+            await ctx.edit_original_message(content=msg)
             return
 
         count_played = await self.db.sql_game_count_user(
@@ -2954,11 +2976,11 @@ class Games(commands.Cog):
             your_snail = int(bet_numb)
         except ValueError:
             await ctx.edit_original_message(
-                content=f"{EMOJI_RED_NO} {ctx.author.mention} Please put a valid snail number **(1 to 8)**")
+                content=f"{EMOJI_RED_NO} {ctx.author.mention}, please put a valid snail number **(1 to 8)**")
             return
 
-        if ctx.author.id not in self.bot.GAME_INTERACTIVE_PROGRESS:
-            self.bot.GAME_INTERACTIVE_PROGRESS.append(ctx.author.id)
+        if str(ctx.author.id) not in self.bot.queue_game_interactive:
+            self.bot.queue_game_interactive[str(ctx.author.id)] = int(time.time())
 
         MAX_NUM_SNAILS = 8
         MAX_NAME_LENGTH = 20
@@ -2981,8 +3003,10 @@ class Games(commands.Cog):
                 try:
                     msg_racing = await ctx.channel.send(f"{start_line_mention}```{start_line}```")
                 except Exception:
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-                        self.bot.GAME_INTERACTIVE_PROGRESS.remove(ctx.author.id)
+                    try:
+                        del self.bot.queue_game_interactive[str(ctx.author.id)]
+                    except Exception:
+                        pass
                     await self.botLogChan.send(
                         f"{ctx.author.name} / {ctx.author.id} **GAME SNAIL** failed to send message "\
                         f"in {ctx.guild.name} / {ctx.guild.id}"
@@ -3000,8 +3024,10 @@ class Games(commands.Cog):
                 try:
                     await msg_racing.edit(content=f"{start_line_mention}```{start_line}\n{list_snails}```")
                 except Exception:
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-                        self.bot.GAME_INTERACTIVE_PROGRESS.remove(ctx.author.id)
+                    try:
+                        del self.bot.queue_game_interactive[str(ctx.author.id)]
+                    except Exception:
+                        pass
                     await ctx.edit_original_message(
                         content=f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to start snail game, please try again.")
                     return
@@ -3102,8 +3128,10 @@ class Games(commands.Cog):
                                         await logchanbot(traceback.format_exc())
 
                                 await msg_racing.reply(f"{ctx.author.mention} **Snail Racing** {result}")
-                                if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-                                    self.bot.GAME_INTERACTIVE_PROGRESS.remove(ctx.author.id)
+                                try:
+                                    del self.bot.queue_game_interactive[str(ctx.author.id)]
+                                except Exception:
+                                    pass
                                 return
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -3123,22 +3151,23 @@ class Games(commands.Cog):
                     try:
                         await msg_racing.edit(content=f"{start_line_mention}```{start_line}\n{list_snails}```")
                     except Exception:
-                        if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-                            self.bot.GAME_INTERACTIVE_PROGRESS.remove(ctx.author.id)
+                        try:
+                            del self.bot.queue_game_interactive[str(ctx.author.id)]
+                        except Exception:
+                            pass
                         await logchanbot(traceback.format_exc())
                         return
                 return
             except Exception:
                 await logchanbot(traceback.format_exc())
-            if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-                self.bot.GAME_INTERACTIVE_PROGRESS.remove(ctx.author.id)
         else:
             # invalid betting
-            if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-                self.bot.GAME_INTERACTIVE_PROGRESS.remove(ctx.author.id)
             await ctx.edit_original_message(
                 content=f"{EMOJI_RED_NO} {ctx.author.mention} Please put a valid snail number **(1 to 8)**")
-            return
+        try:
+            del self.bot.queue_game_interactive[str(ctx.author.id)]
+        except Exception:
+            pass
 
     async def game_2048(
         self,
@@ -3205,8 +3234,11 @@ class Games(commands.Cog):
         free_game = False
         won = False
 
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-            await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game** play.")
+        if str(ctx.author.id) not in self.bot.queue_game_interactive:
+            self.bot.queue_game_interactive[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
+            await ctx.edit_original_message(content=msg)
             return
 
         count_played = await self.db.sql_game_count_user(
@@ -3288,8 +3320,11 @@ class Games(commands.Cog):
         free_game = False
         won = False
 
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-            await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game** play.")
+        if str(ctx.author.id) not in self.bot.queue_game_interactive:
+            self.bot.queue_game_interactive[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
+            await ctx.edit_original_message(content=msg)
             return
 
         count_played = await self.db.sql_game_count_user(
@@ -3320,8 +3355,10 @@ class Games(commands.Cog):
 
             get_level = await self.db.sql_game_get_level_tpl(level, 'SOKOBAN')
             if get_level is None:
-                if ctx.author.id in self.bot.GAME_INTERACTIVE_PROGRESS:
-                    self.bot.GAME_INTERACTIVE_PROGRESS.remove(ctx.author.id)
+                try:
+                    del self.bot.queue_game_interactive[str(ctx.author.id)]
+                except Exception:
+                    pass
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, game sokban loading failed. Check back later.")
                 return

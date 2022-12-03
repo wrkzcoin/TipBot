@@ -264,8 +264,9 @@ class QuickDrop(commands.Cog):
             # end of check if amount is all
 
             # Check if tx in progress
-            if ctx.author.id in self.bot.TX_IN_PROCESS:
-                msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+            if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+                msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
                 await ctx.edit_original_message(content=msg)
                 return
 
@@ -290,16 +291,19 @@ class QuickDrop(commands.Cog):
                 return
 
             if amount > max_tip or amount < min_tip:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, amount cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, amount cannot be bigger than "\
+                    f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
+                    f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
                 await ctx.edit_original_message(content=msg)
                 return
             elif amount > actual_balance:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to drop **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to drop "\
+                    f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
                 await ctx.edit_original_message(content=msg)
                 return
 
-            if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.append(ctx.author.id)
+            if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
 
             equivalent_usd = ""
             total_in_usd = 0.0
@@ -354,10 +358,12 @@ class QuickDrop(commands.Cog):
                 await ctx.edit_original_message(content="Missing permission! Or failed to send embed message.")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-            if ctx.author.id in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.remove(ctx.author.id)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        try:
+            del self.bot.tipping_in_progress[str(ctx.author.id)]
+        except Exception:
+            pass
 
 
     @commands.guild_only()

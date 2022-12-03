@@ -269,8 +269,9 @@ class TipOtherCoin(disnake.ui.Modal):
             wallet_address = get_deposit['destination_tag']
 
         # Check if tx in progress
-        if interaction.author.id in self.bot.TX_IN_PROCESS:
-            msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another tx in progress."
+        if str(interaction.author.id) in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[str(interaction.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another transaction in progress."
             await interaction.edit_original_message(content=msg)
             return
 
@@ -312,8 +313,8 @@ class TipOtherCoin(disnake.ui.Modal):
                 if amount_in_usd > 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
 
-        if interaction.author.id not in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.append(interaction.author.id)
+        if str(interaction.author.id) not in self.bot.tipping_in_progress:
+            self.bot.tipping_in_progress[str(interaction.author.id)] = int(time.time())
         user_to = await self.wallet_api.sql_get_userwallet(
             self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
         )
@@ -360,8 +361,10 @@ class TipOtherCoin(disnake.ui.Modal):
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-        if interaction.author.id in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.remove(interaction.author.id)
+        try:
+            del self.bot.tipping_in_progress[str(interaction.author.id)]
+        except Exception:
+            pass
 
 
 class MemeTip_Button(disnake.ui.View):
@@ -428,8 +431,9 @@ class MemeTip_Button(disnake.ui.View):
                 wallet_address = get_deposit['destination_tag']
 
             # Check if tx in progress
-            if interaction.author.id in self.bot.TX_IN_PROCESS:
-                msg = f'{EMOJI_ERROR} {interaction.author.mention}, you have another tx in progress.'
+            if str(interaction.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(interaction.author.id)] < 150:
+                msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another transaction in progress."
                 await interaction.edit_original_message(content=msg)
                 return
 
@@ -471,8 +475,9 @@ class MemeTip_Button(disnake.ui.View):
                     if amount_in_usd > 0.0001:
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
 
-            if interaction.author.id not in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.append(interaction.author.id)
+            if str(interaction.author.id) not in self.bot.tipping_in_progress:
+                self.bot.tipping_in_progress[str(interaction.author.id)] = int(time.time())
+
             user_to = await self.wallet_api.sql_get_userwallet(
                 self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -519,8 +524,10 @@ class MemeTip_Button(disnake.ui.View):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
-            if interaction.author.id in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.remove(interaction.author.id)
+            try:
+                del self.bot.tipping_in_progress[str(interaction.author.id)]
+            except Exception:
+                pass
 
     @disnake.ui.button(label="+0.1 WOW", style=ButtonStyle.green, custom_id="memetip_0_1_WOW")
     async def tip_wow(
@@ -567,8 +574,9 @@ class MemeTip_Button(disnake.ui.View):
                 wallet_address = get_deposit['destination_tag']
 
             # Check if tx in progress
-            if interaction.author.id in self.bot.TX_IN_PROCESS:
-                msg = f'{EMOJI_ERROR} {interaction.author.mention}, you have another tx in progress.'
+            if str(interaction.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(interaction.author.id)] < 150:
+                msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another transaction in progress."
                 await interaction.edit_original_message(content=msg)
                 return
 
@@ -610,8 +618,9 @@ class MemeTip_Button(disnake.ui.View):
                     if amount_in_usd > 0.0001:
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
 
-            if interaction.author.id not in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.append(interaction.author.id)
+            if str(interaction.author.id) not in self.bot.tipping_in_progress:
+                self.bot.tipping_in_progress[str(interaction.author.id)] = int(time.time())
+
             user_to = await self.wallet_api.sql_get_userwallet(
                 self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -661,8 +670,10 @@ class MemeTip_Button(disnake.ui.View):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
-            if interaction.author.id in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.remove(interaction.author.id)
+            try:
+                del self.bot.tipping_in_progress[str(interaction.author.id)]
+            except Exception:
+                pass
 
     @disnake.ui.button(label="+0.1 DOGE", style=ButtonStyle.green, custom_id="memetip_0_1_DOGE")
     async def tip_doge(
@@ -709,8 +720,9 @@ class MemeTip_Button(disnake.ui.View):
                 wallet_address = get_deposit['destination_tag']
 
             # Check if tx in progress
-            if interaction.author.id in self.bot.TX_IN_PROCESS:
-                msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another tx in progress."
+            if str(interaction.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(interaction.author.id)] < 150:
+                msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another transaction in progress."
                 await interaction.edit_original_message(content=msg)
                 return
 
@@ -752,8 +764,9 @@ class MemeTip_Button(disnake.ui.View):
                     if amount_in_usd > 0.0001:
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
 
-            if interaction.author.id not in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.append(interaction.author.id)
+            if str(interaction.author.id) not in self.bot.tipping_in_progress:
+                self.bot.tipping_in_progress[str(interaction.author.id)] = int(time.time())
+
             user_to = await self.wallet_api.sql_get_userwallet(
                 self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -800,8 +813,10 @@ class MemeTip_Button(disnake.ui.View):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
-            if interaction.author.id in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.remove(interaction.author.id)
+            try:
+                del self.bot.tipping_in_progress[str(interaction.author.id)]
+            except Exception:
+                pass
 
     @disnake.ui.button(label="+10K DEGO", style=ButtonStyle.green, custom_id="memetip_10000_DEGO")
     async def tip_dego(
@@ -848,8 +863,9 @@ class MemeTip_Button(disnake.ui.View):
                 wallet_address = get_deposit['destination_tag']
 
             # Check if tx in progress
-            if interaction.author.id in self.bot.TX_IN_PROCESS:
-                msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another tx in progress."
+            if str(interaction.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(interaction.author.id)] < 150:
+                msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another transaction in progress."
                 await interaction.edit_original_message(content=msg)
                 return
 
@@ -891,8 +907,9 @@ class MemeTip_Button(disnake.ui.View):
                     if amount_in_usd > 0.0001:
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
 
-            if interaction.author.id not in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.append(interaction.author.id)
+            if str(interaction.author.id) not in self.bot.tipping_in_progress:
+                self.bot.tipping_in_progress[str(interaction.author.id)] = int(time.time())
+
             user_to = await self.wallet_api.sql_get_userwallet(
                 self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -942,8 +959,10 @@ class MemeTip_Button(disnake.ui.View):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
-            if interaction.author.id in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.remove(interaction.author.id)
+            try:
+                del self.bot.tipping_in_progress[str(interaction.author.id)]
+            except Exception:
+                pass
 
     @disnake.ui.button(label="Tip other coin", style=ButtonStyle.blurple, custom_id="memetip_other")
     async def tip_other_coin(

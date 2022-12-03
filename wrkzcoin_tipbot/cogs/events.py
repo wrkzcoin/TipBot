@@ -301,8 +301,9 @@ class Events(commands.Cog):
             )
             actual_balance = float(userdata_balance['adjust'])
             # Check if tx in progress
-            if int(message.author.id) in self.bot.TX_IN_PROCESS:
-                msg = f'{EMOJI_ERROR} {message.author.mention}, another tx in progress.'
+            if str(message.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(message.author.id)] < 150:
+                msg = f"{EMOJI_ERROR} {message.author.mention}, you have another transaction in progress."
                 await message.reply(msg)
                 return
 
@@ -458,12 +459,13 @@ class Events(commands.Cog):
                     return
 
                 # add queue also tip
-                if message.author.id not in self.bot.TX_IN_PROCESS:
-                    self.bot.TX_IN_PROCESS.append(message.author.id)
-                else:
-                    msg = f'{EMOJI_ERROR} {message.author.mention}, you have another tx in progress.'
+                if str(message.author.id) in self.bot.tipping_in_progress and \
+                    int(time.time()) - self.bot.tipping_in_progress[str(message.author.id)] < 150:
+                    msg = f"{EMOJI_ERROR} {message.author.mention}, you have another transaction in progress."
                     await message.reply(msg)
                     return
+                else:
+                    self.bot.tipping_in_progress[str(message.author.id)] = int(time.time())
 
                 tip = None
 
@@ -492,8 +494,8 @@ class Events(commands.Cog):
                             total_equivalent_usd = " ~ {:,.4f} USD".format(total_amount_in_usd)
 
                 try:
-                    if message.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(message.author.id)
+                    if str(message.author.id) not in self.bot.tipping_in_progress:
+                        self.bot.tipping_in_progress[str(message.author.id)] = int(time.time())
                     try:
                         key_coin = str(message.author.id) + "_" + coin_name + "_" + SERVER_BOT
                         if key_coin in self.bot.user_balance_cache:
@@ -506,7 +508,8 @@ class Events(commands.Cog):
                     except Exception:
                         pass
                     tip = await store.sql_user_balance_mv_multiple(
-                        str(message.author.id), list_receivers, str(message.guild.id), str(message.channel.id), amount, coin_name, "TIP",
+                        str(message.author.id), list_receivers, str(message.guild.id),
+                        str(message.channel.id), amount, coin_name, "TIP",
                         coin_decimal, SERVER_BOT, contract, float(amount_in_usd), "Message Command"
                     )
                 except Exception:
@@ -514,8 +517,10 @@ class Events(commands.Cog):
                     await logchanbot("tips " +str(traceback.format_exc()))
 
                 # remove queue from tip
-                if message.author.id in self.bot.TX_IN_PROCESS:
-                    self.bot.TX_IN_PROCESS.remove(message.author.id)
+                try:
+                    del self.bot.tipping_in_progress[str(message.author.id)]
+                except Exception:
+                    pass
 
                 if tip is not None:
                     # tipper shall always get DM. Ignore notifying_list
@@ -1301,8 +1306,10 @@ class Events(commands.Cog):
                         f"[ERROR PARTY] Failed to join a party in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
                     return
                 else:
-                    if inter.author.id in self.bot.TX_IN_PROCESS:
-                        await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: you still have a tx in progress!")
+                    if str(inter.author.id) in self.bot.tipping_in_progress and \
+                        int(time.time()) - self.bot.tipping_in_progress[str(inter.author.id)] < 150:
+                        msg = f"{EMOJI_ERROR} {inter.author.mention}, you have another transaction in progress."
+                        await inter.edit_original_message(content=msg)
                         return
                     # Check balance
                     coin_name = get_message['token_name']
@@ -1351,14 +1358,18 @@ class Events(commands.Cog):
                             
                     if get_message and int(get_message['from_userid']) == inter.author.id:
                         # If he initiates, add to sponsor
-                        if inter.author.id in self.bot.TX_IN_PROCESS:
-                            await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: you still have a tx in progress!")
+                        if str(inter.author.id) in self.bot.tipping_in_progress:
+                            await inter.edit_original_message(
+                                content=f"Party ID {str(inter.message.id)}: you still have another transaction in progress!"
+                            )
                             return
                         else:
-                            self.bot.TX_IN_PROCESS.append(inter.author.id)
+                            self.bot.tipping_in_progress[str(inter.author.id)] = int(time.time())
                         increase = await store.update_party_id_amount(str(inter.message.id), new_amount)
-                        if inter.author.id in self.bot.TX_IN_PROCESS:
-                            self.bot.TX_IN_PROCESS.remove(inter.author.id)
+                        try:
+                            del self.bot.tipping_in_progress[str(inter.author.id)]
+                        except Exception:
+                            pass
                         if increase is True:
                             await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: Sucessfully increased amount!")
                             # Update view
@@ -1400,18 +1411,25 @@ class Events(commands.Cog):
                         # await inter.response.defer()
                         return
                     else:
-                        if inter.author.id in self.bot.TX_IN_PROCESS:
-                            await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: you still have a tx in progress!")
+                        if str(inter.author.id) in self.bot.tipping_in_progress and \
+                            int(time.time()) - self.bot.tipping_in_progress[str(inter.author.id)] < 150:
+                            await inter.edit_original_message(
+                                content=f"Party ID {str(inter.message.id)}: you still have another transaction in progress!"
+                            )
                             return
                         else:
-                            self.bot.TX_IN_PROCESS.append(inter.author.id)
+                            self.bot.tipping_in_progress[str(inter.author.id)] = int(time.time())
+
                         attend = await store.attend_party(
                             str(inter.message.id), str(inter.author.id), 
                             "{}#{}".format(inter.author.name, inter.author.discriminator),
                             new_amount, get_message['token_name'], get_message['token_decimal']
                         )
-                        if inter.author.id in self.bot.TX_IN_PROCESS:
-                            self.bot.TX_IN_PROCESS.remove(inter.author.id)
+                        try:
+                            del self.bot.tipping_in_progress[str(inter.author.id)]
+                        except Exception:
+                            pass
+
                         if attend is True:
                             await inter.edit_original_message(content=f"Party ID: {str(inter.message.id)}, joined/added successfully!")
                             # Update view
@@ -1666,8 +1684,10 @@ class Events(commands.Cog):
                 # End negative check
                 food_name = get_food_id['food_name']
                 if get_food_id['cost_expense_amount'] > total_balance:
-                    if inter.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                        self.bot.GAME_INTERACTIVE_ECO.remove(inter.author.id)
+                    try:
+                        del self.bot.queue_game_economy[str(inter.author.id)]
+                    except Exception:
+                        pass
                     await inter.edit_original_message(
                         content=f"{EMOJI_RED_NO} {inter.author.mention}, insufficient balance to eat `{food_name}`.")
                 else:
@@ -1717,8 +1737,10 @@ class Events(commands.Cog):
                     else:
                         await inter.edit_original_message(
                             content=f"{EMOJI_RED_NO} {inter.author.mention}, internal error.")
-                if inter.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.remove(inter.author.id)
+                try:
+                    del self.bot.queue_game_economy[str(inter.author.id)]
+                except Exception:
+                    pass
 
             elif inter.component.custom_id.startswith("economy_{}_work_".format(inter.author.id)):
                 # Not to duplicate
@@ -1778,8 +1800,10 @@ class Events(commands.Cog):
                     else:
                         await inter.edit_original_message(
                             content=f"{EMOJI_INFORMATION} {inter.author.mention}, internal error.")
-                    if inter.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                        self.bot.GAME_INTERACTIVE_ECO.remove(inter.author.id)
+                    try:
+                        del self.bot.queue_game_economy[str(inter.author.id)]
+                    except Exception:
+                        pass
                     await inter.message.delete()
 
             elif inter.component.custom_id.startswith("economy_{}_item_".format(inter.author.id)):
@@ -1849,8 +1873,10 @@ class Events(commands.Cog):
                     )
                 else:
                     await inter.edit_original_message(content=f"{EMOJI_RED_NO} {inter.author.mention}, internal error.")
-                if inter.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.remove(inter.author.id)
+                try:
+                    del self.bot.queue_game_economy[str(inter.author.id)]
+                except Exception:
+                    pass
                 await inter.message.delete()
 
     @commands.Cog.listener()

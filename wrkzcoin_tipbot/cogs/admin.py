@@ -2150,17 +2150,12 @@ class Admin(commands.Cog):
     async def pending(self, ctx):
         ts = datetime.utcnow()
         embed = disnake.Embed(title='Pending Actions', timestamp=ts)
-        embed.add_field(name="Pending Tx", value=str(len(self.bot.TX_IN_PROCESS)), inline=True)
-        if len(self.bot.TX_IN_PROCESS) > 0:
-            string_ints = [str(num) for num in self.bot.TX_IN_PROCESS]
+        embed.add_field(name="Pending Tx", value=str(len(self.bot.tipping_in_progress)), inline=True)
+        if len(self.bot.tipping_in_progress) > 0:
+            string_ints = [str(num) for num in self.bot.tipping_in_progress]
             list_pending = '{' + ', '.join(string_ints) + '}'
             embed.add_field(name="List Pending By", value=list_pending, inline=True)
 
-        embed.add_field(name="GAME_INTERACTIVE", value=str(len(self.bot.GAME_INTERACTIVE_PROGRESS)), inline=True)
-        embed.add_field(name="GAME_INTERACTIVE_ECO", value=str(len(self.bot.GAME_INTERACTIVE_ECO)), inline=True)
-        embed.add_field(name="GAME_SLOT", value=str(len(self.bot.GAME_SLOT_IN_PROGRESS)), inline=True)
-        embed.add_field(name="GAME_DICE", value=str(len(self.bot.GAME_DICE_IN_PROGRESS)), inline=True)
-        embed.add_field(name="GAME_MAZE", value=str(len(self.bot.GAME_MAZE_IN_PROCESS)), inline=True)
         embed.set_footer(text=f"Pending requested by {ctx.author.name}#{ctx.author.discriminator}")
         try:
             await ctx.reply(embed=embed)
@@ -2410,42 +2405,6 @@ class Admin(commands.Cog):
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name
-
-    @commands.is_owner()
-    @commands.command(hidden=True, usage='cleartx', description='Clear TX_IN_PROCESS')
-    async def cleartx(self, ctx):
-        if len(self.bot.TX_IN_PROCESS) == 0:
-            await ctx.reply(f"{ctx.author.mention} TX_IN_PROCESS, nothing in tx pending to clear.")
-        else:
-            try:
-                string_ints = [str(num) for num in self.bot.TX_IN_PROCESS]
-                list_pending = '{' + ', '.join(string_ints) + '}'
-                await ctx.reply(f"Clearing {str(len(self.bot.TX_IN_PROCESS))} {list_pending} in pending...")
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            self.bot.TX_IN_PROCESS = []
-        # GAME_INTERACTIVE_ECO
-        if len(self.bot.GAME_INTERACTIVE_ECO) == 0:
-            await ctx.reply(f"{ctx.author.mention}, GAME_INTERACTIVE_ECO nothing in tx pending to clear.")
-        else:
-            try:
-                string_ints = [str(num) for num in self.bot.GAME_INTERACTIVE_ECO]
-                list_pending = '{' + ', '.join(string_ints) + '}'
-                await ctx.reply(f"Clearing {str(len(self.bot.GAME_INTERACTIVE_ECO))} {list_pending} in pending...")
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            self.bot.GAME_INTERACTIVE_ECO = []
-        # GAME_INTERACTIVE_PROGRESS
-        if len(self.bot.GAME_INTERACTIVE_PROGRESS) == 0:
-            await ctx.reply(f"{ctx.author.mention}, GAME_INTERACTIVE_PROGRESS nothing in tx pending to clear.")
-        else:
-            try:
-                string_ints = [str(num) for num in self.bot.GAME_INTERACTIVE_PROGRESS]
-                list_pending = '{' + ', '.join(string_ints) + '}'
-                await ctx.reply(f"Clearing {str(len(self.bot.GAME_INTERACTIVE_PROGRESS))} {list_pending} in pending...")
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            self.bot.GAME_INTERACTIVE_PROGRESS = []
 
     @commands.is_owner()
     @admin.command(

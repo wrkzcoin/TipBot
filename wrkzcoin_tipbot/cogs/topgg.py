@@ -331,6 +331,7 @@ class TopGGVote(commands.Cog):
                                                                 name=self.bot.user.name,
                                                                 icon_url=self.bot.user.display_avatar
                                                             )
+                                                            embed.set_thumbnail(url=member.display_avatar)
                                                             await channel.send(embed=embed)
                                                     except Exception:
                                                         traceback.print_exc(file=sys.stdout)
@@ -530,8 +531,10 @@ class TopGGVote(commands.Cog):
                                                                         f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.')
                                                                 try:
                                                                     channel = self.bot.get_channel(self.reward_channel)
-                                                                    embed = disnake.Embed(title="NEW BOT VOTE!",
-                                                                                          timestamp=datetime.now())
+                                                                    embed = disnake.Embed(
+                                                                        title="NEW BOT VOTE!",
+                                                                        timestamp=datetime.now()
+                                                                    )
                                                                     embed.add_field(
                                                                         name="User",
                                                                         value="<@{}>".format(user_vote),
@@ -552,6 +555,7 @@ class TopGGVote(commands.Cog):
                                                                         name=self.bot.user.name,
                                                                         icon_url=self.bot.user.display_avatar
                                                                     )
+                                                                    embed.set_thumbnail(url=member.display_avatar)
                                                                     await channel.send(embed=embed)
                                                                 except Exception:
                                                                     traceback.print_exc(file=sys.stdout)

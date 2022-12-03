@@ -243,6 +243,7 @@ class DiscordBotList(commands.Cog):
                                                                 name=self.bot.user.name,
                                                                 icon_url=self.bot.user.display_avatar
                                                             )
+                                                            embed.set_thumbnail(url=member.display_avatar)
                                                             await channel.send(embed=embed)
                                                         except Exception:
                                                             traceback.print_exc(file=sys.stdout)

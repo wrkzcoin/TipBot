@@ -778,18 +778,15 @@ class Trade(commands.Cog):
                         )
                         if match_order:
                             try:
-                                msg = '#**{}** Order completed! ```Get: {}{}\nFrom selling: {}{}\nFee: {}{}\n```'.format(
+                                msg = '#**{}** Order completed! ```Get: {}{}\nFrom selling: {}{}```'.format(
                                     ctx.author.mention, ref_number,
                                     num_format_coin(get_order_num['amount_sell_after_fee'], get_order_num['coin_sell'],
                                                     getattr(getattr(self.bot.coin_list, get_order_num['coin_sell']),
                                                             "decimal"), False), get_order_num['coin_sell'],
                                     num_format_coin(get_order_num['amount_get_after_fee'], get_order_num['coin_get'],
                                                     getattr(getattr(self.bot.coin_list, get_order_num['coin_get']),
-                                                            "decimal"), False), get_order_num['coin_get'],
-                                    num_format_coin(get_order_num['amount_get'] - get_order_num['amount_get_after_fee'],
-                                                    get_order_num['coin_get'],
-                                                    getattr(getattr(self.bot.coin_list, get_order_num['coin_get']),
-                                                            "decimal"), False), get_order_num['coin_get'])
+                                                            "decimal"), False), get_order_num['coin_get']
+                                )
                                 await ctx.edit_original_message(content=msg)
                                 # Find guild where there is trade channel assign
                                 get_guilds = await self.utils.get_trade_channel_list()

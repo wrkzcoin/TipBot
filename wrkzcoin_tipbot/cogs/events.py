@@ -1759,8 +1759,18 @@ class Events(commands.Cog):
                     await inter.response.send_message(f"{inter.author.mention}, checking your work...")
                 except Exception:
                     return
-                name = inter.component.custom_id.replace("economy_{}_work_".format(inter.author.id), "")
                 db = database_economy(self.bot)
+                self.bot.queue_game_economy[str(inter.author.id)] = int(time.time())
+                get_last_act = await db.economy_get_last_activities(str(inter.author.id), False)
+                if get_last_act is not None:
+                    remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
+                    if remaining > 0:
+                        msg =  f"{EMOJI_ERROR} {inter.author.mention}, sorry, you are still busy with other activity. "\
+                            f"Remaining time `{seconds_str(remaining)}`."
+                        await inter.edit_original_message(content=msg)
+                        return
+
+                name = inter.component.custom_id.replace("economy_{}_work_".format(inter.author.id), "")
                 all_work_in_guild = {}
                 get_worklist_guild = await db.economy_get_guild_worklist(str(inter.guild.id), False)
                 if get_worklist_guild and len(get_worklist_guild) > 0:
@@ -1893,9 +1903,11 @@ class Events(commands.Cog):
             num_bots = sum(1 for m in self.bot.get_all_members() if m.bot == True)
             get_tipping_count = await self.get_tipping_count()
             num_tips = get_tipping_count['nos_tipping']
-            await self.insert_new_stats(num_server, int(total_online), int(total_unique), int(num_bots), num_tips, int(time.time()))
+            await self.insert_new_stats(
+                num_server, int(total_online), int(total_unique), int(num_bots), num_tips, int(time.time())
+            )
             try:
-                if len(self.bot.guilds) > 0 and len(self.bot.guilds) % 10 == 0:
+                if len(self.bot.guilds) > 0 and (len(self.bot.guilds) % 10 == 0 or len(self.bot.guilds) % 1111 == 0):
                     botdetails = disnake.Embed(title='About Me', description='')
                     botdetails.add_field(name='Creator\'s Discord Name:', value='pluton#8888', inline=True)
                     botdetails.add_field(name='My Github:', value="[TipBot Github](https://github.com/wrkzcoin/TipBot)",
@@ -1909,7 +1921,7 @@ class Events(commands.Cog):
                             inline=True
                         )
                         botdetails.add_field(
-                            name="Users",
+                            name="Unique Users",
                             value='{:,.0f}'.format(total_unique),
                             inline=True
                         )
@@ -1933,7 +1945,7 @@ class Events(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        add_server_info = await store.sql_addinfo_by_server(
+        await store.sql_addinfo_by_server(
             str(guild.id), guild.name, self.bot.config['discord']['prefixCmd'], "WRKZ", True
         )
         await self.botLogChan.send(

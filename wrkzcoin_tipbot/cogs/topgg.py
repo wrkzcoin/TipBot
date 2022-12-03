@@ -289,7 +289,7 @@ class TopGGVote(commands.Cog):
                                                     guild_owner = self.bot.get_user(guild.owner.id)
                                                     try:
                                                         await guild_owner.send(
-                                                            f"User `{user_vote}` voted for your guild {guild.name} "\
+                                                            f"User {member.name}#{member.discriminator} / `{user_vote}` voted for your guild {guild.name} "\
                                                             f"at top.gg. They got a reward "\
                                                             f"{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}."
                                                         )

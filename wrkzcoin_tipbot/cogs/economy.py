@@ -1913,9 +1913,7 @@ class Economy(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        if str(ctx.author.id) not in self.bot.queue_game_economy:
-            self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
-        else:
+        if str(ctx.author.id) in self.bot.queue_game_economy:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
             await ctx.edit_original_message(content=msg)
             return
@@ -1962,6 +1960,7 @@ class Economy(commands.Cog):
                     e.set_thumbnail(url=ctx.author.display_avatar)                        
                     view = EconomyButton([each_items for each_items in all_item_backpack.keys()], str(ctx.author.id), "item", 10)
                     await ctx.edit_original_message(content=None, embed=e, view=view)
+                    self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
                 else:
                     await ctx.edit_original_message(
                         content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have anything in your backpack."
@@ -2985,9 +2984,7 @@ class Economy(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        if str(ctx.author.id) not in self.bot.queue_game_economy:
-            self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
-        else:
+        if str(ctx.author.id) in self.bot.queue_game_economy:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
             await ctx.edit_original_message(content=msg)
             return
@@ -3031,6 +3028,7 @@ class Economy(commands.Cog):
                 e.set_thumbnail(url=ctx.author.display_avatar)                    
                 view = EconomyButton([each_food['food_emoji'] for each_food in get_foodlist_guild], str(ctx.author.id), "eat", 10)
                 await ctx.edit_original_message(content=None, embed=e, view=view)
+                self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, sorry, there is no available work yet."
                 await ctx.edit_original_message(content=msg)
@@ -3040,7 +3038,6 @@ class Economy(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-
     async def eco_work(self, ctx, claim: str=None):        
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
@@ -3048,9 +3045,7 @@ class Economy(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your work..."
         await ctx.response.send_message(msg)
 
-        if str(ctx.author.id) not in self.bot.queue_game_economy:
-            self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
-        else:
+        if str(ctx.author.id) in self.bot.queue_game_economy:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
             await ctx.edit_original_message(content=msg)
             return
@@ -3106,6 +3101,7 @@ class Economy(commands.Cog):
                         e.set_thumbnail(url=ctx.author.display_avatar)
                         view = EconomyButton([each_work['work_emoji'] for each_work in get_worklist_guild], str(ctx.author.id), "work", 10)
                         await ctx.edit_original_message(content=None, embed=e, view=view)
+                        self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
                     else:
                         msg = f"{EMOJI_ERROR} {ctx.author.mention}, sorry, there is no available work yet."
                         await ctx.edit_original_message(content=msg)

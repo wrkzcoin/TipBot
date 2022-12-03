@@ -148,16 +148,16 @@ async def logchanbot(content: str):
 
 
 # get shard count by statistic
-shard_number = 2
+config = load_config()
 
 intents = disnake.Intents.default()
 intents.members = True
 intents.presences = True
 bot = AutoShardedBot(
-    shard_count=shard_number, command_prefix=when_mentioned,
+    shard_count=config['discord']['num_shards'], command_prefix=when_mentioned,
     strip_after_prefix=True, intents=intents, help_command=None,
 )
-bot.config = load_config()
+bot.config = config
 
 bot.owner_id = bot.config['discord']['owner_id']
 bot.coin_list = None

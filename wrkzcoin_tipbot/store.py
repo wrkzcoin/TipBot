@@ -219,13 +219,7 @@ async def sql_changeinfo_by_server(
     server_id: str, what: str, value: str
 ):
     global pool
-    if what.lower() in ["servername", "prefix", "default_coin", "tiponly", "numb_user", "numb_bot", "numb_channel",
-                        "react_tip", "react_tip_100", "react_tip_coin", "lastUpdate", "botchan", "raffle_channel",
-                        "enable_faucet", "enable_game", "enable_market", "enable_trade", "tip_message",
-                        "tip_message_by", "tip_notifying_acceptance", "game_2048_channel", "game_bagel_channel",
-                        "game_blackjack_channel", "game_dice_channel",
-                        "game_maze_channel", "game_slot_channel", "game_snail_channel", "game_sokoban_channel",
-                        "game_hangman_channel", "enable_nsfw", "economy_channel", "enable_memepls"]:
+    if what.lower() in config['mysql']['guild_field_list']:
         try:
             # print(f"ok try to change {what} to {value}")
             await openConnection()
@@ -236,9 +230,11 @@ async def sql_changeinfo_by_server(
                     """
                     await cur.execute(sql, (value, server_id,))
                     await conn.commit()
+                    return True
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
-                           
+    return False
+
 # TODO: get balance based on various coin, external withdraw, other expenses, tipping out, etc
 async def sql_user_balance_single(
     user_id: str, coin: str, address: str, coin_family: str, top_block: int,

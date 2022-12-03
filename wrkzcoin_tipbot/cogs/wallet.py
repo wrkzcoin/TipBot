@@ -10002,6 +10002,10 @@ class Wallet(commands.Cog):
                         num_format_coin(total_balance, coin_name, coin_decimal, False), token_display),
                     inline=False
                 )
+                if getattr(getattr(self.bot.coin_list, coin_name), "deposit_note") and len(
+                        getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")) > 0:
+                    description = getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")
+                    embed.set_footer(text=description)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 

@@ -220,6 +220,7 @@ class Utils(commands.Cog):
         self.cache_kv_db_pools = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="pools", autocommit=True)
         self.cache_kv_db_paprika = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="paprika", autocommit=True)
         self.cache_kv_db_faucet = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="faucet", autocommit=True)
+        self.cache_kv_db_market_guild = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="market_guild", autocommit=True)
 
     async def get_bot_settings(self):
         try:
@@ -331,6 +332,22 @@ class Utils(commands.Cog):
                     await logchanbot("[bot_commanded] removed: " +str(each))
         self.adding_commands = False
 
+    async def get_trade_channel_list(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `discord_server`
+                    WHERE `trade_channel` IS NOT NULL
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
     def set_cache_kv(self, table: str, key: str, value):
         try:
             if table.lower() == "test":
@@ -351,6 +368,9 @@ class Utils(commands.Cog):
             elif table.lower() == "faucet":
                 self.cache_kv_db_faucet[key.upper()] = value
                 return True
+            elif table.lower() == "market_guild":
+                self.cache_kv_db_market_guild[key.upper()] = value
+                return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return False
@@ -369,6 +389,28 @@ class Utils(commands.Cog):
                 return self.cache_kv_db_paprika[key.upper()]
             elif table.lower() == "faucet":
                 return self.cache_kv_db_faucet[key.upper()]
+            elif table.lower() == "market_guild":
+                return self.cache_kv_db_market_guild[key.upper()]
+        except KeyError:
+            pass
+        return None
+
+    def get_cache_kv_list(self, table: str):
+        try:
+            if table.lower() == "test":
+                return self.cache_kv_db_test
+            elif table.lower() == "general":
+                return self.cache_kv_db_general
+            elif table.lower() == "block":
+                return self.cache_kv_db_block
+            elif table.lower() == "pools":
+                return self.cache_kv_db_pools
+            elif table.lower() == "paprika":
+                return self.cache_kv_db_paprika
+            elif table.lower() == "faucet":
+                return self.cache_kv_db_faucet
+            elif table.lower() == "market_guild":
+                return self.cache_kv_db_market_guild
         except KeyError:
             pass
         return None
@@ -387,6 +429,8 @@ class Utils(commands.Cog):
             self.cache_kv_db_paprika = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="paprika", autocommit=True)
         if self.cache_kv_db_faucet is None:
             self.cache_kv_db_faucet = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="faucet", autocommit=True)
+        if self.cache_kv_db_market_guild is None:
+            self.cache_kv_db_market_guild = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="market_guild", autocommit=True)
 
     def cog_unload(self):
         self.cache_kv_db_test.close()
@@ -395,6 +439,7 @@ class Utils(commands.Cog):
         self.cache_kv_db_pools.close()
         self.cache_kv_db_paprika.close()
         self.cache_kv_db_faucet.close()
+        self.cache_kv_db_market_guild.close()
 
 def setup(bot):
     bot.add_cog(Utils(bot))

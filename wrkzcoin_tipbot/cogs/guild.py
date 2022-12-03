@@ -3299,6 +3299,7 @@ class Guild(commands.Cog):
 
     # Setting command
     @commands.guild_only()
+    @commands.has_permissions(manage_channels=True)
     @commands.slash_command(
         dm_permission=False,
         description="Guild setting commands."
@@ -3317,6 +3318,8 @@ class Guild(commands.Cog):
         description="Allow only these coins for tipping"
     )
     async def tiponly(self, ctx, coin_list: str):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
+        await ctx.response.send_message(msg)
         await self.bot_log()
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
@@ -3329,10 +3332,10 @@ class Guild(commands.Cog):
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', "ALLCOIN")
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `ALLCOIN`'
+                    f"{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `ALLCOIN`"
                 )
-            msg = f'{ctx.author.mention}, all coins will be allowed in here.'
-            await ctx.response.send_message(msg)
+            msg = f"{ctx.author.mention}, all coins will be allowed in here."
+            await ctx.edit_original_message(content=msg)
             return
         elif " " in coin_list or "," in coin_list:
             # multiple coins
@@ -3354,25 +3357,25 @@ class Guild(commands.Cog):
                         f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{tiponly_value}`'
                     )
                 msg = f'{ctx.author.mention} TIPONLY for guild {ctx.guild.name} set to: **{tiponly_value}**.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
             else:
-                msg = f'{ctx.author.mention} No known coin in **{coin_list}**. TIPONLY is remained unchanged in guild `{ctx.guild.name}`.'
-                await ctx.response.send_message(msg)
+                msg = f"{ctx.author.mention} No known coin in **{coin_list}**. TIPONLY is remained unchanged in guild `{ctx.guild.name}`."
+                await ctx.edit_original_message(content=msg)
         else:
             # Single coin
             if coin_list not in self.bot.coin_name_list:
-                msg = f'{ctx.author.mention} {coin_list} is not in any known coin we set.'
-                await ctx.response.send_message(msg)
+                msg = f"{ctx.author.mention} {coin_list} is not in any known coin we set."
+                await ctx.edit_original_message(content=msg)
             else:
                 # coin_list is single coin set_coin
                 await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', coin_list)
                 if self.enable_logchan:
                     await self.botLogChan.send(
-                        f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{coin_list}`'
+                        f"{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{coin_list}`"
                     )
-                msg = f'{ctx.author.mention} {coin_list} will be the only tip here in guild `{ctx.guild.name}`.'
-                await ctx.response.send_message(msg)
+                msg = f"{ctx.author.mention} {coin_list} will be the only tip here in guild `{ctx.guild.name}`."
+                await ctx.edit_original_message(content=msg)
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3383,6 +3386,8 @@ class Guild(commands.Cog):
         self, 
         ctx,
     ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
+        await ctx.response.send_message(msg)
         await self.bot_log()
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
@@ -3394,21 +3399,22 @@ class Guild(commands.Cog):
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'NO')
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} DISABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}'
+                    f"{ctx.author.name} / {ctx.author.id} DISABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}"
                 )
             msg = f"{ctx.author.mention} DISABLE TRADE feature in this guild {ctx.guild.name}."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
         elif serverinfo and serverinfo['enable_trade'] == "NO":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'YES')
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} ENABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}'
+                    f"{ctx.author.name} / {ctx.author.id} ENABLE trade in their guild {ctx.guild.name} / {ctx.guild.id}"
                 )
-            msg = f"{ctx.author.mention} ENABLE TRADE feature in this guild {ctx.guild.name}."
-            await ctx.response.send_message(msg)
+            msg = f"{ctx.author.mention} ENABLE TRADE feature in this guild {ctx.guild.name}. "\
+                "You can assign trade channel by `SETTING TRADECHAN`"
+            await ctx.edit_original_message(content=msg)
         else:
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3419,6 +3425,8 @@ class Guild(commands.Cog):
         self, 
         ctx,
     ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
+        await ctx.response.send_message(msg)
         await self.bot_log()
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
@@ -3433,18 +3441,18 @@ class Guild(commands.Cog):
                     f'{ctx.author.name} / {ctx.author.id} DISABLE /memepls in their guild {ctx.guild.name} / {ctx.guild.id}'
                 )
             msg = f"{ctx.author.mention} DISABLE /memepls feature in this guild {ctx.guild.name}."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
         elif serverinfo and serverinfo['enable_memepls'] == "NO":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_memepls', 'YES')
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} ENABLE /memepls in their guild {ctx.guild.name} / {ctx.guild.id}'
+                    f"{ctx.author.name} / {ctx.author.id} ENABLE /memepls in their guild {ctx.guild.name} / {ctx.guild.id}"
                 )
             msg = f"{ctx.author.mention} ENABLE /memepls feature in this guild {ctx.guild.name}."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
         else:
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3455,6 +3463,8 @@ class Guild(commands.Cog):
         self, 
         ctx,
     ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
+        await ctx.response.send_message(msg)
         await self.bot_log()
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
@@ -3466,21 +3476,21 @@ class Guild(commands.Cog):
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_nsfw', 'NO')
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} DISABLE NSFW in their guild {ctx.guild.name} / {ctx.guild.id}'
+                    f"{ctx.author.name} / {ctx.author.id} DISABLE NSFW in their guild {ctx.guild.name} / {ctx.guild.id}"
                 )
             msg = f"{ctx.author.mention} DISABLE NSFW command in this guild {ctx.guild.name}."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
         elif serverinfo and serverinfo['enable_nsfw'] == "NO":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_nsfw', 'YES')
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} ENABLE NSFW in their guild {ctx.guild.name} / {ctx.guild.id}'
+                    f"{ctx.author.name} / {ctx.author.id} ENABLE NSFW in their guild {ctx.guild.name} / {ctx.guild.id}"
                 )
             msg = f"{ctx.author.mention} ENABLE NSFW command in this guild {ctx.guild.name}."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
         else:
-            msg = f"{ctx.author.mention} Internal error when calling serverinfo function."
-            await ctx.response.send_message(msg)
+            msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
+            await ctx.edit_original_message(content=msg)
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3491,6 +3501,8 @@ class Guild(commands.Cog):
         self, 
         ctx,
     ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
+        await ctx.response.send_message(msg)
         await self.bot_log()
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
@@ -3501,21 +3513,21 @@ class Guild(commands.Cog):
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'NO')
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} DISABLE game in their guild {ctx.guild.name} / {ctx.guild.id}'
+                    f"{ctx.author.name} / {ctx.author.id} DISABLE game in their guild {ctx.guild.name} / {ctx.guild.id}"
                 )
             msg = f"{ctx.author.mention} DISABLE GAME feature in this guild {ctx.guild.name}."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
         elif serverinfo and serverinfo['enable_game'] == "NO":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'YES')
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f'{ctx.author.name} / {ctx.author.id} ENABLE game in their guild {ctx.guild.name} / {ctx.guild.id}'
+                    f"{ctx.author.name} / {ctx.author.id} ENABLE game in their guild {ctx.guild.name} / {ctx.guild.id}"
                 )
             msg = f"{ctx.author.mention} ENABLE GAME feature in this guild {ctx.guild.name}."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
         else:
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3526,6 +3538,8 @@ class Guild(commands.Cog):
         self, 
         ctx,
     ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
+        await ctx.response.send_message(msg)
         await self.bot_log()
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
@@ -3536,16 +3550,17 @@ class Guild(commands.Cog):
             try: 
                 if ctx.channel.id == int(serverinfo['botchan']):
                     msg = f"{EMOJI_RED_NO} {ctx.channel.mention} is already the bot channel here!"
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
                 else:
                     # change channel info
                     await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
                     msg = f'Bot channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} change bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.'
+                            f"{ctx.author.name} / {ctx.author.id} change bot channel "\
+                            f"{ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
                         )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -3554,9 +3569,12 @@ class Guild(commands.Cog):
             # change channel info
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'botchan', str(ctx.channel.id))
             msg = f'Bot channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed bot channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+                await self.botLogChan.send(
+                    f"{ctx.author.name} / {ctx.author.id} changed bot channel "\
+                    f"{ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
+                )
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3567,6 +3585,8 @@ class Guild(commands.Cog):
         self, 
         ctx,
     ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
+        await ctx.response.send_message(msg)
         await self.bot_log()
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
@@ -3577,13 +3597,13 @@ class Guild(commands.Cog):
             try: 
                 if ctx.channel.id == int(serverinfo['economy_channel']):
                     msg = f"{EMOJI_RED_NO} {ctx.channel.mention} is already the economy game channel here!"
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                     return
                 else:
                     # change channel info
                     await store.sql_changeinfo_by_server(str(ctx.guild.id), 'economy_channel', str(ctx.channel.id))
                     msg = f'Economy game channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
-                    await ctx.response.send_message(msg)
+                    await ctx.edit_original_message(content=msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} change economy game channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
             except Exception:
@@ -3593,10 +3613,78 @@ class Guild(commands.Cog):
             # change channel info
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'economy_channel', str(ctx.channel.id))
             msg = f'Economy game channel of guild {ctx.guild.name} has set to {ctx.channel.mention}.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             if self.enable_logchan:
                 await self.botLogChan.send(
                     f"{ctx.author.name} / {ctx.author.id} changed economy game channel "\
+                    f"{ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
+                )
+
+    @commands.has_permissions(manage_channels=True)
+    @setting.sub_command(
+        name="tradechan",
+        usage="setting tradechan", 
+        description="Set trade channel to the commanded channel"
+    )
+    async def tradechan(
+        self, 
+        ctx,
+    ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
+        await ctx.response.send_message(msg)
+        await self.bot_log()
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo is None:
+            # Let's add some info if server return None
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo['trade_channel']:
+            try: 
+                if ctx.channel.id == int(serverinfo['trade_channel']):
+                    msg = f"{EMOJI_RED_NO} {ctx.channel.mention} is already the trade channel here!"
+                    await ctx.edit_original_message(content=msg)
+                    return
+                else:
+                    # change channel info
+                    update = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'trade_channel', str(ctx.channel.id))
+                    msg = f"Trade channel of guild {ctx.guild.name} has set to {ctx.channel.mention}."
+                    await ctx.edit_original_message(content=msg)
+                    if update is True:
+                        # kv trade guild channel
+                        try:
+                            self.utils.set_cache_kv(
+                                "market_guild",
+                                str(ctx.guild.id),
+                                ctx.channel.id
+                            )
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                    if self.enable_logchan:
+                        await self.botLogChan.send(
+                            f"{ctx.author.name} / {ctx.author.id} change trade channel "\
+                            f"{ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
+                        )
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+                await logchanbot("guild " +str(traceback.format_exc()))
+        else:
+            # change channel info
+            update = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'trade_channel', str(ctx.channel.id))
+            msg = f"Trade game channel of guild {ctx.guild.name} has set to {ctx.channel.mention}."
+            if update is True:
+                # kv trade guild channel
+                try:
+                    self.utils.set_cache_kv(
+                        "market_guild",
+                        str(ctx.guild.id),
+                        ctx.channel.id
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            await ctx.edit_original_message(content=msg)
+            if self.enable_logchan:
+                await self.botLogChan.send(
+                    f"{ctx.author.name} / {ctx.author.id} changed trade channel "\
                     f"{ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
                 )
 
@@ -3609,6 +3697,8 @@ class Guild(commands.Cog):
         self, 
         ctx,
     ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
+        await ctx.response.send_message(msg)
         await self.bot_log()
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
@@ -3621,29 +3711,31 @@ class Guild(commands.Cog):
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE faucet (take) command in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} DISABLE faucet (take/claim) command in this guild {ctx.guild.name}."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
         elif serverinfo and serverinfo['enable_faucet'] == "NO":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_faucet', 'YES')
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE faucet (take) command in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} ENABLE faucet (take/claim) command in this guild {ctx.guild.name}."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
         else:
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
 
     async def async_set_gamechan(self, ctx, game):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
+        await ctx.response.send_message(msg)
         if game is None:
             msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name to set game channel for it. Game list: "\
                 f"{', '.join(self.bot.config['game']['game_list'])}."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             game = game.lower()
             if game not in self.bot.config['game']['game_list']:
                 msg = f"{EMOJI_RED_NO} {ctx.channel.mention} please mention a game name within this list"\
                     f": {', '.join(self.bot.config['game']['game_list'])}."
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
             else:
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
@@ -3656,15 +3748,18 @@ class Guild(commands.Cog):
                     try: 
                         if ctx.channel.id == int(serverinfo[index_game]):
                             msg = f"{EMOJI_RED_NO} {ctx.channel.mention} is already for game **{game}** channel here!"
-                            await ctx.response.send_message(msg)
+                            await ctx.edit_original_message(content=msg)
                             return
                         else:
                             # change channel info
                             await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
-                            msg = f'{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}.'
-                            await ctx.response.send_message(msg)
+                            msg = f"{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}."
+                            await ctx.edit_original_message(content=msg)
                             if self.enable_logchan:
-                                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} changed game **{game}** in channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+                                await self.botLogChan.send(
+                                    f"{ctx.author.name} / {ctx.author.id} changed game **{game}** in channel"\
+                                    f" {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
+                                )
                             return
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
@@ -3672,8 +3767,8 @@ class Guild(commands.Cog):
                 else:
                     # change channel info
                     await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
-                    msg = f'{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}.'
-                    await ctx.response.send_message(msg)
+                    msg = f"{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}."
+                    await ctx.edit_original_message(content=msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
                             f"{ctx.author.name} / {ctx.author.id} set game **{game}** channel "\

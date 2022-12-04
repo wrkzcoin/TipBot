@@ -4093,7 +4093,7 @@ async def insert_quickdrop_create(
     message_id: str, guild_id: str, channel_id: str, real_amount: float, 
     real_amount_usd: float, real_amount_usd_text: float, 
     unit_price_usd: float, token_decimal: int, quickdrop_time: int, 
-    status: str = "ONGOING"
+    status: str = "ONGOING", need_verify: int=0
 ):
     global pool
     try:
@@ -4103,14 +4103,14 @@ async def insert_quickdrop_create(
                 sql = """ INSERT INTO `discord_quickdrop` 
                 (`token_name`, `contract`, `from_userid`, `from_ownername`, `message_id`, 
                 `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `real_amount_usd_text`, 
-                `unit_price_usd`, `token_decimal`, `message_time`, `expiring_time`, `status`) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                `unit_price_usd`, `token_decimal`, `message_time`, `expiring_time`, `status`, `need_verify`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                 await cur.execute(sql, (
                     token_name, contract, from_userid, from_ownername, 
                     message_id, guild_id, channel_id, real_amount, 
                     real_amount_usd, real_amount_usd_text, 
                     unit_price_usd, token_decimal, int(time.time()), 
-                    quickdrop_time, status
+                    quickdrop_time, status, need_verify
                     )
                 )
                 await conn.commit()

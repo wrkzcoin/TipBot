@@ -19,7 +19,139 @@ from cachetools import TTLCache
 from cogs.economy import database_economy
 from cogs.wallet import WalletAPI
 from cogs.utils import Utils
+from disnake import TextInputStyle
 
+# Verifying quickdrop
+class Quickdrop_Verify(disnake.ui.Modal):
+    def __init__(self, ctx, bot, question, answer, from_user_id, msg_id) -> None:
+        self.ctx = ctx
+        self.bot = bot
+        self.question = question
+        self.answer = answer
+        self.from_user_id = from_user_id
+        self.msg_id = msg_id
+        components = [
+            disnake.ui.TextInput(
+                label="Type answer",
+                placeholder="???",
+                custom_id="answer_id",
+                style=TextInputStyle.paragraph,
+                required=True
+            )
+        ]
+        super().__init__(title=f"Quickdrop Verification! {question}", custom_id="modal_quickdrop_verify", components=components)
+
+    async def callback(self, interaction: disnake.ModalInteraction) -> None:
+        # Check if type of question is bool or multipe
+        await interaction.response.send_message(content=f"{interaction.author.mention}, verification starts...", ephemeral=True)
+
+        answer = interaction.text_values['answer_id'].strip()
+        if answer == "":
+            await interaction.edit_original_message(f"{interaction.author.mention}, answer is empty!")
+            return
+        try:
+            if int(answer) != self.answer:
+                await interaction.edit_original_message(f"{interaction.author.mention}, incorrect answer!")
+                return
+            elif int(answer) == self.answer:
+                get_message = await store.get_quickdrop_id(self.msg_id)
+                if get_message['collected_by_userid'] is not None:
+                    await interaction.edit_original_message(f"{interaction.author.mention}, too late! Already collected!")
+                    return
+                # correct
+                # notify quickdrop owner
+                quickdrop_owner = self.bot.get_user(int(self.from_user_id))
+                try:
+                    quickdrop_link = "https://discord.com/channels/{}/{}/{}".format(
+                        interaction.guild.id, interaction.channel.id, interaction.message.id
+                    )
+                    if quickdrop_owner is not None:
+                        await quickdrop_owner.send(
+                            "{}#{} / {} ☑️ completed verififcation with your /quickdrop {}".format(
+                                interaction.author.name, interaction.author.discriminator,
+                                interaction.author.mention, quickdrop_link
+                            )
+                        )
+                except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                    pass
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+
+                # Cache it first
+                # Update quickdrop table
+                quick = await store.update_quickdrop_id(
+                    self.msg_id, "COMPLETED", 
+                    str(interaction.author.id), "{}#{}".format(interaction.author.name, interaction.author.discriminator),
+                    int(time.time())
+                )
+                if quick:
+                    try:
+                        key_coin = get_message['from_userid'] + "_" + get_message['token_name'] + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+
+                        key_coin = str(interaction.author.id) + "_" + get_message['token_name'] + "_" + SERVER_BOT
+                        if key_coin in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_coin]
+                    except Exception:
+                        pass
+                    tip = await store.sql_user_balance_mv_single(
+                        get_message['from_userid'], str(interaction.author.id), get_message['guild_id'],
+                        get_message['channel_id'], get_message['real_amount'], 
+                        get_message['token_name'], "QUICKDROP",
+                        get_message['token_decimal'], SERVER_BOT, 
+                        get_message['contract'], get_message['real_amount_usd'], None
+                    )
+                    if tip:
+                        notifyList = await store.sql_get_tipnotify()
+                        if interaction.author.id not in notifyList:
+                            try:
+                                # Send message to receiver
+                                await interaction.author.send("🎉🎉🎉 Congratulation! You collected {} {} in guild `{}`.".format(
+                                    num_format_coin(get_message['real_amount'], 
+                                    get_message['token_name'], get_message['token_decimal'], False), 
+                                    interaction.guild.name))
+                            except Exception:
+                                pass
+                        # Update embed
+                        try:
+                            owner_displayname = get_message['from_ownername']
+                            embed = disnake.Embed(
+                                title=f"📦📦📦 Quick Drop Collected! 📦📦📦",
+                                description="First come, first serve!",
+                                timestamp=datetime.datetime.fromtimestamp(get_message['expiring_time']))
+                            embed.set_footer(
+                                text=f"Dropped by {owner_displayname} | Used with /quickdrop | Ended"
+                            )
+                            embed.add_field(
+                                name='Owner', 
+                                value=owner_displayname,
+                                inline=False
+                            )
+                            embed.add_field(
+                                name='Collected by', 
+                                value="{}#{}".format(interaction.author.name, interaction.author.discriminator),
+                                inline=False
+                            )
+                            embed.add_field(
+                                name='Amount', 
+                                value="🎉🎉 {} {} 🎉🎉".format(
+                                    num_format_coin(get_message['real_amount'], get_message['token_name'], get_message['token_decimal'], False),
+                                    get_message['token_name']),
+                                inline=False
+                            )
+                            channel = self.bot.get_channel(int(get_message['channel_id']))
+                            _msg: disnake.Message = await channel.fetch_message(int(get_message['message_id']))
+                            await _msg.edit(content=None, embed=embed, view=None)
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                msg = "You sucessfully collected quicktip id: {}".format(get_message['message_id'])
+                await interaction.edit_original_message(content=msg)
+                return
+        except ValueError:
+            await interaction.edit_original_message(f"{interaction.author.mention}, incorrect answer!")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
 class Events(commands.Cog):
     def __init__(self, bot):
@@ -1060,108 +1192,171 @@ class Events(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
         elif inter.message.author == self.bot.user and inter.component.custom_id == "quickdrop_tipbot":
             try:
-                await inter.response.send_message(content=f"QuickDrop ID {str(inter.message.id)}: checking...", ephemeral=True)
                 msg_id = inter.message.id
                 get_message = await store.get_quickdrop_id(str(msg_id))
-
+                if get_message is None:
+                    if get_message['need_verify'] != 1:
+                        await inter.edit_original_message(
+                            content=f"QuickDrop ID {str(inter.message.id)}: Failed to collect!"
+                        )
+                    else:
+                        await inter.response.send_message(
+                            content=f"QuickDrop ID {str(inter.message.id)}: Failed to collect!",
+                            ephemeral=True
+                        )
+                    await logchanbot(
+                        f"[ERROR QUICKDROP] Failed to collect in guild {inter.guild.name} / {inter.guild.id} "\
+                        f"by {inter.author.name}#{inter.author.discriminator}!"
+                    )
+                    return
+                if get_message['need_verify'] != 1:
+                    await inter.response.send_message(content=f"QuickDrop ID {str(inter.message.id)}: checking...", ephemeral=True)
+                
                 if get_message and int(get_message['from_userid']) == inter.author.id:
-                    await inter.edit_original_message(content=f"QuickDrop ID {str(inter.message.id)}: You are the owner of the drop!")
+                    if get_message['need_verify'] != 1:
+                        await inter.edit_original_message(content=f"QuickDrop ID {str(inter.message.id)}: You are the owner of the drop!")
+                    else:
+                        await inter.response.send_message(
+                            content=f"{inter.author.mention}, QuickDrop ID {str(inter.message.id)}: You are the owner of the drop!",
+                            ephemeral=True
+                        )
                     await logchanbot(
                         f"[QUICKDROP] owner want to collect quick drop in guild {inter.guild.name} / {inter.guild.id} "\
                         f"by {inter.author.name}#{inter.author.discriminator}!"
                     )
                     return
 
-                if get_message is None:
-                    await inter.edit_original_message(
-                        content=f"QuickDrop ID {str(inter.message.id)}: Failed to collect!"
-                    )
-                    await logchanbot(
-                        f"[ERROR QUICKDROP] Failed to collect in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
-                    return
-                elif get_message and get_message['collected_by_userid']:
+                if get_message and get_message['collected_by_userid']:
                     collected_by = get_message['collected_by_username']
-                    await inter.edit_original_message(content=f"QuickDrop ID {str(inter.message.id)}: Already collected by {collected_by}!")
+                    if get_message['need_verify'] != 1:
+                        await inter.edit_original_message(content=f"QuickDrop ID {str(inter.message.id)}: Already collected by {collected_by}!")
+                    else:
+                        await inter.response.send_message(
+                            content=f"QuickDrop ID {str(inter.message.id)}: Already collected by {collected_by}!",
+                            ephemeral=True
+                        )
                     await logchanbot(
-                        f"[QUICKDROP] late collecting in guild {inter.guild.name} / {inter.guild.id} by {inter.author.name}#{inter.author.discriminator}!")
+                        f"[QUICKDROP] late collecting in guild {inter.guild.name} / {inter.guild.id} "\
+                        f"by {inter.author.name}#{inter.author.discriminator}!"
+                    )
                     return
                 elif get_message and get_message['collected_by_userid'] is None:
-                    # Cache it first
-                    try:
-                        if str(inter.message.id) not in self.quickdrop_cache:
-                            self.quickdrop_cache[str(inter.message.id)] = inter.author.id
-                        else:
-                            await inter.edit_original_message(
-                                content=f"QuickDrop ID {str(inter.message.id)}: is being processed by other!"
-                            )
-                            return
-                    except Exception:
-                        pass
-                    # Update quickdrop table
-                    quick = await store.update_quickdrop_id(
-                        str(inter.message.id), "COMPLETED", 
-                        str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator),
-                        int(time.time())
-                    )
-                    if quick:
+                    # Put challenge here if need to verify
+                    if get_message['need_verify'] == 1:
                         try:
-                            key_coin = get_message['from_userid'] + "_" + get_message['token_name'] + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-
-                            key_coin = str(inter.author.id) + "_" + get_message['token_name'] + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-                        except Exception:
-                            pass
-                        tip = await store.sql_user_balance_mv_single(
-                            get_message['from_userid'], str(inter.author.id), get_message['guild_id'],
-                            get_message['channel_id'], get_message['real_amount'], 
-                            get_message['token_name'], "QUICKDROP",
-                            get_message['token_decimal'], SERVER_BOT, 
-                            get_message['contract'], get_message['real_amount_usd'], None
-                        )
-                        if tip:
-                            notifyList = await store.sql_get_tipnotify()
-                            if inter.author.id not in notifyList:
-                                try:
-                                    # Send message to receiver
-                                    await inter.author.send("🎉🎉🎉 Congratulation! You collected {} {} in guild `{}`.".format(
-                                        num_format_coin(get_message['real_amount'], 
-                                        get_message['token_name'], get_message['token_decimal'], False), 
-                                        inter.guild.name))
-                                except Exception:
-                                    pass
-                            # Update embed
+                            random.seed(datetime.datetime.now())
+                            a = random.randint(51, 100)
+                            b = random.randint(10, 50)
+                            question = "{} + {} = ?".format(a, b)
+                            answer = a + b
+                            # nofity freetip owner
+                            quickdrop_owner = self.bot.get_user(int(get_message['from_userid']))
                             try:
-                                owner_displayname = get_message['from_ownername']
-                                embed = disnake.Embed(
-                                    title=f"📦📦📦 Quick Drop Collected! 📦📦📦",
-                                    description="First come, first serve!",
-                                    timestamp=datetime.datetime.fromtimestamp(get_message['expiring_time']))
-                                embed.set_footer(
-                                    text=f"Dropped by {owner_displayname} | Used with /quickdrop | Ended"
+                                quickdrop_link = "https://discord.com/channels/{}/{}/{}".format(
+                                    get_message['guild_id'], get_message['channel_id'], get_message['message_id']
                                 )
-                                embed.add_field(
-                                    name='Owner', 
-                                    value=owner_displayname,
-                                    inline=False
-                                )
-                                embed.add_field(
-                                    name='Collected by', 
-                                    value="{}#{}".format(inter.author.name, inter.author.discriminator),
-                                    inline=False
-                                )
-                                embed.add_field(
-                                    name='Amount', 
-                                    value="🎉🎉 {} {} 🎉🎉".format(num_format_coin(get_message['real_amount'], get_message['token_name'], get_message['token_decimal'], False), get_message['token_name']),
-                                    inline=False
-                                )
-                                channel = self.bot.get_channel(int(get_message['channel_id']))
-                                _msg: disnake.Message = await channel.fetch_message(int(get_message['message_id']))
-                                await _msg.edit(content=None, embed=embed, view=None)
+                                if quickdrop_owner is not None:
+                                    await quickdrop_owner.send(
+                                        "{}#{} / {} ❓ started to verify with your /quickdrop {}".format(
+                                            inter.author.name, inter.author.discriminator,
+                                            inter.author.mention, quickdrop_link
+                                        )
+                                    )
+                            except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                pass
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
+                            await inter.response.send_modal(
+                                modal=Quickdrop_Verify(inter, self.bot, question, answer, get_message['from_userid'], get_message['message_id'])
+                            )
+                            modal_inter: disnake.ModalInteraction = await self.bot.wait_for(
+                                "modal_submit",
+                                check=lambda i: i.custom_id == "modal_quickdrop_verify" and i.author.id == inter.author.id,
+                                timeout=30,
+                            )
+                        except asyncio.TimeoutError:
+                            # The user didn't submit the modal in the specified period of time.
+                            # This is done since Discord doesn't dispatch any event for when a modal is closed/dismissed.
+                            await modal_inter.response.send_message("Timeout!", ephemeral=True)
+                            return
+                    else:
+                        # Cache it first
+                        try:
+                            if str(inter.message.id) not in self.quickdrop_cache:
+                                self.quickdrop_cache[str(inter.message.id)] = inter.author.id
+                            else:
+                                await inter.edit_original_message(
+                                    content=f"QuickDrop ID {str(inter.message.id)}: is being processed by other!"
+                                )
+                                return
+                        except Exception:
+                            pass
+                        # Update quickdrop table
+                        # Put challenge here..
+                        quick = await store.update_quickdrop_id(
+                            str(inter.message.id), "COMPLETED", 
+                            str(inter.author.id), "{}#{}".format(inter.author.name, inter.author.discriminator),
+                            int(time.time())
+                        )
+                        if quick:
+                            try:
+                                key_coin = get_message['from_userid'] + "_" + get_message['token_name'] + "_" + SERVER_BOT
+                                if key_coin in self.bot.user_balance_cache:
+                                    del self.bot.user_balance_cache[key_coin]
+
+                                key_coin = str(inter.author.id) + "_" + get_message['token_name'] + "_" + SERVER_BOT
+                                if key_coin in self.bot.user_balance_cache:
+                                    del self.bot.user_balance_cache[key_coin]
+                            except Exception:
+                                pass
+                            tip = await store.sql_user_balance_mv_single(
+                                get_message['from_userid'], str(inter.author.id), get_message['guild_id'],
+                                get_message['channel_id'], get_message['real_amount'], 
+                                get_message['token_name'], "QUICKDROP",
+                                get_message['token_decimal'], SERVER_BOT, 
+                                get_message['contract'], get_message['real_amount_usd'], None
+                            )
+                            if tip:
+                                notifyList = await store.sql_get_tipnotify()
+                                if inter.author.id not in notifyList:
+                                    try:
+                                        # Send message to receiver
+                                        await inter.author.send("🎉🎉🎉 Congratulation! You collected {} {} in guild `{}`.".format(
+                                            num_format_coin(get_message['real_amount'], 
+                                            get_message['token_name'], get_message['token_decimal'], False), 
+                                            inter.guild.name))
+                                    except Exception:
+                                        pass
+                                # Update embed
+                                try:
+                                    owner_displayname = get_message['from_ownername']
+                                    embed = disnake.Embed(
+                                        title=f"📦📦📦 Quick Drop Collected! 📦📦📦",
+                                        description="First come, first serve!",
+                                        timestamp=datetime.datetime.fromtimestamp(get_message['expiring_time']))
+                                    embed.set_footer(
+                                        text=f"Dropped by {owner_displayname} | Used with /quickdrop | Ended"
+                                    )
+                                    embed.add_field(
+                                        name='Owner', 
+                                        value=owner_displayname,
+                                        inline=False
+                                    )
+                                    embed.add_field(
+                                        name='Collected by', 
+                                        value="{}#{}".format(inter.author.name, inter.author.discriminator),
+                                        inline=False
+                                    )
+                                    embed.add_field(
+                                        name='Amount', 
+                                        value="🎉🎉 {} {} 🎉🎉".format(num_format_coin(get_message['real_amount'], get_message['token_name'], get_message['token_decimal'], False), get_message['token_name']),
+                                        inline=False
+                                    )
+                                    channel = self.bot.get_channel(int(get_message['channel_id']))
+                                    _msg: disnake.Message = await channel.fetch_message(int(get_message['message_id']))
+                                    await _msg.edit(content=None, embed=embed, view=None)
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
                     # Move Tip
             except Exception:
                 traceback.print_exc(file=sys.stdout)

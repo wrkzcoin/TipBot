@@ -121,6 +121,12 @@ class GShop(commands.Cog):
                                             traceback.print_exc(file=sys.stdout)
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
+                            if member.roles and role not in member.roles:
+                                # just set expire if he doesn't have that role
+                                try:
+                                    expiring = await self.set_expired_role_item(each_order['id'])
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
                             else:
                                 await logchanbot(f"[GSHOP] ERROR to turn expired on for id {str(each_order['id'])}.")
                                 continue

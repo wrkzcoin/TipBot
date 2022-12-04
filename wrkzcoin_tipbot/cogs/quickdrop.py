@@ -8,17 +8,16 @@ from decimal import Decimal
 from typing import Dict
 import asyncio
 from cachetools import TTLCache
+from disnake.app_commands import Option
+from disnake.enums import ButtonStyle
+from disnake.enums import OptionType
+from disnake.app_commands import Option, OptionChoice
 
 import disnake
 import store
 from Bot import num_format_coin, logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, SERVER_BOT, text_to_num, \
     truncate, seconds_str_days
 from cogs.wallet import WalletAPI
-from disnake.app_commands import Option
-from disnake.enums import ButtonStyle
-from disnake.enums import OptionType
-from disnake.app_commands import Option, OptionChoice
-
 from disnake.ext import commands, tasks
 
 from cogs.utils import Utils
@@ -132,7 +131,7 @@ class QuickDrop(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
 
-    async def async_quickdrop(self, ctx, amount: str, token: str):
+    async def async_quickdrop(self, ctx, amount: str, token: str, verify: str="OFF"):
         coin_name = token.upper()
         await ctx.response.send_message(f"{ctx.author.mention}, /quickdrop preparation... ")
 
@@ -345,13 +344,16 @@ class QuickDrop(commands.Cog):
                 msg = await ctx.channel.send(content=None, embed=embed, view=view)
                 view.message = msg
                 view.channel_interact = ctx.channel.id
+                need_verify = 0
+                if verify == "ON":
+                    need_verify = 1
                 await store.insert_quickdrop_create(
                     coin_name, contract, str(ctx.author.id),
                     owner_displayname, str(view.message.id),
                     str(ctx.guild.id), str(ctx.channel.id), 
                     amount, total_in_usd,
                     equivalent_usd, per_unit, coin_decimal, 
-                    drop_end, "ONGOING"
+                    drop_end, "ONGOING", need_verify
                 )
                 await ctx.delete_original_message()
             except disnake.errors.Forbidden:
@@ -373,7 +375,12 @@ class QuickDrop(commands.Cog):
         usage='quickdrop <amount> <token>',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
-            Option('token', 'token', OptionType.string, required=True)
+            Option('token', 'token', OptionType.string, required=True),
+            Option('verify', 'verify (ON | OFF)', OptionType.string, required=False, choices=[
+                OptionChoice("ON", "ON"),
+                OptionChoice("OFF", "OFF")
+            ]
+            )
         ],
         description="Quick drop and first people to collect when tap."
     )
@@ -381,9 +388,10 @@ class QuickDrop(commands.Cog):
         self,
         ctx,
         amount: str,
-        token: str
+        token: str,
+        verify: str="OFF"
     ):
-        await self.async_quickdrop(ctx, amount, token)
+        await self.async_quickdrop(ctx, amount, token, verify)
 
     @quickdrop.autocomplete("token")
     async def quickdrop_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):

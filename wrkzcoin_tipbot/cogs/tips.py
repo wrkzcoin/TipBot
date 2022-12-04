@@ -11,6 +11,7 @@ import disnake
 from disnake.ext import commands, tasks
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
+from disnake import TextInputStyle
 
 from disnake import ActionRow, Button
 from disnake.enums import ButtonStyle
@@ -24,17 +25,79 @@ from Bot import num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EM
 from cogs.wallet import WalletAPI
 from cogs.utils import Utils
 
+# Verifying free tip
+class FreeTip_Verify(disnake.ui.Modal):
+    def __init__(self, ctx, bot, question, answer, from_user_id) -> None:
+        self.ctx = ctx
+        self.bot = bot
+        self.question = question
+        self.answer = answer
+        self.from_user_id = from_user_id
+        components = [
+            disnake.ui.TextInput(
+                label="Type answer",
+                placeholder="???",
+                custom_id="answer_id",
+                style=TextInputStyle.paragraph,
+                required=True
+            )
+        ]
+        super().__init__(title=f"FreeTip Verification! {question}", custom_id="modal_freetip_verify", components=components)
+
+    async def callback(self, interaction: disnake.ModalInteraction) -> None:
+        # Check if type of question is bool or multipe
+        await interaction.response.send_message(content=f"{interaction.author.mention}, verification starts...", ephemeral=True)
+
+        answer = interaction.text_values['answer_id'].strip()
+        if answer == "":
+            await interaction.edit_original_message(f"{interaction.author.mention}, answer is empty!")
+            return
+        try:
+            if int(answer) != self.answer:
+                await interaction.edit_original_message(f"{interaction.author.mention}, incorrect answer!")
+                return
+            elif int(answer) == self.answer:
+                # correct
+                await store.insert_freetip_collector(
+                    str(interaction.message.id),
+                    self.from_user_id, str(interaction.author.id),
+                    "{}#{}".format(interaction.author.name, interaction.author.discriminator)
+                )
+                # nofity freetip owner
+                freetip_owner = self.bot.get_user(int(self.from_user_id))
+                try:
+                    freetip_link = "https://discord.com/channels/{}/{}/{}".format(
+                        interaction.guild.id, interaction.channel.id, interaction.message.id
+                    )
+                    if freetip_owner is not None:
+                        await freetip_owner.send(
+                            "{}#{} / {} ☑️ completed verififcation with your /freetip {}".format(
+                                interaction.author.name, interaction.author.discriminator,
+                                interaction.author.mention, freetip_link
+                            )
+                        )
+                except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                    pass
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                msg = "Sucessfully joined airdrop id: {}".format(str(interaction.message.id))
+                await interaction.edit_original_message(content=msg)
+                return
+        except ValueError:
+            await interaction.edit_original_message(f"{interaction.author.mention}, incorrect answer!")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
 # Defines a simple view of row buttons.
 class FreeTip_Button(disnake.ui.View):
     message: disnake.Message
 
-    def __init__(self, ctx, bot, timeout: float):
+    def __init__(self, ctx, bot, timeout: float, verify: str):
         super().__init__(timeout=timeout)
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
         self.bot = bot
+        self.verify = verify
         self.wallet_api = WalletAPI(self.bot)
-
         self.ctx = ctx
 
     async def on_timeout(self):
@@ -316,7 +379,9 @@ class FreeTip_Button(disnake.ui.View):
                     # await interaction.response.defer()
                     return
                 else:
-                    key = "freetip_{}_{}".format(str(interaction.message.id), str(interaction.author.id))
+                    key = "freetip_{}_{}".format(
+                        str(interaction.message.id), str(interaction.author.id)
+                    )
                     try:
                         if self.ttlcache[key] == key:
                             return
@@ -324,15 +389,54 @@ class FreeTip_Button(disnake.ui.View):
                             self.ttlcache[key] = key
                     except Exception:
                         pass
-                    insert_airdrop = await store.insert_freetip_collector(
-                        str(interaction.message.id),
-                        get_message['from_userid'], str(interaction.author.id),
-                        "{}#{}".format(interaction.author.name, interaction.author.discriminator)
-                    )
-                    msg = "Sucessfully joined airdrop id: {}".format(str(interaction.message.id))
-                    await interaction.response.defer()
-                    await interaction.response.send_message(content=msg, ephemeral=True)
-                    return
+                    # Verify here
+                    if self.verify == "ON":
+                        try:
+                            random.seed(datetime.now())
+                            a = random.randint(51, 100)
+                            b = random.randint(10, 50)
+                            question = "{} + {} = ?".format(a, b)
+                            answer = a + b
+                            # nofity freetip owner
+                            freetip_owner = self.bot.get_user(int(get_message['from_userid']))
+                            try:
+                                freetip_link = "https://discord.com/channels/{}/{}/{}".format(
+                                    get_message['guild_id'], get_message['channel_id'], get_message['message_id']
+                                )
+                                if freetip_owner is not None:
+                                    await freetip_owner.send(
+                                        "{}#{} / {} ❓ started to verify with your /freetip {}".format(
+                                            interaction.author.name, interaction.author.discriminator,
+                                            interaction.author.mention, freetip_link
+                                        )
+                                    )
+                            except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                pass
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            await interaction.response.send_modal(
+                                modal=FreeTip_Verify(interaction, self.bot, question, answer, get_message['from_userid'])
+                            )
+                            modal_inter: disnake.ModalInteraction = await self.bot.wait_for(
+                                "modal_submit",
+                                check=lambda i: i.custom_id == "modal_freetip_verify" and i.author.id == interaction.author.id,
+                                timeout=30,
+                            )
+                        except asyncio.TimeoutError:
+                            # The user didn't submit the modal in the specified period of time.
+                            # This is done since Discord doesn't dispatch any event for when a modal is closed/dismissed.
+                            await modal_inter.response.send_message("Timeout!", ephemeral=True)
+                            return
+                    else:
+                        await store.insert_freetip_collector(
+                            str(interaction.message.id),
+                            get_message['from_userid'], str(interaction.author.id),
+                            "{}#{}".format(interaction.author.name, interaction.author.discriminator)
+                        )
+                        msg = "Sucessfully joined airdrop id: {}".format(str(interaction.message.id))
+                        await interaction.response.defer()
+                        await interaction.response.send_message(content=msg, ephemeral=True)
+                        return
         except (disnake.InteractionResponded, disnake.InteractionTimedOut, disnake.NotFound) as e:
             return await interaction.followup.send(
                 msg,
@@ -340,7 +444,6 @@ class FreeTip_Button(disnake.ui.View):
             )
         except Exception:
             traceback.print_exc(file=sys.stdout)
-
 
 class Tips(commands.Cog):
     def __init__(self, bot):
@@ -939,7 +1042,7 @@ class Tips(commands.Cog):
 
     # FreeTip
     async def async_freetip(
-        self, ctx, amount: str, token: str, duration: str = None, comment: str = None
+        self, ctx, amount: str, token: str, duration: str = None, comment: str = None, verify: str="OFF"
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /freetip...'
         await ctx.response.send_message(msg)
@@ -1133,13 +1236,13 @@ class Tips(commands.Cog):
             return
 
         if amount > max_tip or amount < min_tip:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than "\
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than "\
                 f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than "\
                 f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a free tip of "\
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a free tip of "\
                 f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
@@ -1169,9 +1272,11 @@ class Tips(commands.Cog):
             if comment and len(comment) > 0:
                 embed.add_field(name="Comment", value=comment, inline=True)
             embed.add_field(name="Attendees", value="Click to collect!", inline=False)
-            embed.add_field(name="Individual Tip Amount",
-                            value=f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}",
-                            inline=True)
+            embed.add_field(
+                name="Individual Tip Amount",
+                value=f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}",
+                inline=True
+            )
             embed.add_field(name="Num. Attendees", value="**0** members", inline=True)
             embed.set_footer(
                 text=f"FreeTip by {ctx.author.name}#{ctx.author.discriminator}, Time Left: {seconds_str(duration_s)}")
@@ -1182,12 +1287,14 @@ class Tips(commands.Cog):
             if str(ctx.author.id) not in self.bot.tipping_in_progress:
                 self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                 try:
-                    view = FreeTip_Button(ctx, self.bot, duration_s)
+                    view = FreeTip_Button(ctx, self.bot, duration_s, verify)
                     view.message = await ctx.original_message()
                     await store.insert_discord_freetip(
                         coin_name, contract, str(ctx.author.id),
-                        "{}#{}".format(ctx.author.name,
-                                        ctx.author.discriminator),
+                        "{}#{}".format(
+                            ctx.author.name,
+                            ctx.author.discriminator
+                        ),
                         str(view.message.id), comment_str,
                         str(ctx.guild.id), str(ctx.channel.id), amount,
                         total_in_usd, equivalent_usd, per_unit,
@@ -1213,9 +1320,14 @@ class Tips(commands.Cog):
             Option('amount', 'amount', OptionType.string, required=True),
             Option('token', 'token', OptionType.string, required=True),
             Option('duration', 'duration', OptionType.string, required=True),
-            Option('comment', 'comment', OptionType.string, required=False)
+            Option('comment', 'comment', OptionType.string, required=False),
+            Option('verify', 'verify (ON | OFF)', OptionType.string, required=False, choices=[
+                OptionChoice("ON", "ON"),
+                OptionChoice("OFF", "OFF")
+            ]
+            )
         ],
-        description="Spread free tip by user reacting with emoji"
+        description="Spread free crypto tip by user's click"
     )
     async def freetip(
         self,
@@ -1223,10 +1335,11 @@ class Tips(commands.Cog):
         amount: str,
         token: str,
         duration: str,
-        comment: str = None
+        comment: str = None,
+        verify: str="OFF"
     ):
         try:
-            await self.async_freetip(ctx, amount, token, duration, comment)
+            await self.async_freetip(ctx, amount, token, duration, comment, verify)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1584,7 +1697,7 @@ class Tips(commands.Cog):
                 OptionChoice("ALL EXCEPT FOR NO NOTIFICATION", "ALL_EXCEPT_NO_NOTIFICATION"),
                 OptionChoice("ALL", "ALL")
             ]
-                   )
+            )
         ],
         description="Tip all online user"
     )

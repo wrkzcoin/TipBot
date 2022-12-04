@@ -298,6 +298,8 @@ class Trade(commands.Cog):
                                 channel = self.bot.get_channel(int(item['trade_channel']))
                                 if channel:
                                     await channel.send(get_message+buy_msg+additional_message)
+                                    if channel.id == ctx.channel.id:
+                                        await ctx.edit_original_message(content=f"{ctx.author.mention}, sell order posted!")
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
 
@@ -778,17 +780,27 @@ class Trade(commands.Cog):
                         )
                         if match_order:
                             try:
-                                msg = '#**{}** Order completed! ```Get: {}{}\nFrom selling: {}{}```'.format(
-                                    ctx.author.mention, ref_number,
-                                    num_format_coin(get_order_num['amount_sell_after_fee'], get_order_num['coin_sell'],
-                                                    getattr(getattr(self.bot.coin_list, get_order_num['coin_sell']),
-                                                            "decimal"), False), get_order_num['coin_sell'],
-                                    num_format_coin(get_order_num['amount_get_after_fee'], get_order_num['coin_get'],
-                                                    getattr(getattr(self.bot.coin_list, get_order_num['coin_get']),
-                                                            "decimal"), False), get_order_num['coin_get']
+                                got_amount = num_format_coin(
+                                    get_order_num['amount_sell_after_fee'],
+                                    get_order_num['coin_sell'],
+                                    getattr(getattr(self.bot.coin_list, get_order_num['coin_sell']), "decimal"),
+                                    False
                                 )
-                                await ctx.edit_original_message(content=msg)
+                                from_selling = num_format_coin(
+                                    get_order_num['amount_get'],
+                                    get_order_num['coin_get'],
+                                    getattr(getattr(self.bot.coin_list, get_order_num['coin_get']), "decimal"),
+                                    False
+                                )
+                                msg = '**{}** Order completed! ```Get: {}{}\nFrom selling: {}{}```'.format(
+                                    ref_number,
+                                    got_amount,
+                                    get_order_num['coin_sell'],
+                                    from_selling,
+                                    get_order_num['coin_get']
+                                )
                                 # Find guild where there is trade channel assign
+                                await ctx.edit_original_message(content=msg)
                                 get_guilds = await self.utils.get_trade_channel_list()
                                 if len(get_guilds) > 0:
                                     for item in get_guilds:
@@ -796,7 +808,7 @@ class Trade(commands.Cog):
                                             get_guild = self.bot.get_guild(int(item['serverid']))
                                             if get_guild:
                                                 channel = self.bot.get_channel(int(item['trade_channel']))
-                                                if channel:
+                                                if channel and ctx.channel.id != channel.id:
                                                     await channel.send(msg)
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)

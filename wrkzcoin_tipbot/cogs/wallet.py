@@ -20,6 +20,8 @@ import numpy as np
 import qrcode
 from aiomysql.cursors import DictCursor
 from cachetools import TTLCache
+
+from disnake import TextInputStyle
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands, tasks
@@ -3072,7 +3074,7 @@ class WalletAPI(commands.Cog):
     async def send_external_xlm(
         self, url: str, withdraw_keypair: str, user_id: str, amount: float, to_address: str,
         coin_decimal: int, user_server: str, coin: str, withdraw_fee: float,
-        asset_ticker: str = None, asset_issuer: str = None, time_out=60
+        asset_ticker: str = None, asset_issuer: str = None, time_out=60, memo=None
     ):
         coin_name = coin.upper()
         asset_sending = Asset.native()
@@ -3084,17 +3086,30 @@ class WalletAPI(commands.Cog):
         ) as server:
             tipbot_account = await server.load_account(tipbot_keypair.public_key)
             base_fee = 50000
-            transaction = (
-                TransactionBuilder(
-                    source_account=tipbot_account,
-                    network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
-                    base_fee=base_fee,
+            if memo is not None:
+                transaction = (
+                    TransactionBuilder(
+                        source_account=tipbot_account,
+                        network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
+                        base_fee=base_fee,
+                    )
+                    .add_text_memo(memo)
+                    .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
+                    .set_timeout(30)
+                    .build()
                 )
-                # .add_text_memo("Hello, Stellar!")
-                .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
-                .set_timeout(30)
-                .build()
-            )
+            else:
+                transaction = (
+                    TransactionBuilder(
+                        source_account=tipbot_account,
+                        network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
+                        base_fee=base_fee,
+                    )
+                    # .add_text_memo("Hello, Stellar!")
+                    .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
+                    .set_timeout(30)
+                    .build()
+                )
             transaction.sign(tipbot_keypair)
             response = await server.submit_transaction(transaction)
             # print(response)
@@ -4244,6 +4259,83 @@ class WalletAPI(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
+
+class TransferExtra(disnake.ui.Modal):
+    def __init__(self, ctx, bot, coin_name: str, coin_type: str) -> None:
+        self.ctx = ctx
+        self.bot = bot
+        self.coin_name = coin_name.upper()
+        self.coin_type = coin_type
+        self.wallet_api = WalletAPI(self.bot)
+        self.wallet = Wallet(self.bot)
+        extra_option = None
+        note = "We recommend you to transfer to your own wallet!"
+        max_len = 16
+        address_max = 256
+        if self.coin_type in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+            extra_option = "Payment ID"
+            max_len = 64
+            note = "If you use an integrated address, don't input Payment ID."
+        elif self.coin_type == "XLM":
+            extra_option = "MEMO"
+            max_len = 64
+
+        components = [
+            disnake.ui.TextInput(
+                label="Amount",
+                placeholder="100",
+                custom_id="amount_id",
+                style=TextInputStyle.short,
+                max_length=16,
+                required=True
+            ),
+            disnake.ui.TextInput(
+                label="Address",
+                placeholder="your external address",
+                custom_id="address_id",
+                style=TextInputStyle.paragraph,
+                max_length=address_max,
+                required=True
+            )
+        ]
+
+        if extra_option is not None:
+            components.append([
+                disnake.ui.TextInput(
+                    label=extra_option,
+                    placeholder="none",
+                    custom_id="extra_option",
+                    style=TextInputStyle.short,
+                    max_length=max_len,
+                    required=False
+                )
+            ])
+        super().__init__(title=f"Transfer {self.coin_name} with extra option", custom_id="modal_transfer_extra", components=components)
+
+    async def callback(self, interaction: disnake.ModalInteraction) -> None:
+        # Check if type of question is bool or multipe
+        await interaction.response.send_message(content=f"{interaction.author.mention}, checking transfer extra...", ephemeral=True)
+
+        amount = interaction.text_values['amount_id'].strip()
+        if amount == "":
+            await interaction.edit_original_message(f"{interaction.author.mention}, amount is empty!")
+            return
+
+        address = interaction.text_values['address_id'].strip()
+        if address == "":
+            await interaction.edit_original_message(f"{interaction.author.mention}, address can't be empty!")
+            return
+
+        extra_option = interaction.text_values['extra_option'].strip()
+        if extra_option is None or len(extra_option) == 0:
+            await interaction.edit_original_message(f"{interaction.author.mention}, without extra, please use `/withdraw` command!")
+            return
+
+        coin_name = self.coin_name
+        try:
+            await self.wallet.async_withdraw(interaction, amount, coin_name, address, extra_option)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
 class Wallet(commands.Cog):
     def __init__(self, bot):
@@ -10262,26 +10354,24 @@ class Wallet(commands.Cog):
     # End of Balance
 
     # Withdraw
-    async def async_withdraw(self, ctx, amount: str, token: str, address: str):
+    async def async_withdraw(self, ctx, amount: str, token: str, address: str, extra_option: str=None):
         withdraw_tx_ephemeral = False
         coin_name = token.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
         else:
             if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1:
                 msg = f'{ctx.author.mention}, **{coin_name}** is currently under maintenance.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
             if getattr(getattr(self.bot.coin_list, coin_name), "enable_withdraw") != 1:
                 msg = f'{ctx.author.mention}, **{coin_name}** withdraw is currently disable.'
-                await ctx.response.send_message(msg)
+                await ctx.edit_original_message(content=msg)
                 return
-
-        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE}, checking withdraw for {ctx.author.mention}..", ephemeral=True)
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -10814,7 +10904,7 @@ class Wallet(commands.Cog):
                             url, withdraw_keypair, str(ctx.author.id),
                             amount, address, coin_decimal, SERVER_BOT,
                             coin_name, NetFee, asset_ticker, asset_issuer,
-                            32
+                            90, extra_option
                         )
                         if send_tx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
@@ -10829,6 +10919,8 @@ class Wallet(commands.Cog):
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                            if extra_option is not None:
+                                msg += "\nWith memo: `{}`".format(extra_option)
                             await ctx.edit_original_message(content=msg)
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
@@ -11466,6 +11558,7 @@ class Wallet(commands.Cog):
         token: str,
         address: str
     ):
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} {ctx.author.mention}, loading withdraw...", ephemeral=True)
         await self.async_withdraw(ctx, amount, token, address)
 
     @withdraw.autocomplete("token")
@@ -11476,25 +11569,42 @@ class Wallet(commands.Cog):
     @commands.slash_command(
         usage='transfer',
         options=[
-            Option('amount', 'amount', OptionType.string, required=True),
-            Option('token', 'token', OptionType.string, required=True),
-            Option('address', 'address', OptionType.string, required=True)
+            Option('token', 'token', OptionType.string, required=True)
         ],
-        description="withdraw to your external address."
+        description="withdraw to your external address with extra option."
     )
     async def transfer(
         self,
         ctx,
-        amount: str,
-        token: str,
-        address: str
+        token: str
     ):
-        await self.async_withdraw(ctx, amount, token, address)
+        type_coin = getattr(getattr(self.bot.coin_list, token.upper()), "type")
+        # Waits until the user submits the modal.
+        try:
+            await ctx.response.send_modal(
+                modal=TransferExtra(ctx, self.bot, token.upper(), type_coin)
+            )
+            modal_inter: disnake.ModalInteraction = await self.bot.wait_for(
+                "modal_submit",
+                check=lambda i: i.custom_id == "modal_transfer_extra" and i.author.id == ctx.author.id,
+                timeout=30,
+            )
+        except asyncio.TimeoutError:
+            # The user didn't submit the modal in the specified period of time.
+            # This is done since Discord doesn't dispatch any event for when a modal is closed/dismissed.
+            await modal_inter.response.send_message("Timeout!", ephemeral=True)
+            return
+        #await modal_inter.response.send_message("modal", ephemeral=True)
 
     @transfer.autocomplete("token")
     async def transfer_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
         string = string.lower()
-        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
+        coin_list = []
+        for coin in self.bot.coin_name_list:
+            use_extra_transfer = getattr(getattr(self.bot.coin_list, coin.upper()), "use_extra_transfer")
+            if use_extra_transfer == 1:
+                coin_list.append(coin)
+        return [name for name in coin_list if string in name.lower()][:10]
 
     @commands.slash_command(
         usage='send',
@@ -11512,6 +11622,7 @@ class Wallet(commands.Cog):
         token: str,
         address: str
     ):
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE} {ctx.author.mention}, loading withdraw...", ephemeral=True)
         await self.async_withdraw(ctx, amount, token, address)
 
     @send.autocomplete("token")

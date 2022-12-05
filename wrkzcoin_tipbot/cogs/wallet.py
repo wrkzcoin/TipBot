@@ -22,7 +22,7 @@ from aiomysql.cursors import DictCursor
 from cachetools import TTLCache
 
 from disnake import TextInputStyle
-from disnake.app_commands import Option
+from disnake.app_commands import Option, OptionChoice
 from disnake.enums import OptionType
 from disnake.ext import commands, tasks
 from eth_account import Account
@@ -10364,13 +10364,15 @@ class Wallet(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
-            plain_msg = '{}#{} Your deposit address for **{}**: ```{}```'.format(
-                ctx.author.name, ctx.author.discriminator, coin_name, wallet_address
+            plain_address = wallet_address
+            pointer_message = "{}#{} Your deposit address for **{}** 👆".format(
+                ctx.author.name, ctx.author.discriminator, coin_name
             )
-            if coin_name in ["HNT", "XLM", "VITE"]:
-                plain_msg = '{}#{} Your deposit address for **{}**: ```{}```'.format(
-                    ctx.author.name, ctx.author.discriminator, coin_name, wallet_address)
-                plain_msg += "MEMO must be included OR you will lose: `{}`".format(address_memo[2])
+
+            if type_coin in ["HNT", "XLM", "VITE"]:
+                plain_address = address_memo[0]
+                plain_address += f"\n📝 MEMO (mandatory!): `{address_memo[2]}`"
+                pointer_message += " and do not forget to include MEMO."
 
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"] and getattr(
                     getattr(self.bot.coin_list, coin_name),
@@ -10388,7 +10390,7 @@ class Wallet(commands.Cog):
             else:
                 wallet_address_new = wallet_address
                 if " MEMO:" in wallet_address_new:
-                    wallet_address_new = wallet_address_new.replace(" MEMO:", "\nMEMO:")
+                    wallet_address_new = wallet_address_new.replace(" MEMO:", "\n📝 MEMO:")
                 embed.add_field(name="Your Deposit Address", value="`{}`".format(wallet_address_new), inline=False)
                 embed.set_thumbnail(url=self.bot.config['storage']['deposit_url'] + address_path + ".png")
 
@@ -10405,7 +10407,7 @@ class Wallet(commands.Cog):
                 try:
                     address_memo = wallet_address.split()
                     embed.add_field(
-                        name="MEMO",
+                        name="📝 MEMO",
                         value="```Ascii: {}\nBase64: {}```".format(
                             address_memo[2], base64.b64encode(address_memo[2].encode('ascii')).decode('ascii')
                         ),
@@ -10416,13 +10418,14 @@ class Wallet(commands.Cog):
             elif type_coin in ["XLM", "VITE"]:
                 try:
                     address_memo = wallet_address.split()
-                    embed.add_field(name="MEMO", value="```{}```".format(address_memo[2]), inline=False)
+                    embed.add_field(name="📝 MEMO", value="```{}```".format(address_memo[2]), inline=False)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-            embed.set_footer(text="Use: deposit plain (for plain text)")
+            embed.set_footer(text="Use: /deposit plain (for plain text)")
             try:
-                if plain and plain.lower() == 'plain' or plain.lower() == 'text':
-                    await ctx.edit_original_message(content=plain_msg)
+                if plain and plain.lower() == 'plain':
+                    await ctx.edit_original_message(content=plain_address)
+                    await ctx.followup.send(pointer_message, ephemeral=True)
                 else:
                     await ctx.edit_original_message(embed=embed)
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
@@ -10431,10 +10434,14 @@ class Wallet(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.slash_command(
-        usage='deposit <token> [plain/embed]',
+        usage='deposit <token> [plain|embed]',
         options=[
             Option('token', 'token', OptionType.string, required=True),
-            Option('plain', 'plain', OptionType.string, required=False)
+            Option('plain', 'plain | embed', OptionType.string, required=False, choices=[
+                OptionChoice("plain", "plain"),
+                OptionChoice("embed", "embed")
+            ]
+            )
         ],
         description="Get your wallet deposit address."
     )
@@ -12214,7 +12221,8 @@ class Wallet(commands.Cog):
                 update = await faucet.update_faucet_user(str(ctx.author.id), coin_name, SERVER_BOT)
                 if update:
                     msg = f"{ctx.author.mention}, you updated your preferred claimed reward to `{coin_name}`. "\
-                        f"This preference applies only for TipBot's voting reward."
+                        f"This preference applies only for TipBot's voting reward."\
+                        f" Type `/claim` without token to see the list of voting websites."
                     await ctx.edit_original_message(content=msg)
                 else:
                     msg = f'{ctx.author.mention}, internal error!'

@@ -84,11 +84,15 @@ class QuickDrop(commands.Cog):
                         owner_displayname = each_drop['from_ownername']
                         amount = each_drop['real_amount']
                         equivalent_usd = each_drop['real_amount_usd_text']
-
                         coin_name = each_drop['token_name']
-
-                        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                        coin_emoji = coin_emoji + " " if coin_emoji else ""
+                        try:
+                            channel = self.bot.get_channel(int(each_drop['channel_id']))
+                            coin_emoji = ""
+                            if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                coin_emoji = coin_emoji + " " if coin_emoji else ""
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
                         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")

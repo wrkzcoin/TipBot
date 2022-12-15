@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict
+import re
 
 import aiohttp
 import aiomysql
@@ -10559,6 +10560,13 @@ class Wallet(commands.Cog):
                         getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")) > 0:
                     description = getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")
                     embed.set_footer(text=description)
+                    if coin_emoji:
+                        extension = ".png"
+                        if coin_emoji.startswith("<a:"):
+                            extension = ".gif"
+                        split_id = coin_emoji.split(":")[2]
+                        link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")) + extension
+                        embed.set_thumbnail(url=link)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
@@ -12516,7 +12524,13 @@ class Wallet(commands.Cog):
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-
+        coin_emoji = ""
+        try:
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                coin_emoji = coin_emoji + " " if coin_emoji else ""
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         get_deposit = await self.sql_get_userwallet(
             str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT, 0
         )
@@ -12611,7 +12625,7 @@ class Wallet(commands.Cog):
                         coin_decimal, SERVER_BOT
                     )
                     msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random `/take` "\
-                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
+                        f"{coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
                         f"Use /claim to vote TipBot and get reward.{extra_take_text}"
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(
@@ -12624,7 +12638,7 @@ class Wallet(commands.Cog):
                     await logchanbot("wallet /take_action " + str(traceback.format_exc()))
             else:
                 try:
-                    msg = f"Simulated faucet {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
+                    msg = f"Simulated faucet {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
                         f"This is a test only. Use without **ticker** to do real faucet claim. Use /claim to vote TipBot and get reward."
                     await ctx.edit_original_message(content=msg)
                 except Exception:

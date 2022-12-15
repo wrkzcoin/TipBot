@@ -220,6 +220,13 @@ class DiscordBotList(commands.Cog):
                                                             )
                                                         try:
                                                             channel = self.bot.get_channel(self.reward_channel)
+                                                            try:
+                                                                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                                                coin_emoji = coin_emoji + " " if coin_emoji else ""
+                                                                if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                                                                    coin_emoji = ""
+                                                            except Exception:
+                                                                traceback.print_exc(file=sys.stdout)
                                                             embed = disnake.Embed(
                                                                 title="NEW BOT VOTE!",
                                                                 timestamp=datetime.now()
@@ -230,7 +237,7 @@ class DiscordBotList(commands.Cog):
                                                                 inline=True
                                                             )
                                                             embed.add_field(
-                                                                name="Reward",
+                                                                name=f"{coin_emoji}Reward",
                                                                 value="{} {}".format(
                                                                     num_format_coin(amount, coin_name, coin_decimal, False), coin_name),
                                                                 inline=True)

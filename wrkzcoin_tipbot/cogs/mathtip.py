@@ -235,10 +235,13 @@ class MathTips(commands.Cog):
         try:
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-
-            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-            coin_emoji = coin_emoji + " " if coin_emoji else ""
-
+            try:
+                coin_emoji = ""
+                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")

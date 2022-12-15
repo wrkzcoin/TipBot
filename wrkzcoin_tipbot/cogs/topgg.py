@@ -300,7 +300,15 @@ class TopGGVote(commands.Cog):
                                                         serverinfo = await store.sql_info_by_server(guild_id)
                                                         if serverinfo and serverinfo['vote_reward_channel']:
                                                             channel = self.bot.get_channel(
-                                                                int(serverinfo['vote_reward_channel']))
+                                                                int(serverinfo['vote_reward_channel'])
+                                                            )
+                                                            try:
+                                                                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                                                coin_emoji = coin_emoji + " " if coin_emoji else ""
+                                                                if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                                                                    coin_emoji = ""
+                                                            except Exception:
+                                                                traceback.print_exc(file=sys.stdout)
                                                             embed = disnake.Embed(
                                                                 title="NEW GUILD VOTE!",
                                                                 timestamp=datetime.now()
@@ -311,7 +319,7 @@ class TopGGVote(commands.Cog):
                                                                 inline=True
                                                             )
                                                             embed.add_field(
-                                                                name="Reward",
+                                                                name=f"{coin_emoji}Reward",
                                                                 value="{} {}".format(
                                                                     num_format_coin(amount, coin_name, coin_decimal, False),
                                                                     coin_name
@@ -531,6 +539,13 @@ class TopGGVote(commands.Cog):
                                                                         f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.')
                                                                 try:
                                                                     channel = self.bot.get_channel(self.reward_channel)
+                                                                    try:
+                                                                        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                                                        coin_emoji = coin_emoji + " " if coin_emoji else ""
+                                                                        if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                                                                            coin_emoji = ""
+                                                                    except Exception:
+                                                                        traceback.print_exc(file=sys.stdout)
                                                                     embed = disnake.Embed(
                                                                         title="NEW BOT VOTE!",
                                                                         timestamp=datetime.now()
@@ -541,7 +556,7 @@ class TopGGVote(commands.Cog):
                                                                         inline=True
                                                                     )
                                                                     embed.add_field(
-                                                                        name="Reward", value="{} {}".format(
+                                                                        name=f"{coin_emoji}Reward", value="{} {}".format(
                                                                             num_format_coin(amount, coin_name, coin_decimal, False),
                                                                             coin_name),
                                                                         inline=True

@@ -104,8 +104,14 @@ class PartyDrop(commands.Cog):
                         sponsor_amount = get_message['init_amount']
                         equivalent_usd = get_message['real_init_amount_usd_text']
                         coin_name = get_message['token_name']
-                        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                        coin_emoji = coin_emoji + " " if coin_emoji else ""
+                        coin_emoji = ""
+                        try:
+                            channel = self.bot.get_channel(int(get_message['channel_id']))
+                            if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                coin_emoji = coin_emoji + " " if coin_emoji else ""
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
                         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -124,6 +130,13 @@ class PartyDrop(commands.Cog):
                                 ),
                                 timestamp=datetime.fromtimestamp(get_message['partydrop_time']))
                             embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Ended")
+                            if len(coin_emoji) > 0:
+                                extension = ".png"
+                                if coin_emoji.startswith("<a:"):
+                                    extension = ".gif"
+                                split_id = coin_emoji.split(":")[2]
+                                link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+                                embed.set_thumbnail(url=link)
                             user_tos = []
                             user_tos.append({'from_user': get_message['from_userid'], 'to_user': str(self.bot.user.id), 'guild_id': get_message['guild_id'], 'channel_id': get_message['channel_id'], 'amount': get_message['init_amount'], 'coin': get_message['token_name'], 'decimal': get_message['token_decimal'], 'contract': get_message['contract'], 'real_amount_usd': get_message['real_init_amount_usd'], 'extra_message': None})
                             all_name_list = []
@@ -196,7 +209,13 @@ class PartyDrop(commands.Cog):
                                         coin_name
                                 ),
                                 timestamp=datetime.fromtimestamp(get_message['partydrop_time']))
-
+                            if len(coin_emoji) > 0:
+                                extension = ".png"
+                                if coin_emoji.startswith("<a:"):
+                                    extension = ".gif"
+                                split_id = coin_emoji.split(":")[2]
+                                link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+                                embed.set_thumbnail(url=link)
                             time_left = seconds_str_days(get_message['partydrop_time'] - int(time.time())) if int(time.time()) < get_message['partydrop_time'] else "00:00:00"
                             lap_div = int((get_message['partydrop_time'] - int(time.time()))/30)
                             embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Time left: {time_left}")
@@ -329,10 +348,13 @@ class PartyDrop(commands.Cog):
         try:
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-
-            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-            coin_emoji = coin_emoji + " " if coin_emoji else ""
-
+            coin_emoji = ""
+            try:
+                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -553,6 +575,13 @@ class PartyDrop(commands.Cog):
         )
         time_left = seconds_str_days(duration_s)
         embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Time left: {time_left}")
+        if len(coin_emoji) > 0:
+            extension = ".png"
+            if coin_emoji.startswith("<a:"):
+                extension = ".gif"
+            split_id = coin_emoji.split(":")[2]
+            link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+            embed.set_thumbnail(url=link)
         try:
             view = PartyButton(ctx, duration_s, self.bot.coin_list, self.bot, ctx.channel.id) 
             msg = await ctx.channel.send(content=None, embed=embed, view=view)

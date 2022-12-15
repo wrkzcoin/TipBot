@@ -133,6 +133,13 @@ class FreeTip_Button(disnake.ui.View):
 
             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
             coin_emoji = coin_emoji + " " if coin_emoji else ""
+
+            try:
+                if self.ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                    coin_emoji = ""
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -505,6 +512,11 @@ class Tips(commands.Cog):
                             coin_name = each_message_data['token_name']
                             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                             coin_emoji = coin_emoji + " " if coin_emoji else ""
+                            try:
+                                if guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                                    coin_emoji = ""
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                             embed = disnake.Embed(
@@ -717,6 +729,12 @@ class Tips(commands.Cog):
 
         coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
         coin_emoji = coin_emoji + " " if coin_emoji else ""
+
+        try:
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                coin_emoji = ""
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
         min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
@@ -1111,6 +1129,12 @@ class Tips(commands.Cog):
         coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
         coin_emoji = coin_emoji + " " if coin_emoji else ""
 
+        try:
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                coin_emoji = ""
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -1395,6 +1419,13 @@ class Tips(commands.Cog):
 
         coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
         coin_emoji = coin_emoji + " " if coin_emoji else ""
+
+        try:
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                coin_emoji = ""
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -2588,6 +2619,11 @@ class Tips(commands.Cog):
                                 float(list_amount_in_usd[k]), None)
                             coin_emoji = getattr(getattr(self.bot.coin_list, k), "coin_emoji_discord")
                             coin_emoji = coin_emoji + " " if coin_emoji else ""
+                            try:
+                                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                                    coin_emoji = ""
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
                             passed_tips.append("{}{} {}".format(
                                 coin_emoji, num_format_coin(v * len(list_member_ids), k, list_coin_decimal[k], False), k))
                             each_tips.append("{}{} {}".format(coin_emoji, num_format_coin(v, k, list_coin_decimal[k], False), k))
@@ -2672,6 +2708,11 @@ class Tips(commands.Cog):
 
         coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
         coin_emoji = coin_emoji + " " if coin_emoji else ""
+        try:
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                coin_emoji = ""
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -2936,6 +2977,11 @@ class Tips(commands.Cog):
 
         coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
         coin_emoji = coin_emoji + " " if coin_emoji else ""
+        try:
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                coin_emoji = ""
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         net_name = coin_dict['net_name']
         type_coin = coin_dict['type']
         deposit_confirm_depth = coin_dict['deposit_confirm_depth']
@@ -3278,6 +3324,11 @@ class Tips(commands.Cog):
             async with ctx.typing():
                 coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                 coin_emoji = coin_emoji + " " if coin_emoji else ""
+                try:
+                    if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                        coin_emoji = ""
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")

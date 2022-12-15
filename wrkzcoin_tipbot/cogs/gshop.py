@@ -911,10 +911,17 @@ class GShop(commands.Cog):
             embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator} | /gshop")
             for each in get_guild_items:
                 duration = int(each['duration']/3600/24)
+                coin_emoji = ""
+                try:
+                    if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                        coin_emoji = getattr(getattr(self.bot.coin_list, each['token_name']), "coin_emoji_discord")
+                        coin_emoji = coin_emoji + " " if coin_emoji else ""
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
                 embed.add_field(
                     name="{}".format(each['item_id']),
-                    value="Role: {}\nCost: {} {}\nAvailable/Total: {}/{}".format(
-                        each['role_name'], num_format_coin(each['real_amount'], each['token_name'],
+                    value="Role: {}\nCost: {}{} {}\nAvailable/Total: {}/{}".format(
+                        each['role_name'], coin_emoji, num_format_coin(each['real_amount'], each['token_name'],
                         each['token_decimal'], False), each['token_name'],
                         each['max_slot'] - each['already_ordered'], each['max_slot']),
                     inline=False

@@ -30,11 +30,12 @@ class TriviaButton(disnake.ui.View):
     a_index: int
     coin_list: Dict
 
-    def __init__(self, ctx, answer_list, answer_index: int, timeout: float, coin_list):
+    def __init__(self, bot, ctx, answer_list, answer_index: int, timeout: float, coin_list):
         super().__init__(timeout=timeout)
         i = 0
         self.a_index = answer_index
         self.coin_list = coin_list
+        self.bot = bot
         self.ctx = ctx
         for name in answer_list:
             custom_id = "trivia_answers_" + str(i)
@@ -88,10 +89,13 @@ class TriviaButton(disnake.ui.View):
             attend_list_id_right = answered_msg_id['right_ids']
             amount_in_usd = 0.0
             each_amount_in_usd = 0.0
-
-            coin_emoji = getattr(getattr(self.coin_list, coin_name), "coin_emoji_discord")
-            coin_emoji = coin_emoji + " " if coin_emoji else ""
-
+            try:
+                coin_emoji = ""
+                if self.ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                    coin_emoji = getattr(getattr(self.coin_list, coin_name), "coin_emoji_discord")
+                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
             each_equivalent_usd = ""
             total_equivalent_usd = ""
             per_unit = None
@@ -240,10 +244,13 @@ class TriviaTips(commands.Cog):
         try:
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-
-            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-            coin_emoji = coin_emoji + " " if coin_emoji else ""
-
+            try:
+                coin_emoji = ""
+                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -448,7 +455,7 @@ class TriviaTips(commands.Cog):
             index_answer = answers.index(rand_q['correct_answer'])
 
             try:
-                view = TriviaButton(ctx, answers, index_answer, duration_s, self.bot.coin_list)
+                view = TriviaButton(self.bot, ctx, answers, index_answer, duration_s, self.bot.coin_list)
                 view.message = await ctx.original_message()
                 # Insert to trivia ongoing list
                 await store.insert_discord_triviatip(
@@ -468,7 +475,7 @@ class TriviaTips(commands.Cog):
             random.shuffle(answers)
             index_answer = answers.index(rand_q['correct_answer'])
             try:
-                view = TriviaButton(ctx, answers, index_answer, duration_s, self.bot.coin_list)
+                view = TriviaButton(self.bot, ctx, answers, index_answer, duration_s, self.bot.coin_list)
                 view.message = await ctx.original_message()
                 # Insert to trivia ongoing list
                 await store.insert_discord_triviatip(

@@ -84,8 +84,14 @@ class TalkDrop(commands.Cog):
                     await self.bot.wait_until_ready()
                     # print("Checkping talkdrop: {}".format(each_talkdrop['message_id']))
                     coin_name = each_talkdrop['token_name']
-                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+                    coin_emoji = ""
+                    try:
+                        channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
+                        if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                            coin_emoji = coin_emoji + " " if coin_emoji else ""
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
                     try:
                         attend_list = await store.get_talkdrop_collectors(each_talkdrop['message_id'])
                         # Update view
@@ -105,6 +111,13 @@ class TalkDrop(commands.Cog):
                                 ),
                                 timestamp=datetime.fromtimestamp(each_talkdrop['talkdrop_time'])
                             )
+                            if len(coin_emoji) > 0:
+                                extension = ".png"
+                                if coin_emoji.startswith("<a:"):
+                                    extension = ".gif"
+                                split_id = coin_emoji.split(":")[2]
+                                link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+                                embed.set_thumbnail(url=link)
                             embed.set_footer(text=f"Contributed by {owner_displayname} | /talkdrop | Ended")
                             all_name_list = []
                             if len(attend_list) > 0:
@@ -171,7 +184,13 @@ class TalkDrop(commands.Cog):
                                     each_talkdrop['talked_in_channel'], seconds_str_days(time_passed)
                                 ),
                                 timestamp=datetime.fromtimestamp(each_talkdrop['talkdrop_time']))
-
+                            if len(coin_emoji) > 0:
+                                extension = ".png"
+                                if coin_emoji.startswith("<a:"):
+                                    extension = ".gif"
+                                split_id = coin_emoji.split(":")[2]
+                                link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+                                embed.set_thumbnail(url=link)
                             time_left = seconds_str_days(each_talkdrop['talkdrop_time'] - int(time.time())) if int(time.time()) < each_talkdrop['talkdrop_time'] else "00:00:00"
                             lap_div = int((each_talkdrop['talkdrop_time'] - int(time.time()))/30)
                             embed.set_footer(text=f"Contributed by {owner_displayname} | /talkdrop | Time left: {time_left}")
@@ -315,7 +334,11 @@ class TalkDrop(commands.Cog):
 
             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
             coin_emoji = coin_emoji + " " if coin_emoji else ""
-
+            try:
+                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                    coin_emoji = ""
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -484,6 +507,13 @@ class TalkDrop(commands.Cog):
             value=minimum_message,
             inline=True
         )
+        if len(coin_emoji) > 0:
+            extension = ".png"
+            if coin_emoji.startswith("<a:"):
+                extension = ".gif"
+            split_id = coin_emoji.split(":")[2]
+            link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+            embed.set_thumbnail(url=link)
         embed.set_footer(text=f"Contributed by {owner_displayname} | /talkdrop | Time left: {time_left}")
         try:
             view = TalkDropButton(ctx, duration_s, self.bot.coin_list, self.bot, ctx.channel.id) 

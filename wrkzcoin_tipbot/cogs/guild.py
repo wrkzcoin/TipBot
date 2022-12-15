@@ -298,6 +298,13 @@ class Guild(commands.Cog):
                                         traceback.print_exc(file=sys.stdout)
                                         await logchanbot("guild " +str(traceback.format_exc()))
                         if len(msg) > 0:
+                            try:
+                                coin_emoji = ""
+                                if get_guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
                             embed = disnake.Embed(
                                 title = "ACTIVEDROP/TALKER {}".format( get_guild.name ),
                                 description="Keep on chatting in <#{}>".format(each_drop['tiptalk_channel']),
@@ -310,14 +317,15 @@ class Guild(commands.Cog):
                             )
                             embed.add_field(
                                 name="TOTAL",
-                                value="{} {}".format(
-                                    num_format_coin(each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name
+                                value="{}{} {}".format(
+                                    coin_emoji, num_format_coin(each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name
                                 ),
                                 inline=False
                             )
                             embed.add_field(
                                 name="EACH",
-                                value="{} {}".format(
+                                value="{}{} {}".format(
+                                    coin_emoji,
                                     num_format_coin(
                                         each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'],
                                         coin_name,
@@ -1897,8 +1905,13 @@ class Guild(commands.Cog):
             return
         # Do the job
         try:
-            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-            coin_emoji = coin_emoji + " " if coin_emoji else ""
+            try:
+                coin_emoji = ""
+                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -3181,7 +3194,13 @@ class Guild(commands.Cog):
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                     contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                     token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-
+                    coin_emoji = ""
+                    try:
+                        if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                            coin_emoji = coin_emoji + " " if coin_emoji else ""
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
                     min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
                     max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
                     usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
@@ -3265,10 +3284,10 @@ class Guild(commands.Cog):
                             if tip:
                                 extra_msg = ""
                                 if extra_amount > 0:
-                                    extra_msg = " You have a guild's role that give you additional bonus **" + \
+                                    extra_msg = f" You have a guild's role that give you additional bonus {coin_emoji}**" + \
                                         num_format_coin(extra_amount, coin_name, coin_decimal, False) + " " + coin_name + "**."
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of "\
-                                    f"**{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)}"\
+                                    f"{coin_emoji}**{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)}"\
                                     f" {coin_name}**{equivalent_usd} from `{ctx.guild.name}`.{extra_msg} "\
                                     f"Other reward command `/take` and `/claim`. Invite me to your guild? "\
                                     f"Click on my name and `Add to Server`."

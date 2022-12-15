@@ -89,6 +89,9 @@ class TriviaButton(disnake.ui.View):
             amount_in_usd = 0.0
             each_amount_in_usd = 0.0
 
+            coin_emoji = getattr(getattr(self.coin_list, coin_name), "coin_emoji_discord")
+            coin_emoji = coin_emoji + " " if coin_emoji else ""
+
             each_equivalent_usd = ""
             total_equivalent_usd = ""
             per_unit = None
@@ -104,7 +107,7 @@ class TriviaButton(disnake.ui.View):
                     total_equivalent_usd = " ~ {:,.4f} USD".format(each_amount_in_usd)
 
             embed = disnake.Embed(
-                title=f"⁉️ Trivia Tip {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                title=f"⁉️ TriviaTip {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                     f"{token_display} - {total_equivalent_usd} Total answer {total_answer}",
                 description=get_triviatip['question_content'],
                 timestamp=datetime.fromtimestamp(get_triviatip['trivia_endtime'])
@@ -133,10 +136,10 @@ class TriviaButton(disnake.ui.View):
             if len(answered_msg_id['right_ids']) > 0:
                 embed.add_field(
                     name='Each Winner Receives:',
-                    value=f"{indiv_amount_str} {token_display}",
+                    value=f"{coin_emoji}{indiv_amount_str} {token_display}",
                     inline=True
                 )
-            embed.set_footer(text=f"Trivia tip by {owner_displayname}")
+            embed.set_footer(text=f"TriviaTip by {owner_displayname}")
 
             if len(answered_msg_id['right_ids']) > 0:
                 try:
@@ -164,7 +167,6 @@ class TriviaButton(disnake.ui.View):
             await original_message.edit(embed=embed, view=self)
         else:
             await original_message.edit(view=self)
-
 
 class TriviaTips(commands.Cog):
     def __init__(self, bot):
@@ -238,6 +240,9 @@ class TriviaTips(commands.Cog):
         try:
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+
+            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+            coin_emoji = coin_emoji + " " if coin_emoji else ""
 
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -424,7 +429,7 @@ class TriviaTips(commands.Cog):
         trivia_end = int(time.time()) + duration_s
         owner_displayname = "{}#{}".format(ctx.author.name, ctx.author.discriminator)
         embed = disnake.Embed(
-            title=f"⁉️ Trivia Tip {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
+            title=f"⁉️ Trivia Tip {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
             description=rand_q['question'], timestamp=datetime.fromtimestamp(trivia_end))
         embed.add_field(
             name="Category (credit: {})".format(rand_q['credit']),

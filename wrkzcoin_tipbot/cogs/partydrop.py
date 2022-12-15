@@ -103,8 +103,9 @@ class PartyDrop(commands.Cog):
                         owner_displayname = get_message['from_ownername']
                         sponsor_amount = get_message['init_amount']
                         equivalent_usd = get_message['real_init_amount_usd_text']
-
                         coin_name = get_message['token_name']
+                        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                        coin_emoji = coin_emoji + " " if coin_emoji else ""
                         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -114,7 +115,13 @@ class PartyDrop(commands.Cog):
                         if each_party['partydrop_time'] < int(time.time()):
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop Ends! 🎉",
-                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name),
+                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: {}`{} {}`. "\
+                                    "Party Pot will be distributed equally to all attendees after "\
+                                    "completion.".format(
+                                        coin_emoji,
+                                        num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False),
+                                        coin_name
+                                ),
                                 timestamp=datetime.fromtimestamp(get_message['partydrop_time']))
                             embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Ended")
                             user_tos = []
@@ -140,17 +147,17 @@ class PartyDrop(commands.Cog):
                             indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
                             embed.add_field(
                                 name='Each Member Receives:',
-                                value=f"{indiv_amount_str} {token_display}",
+                                value=f"{coin_emoji}{indiv_amount_str} {token_display}",
                                 inline=True
                             )
                             embed.add_field(
                                 name='Started amount', 
-                                value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                value=coin_emoji + num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
                                 inline=True
                             )
                             embed.add_field(
                                 name='Party Pot', 
-                                value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
+                                value=coin_emoji + num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
                                 inline=True
                             )
                             try:
@@ -182,7 +189,12 @@ class PartyDrop(commands.Cog):
                         else:
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop 🎉",
-                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name),
+                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: {}`{} {}`. "\
+                                    "Party Pot will be distributed equally to all attendees after "\
+                                    "completion.".format(
+                                        coin_emoji, num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False),
+                                        coin_name
+                                ),
                                 timestamp=datetime.fromtimestamp(get_message['partydrop_time']))
 
                             time_left = seconds_str_days(get_message['partydrop_time'] - int(time.time())) if int(time.time()) < get_message['partydrop_time'] else "00:00:00"
@@ -216,17 +228,17 @@ class PartyDrop(commands.Cog):
                             indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
                             embed.add_field(
                                 name='Each Member Receives:',
-                                value=f"{indiv_amount_str} {token_display}",
+                                value=f"{coin_emoji}{indiv_amount_str} {token_display}",
                                 inline=True
                             )
                             embed.add_field(
                                 name='Started amount', 
-                                value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                value=coin_emoji + num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
                                 inline=True
                             )
                             embed.add_field(
                                 name='Party Pot', 
-                                value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
+                                value=coin_emoji + num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
                                 inline=True
                             )
                             try:
@@ -317,6 +329,9 @@ class PartyDrop(commands.Cog):
         try:
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+
+            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+            coin_emoji = coin_emoji + " " if coin_emoji else ""
 
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -517,17 +532,23 @@ class PartyDrop(commands.Cog):
         owner_displayname = "{}#{}".format(ctx.author.name, ctx.author.discriminator)
         embed = disnake.Embed(
             title=f"🎉 Party Drop 🎉",
-            description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(min_amount, coin_name, coin_decimal, False), coin_name),
+            description="Each click will deduct from your TipBot's balance. Minimum entrance cost: {}`{} {}`. "\
+                "Party Pot will be distributed equally to all attendees after "\
+                "completion.".format(
+                    coin_emoji,
+                    num_format_coin(min_amount, coin_name, coin_decimal, False),
+                    coin_name
+            ),
             timestamp=datetime.fromtimestamp(party_end)
         )
         embed.add_field(
             name='Started amount',
-            value=num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
+            value=coin_emoji + num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
             inline=True
         )
         embed.add_field(
             name='Party Pot',
-            value=num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
+            value=coin_emoji + num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
             inline=True
         )
         time_left = seconds_str_days(duration_s)

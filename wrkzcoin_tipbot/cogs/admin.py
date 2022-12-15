@@ -642,12 +642,14 @@ class Admin(commands.Cog):
             await logchanbot("admin " +str(traceback.format_exc()))
         return None
 
-    async def user_balance(self, user_id: str, coin: str, address: str, coin_family: str, top_block: int,
-                           confirmed_depth: int = 0, user_server: str = 'DISCORD'):
+    async def user_balance(
+        self, user_id: str, coin: str, address: str, coin_family: str, top_block: int,
+        confirmed_depth: int = 0, user_server: str = 'DISCORD'
+    ):
         # address: TRTL/BCN/XMR = paymentId
         token_name = coin.upper()
         user_server = user_server.upper()
-        if top_block is None:
+        if confirmed_depth == 0 or top_block is None:
             # If we can not get top block, confirm after 20mn. This is second not number of block
             nos_block = 20 * 60
         else:
@@ -838,7 +840,7 @@ class Admin(commands.Cog):
                             WHERE `address`=%s AND `coin_name`=%s AND `amount`>0 
                             AND `time_insert`< %s), 0))
                             """
-                            query_param += [address, token_name, nos_block]
+                            query_param += [address, token_name, int(time.time()) - nos_block]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(`amount`)  
@@ -929,7 +931,7 @@ class Admin(commands.Cog):
                                       AND `coin_name`=%s AND `amount`>0 
                                       AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
@@ -971,7 +973,7 @@ class Admin(commands.Cog):
                             WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
@@ -997,7 +999,7 @@ class Admin(commands.Cog):
                             WHERE `destination_tag`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address, token_name, nos_block, user_server]
+                            query_param += [address, token_name, int(time.time()) - nos_block, user_server]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
@@ -1023,7 +1025,7 @@ class Admin(commands.Cog):
                                       AND `coin_name`=%s AND `amount`>0 
                                       AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
@@ -1045,7 +1047,7 @@ class Admin(commands.Cog):
                             FROM `ada_get_transfers` WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address, "incoming", token_name, nos_block, user_server]
+                            query_param += [address, "incoming", token_name, int(time.time()) - nos_block, user_server]
 
                         else:
                             sql += """
@@ -1654,7 +1656,8 @@ class Admin(commands.Cog):
             try:
                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                deposit_confirm_depth = 0 # including all pending
+                # getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                 height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
@@ -1695,14 +1698,21 @@ class Admin(commands.Cog):
                             each_user_id['user_server']
                         )
                         total_balance = userdata_balance['adjust']
-                        list_user_balances.append("{},{},{},{}".format(
-                            each_user_id['user_id'],
-                            each_user_id['user_server'],
-                            total_balance,
-                            coin_name
-                        ))
-                        if total_balance < 0:
-                            negative_users.append(negative_users)
+                        member_name = "N/A"
+                        if each_user_id['user_id'].isdigit():
+                            member = self.bot.get_user(int(each_user_id['user_id']))
+                            if member is not None:
+                                member_name = "{}#{}".format(member.name, member.discriminator)
+                        if total_balance > 0:
+                            list_user_balances.append("{},{},{},{},{}".format(
+                                each_user_id['user_id'],
+                                member_name,
+                                each_user_id['user_server'],
+                                total_balance,
+                                coin_name
+                            ))
+                        elif total_balance < 0:
+                            negative_users.append(each_user_id['user_id'])
                         sum_balance += total_balance
                         sum_user += 1
                         try:
@@ -1794,7 +1804,8 @@ class Admin(commands.Cog):
                 return
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+            deposit_confirm_depth = 0
+            # deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")

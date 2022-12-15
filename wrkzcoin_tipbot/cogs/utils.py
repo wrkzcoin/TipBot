@@ -395,6 +395,33 @@ class Utils(commands.Cog):
             pass
         return None
 
+    def del_cache_kv(self, table: str, key: str):
+        try:
+            if table.lower() == "test":
+                del self.cache_kv_db_test[key.upper()]
+                return True
+            elif table.lower() == "general":
+                del self.cache_kv_db_general[key.upper()]
+                return True
+            elif table.lower() == "block":
+                del self.cache_kv_db_block[key.upper()]
+                return True
+            elif table.lower() == "pools":
+                del self.cache_kv_db_pools[key.upper()]
+                return True
+            elif table.lower() == "paprika":
+                del self.cache_kv_db_paprika[key.upper()]
+                return True
+            elif table.lower() == "faucet":
+                del self.cache_kv_db_faucet[key.upper()]
+                return True
+            elif table.lower() == "market_guild":
+                del self.cache_kv_db_market_guild[key.upper()]
+                return True
+        except KeyError:
+            pass
+        return False
+
     def get_cache_kv_list(self, table: str):
         try:
             if table.lower() == "test":

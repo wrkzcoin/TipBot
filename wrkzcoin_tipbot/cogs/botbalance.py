@@ -53,6 +53,8 @@ class BotBalance(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         # Do the job
         try:
+            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+            coin_emoji = coin_emoji + " " if coin_emoji else ""
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -107,7 +109,7 @@ class BotBalance(commands.Cog):
                         elif total_in_usd >= 0.0001:
                             equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
                 embed.add_field(
-                    name="Token/Coin {}{}".format(token_display, equivalent_usd),
+                    name="{}Token/Coin {}{}".format(coin_emoji, token_display, equivalent_usd),
                     value="```Available: {} {}```".format(
                         num_format_coin(total_balance, coin_name, coin_decimal, False), token_display),
                     inline=False

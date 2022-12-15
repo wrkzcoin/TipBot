@@ -1273,7 +1273,7 @@ class WalletAPI(commands.Cog):
                             WHERE `address`=%s AND `coin_name`=%s AND `amount`>0 
                             AND `time_insert`< %s), 0))
                             """
-                            query_param += [address, token_name, nos_block]
+                            query_param += [address, token_name, int(time.time()) - nos_block]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(`amount`)  
@@ -1364,7 +1364,7 @@ class WalletAPI(commands.Cog):
                                       AND `coin_name`=%s AND `amount`>0 
                                       AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
@@ -1406,7 +1406,7 @@ class WalletAPI(commands.Cog):
                             WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
@@ -1432,7 +1432,7 @@ class WalletAPI(commands.Cog):
                             WHERE `destination_tag`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address, token_name, nos_block, user_server]
+                            query_param += [address, token_name, int(time.time()) - nos_block, user_server]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
@@ -1458,7 +1458,7 @@ class WalletAPI(commands.Cog):
                                       AND `coin_name`=%s AND `amount`>0 
                                       AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
@@ -1480,7 +1480,7 @@ class WalletAPI(commands.Cog):
                             FROM `ada_get_transfers` WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address, "incoming", token_name, nos_block, user_server]
+                            query_param += [address, "incoming", token_name, int(time.time()) - nos_block, user_server]
 
                         else:
                             sql += """
@@ -10298,8 +10298,10 @@ class Wallet(commands.Cog):
 
         # Do the job
         try:
-            await ctx.response.send_message(f'{ctx.author.mention}, checking your {coin_name} address...',
-                                            ephemeral=True)
+            await ctx.response.send_message(
+                f'{ctx.author.mention}, checking your {coin_name} address...',
+                ephemeral=True
+            )
 
             try:
                 self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -10307,6 +10309,9 @@ class Wallet(commands.Cog):
                 await self.utils.add_command_calls()
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+
+            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+            coin_emoji = coin_emoji + " " if coin_emoji else ""
 
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -10345,7 +10350,7 @@ class Wallet(commands.Cog):
                         num_format_coin(min_move_deposit, coin_name, coin_decimal, False), token_display
                         )
             embed = disnake.Embed(
-                title=f'Deposit for {ctx.author.name}#{ctx.author.discriminator}',
+                title=f"{coin_emoji}Deposit for {ctx.author.name}#{ctx.author.discriminator}",
                 description=description + fee_txt,
                 timestamp=datetime.fromtimestamp(int(time.time()))
             )
@@ -10365,8 +10370,8 @@ class Wallet(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
 
             plain_address = wallet_address
-            pointer_message = "{}#{} Your deposit address for **{}** 👆".format(
-                ctx.author.name, ctx.author.discriminator, coin_name
+            pointer_message = "{}#{}, your deposit address for **{}** {}👆".format(
+                ctx.author.name, ctx.author.discriminator, coin_name, coin_emoji
             )
 
             if type_coin in ["HNT", "XLM", "VITE"]:
@@ -10470,12 +10475,12 @@ class Wallet(commands.Cog):
             if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
                 coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
-                await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
+                await ctx.response.send_message(f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
                 return
             else:
                 if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1:
                     await ctx.response.send_message(
-                        f'{ctx.author.mention}, **{coin_name}** is currently under maintenance.')
+                        f"{ctx.author.mention}, **{coin_name}** is currently under maintenance.")
                     return
         # Do the job
         try:
@@ -10543,8 +10548,9 @@ class Wallet(commands.Cog):
                             equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
                         elif total_in_usd >= 0.0001:
                             equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
+                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                 embed.add_field(
-                    name="Token/Coin {}{}".format(token_display, equivalent_usd),
+                    name="{}Token/Coin {}{}".format(coin_emoji+" " if coin_emoji else "", token_display, equivalent_usd),
                     value="```Available: {} {}```".format(
                         num_format_coin(total_balance, coin_name, coin_decimal, False), token_display),
                     inline=False
@@ -10716,8 +10722,13 @@ class Wallet(commands.Cog):
                             elif total_in_usd >= 0.0001:
                                 equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
 
-                    page.add_field(name="{}{}".format(token_display, equivalent_usd), value="{}".format(
-                        num_format_coin(total_balance, coin_name, coin_decimal, False)), inline=True)
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    page.add_field(
+                        name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, equivalent_usd),
+                        value="{}".format(
+                            num_format_coin(total_balance, coin_name, coin_decimal, False)),
+                        inline=True
+                    )
                     num_coins += 1
                     if num_coins > 0 and num_coins % per_page == 0:
                         all_pages.append(page)
@@ -10758,8 +10769,11 @@ class Wallet(commands.Cog):
                 return
             else:
                 all_names = [each for each in all_names if each not in zero_tokens]
-                page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)),
-                               value="```" + ", ".join(all_names) + "```", inline=False)
+                page.add_field(
+                    name="Coin/Tokens: [{}]".format(len(all_names)),
+                    value="```" + ", ".join(all_names) + "```",
+                    inline=False
+                )
                 if len(unknown_tokens) > 0:
                     unknown_tokens = list(set(unknown_tokens))
                     page.add_field(
@@ -13416,6 +13430,7 @@ class Wallet(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+
         try:
             get_recent = await store.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "deposit", 10)
             if len(get_recent) == 0:

@@ -800,8 +800,7 @@ class Events(commands.Cog):
 
     @tasks.loop(seconds=60.0)
     async def reload_coin_paprika(self):
-        time_lap = 60  # seconds
-        await self.bot.wait_until_ready()
+        time_lap = 5  # seconds
         # Check if task recently run @bot_task_logs
         task_name = "events_reload_coin_paprika"
         check_last_running = await self.utils.bot_task_logs_check(task_name)

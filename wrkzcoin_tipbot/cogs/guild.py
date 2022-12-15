@@ -1897,6 +1897,8 @@ class Guild(commands.Cog):
             return
         # Do the job
         try:
+            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+            coin_emoji = coin_emoji + " " if coin_emoji else ""
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -2034,9 +2036,9 @@ class Guild(commands.Cog):
                     )
                     if tip:
                         try:
-                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} "\
-                                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**"\
-                                f"{equivalent_usd} was transferred to {ctx.guild.name}."
+                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} transferred "\
+                                f"{coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**"\
+                                f"{equivalent_usd} to {ctx.guild.name}."
                             await ctx.edit_original_message(content=msg)
                         except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
                             pass
@@ -2048,7 +2050,7 @@ class Guild(commands.Cog):
                                 try:
                                     await user_found.send(
                                         f"Your guild **{ctx.guild.name}** got a deposit of "\
-                                        f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**"\
+                                        f"{coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**"\
                                         f"{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in "\
                                         f"`#{ctx.channel.name}`\n{NOTIFICATION_OFF_CMD}"
                                     )

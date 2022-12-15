@@ -86,6 +86,9 @@ class QuickDrop(commands.Cog):
                         equivalent_usd = each_drop['real_amount_usd_text']
 
                         coin_name = each_drop['token_name']
+
+                        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                        coin_emoji = coin_emoji + " " if coin_emoji else ""
                         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -111,7 +114,11 @@ class QuickDrop(commands.Cog):
                                 )
                             embed.add_field(
                                 name='Amount',
-                                value="🎉🎉 {} {} 🎉🎉".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name),
+                                value="🎉🎉 {}{} {} 🎉🎉".format(
+                                    coin_emoji,
+                                    num_format_coin(amount, coin_name, coin_decimal, False),
+                                    coin_name
+                                ),
                                 inline=False
                             )
                             try:

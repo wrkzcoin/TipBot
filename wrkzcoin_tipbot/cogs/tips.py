@@ -131,6 +131,8 @@ class FreeTip_Button(disnake.ui.View):
             coin_name = get_freetip['token_name']
             equivalent_usd = get_freetip['real_amount_usd_text']
 
+            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+            coin_emoji = coin_emoji + " " if coin_emoji else ""
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -165,7 +167,7 @@ class FreeTip_Button(disnake.ui.View):
 
             if len(attend_list) == 0:
                 embed = disnake.Embed(
-                    title=f"FreeTip appears {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
+                    title=f"FreeTip appears {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
                     description=f"Already expired", timestamp=datetime.fromtimestamp(get_freetip['airdrop_time']))
                 if get_freetip['airdrop_content'] and len(get_freetip['airdrop_content']) > 0:
                     embed.add_field(name="Comment", value=get_freetip['airdrop_content'], inline=False)
@@ -184,7 +186,7 @@ class FreeTip_Button(disnake.ui.View):
                 try:
                     if get_owner is not None:
                         await get_owner.send(
-                            f"Free tip of {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                            f"Free tip of {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                             f"{token_display} {equivalent_usd} expired and no one collected.\n{link_to_msg}"
                         )
                 except (disnake.Forbidden, disnake.errors.Forbidden) as e:
@@ -264,7 +266,7 @@ class FreeTip_Button(disnake.ui.View):
                         # Edit embed
                         try:
                             embed = disnake.Embed(
-                                title=f"FreeTip appears {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
+                                title=f"FreeTip appears {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
                                 description=f"Click to collect",
                                 timestamp=datetime.fromtimestamp(get_freetip['airdrop_time']))
                             if get_freetip['airdrop_content'] and len(get_freetip['airdrop_content']) > 0:
@@ -279,7 +281,7 @@ class FreeTip_Button(disnake.ui.View):
                                     )
                                     embed.add_field(
                                         name='Individual Tip amount',
-                                        value=f"{num_format_coin(truncate(amount / len(attend_list), 4), coin_name, coin_decimal, False)} "\
+                                        value=f"{coin_emoji}{num_format_coin(truncate(amount / len(attend_list), 4), coin_name, coin_decimal, False)} "\
                                             f"{token_display}",
                                         inline=True
                                     )
@@ -307,10 +309,10 @@ class FreeTip_Button(disnake.ui.View):
                             guild = self.bot.get_guild(int(get_freetip['guild_id']))
                             if get_owner is not None:
                                 await get_owner.send(
-                                    f'{EMOJI_ARROW_RIGHTHOOK} Free tip of {tipAmount} {token_display} '
+                                    f'{EMOJI_ARROW_RIGHTHOOK} Free tip of {coin_emoji}{tipAmount} {token_display} '
                                     f'was sent to ({len(attend_list_id)}) members in server `{guild.name}`.\n'
-                                    f'Each member got: **{amountDiv_str} {token_display}**\n'
-                                    f'Actual spending: **{ActualSpend_str} {token_display}**\n{link_to_msg}'
+                                    f'Each member got: {coin_emoji}**{amountDiv_str} {token_display}**\n'
+                                    f'Actual spending: {coin_emoji}**{ActualSpend_str} {token_display}**\n{link_to_msg}'
                                 )
                         except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                             pass
@@ -318,7 +320,7 @@ class FreeTip_Button(disnake.ui.View):
                         try:
                             if len(collector_mentioned) > 0:
                                 list_mentioned = ", ".join(collector_mentioned)
-                                msg = f"{list_mentioned}, you collected a tip of {amountDiv_str} {token_display} "\
+                                msg = f"{list_mentioned}, you collected a tip of {coin_emoji}{amountDiv_str} {token_display} "\
                                     f"from {get_owner.name}#{get_owner.discriminator}!"
                                 await original_message.reply(content=msg)
                         except Exception:
@@ -501,10 +503,12 @@ class Tips(commands.Cog):
                             amount = each_message_data['real_amount']
                             equivalent_usd = each_message_data['real_amount_usd_text']
                             coin_name = each_message_data['token_name']
+                            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                            coin_emoji = coin_emoji + " " if coin_emoji else ""
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                             embed = disnake.Embed(
-                                title=f"FreeTip appears {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                title=f"FreeTip appears {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                     f"{token_display} {equivalent_usd}",
                                 description=f"FreeTip by {owner_displayname}",
                                 timestamp=datetime.fromtimestamp(each_message_data['airdrop_time'])
@@ -554,7 +558,7 @@ class Tips(commands.Cog):
                                     )
                                     embed.add_field(
                                         name='Each Member Receives:',
-                                        value=f"{indiv_amount} {token_display}",
+                                        value=f"{coin_emoji}{indiv_amount} {token_display}",
                                         inline=True
                                     )
                                     embed.set_footer(
@@ -582,7 +586,7 @@ class Tips(commands.Cog):
                                     embed.add_field(name="Num. Attendees", value=f"**{len(attend_list)}** members",
                                                     inline=True)
                                     embed.add_field(name='Each Member Receives:',
-                                                    value=f"{indiv_amount} {token_display}", inline=True)
+                                                    value=f"{coin_emoji}{indiv_amount} {token_display}", inline=True)
                                     embed.set_footer(text=f"FreeTip by {owner_displayname}, Already expired")
                                     await _msg.edit(embed=embed, view=None)
                                     # update status
@@ -619,7 +623,6 @@ class Tips(commands.Cog):
                     # Notifytip
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
-
 
     async def async_notifytip(self, ctx, onoff: str):
         if onoff.upper() not in ["ON", "OFF"]:
@@ -711,6 +714,9 @@ class Tips(commands.Cog):
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+
+        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+        coin_emoji = coin_emoji + " " if coin_emoji else ""
 
         min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
@@ -1003,7 +1009,7 @@ class Tips(commands.Cog):
             if str(rand_user.id) not in notifying_list:
                 try:
                     await rand_user.send(
-                        f"{EMOJI_MONEYFACE} You got a random tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} "
+                        f"{EMOJI_MONEYFACE} You got a random tip of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} "
                         f"{token_display}** from {ctx.author.name}#{ctx.author.discriminator} in server `{ctx.guild.name}`\n"
                         f"{NOTIFICATION_OFF_CMD}"
                     )
@@ -1101,6 +1107,9 @@ class Tips(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # End of ongoing check
+
+        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+        coin_emoji = coin_emoji + " " if coin_emoji else ""
 
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -1266,7 +1275,7 @@ class Tips(commands.Cog):
                     equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
 
         embed = disnake.Embed(
-            title=f"FreeTip appears {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
+            title=f"FreeTip appears {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
             description=f"Click to collect", timestamp=datetime.fromtimestamp(int(time.time()) + duration_s))
         try:
             if comment and len(comment) > 0:
@@ -1274,7 +1283,7 @@ class Tips(commands.Cog):
             embed.add_field(name="Attendees", value="Click to collect!", inline=False)
             embed.add_field(
                 name="Individual Tip Amount",
-                value=f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}",
+                value=f"{coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}",
                 inline=True
             )
             embed.add_field(name="Num. Attendees", value="**0** members", inline=True)
@@ -1384,6 +1393,8 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
+        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+        coin_emoji = coin_emoji + " " if coin_emoji else ""
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -1603,7 +1614,7 @@ class Tips(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("tips " +str(traceback.format_exc()))
         else:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention} You have another tx in process. Please wait it to finish."
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
             await ctx.edit_original_message(content=msg)
             return
         try:
@@ -1646,8 +1657,8 @@ class Tips(commands.Cog):
                         try:
                             if len(mention_users) > 0:
                                 msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
-                                    f"you got a tip of **{amountDiv_str} {token_display}** {equivalent_usd} from "\
-                                    f"{ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}"
+                                    f"you got a tip of {coin_emoji}**{amountDiv_str} {token_display}** {equivalent_usd} from "\
+                                    f"{ctx.author.name}#{ctx.author.discriminator}\n{NOTIFICATION_OFF_CMD}"
                                 await ctx.followup.send(msg)
                                 send_tipped_ping += 1
                         except Exception:
@@ -1668,16 +1679,16 @@ class Tips(commands.Cog):
                     if numb_mention < total_found:
                         remaining_str = " and other {} members".format(total_found - numb_mention)
                     msg = f"{EMOJI_MONEYFACE} {mention_users}{remaining_str}, "\
-                        f"you got a tip of **{amountDiv_str} {token_display}** {equivalent_usd} from "\
-                        f"{ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}"
+                        f"you got a tip of {coin_emoji}**{amountDiv_str} {token_display}** {equivalent_usd} from "\
+                        f"{ctx.author.name}#{ctx.author.discriminator}\n{NOTIFICATION_OFF_CMD}"
                     await ctx.followup.send(msg)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
             # tipper shall always get DM. Ignore notifying_list
             try:
-                msg = f"{EMOJI_ARROW_RIGHTHOOK} Tip of {tipAmount} {token_display} was sent to ({len(memids)}) members "\
-                    f"in server `{ctx.guild.name}`.\nEach member got: **{amountDiv_str} {token_display}** "\
+                msg = f"{EMOJI_ARROW_RIGHTHOOK} Tip of {coin_emoji}{tipAmount} {token_display} was sent to ({len(memids)}) members "\
+                    f"in server `{ctx.guild.name}`.\nEach member got: {coin_emoji}**{amountDiv_str} {token_display}** "\
                     f"{equivalent_usd}\nActual spending: **{ActualSpend_str} {token_display}** {total_equivalent_usd}"
                 await ctx.author.send(msg)
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
@@ -2575,9 +2586,11 @@ class Tips(commands.Cog):
                                 str(ctx.author.id), list_member_ids, str(ctx.guild.id), str(ctx.channel.id), v,
                                 k, tip_type, list_coin_decimal[k], SERVER_BOT, list_contract[k],
                                 float(list_amount_in_usd[k]), None)
-                            passed_tips.append("{} {}".format(
-                                num_format_coin(v * len(list_member_ids), k, list_coin_decimal[k], False), k))
-                            each_tips.append("{} {}".format(num_format_coin(v, k, list_coin_decimal[k], False), k))
+                            coin_emoji = getattr(getattr(self.bot.coin_list, k), "coin_emoji_discord")
+                            coin_emoji = coin_emoji + " " if coin_emoji else ""
+                            passed_tips.append("{}{} {}".format(
+                                coin_emoji, num_format_coin(v * len(list_member_ids), k, list_coin_decimal[k], False), k))
+                            each_tips.append("{}{} {}".format(coin_emoji, num_format_coin(v, k, list_coin_decimal[k], False), k))
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                 except Exception:
@@ -2657,6 +2670,8 @@ class Tips(commands.Cog):
         guild_or_tip = 'GUILDTIP' if if_guild else 'TIPS'
         id_tipper = str(ctx.guild.id) if if_guild else str(ctx.author.id)
 
+        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+        coin_emoji = coin_emoji + " " if coin_emoji else ""
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -2870,9 +2885,9 @@ class Tips(commands.Cog):
             # tipper shall always get DM. Ignore notifying_list
             try:
                 if len(memids) > 20:
-                    msg = f"{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of **{tipAmount} {token_display}** {total_equivalent_usd} "\
+                    msg = f"{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {coin_emoji}**{tipAmount} {token_display}** {total_equivalent_usd} "\
                         f"was sent to ({len(memids)}) members in server `{ctx.guild.name}`.\nEach member got: "\
-                        f"**{amountDiv_str} {token_display}** {equivalent_usd}\n"
+                        f"{coin_emoji}**{amountDiv_str} {token_display}** {equivalent_usd}\n"
                 elif len(memids) >= 1:
                     incl_msg = []
                     incl_msg_str = ""
@@ -2882,10 +2897,10 @@ class Tips(commands.Cog):
                         if ctx.author.id != member.id and str(member.id) in notifying_list:
                             incl_msg.append("{}#{}".format(each_m.name, each_m.discriminator))
                     if len(incl_msg) > 0: incl_msg_str = ", ".join(incl_msg)
-                    msg = f"{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of **{tipAmount} {token_display}** "\
+                    msg = f"{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {coin_emoji}**{tipAmount} {token_display}** "\
                         f"{total_equivalent_usd} was sent to {incl_msg_str} in server `{ctx.guild.name}`."
                     if len(memids) > 1:
-                        msg += f'\nEach member got: **{amountDiv_str} {token_display}** {equivalent_usd}\n'
+                        msg += f'\nEach member got: {coin_emoji}**{amountDiv_str} {token_display}** {equivalent_usd}\n'
                 try:
                     await ctx.author.send(msg)
                 except Exception:
@@ -2902,7 +2917,7 @@ class Tips(commands.Cog):
                     if ctx.author.id != member.id and member.id != self.bot.user.id and member.bot == False and str(
                             member.id) not in notifying_list:
                         try:
-                            msg = f"{EMOJI_MONEYFACE}, you got a {tip_type_text} of **{amountDiv_str} {token_display}** "\
+                            msg = f"{EMOJI_MONEYFACE}, you got a {tip_type_text} of {coin_emoji}**{amountDiv_str} {token_display}** "\
                                 f"{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in server "\
                                 f"`{ctx.guild.name}`\n{NOTIFICATION_OFF_CMD}"
                             await member.send(msg)
@@ -2919,6 +2934,8 @@ class Tips(commands.Cog):
         id_tipper = str(ctx.guild.id) if if_guild else str(ctx.author.id)
         coin_name = coin.upper()
 
+        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+        coin_emoji = coin_emoji + " " if coin_emoji else ""
         net_name = coin_dict['net_name']
         type_coin = coin_dict['type']
         deposit_confirm_depth = coin_dict['deposit_confirm_depth']
@@ -3166,10 +3183,10 @@ class Tips(commands.Cog):
         if tiptalk:
             # tipper shall always get DM. Ignore notifying_list
             try:
-                msg = f"{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of **{num_format_coin(total_amount, coin_name, coin_decimal, False)}"\
+                msg = f"{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {coin_emoji}**{num_format_coin(total_amount, coin_name, coin_decimal, False)}"\
                     f" {token_display}** {total_equivalent_usd} was sent to ({len(list_receivers)}) members in "\
                     f"server `{ctx.guild.name}` for active talking.\nEach member got: "\
-                    f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** {equivalent_usd}\n"
+                    f"{coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** {equivalent_usd}\n"
                 try:
                     await ctx.author.send(msg)
                 except Exception:
@@ -3214,9 +3231,9 @@ class Tips(commands.Cog):
                         try:
                             if len(mention_users) > 0:
                                 msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
-                                    f"you got a {tip_type_text} of **{num_format_coin(amount, coin_name, coin_decimal, False)}"\
+                                    f"you got a {tip_type_text} of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)}"\
                                     f" {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
-                                    f"{NOTIFICATION_OFF_CMD}"
+                                    f"\n{NOTIFICATION_OFF_CMD}"
                                 await ctx.followup.send(msg)
                                 send_tipped_ping += 1
                         except Exception:
@@ -3237,8 +3254,8 @@ class Tips(commands.Cog):
                     if numb_mention < total_found:
                         remaining_str = " and other {} members".format(total_found - numb_mention)
                     msg = f"{EMOJI_MONEYFACE} {mention_users}{remaining_str}, "\
-                        f"you got a {tip_type_text} of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** "\
-                        f"{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}"
+                        f"you got a {tip_type_text} of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** "\
+                        f"{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}\n{NOTIFICATION_OFF_CMD}"
                     await ctx.followup.send(msg)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -3259,6 +3276,8 @@ class Tips(commands.Cog):
                 return
 
             async with ctx.typing():
+                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                coin_emoji = coin_emoji + " " if coin_emoji else ""
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -3514,10 +3533,10 @@ class Tips(commands.Cog):
                     if tip is not None:
                         # tipper shall always get DM. Ignore notifying_list
                         try:
-                            msg = f"{EMOJI_ARROW_RIGHTHOOK} tip of **{num_format_coin(total_amount, coin_name, coin_decimal, False)}"\
+                            msg = f"{EMOJI_ARROW_RIGHTHOOK} tip of {coin_emoji}**{num_format_coin(total_amount, coin_name, coin_decimal, False)}"\
                                 f" {token_display}** {total_equivalent_usd} was sent to ({len(list_receivers)}) member(s) in "\
                                 f"server `{ctx.guild.name}`.\nEach member got: "\
-                                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** {equivalent_usd}\n"
+                                f"{coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** {equivalent_usd}\n"
                             try:
                                 await ctx.author.send(msg)
                             except Exception:
@@ -3551,9 +3570,9 @@ class Tips(commands.Cog):
 
                             try:
                                 msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
-                                    f"you got a tip of **{num_format_coin(amount, coin_name, coin_decimal, False)}"\
+                                    f"you got a tip of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)}"\
                                     f" {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
-                                    f"{NOTIFICATION_OFF_CMD}"
+                                    f"\n{NOTIFICATION_OFF_CMD}"
                                 await ctx.reply(msg)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -3596,9 +3615,9 @@ class Tips(commands.Cog):
                                         try:
                                             if len(mention_users) > 0:
                                                 msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
-                                                    f"you got a tip of **{num_format_coin(amount, coin_name, coin_decimal, False)}"\
+                                                    f"you got a tip of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)}"\
                                                     f" {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
-                                                    f"{NOTIFICATION_OFF_CMD}"
+                                                    f"\n{NOTIFICATION_OFF_CMD}"
                                                 await ctx.reply(msg)
                                                 send_tipped_ping += 1
                                         except Exception:
@@ -3619,8 +3638,8 @@ class Tips(commands.Cog):
                                     if numb_mention < total_found:
                                         remaining_str = " and other {} members".format(total_found - numb_mention)
                                     msg = f"{EMOJI_MONEYFACE} {mention_users}{remaining_str}, "\
-                                        f"you got a tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**"\
-                                        f" {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}{NOTIFICATION_OFF_CMD}"
+                                        f"you got a tip of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**"\
+                                        f" {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}\n{NOTIFICATION_OFF_CMD}"
                                     await ctx.reply(msg)
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)

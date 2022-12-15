@@ -520,9 +520,11 @@ class Tb(commands.Cog):
 
         emoji_url = None
         timeout = 12
+        emoji_code = ""
         try:
             custom_emojis = re.findall(r'<:\w*:\d*>', emoji)
             if custom_emojis and len(custom_emojis) >= 1:
+                emoji_code = ", `{}`".format(custom_emojis[0])
                 split_id = custom_emojis[0].split(":")[2]
                 link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")) + '.png'
                 try:
@@ -535,6 +537,7 @@ class Tb(commands.Cog):
             if emoji_url is None:
                 custom_emojis = re.findall(r'<a:\w*:\d*>', emoji)
                 if custom_emojis and len(custom_emojis) >= 1:
+                    emoji_code = ", `{}`".format(custom_emojis[0])
                     split_id = custom_emojis[0].split(":")[2]
                     link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")) + '.gif'
                     try:
@@ -550,7 +553,7 @@ class Tb(commands.Cog):
             else:
                 try:
                     await ctx.edit_original_message(
-                        content=f'{ctx.author.mention} {emoji_url}',
+                        content=f'{ctx.author.mention}{emoji_code} {emoji_url}',
                         view=RowButtonRowCloseAnyMessage()
                     )
                 except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:

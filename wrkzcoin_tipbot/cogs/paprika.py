@@ -7,6 +7,7 @@ import disnake
 from disnake.ext import commands, tasks
 import time
 import datetime
+from datetime import timezone
 import functools
 import random
 
@@ -146,7 +147,7 @@ class Paprika(commands.Cog):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
-    @tasks.loop(seconds=3600)
+    @tasks.loop(seconds=600)
     async def fetch_paprika_pricelist(self):
         time_lap = 1800  # seconds
         await self.bot.wait_until_ready()
@@ -258,6 +259,109 @@ class Paprika(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
+    async def fetch_coin_paprika(
+        self,
+        coin_name: str
+    ):
+        if coin_name in self.bot.token_hints:
+            id = self.bot.token_hints[coin_name]['ticker_name']
+        elif coin_name in self.bot.token_hint_names:
+            id = self.bot.token_hint_names[coin_name]['ticker_name']
+        else:
+            coin_list_key = self.bot.config['kv_db']['prefix_paprika'] + "COINSLIST"
+            if coin_list_key in self.paprika_coinlist_cache:
+                j = self.paprika_coinlist_cache[coin_list_key]
+            else:
+                link = 'https://api.coinpaprika.com/v1/coins'
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(link) as resp:
+                        if resp.status == 200:
+                            j = await resp.json()
+                            try:
+                                self.paprika_coinlist_cache[coin_list_key] = j
+                            except Exception:
+                                traceback.format_exc()
+            if coin_name.isdigit():
+                for i in j:
+                    if int(coin_name) == int(i['rank']):
+                        id = i['id']
+            else:
+                for i in j:
+                    if coin_name.lower() == i['name'].lower() or coin_name.lower() == i['symbol'].lower():
+                        id = i['id']  # i['name']
+        # if cache
+        cache_pap_coin = self.utils.get_cache_kv("paprika", id)
+        if cache_pap_coin is not None and cache_pap_coin['fetched_time'] + self.bot.config['kv_db']['paprika_ttl_coin_id'] > int(time.time()):
+            print(f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S} get paprika used cache for coin id [{id}]...")
+            return cache_pap_coin['json_data']
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = 'https://api.coinpaprika.com/v1/tickers/{}'.format(id)
+                print(f"/paprika fetching: {url}")
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        j = await resp.json()
+                        if 'error' in j and j['error'] == 'id not found':
+                            return None
+                        elif float(j['quotes']['USD']['price']) > 0.0:
+                            try:
+                                # set name
+                                self.utils.set_cache_kv(
+                                    "paprika",
+                                    j['name'].upper(),
+                                    {
+                                        "name": j['name'],
+                                        "symbol": j['symbol'],
+                                        "price": float(j['quotes']['USD']['price']),
+                                        "json_data": j,
+                                        "last_updated": j['last_updated'],
+                                        "timestamp": datetime.datetime.strptime(j['last_updated'], '%Y-%m-%dT%H:%M:%SZ'),
+                                        "fetched_time": int(time.time())
+                                    }
+                                )
+                                # set symbol
+                                self.utils.set_cache_kv(
+                                    "paprika",
+                                    j['symbol'].upper(),
+                                    {
+                                        "name": j['name'],
+                                        "symbol": j['symbol'],
+                                        "price": float(j['quotes']['USD']['price']),
+                                        "json_data": j,
+                                        "last_updated": j['last_updated'],
+                                        "timestamp": datetime.datetime.strptime(j['last_updated'], '%Y-%m-%dT%H:%M:%SZ'),
+                                        "fetched_time": int(time.time())
+                                    }
+                                )
+                                # set id
+                                self.utils.set_cache_kv(
+                                    "paprika",
+                                    id,
+                                    {
+                                        "name": j['name'],
+                                        "symbol": j['symbol'],
+                                        "price": float(j['quotes']['USD']['price']),
+                                        "json_data": j,
+                                        "last_updated": j['last_updated'],
+                                        "timestamp": datetime.datetime.strptime(j['last_updated'], '%Y-%m-%dT%H:%M:%SZ'),
+                                        "fetched_time": int(time.time())
+                                    }
+                                )
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            return  {
+                                "name": j['name'],
+                                "symbol": j['symbol'],
+                                "price": float(j['quotes']['USD']['price']),
+                                "json_data": j,
+                                "last_updated": j['last_updated'],
+                                "timestamp": datetime.datetime.strptime(j['last_updated'], '%Y-%m-%dT%H:%M:%SZ'),
+                                "fetched_time": int(time.time())
+                            }
+        except Exception:
+            traceback.format_exc()
+        return None
+
     async def paprika_coin(
         self,
         ctx,
@@ -273,6 +377,7 @@ class Paprika(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         coin_name = coin.upper()
+
         key = self.bot.config['kv_db']['prefix_paprika'] + coin.upper()
         # Get from kv
         try:
@@ -336,122 +441,86 @@ class Paprika(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if coin_name in self.bot.token_hints:
-            id = self.bot.token_hints[coin_name]['ticker_name']
-        elif coin_name in self.bot.token_hint_names:
-            id = self.bot.token_hint_names[coin_name]['ticker_name']
-        else:
-            coin_list_key = self.bot.config['kv_db']['prefix_paprika'] + "COINSLIST"
-            if coin_list_key in self.paprika_coinlist_cache:
-                j = self.paprika_coinlist_cache[coin_list_key]
+        # get paprika
+        j = await self.fetch_coin_paprika(coin_name)
+        if j is not None:
+            j = j['json_data']
+            if float(j['quotes']['USD']['price']) > 100:
+                trading_at = "${:.2f}".format(float(j['quotes']['USD']['price']))
+            elif float(j['quotes']['USD']['price']) > 1:
+                trading_at = "${:.3f}".format(float(j['quotes']['USD']['price']))
+            elif float(j['quotes']['USD']['price']) > 0.01:
+                trading_at = "${:.4f}".format(float(j['quotes']['USD']['price']))
             else:
-                link = 'https://api.coinpaprika.com/v1/coins'
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(link) as resp:
-                        if resp.status == 200:
-                            j = await resp.json()
-                            try:
-                                self.paprika_coinlist_cache[coin_list_key] = j
-                            except Exception:
-                                traceback.format_exc()
-            if coin_name.isdigit():
-                for i in j:
-                    if int(coin_name) == int(i['rank']):
-                        id = i['id']
-            else:
-                for i in j:
-                    if coin_name.lower() == i['name'].lower() or coin_name.lower() == i['symbol'].lower():
-                        id = i['id']  # i['name']
-        try:
-            async with aiohttp.ClientSession() as session:
-                url = 'https://api.coinpaprika.com/v1/tickers/{}'.format(id)
-                print(f"/paprika fetching: {url}")
-                async with session.get(url) as resp:
-                    if resp.status == 200:
-                        j = await resp.json()
-                        if 'error' in j and j['error'] == 'id not found':
-                            msg = f"{ctx.author.mention}, can not get data **{coin_name}** from paprika."
-                            await ctx.edit_original_message(content=msg)
-                            return
-                        if float(j['quotes']['USD']['price']) > 100:
-                            trading_at = "${:.2f}".format(float(j['quotes']['USD']['price']))
-                        elif float(j['quotes']['USD']['price']) > 1:
-                            trading_at = "${:.3f}".format(float(j['quotes']['USD']['price']))
-                        elif float(j['quotes']['USD']['price']) > 0.01:
-                            trading_at = "${:.4f}".format(float(j['quotes']['USD']['price']))
-                        else:
-                            trading_at = "${:.8f}".format(float(j['quotes']['USD']['price']))
-                        response_text = "{} ({}) is #{} by marketcap (${:,.2f}), trading at {} with a 24h vol of ${:,.2f}. "\
-                            "It's changed {}% over 24h, {}% over 7d, {}% over 30d, and {}% over 1y with an ath of ${} on {}.".format(
-                                j['name'], j['symbol'], j['rank'], float(j['quotes']['USD']['market_cap']), trading_at,
-                                float(j['quotes']['USD']['volume_24h']), j['quotes']['USD']['percent_change_24h'],
-                                j['quotes']['USD']['percent_change_7d'], j['quotes']['USD']['percent_change_30d'],
-                                j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'],
-                                j['quotes']['USD']['ath_date']
-                            )
-                        try:
-                            self.paprika_coin_cache[key] = response_text
-                        except Exception:
-                            traceback.format_exc()
-                            await logchanbot("paprika " +str(traceback.format_exc()))
-                        await ctx.edit_original_message(content=f"{ctx.author.mention}, {response_text}")
-                        # fetch tradeview image
-                        if self.tradeview is True:
-                            try:
-                                if coin_name in self.bot.token_hints:
-                                    id = self.bot.token_hints[coin_name]['ticker_name']
-                                elif coin_name in self.bot.token_hint_names:
-                                    id = self.bot.token_hint_names[coin_name]['ticker_name']
-                                else:
-                                    coin_list_key = self.bot.config['kv_db']['prefix_paprika'] + "COINSLIST"
-                                    if coin_list_key in self.paprika_coinlist_cache:
-                                        j = self.paprika_coinlist_cache[coin_list_key]
-                                    else:
-                                        link = 'https://api.coinpaprika.com/v1/coins'
-                                        print(f"/paprika fetching: {link}")
-                                        async with aiohttp.ClientSession() as session:
-                                            async with session.get(link) as resp:
-                                                if resp.status == 200:
-                                                    j = await resp.json()
-                                                    try:
-                                                        self.paprika_coinlist_cache[coin_list_key] = j
-                                                    except Exception:
-                                                        traceback.format_exc()
-                                    if coin_name.isdigit():
-                                        for i in j:
-                                            if int(coin_name) == int(i['rank']):
-                                                id = i['id']
-                                    else:
-                                        for i in j:
-                                            if coin_name.lower() == i['name'].lower() or coin_name.lower() == i[
-                                                'symbol'].lower():
-                                                id = i['id']  # i['name']
-                                if len(self.display_list) > 2:
-                                    display_id = random.choice(self.display_list)
-                                    self.display_list.remove(display_id)
-                                    fetch_tradeview = functools.partial(
-                                        get_trade_view_by_id, display_id, self.bot.config['selenium_setting'],
-                                        self.tradeview_url + id, id, self.tradeview_path, option
-                                    )
-                                    self.display_list.append(display_id)
-                                    tv_image = await self.bot.loop.run_in_executor(None, fetch_tradeview)
-                                    if tv_image:
-                                        e = disnake.Embed(timestamp=datetime.datetime.now(), description=response_text)
-                                        if option:
-                                            e.add_field(name="Range", value=option.lower(), inline=False)
-                                        e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
-                                        e.set_image(url=self.tradeview_static_png + tv_image)
-                                        e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
-                                        await ctx.edit_original_message(content=None, embed=e)
-                            except Exception:
-                                traceback.format_exc()
+                trading_at = "${:.8f}".format(float(j['quotes']['USD']['price']))
+            response_text = "{} ({}) is #{} by marketcap (${:,.2f}), trading at {} with a 24h vol of ${:,.2f}. "\
+                "It's changed {}% over 24h, {}% over 7d, {}% over 30d, and {}% over 1y with an ath of ${} on {}.".format(
+                    j['name'], j['symbol'], j['rank'], float(j['quotes']['USD']['market_cap']), trading_at,
+                    float(j['quotes']['USD']['volume_24h']), j['quotes']['USD']['percent_change_24h'],
+                    j['quotes']['USD']['percent_change_7d'], j['quotes']['USD']['percent_change_30d'],
+                    j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'],
+                    j['quotes']['USD']['ath_date']
+                )
+            try:
+                self.paprika_coin_cache[key] = response_text
+            except Exception:
+                traceback.format_exc()
+                await logchanbot("paprika " +str(traceback.format_exc()))
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, {response_text}")
+            # fetch tradeview image
+            if self.tradeview is True:
+                try:
+                    if coin_name in self.bot.token_hints:
+                        id = self.bot.token_hints[coin_name]['ticker_name']
+                    elif coin_name in self.bot.token_hint_names:
+                        id = self.bot.token_hint_names[coin_name]['ticker_name']
                     else:
-                        await ctx.edit_original_message(
-                            content=f"{ctx.author.mention}, can not get data **{coin_name}** from paprika.")
-                    return
-        except Exception:
-            traceback.format_exc()
-        await ctx.edit_original_message(content=f"{ctx.author.mention}, no paprika only salt.")
+                        coin_list_key = self.bot.config['kv_db']['prefix_paprika'] + "COINSLIST"
+                        if coin_list_key in self.paprika_coinlist_cache:
+                            j = self.paprika_coinlist_cache[coin_list_key]
+                        else:
+                            link = 'https://api.coinpaprika.com/v1/coins'
+                            print(f"/paprika fetching: {link}")
+                            async with aiohttp.ClientSession() as session:
+                                async with session.get(link) as resp:
+                                    if resp.status == 200:
+                                        j = await resp.json()
+                                        try:
+                                            self.paprika_coinlist_cache[coin_list_key] = j
+                                        except Exception:
+                                            traceback.format_exc()
+                        if coin_name.isdigit():
+                            for i in j:
+                                if int(coin_name) == int(i['rank']):
+                                    id = i['id']
+                        else:
+                            for i in j:
+                                if coin_name.lower() == i['name'].lower() or coin_name.lower() == i[
+                                    'symbol'].lower():
+                                    id = i['id']  # i['name']
+                    if len(self.display_list) > 2:
+                        display_id = random.choice(self.display_list)
+                        self.display_list.remove(display_id)
+                        fetch_tradeview = functools.partial(
+                            get_trade_view_by_id, display_id, self.bot.config['selenium_setting'],
+                            self.tradeview_url + id, id, self.tradeview_path, option
+                        )
+                        self.display_list.append(display_id)
+                        tv_image = await self.bot.loop.run_in_executor(None, fetch_tradeview)
+                        if tv_image:
+                            e = disnake.Embed(timestamp=datetime.datetime.now(), description=response_text)
+                            if option:
+                                e.add_field(name="Range", value=option.lower(), inline=False)
+                            e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
+                            e.set_image(url=self.tradeview_static_png + tv_image)
+                            e.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator}")
+                            await ctx.edit_original_message(content=None, embed=e)
+                except Exception:
+                    traceback.format_exc()
+        else:
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, can not get data **{coin_name}** from paprika."
+            )
 
     @commands.slash_command(
         usage="paprika [coin]",

@@ -79,6 +79,9 @@ class MathButton(disnake.ui.View):
             token_display = getattr(getattr(self.coin_list, coin_name), "display_name")
             usd_equivalent_enable = getattr(getattr(self.coin_list, coin_name), "usd_equivalent_enable")
 
+            coin_emoji = getattr(getattr(self.coin_list, coin_name), "coin_emoji_discord")
+            coin_emoji = coin_emoji + " " if coin_emoji else ""
+
             indiv_amount_str = num_format_coin(truncate(amount / len(answered_msg_id['right_ids']), 4), coin_name,
                                                coin_decimal, False) if len(
                 answered_msg_id['right_ids']) > 0 else num_format_coin(truncate(amount, 4), coin_name, coin_decimal,
@@ -103,9 +106,11 @@ class MathButton(disnake.ui.View):
                     total_equivalent_usd = " ~ {:,.4f} USD".format(each_amount_in_usd)
 
             embed = disnake.Embed(
-                title=f"🧮 Math Tip {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {total_equivalent_usd} - "\
-                    "Total answer {total_answer}",
-                description=get_mathtip['eval_content'], timestamp=datetime.fromtimestamp(get_mathtip['math_endtime'])
+                title=f"🧮 Math Tip {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                    f"{token_display} {total_equivalent_usd} - Total answer {total_answer}",
+                description=get_mathtip['eval_content'],
+                timestamp=datetime.fromtimestamp(get_mathtip['math_endtime']
+            )
             )
             embed.add_field(
                 name="Correct answer",
@@ -127,10 +132,10 @@ class MathButton(disnake.ui.View):
             if len(answered_msg_id['right_ids']) > 0:
                 embed.add_field(
                     name='Each Winner Receives:',
-                    value=f"{indiv_amount_str} {token_display}",
+                    value=f"{coin_emoji}{indiv_amount_str} {token_display}",
                     inline=True
                 )
-            embed.set_footer(text=f"Trivia tip by {owner_displayname}")
+            embed.set_footer(text=f"MathTip by {owner_displayname}")
 
             if len(answered_msg_id['right_ids']) > 0:
                 try:
@@ -230,6 +235,9 @@ class MathTips(commands.Cog):
         try:
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+
+            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+            coin_emoji = coin_emoji + " " if coin_emoji else ""
 
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -473,7 +481,7 @@ class MathTips(commands.Cog):
 
         owner_displayname = "{}#{}".format(ctx.author.name, ctx.author.discriminator)
         embed = disnake.Embed(
-            title=f"🧮 Math Tip {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
+            title=f"🧮 Math Tip {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
             description=eval_string_original, timestamp=datetime.fromtimestamp(int(time.time()) + duration_s))
         embed.add_field(
             name="Answering",

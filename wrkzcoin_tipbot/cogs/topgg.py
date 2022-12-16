@@ -305,7 +305,7 @@ class TopGGVote(commands.Cog):
                                                             try:
                                                                 coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                                                                 coin_emoji = coin_emoji + " " if coin_emoji else ""
-                                                                if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                                                                if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
                                                                     coin_emoji = ""
                                                             except Exception:
                                                                 traceback.print_exc(file=sys.stdout)
@@ -542,7 +542,7 @@ class TopGGVote(commands.Cog):
                                                                     try:
                                                                         coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                                                                         coin_emoji = coin_emoji + " " if coin_emoji else ""
-                                                                        if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                                                                        if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
                                                                             coin_emoji = ""
                                                                     except Exception:
                                                                         traceback.print_exc(file=sys.stdout)

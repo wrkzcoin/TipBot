@@ -87,7 +87,7 @@ class TalkDrop(commands.Cog):
                     coin_emoji = ""
                     try:
                         channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
-                        if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                        if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
                             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                             coin_emoji = coin_emoji + " " if coin_emoji else ""
                     except Exception:
@@ -335,7 +335,7 @@ class TalkDrop(commands.Cog):
             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
             coin_emoji = coin_emoji + " " if coin_emoji else ""
             try:
-                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
                     coin_emoji = ""
             except Exception:
                 traceback.print_exc(file=sys.stdout)

@@ -300,7 +300,7 @@ class Guild(commands.Cog):
                         if len(msg) > 0:
                             try:
                                 coin_emoji = ""
-                                if get_guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                                if get_guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
                                     coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                                     coin_emoji = coin_emoji + " " if coin_emoji else ""
                             except Exception:
@@ -343,6 +343,13 @@ class Guild(commands.Cog):
                                 value=seconds_str(each_drop['tiptalk_duration']),
                                 inline=False
                             )
+                            if len(coin_emoji) > 0:
+                                extension = ".png"
+                                if coin_emoji.startswith("<a:"):
+                                    extension = ".gif"
+                                split_id = coin_emoji.split(":")[2]
+                                link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+                                embed.set_thumbnail(url=link)
                             embed.set_footer(text="You can disable it by /tiptalker and set amount 0.")
                             if get_channel and len(list_receivers) > 0:
                                 try:
@@ -1907,7 +1914,7 @@ class Guild(commands.Cog):
         try:
             try:
                 coin_emoji = ""
-                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
                     coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                     coin_emoji = coin_emoji + " " if coin_emoji else ""
             except Exception:
@@ -3196,7 +3203,7 @@ class Guild(commands.Cog):
                     token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                     coin_emoji = ""
                     try:
-                        if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                        if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
                             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                             coin_emoji = coin_emoji + " " if coin_emoji else ""
                     except Exception:

@@ -88,7 +88,7 @@ class QuickDrop(commands.Cog):
                         try:
                             channel = self.bot.get_channel(int(each_drop['channel_id']))
                             coin_emoji = ""
-                            if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                            if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
                                 coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                                 coin_emoji = coin_emoji + " " if coin_emoji else ""
                         except Exception:

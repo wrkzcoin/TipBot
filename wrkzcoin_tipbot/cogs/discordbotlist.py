@@ -64,11 +64,13 @@ class DiscordBotList(commands.Cog):
             return web.Response(text="Hello, world")
 
         async def handler_post(request):
+            payload_if_error = None
             try:
                 if request.body_exists:
                     payload = await request.read()
                     headers = request.headers
                     full_payload = json.loads(payload)
+                    payload_if_error = full_payload
                     user_vote = full_payload['id']
                     type_vote = "upvote"
                     voter = "{}#{}".format(full_payload['username'], full_payload['discriminator'])
@@ -223,7 +225,7 @@ class DiscordBotList(commands.Cog):
                                                             try:
                                                                 coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                                                                 coin_emoji = coin_emoji + " " if coin_emoji else ""
-                                                                if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is False:
+                                                                if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
                                                                     coin_emoji = ""
                                                             except Exception:
                                                                 traceback.print_exc(file=sys.stdout)
@@ -280,6 +282,9 @@ class DiscordBotList(commands.Cog):
                             f"type `{type_vote}` but not true from discordbotlist.com."
                         )
                         return web.Response(text="Thank you but not discordbotlist.com!")
+            except KeyError:
+                print("DiscordBotList:")
+                print(payload_if_error)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 

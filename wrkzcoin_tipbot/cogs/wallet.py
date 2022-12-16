@@ -12526,7 +12526,7 @@ class Wallet(commands.Cog):
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         coin_emoji = ""
         try:
-            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
                 coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                 coin_emoji = coin_emoji + " " if coin_emoji else ""
         except Exception:

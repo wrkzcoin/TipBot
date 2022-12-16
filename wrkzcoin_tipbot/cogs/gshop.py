@@ -913,7 +913,7 @@ class GShop(commands.Cog):
                 duration = int(each['duration']/3600/24)
                 coin_emoji = ""
                 try:
-                    if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_stickers is True:
+                    if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
                         coin_emoji = getattr(getattr(self.bot.coin_list, each['token_name']), "coin_emoji_discord")
                         coin_emoji = coin_emoji + " " if coin_emoji else ""
                 except Exception:

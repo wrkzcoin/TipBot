@@ -3439,11 +3439,11 @@ class Tips(commands.Cog):
                         role_list_members = [member for member in ctx.guild if member.bot == False and each_role in member.roles]
                         if len(role_list_members) >= 1:
                             for each_member in role_list_members:
-                                if each_member not in list_users:
+                                if each_member not in list_users and each_member != ctx.author:
                                     list_users.append(each_member.id)
                 if len(user_mentions) >= 1:
                     for each_member in user_mentions:
-                        if each_member not in list_users:
+                        if each_member not in list_users and each_member != ctx.author:
                             list_users.append(each_member.id)
                 
                 list_users = list(set(list_users))

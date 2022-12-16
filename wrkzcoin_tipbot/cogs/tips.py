@@ -130,13 +130,11 @@ class FreeTip_Button(disnake.ui.View):
             amount = get_freetip['real_amount']
             coin_name = get_freetip['token_name']
             equivalent_usd = get_freetip['real_amount_usd_text']
-
-            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-            coin_emoji = coin_emoji + " " if coin_emoji else ""
-
+            coin_emoji = ""
             try:
-                if self.ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
-                    coin_emoji = ""
+                if self.ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    coin_emoji = coin_emoji + " " if coin_emoji else ""
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
@@ -510,11 +508,11 @@ class Tips(commands.Cog):
                             amount = each_message_data['real_amount']
                             equivalent_usd = each_message_data['real_amount_usd_text']
                             coin_name = each_message_data['token_name']
-                            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                            coin_emoji = coin_emoji + " " if coin_emoji else ""
+                            coin_emoji = ""
                             try:
-                                if guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
-                                    coin_emoji = ""
+                                if guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                    coin_emoji = coin_emoji + " " if coin_emoji else ""
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -726,13 +724,11 @@ class Tips(commands.Cog):
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-
-        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-        coin_emoji = coin_emoji + " " if coin_emoji else ""
-
+        coin_emoji = ""
         try:
-            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
-                coin_emoji = ""
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                coin_emoji = coin_emoji + " " if coin_emoji else ""
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1126,12 +1122,11 @@ class Tips(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         # End of ongoing check
 
-        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-        coin_emoji = coin_emoji + " " if coin_emoji else ""
-
+        coin_emoji = ""
         try:
-            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
-                coin_emoji = ""
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                coin_emoji = coin_emoji + " " if coin_emoji else ""
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1417,12 +1412,11 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-        coin_emoji = coin_emoji + " " if coin_emoji else ""
-
+        coin_emoji = ""
         try:
-            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
-                coin_emoji = ""
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                coin_emoji = coin_emoji + " " if coin_emoji else ""
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1718,7 +1712,7 @@ class Tips(commands.Cog):
 
             # tipper shall always get DM. Ignore notifying_list
             try:
-                msg = f"{EMOJI_ARROW_RIGHTHOOK} Tip of {coin_emoji}{tipAmount} {token_display} was sent to ({len(memids)}) members "\
+                msg = f"{EMOJI_ARROW_RIGHTHOOK}, you tip {coin_emoji}{tipAmount} {token_display} to ({len(memids)}) members "\
                     f"in server `{ctx.guild.name}`.\nEach member got: {coin_emoji}**{amountDiv_str} {token_display}** "\
                     f"{equivalent_usd}\nActual spending: **{ActualSpend_str} {token_display}** {total_equivalent_usd}"
                 await ctx.author.send(msg)
@@ -2617,11 +2611,11 @@ class Tips(commands.Cog):
                                 str(ctx.author.id), list_member_ids, str(ctx.guild.id), str(ctx.channel.id), v,
                                 k, tip_type, list_coin_decimal[k], SERVER_BOT, list_contract[k],
                                 float(list_amount_in_usd[k]), None)
-                            coin_emoji = getattr(getattr(self.bot.coin_list, k), "coin_emoji_discord")
-                            coin_emoji = coin_emoji + " " if coin_emoji else ""
+                            coin_emoji = ""
                             try:
-                                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
-                                    coin_emoji = ""
+                                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                                    coin_emoji = getattr(getattr(self.bot.coin_list, k), "coin_emoji_discord")
+                                    coin_emoji = coin_emoji + " " if coin_emoji else ""
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             passed_tips.append("{}{} {}".format(
@@ -2706,11 +2700,11 @@ class Tips(commands.Cog):
         guild_or_tip = 'GUILDTIP' if if_guild else 'TIPS'
         id_tipper = str(ctx.guild.id) if if_guild else str(ctx.author.id)
 
-        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-        coin_emoji = coin_emoji + " " if coin_emoji else ""
+        coin_emoji = ""
         try:
-            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
-                coin_emoji = ""
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                coin_emoji = coin_emoji + " " if coin_emoji else ""
         except Exception:
             traceback.print_exc(file=sys.stdout)
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
@@ -2975,11 +2969,11 @@ class Tips(commands.Cog):
         id_tipper = str(ctx.guild.id) if if_guild else str(ctx.author.id)
         coin_name = coin.upper()
 
-        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-        coin_emoji = coin_emoji + " " if coin_emoji else ""
+        coin_emoji = ""
         try:
-            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
-                coin_emoji = ""
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                coin_emoji = coin_emoji + " " if coin_emoji else ""
         except Exception:
             traceback.print_exc(file=sys.stdout)
         net_name = coin_dict['net_name']
@@ -3322,11 +3316,11 @@ class Tips(commands.Cog):
                 return
 
             async with ctx.typing():
-                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                coin_emoji = coin_emoji + " " if coin_emoji else ""
+                coin_emoji = ""
                 try:
-                    if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
-                        coin_emoji = ""
+                    if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                        coin_emoji = coin_emoji + " " if coin_emoji else ""
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")

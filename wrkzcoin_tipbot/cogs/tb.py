@@ -20,6 +20,7 @@ import numpy as np
 import imageio
 import cv2
 import pygame
+from pygame import gfxdraw
 from pyvirtualdisplay import Display
 
 import store
@@ -29,6 +30,8 @@ from cairosvg import svg2png
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
+from cachetools import TTLCache
+
 # linedraw
 from linedraw.linedraw import *
 # tb
@@ -58,21 +61,26 @@ class ScreenRecorder:
     def total_frames(self):
         return self.list_pngs
 
-    def create_gif(self):
+    def create_gif(self, resize=None):
+        # resize is tuple
         images = []
         i = 0
         for each_png in self.list_pngs:
-            if i > 0 and  i % self.interval == 0:
-                images.append(each_png)
             i += 1
+            if self.interval is not None and i % self.interval != 0:
+                continue
+            if resize is None:
+                images.append(Image.fromarray(each_png).convert('RGBA'))
+            else:
+                images.append(Image.fromarray(each_png).convert('RGBA').resize(resize))
         try:
             imageio.mimsave(self.output, images, fps=self.fps)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
 # Thanks to: https://github.com/RasPiPkr/fireworks/
-def start_firework(in_image, out_path: str, tmp_image: str, width: int, height: int, screen_size):
-    os.environ['DISPLAY'] = choice([f":{str(i)}" for i in range(300, 400)])
+def start_firework(display_id, in_image, out_path: str, tmp_image: str, width: int, height: int, screen_size):
+    os.environ['DISPLAY'] = display_id
     display = Display(visible=0, size=screen_size)
     display.start()
 
@@ -225,11 +233,162 @@ def start_firework(in_image, out_path: str, tmp_image: str, width: int, height: 
     gameLoop()
     display.stop()
 
+# Thanks to: https://github.com/ltisz/DecisionWheel
+def spin_wheel(display_id, decisionlist, result_color, screen_size, fps: int, out_path: str, intval: int=4):
+    #Quit function when click windows X
+    os.environ['DISPLAY'] = display_id
+    display = Display(visible=0, size=screen_size)
+    display.start()
+    frame_i = 1
+
+    def quit_spinning():
+        pygame.quit()
+        display.stop()
+        try:
+            recorder.create_gif((220, 220)) # smaller, will be faster
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+    #Function to display large result text
+    def displayresult(result):
+        textsurface = font.render(result, True, result_color)
+        textrect = textsurface.get_rect()
+        textrect.centerx = screen.get_rect().centerx
+        textrect.centery = screen.get_rect().centery + 150
+        screen.blit(textsurface, textrect)
+        pygame.display.update()
+        for i in range(0, int(200/intval)):
+            recorder.capture_frame(screen)
+
+    pygame.init() #Initializing pygame
+    font = pygame.font.SysFont(None, 48)                #Large font for end result
+    font2 = pygame.font.SysFont(None, 28)               #Small font for on wheel
+    screen = pygame.display.set_mode((400, 400))        #Creating 400x400 window
+
+    recorder = ScreenRecorder(fps, out_path, None)
+
+    degree = 0                                          #Spinner starts at 360 degrees
+    elapsedtime = 1                                     #Start time (ms)
+    end = randint(225, 275)                             #End time (ms)
+
+    x = 1                                               #x is the variable that controls the main loop
+    cx = cy = r = 200
+    dividers = len(decisionlist)
+    radconvert = math.pi/180
+    divvies = int(360/dividers)
+
+    #MAIN LOOP
+    while x == 1:  
+        pygame.display.flip()
+        frame_i += 1
+        if frame_i % intval == 0:
+            recorder.capture_frame(screen)
+        screen.fill([255, 255, 255])                    #Fill with white
+
+        surf = pygame.Surface((100,100))                #Creating surface for the spinner
+        surf.fill((255, 255, 255))                      #White fill for the surface
+
+        surf.set_colorkey((255,255,255))                #Colorkey out the white fill
+
+        surf = pygame.image.load('arrow.png').convert_alpha()    #Use convert_alpha to preserve transparency
+        where = 180, 10                                 #Put it in the middle
+
+        blittedRect = screen.blit(surf, where)          #Put the spinner on the screen
+        screen.fill([255, 255, 255])                    #Re-draw screen
+        pygame.draw.circle(screen, (0,0,0), (cx, cy), r, 3)
+        for i in range(dividers):
+            gfxdraw.pie(screen, cx, cy, r, i*divvies, divvies, (0,0,0))
+        i = 1
+        iters = range(1,dividers*2,2)
+        for i in iters:
+            textChoice = font2.render(decisionlist[iters.index(i)],False,(0,0,0))
+            textwidth = textChoice.get_rect().width
+            textheight = textChoice.get_rect().height
+            textChoice = pygame.transform.rotate(textChoice,(i-(2*i))*(360/(dividers*2)))
+            textwidth = textChoice.get_rect().width
+            textheight = textChoice.get_rect().height
+            screen.blit(textChoice,(
+                                    (cx-(textwidth/2))
+                                    +((r-100)*math.cos(((i*(360/(dividers*2))))*radconvert)),
+                                    (cy-(textheight/2))
+                                    +((r-100)*math.sin(((i*(360/(dividers*2))))*radconvert))
+                                    )
+                                )
+            textChoice = ''
+        oldCenter = blittedRect.center                  #Find old center of spinner
+        rotatedSurf = pygame.transform.rotate(surf, degree)     #Rotate spinner by degree (0 at first)
+        rotRect = rotatedSurf.get_rect()                #Get dimensions of rotated spinner
+        rotRect.center = oldCenter                      #Assign center of rotated spinner to center of pre-rotated
+
+        screen.blit(rotatedSurf, rotRect)               #Put the rotated spinner on screen
+
+        degree -= 2                                     #Increase angle by six degrees
+        if degree == -360:                              #Reset angle if greater than 360
+            degree = 0
+        
+        pygame.display.flip()                           #Redraw screen
+        frame_i += 1
+        if frame_i % intval == 0:
+            recorder.capture_frame(screen)
+       
+        #Change speed of spinner as time goes on
+        if elapsedtime == 1:
+            elapsedtime += 1
+        elif elapsedtime < end/6:
+            pygame.time.wait(2)
+            elapsedtime += 1
+        elif elapsedtime < end/4:
+            pygame.time.wait(5)
+            elapsedtime += 1
+        elif elapsedtime < end/2:
+            pygame.time.wait(10)
+            elapsedtime += 1
+        elif elapsedtime < end/1.5:
+            pygame.time.wait(15)
+            elapsedtime += 1
+        elif elapsedtime < end/1.2:
+            pygame.time.wait(30)
+            elapsedtime += 1
+        elif elapsedtime < end/1.1:
+            pygame.time.wait(70)
+            elapsedtime += 1
+        elif elapsedtime < end/1.05:
+            pygame.time.wait(150)
+            elapsedtime += 1
+        elif elapsedtime < end:
+            pygame.time.wait(200)
+            elapsedtime += 1    
+        elif elapsedtime == end:                        #If it hits the end...
+            # print('raw degree: ' + str(degree))
+            degCheck = degree#+6
+            degCheck = (-1*degCheck)-90
+            if degCheck < 0:
+                degCheck = degCheck + 360
+            # print('degCheck: ' + str(degCheck))
+            x = 2                                       #x = 2 kidnaps the main loop to a secondary main loop (stopped spinner)
+            while x == 2:   
+                screen.blit(rotatedSurf, rotRect)       #Draw the stopped spinner                
+                for i in range(len(decisionlist)):
+                    if degCheck > i*(360/len(decisionlist)) and degCheck < (i+1)*(360/len(decisionlist)):
+                        x = 3
+                        # print(i)
+                        result = decisionlist[i].upper()
+                        displayresult(result)
+                        quit_spinning()
+                        return result
+                    elif degCheck%(360/len(decisionlist)) == 0:
+                        x = 3
+                        displayresult('SPIN AGAIN!')
+                        print('ERROR: on the line')
+                        return None
 
 class Tb(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.utils = Utils(self.bot)
+        self.screen_firework = [f":{str(i)}" for i in range(300, 400)]
+        self.ttl_screen = TTLCache(maxsize=128, ttl=60.0)
+        self.max_total_screen = 3
 
     async def sql_add_tbfun(
         self,
@@ -296,10 +455,12 @@ class Tb(commands.Cog):
                         e.set_image(url=draw_link)
                         e.set_footer(text=f"Draw requested by {ctx.author.name}#{ctx.author.discriminator}")
                         await ctx.edit_original_message(content=None, embed=e)
-                        await self.sql_add_tbfun(str(ctx.author.id),
-                                                 '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                                 str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW',
-                                                 SERVER_BOT)
+                        await self.sql_add_tbfun(
+                            str(ctx.author.id),
+                            '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW',
+                            SERVER_BOT
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     return
@@ -331,9 +492,11 @@ class Tb(commands.Cog):
                     e.set_image(url=draw_link)
                     e.set_footer(text=f"Draw requested by {ctx.author.name}#{ctx.author.discriminator}")
                     await ctx.edit_original_message(content=None, embed=e)
-                    await self.sql_add_tbfun(str(ctx.author.id),
-                                             '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                             str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', SERVER_BOT)
+                    await self.sql_add_tbfun(
+                        str(ctx.author.id),
+                        '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                        str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'DRAW', SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
@@ -712,6 +875,14 @@ class Tb(commands.Cog):
             await ctx.response.send_message(
                 f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
             return
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tb firework", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         try:
             timeout = 12
             res_data = None
@@ -748,10 +919,45 @@ class Tb(commands.Cog):
                 else:
                     img = Image.open(BytesIO(res_data)).convert("RGBA")
                     tmp_png = "tmp/" + str(uuid.uuid4()) + ".png"
-                    make_firework = functools.partial(start_firework, img, random_img_name_gif, tmp_png, 800, 600, (1366, 768))
+                    try:
+                        key = str(ctx.guild.id)
+                        if key in self.ttl_screen:
+                            await ctx.edit_original_message(
+                                content=f"{ctx.author.mention}, there is still ongoing screen with this guild. Wait a bit and run again."
+                            )
+                            return
+                        elif len(self.ttl_screen) >= self.max_total_screen:
+                            await ctx.edit_original_message(
+                                content=f"{ctx.author.mention}, there is still many screen process by others. Try again later!"
+                            )
+                            return
+                        else:
+                            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                            if serverinfo and serverinfo['is_premium'] == 0 and self.bot.config['funcmd_public']['firework'] == 0:
+                                msg = f"{ctx.author.mention}, /tb firework is not enable here."
+                                await ctx.edit_original_message(content=msg)
+                                await logchanbot(
+                                    f"🎆 {ctx.guild.id} / {ctx.guild.name} User `{ctx.author.id}` try to use /tb firework but rejected."
+                                )
+                                return
+                            else:
+                                self.ttl_screen[key] = key
+                    except Exception:
+                        pass
+                    display_id = choice(self.screen_firework)
+                    self.screen_firework.remove(display_id)
+                    make_firework = functools.partial(start_firework, display_id, img, random_img_name_gif, tmp_png, 800, 600, (1366, 768))
                     await self.bot.loop.run_in_executor(None, make_firework)
+                    self.screen_firework.append(display_id)
                     if os.path.exists(tmp_png):
                         os.remove(tmp_png)
+
+                    try:
+                        key = str(ctx.guild.id)
+                        if key in self.ttl_screen:
+                            del self.ttl_screen[key]
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
                     try:
                         e = disnake.Embed(timestamp=datetime.now())
                         e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
@@ -768,6 +974,132 @@ class Tb(commands.Cog):
             else:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error.'
                 await ctx.edit_original_message(content=msg)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    async def tb_spinwheel(
+        self,
+        ctx,
+        items: str
+    ):
+        try:
+            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+            await ctx.response.send_message(msg)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.response.send_message(
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+            return
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/tb spinwheel", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        try:
+            min_items = 3
+            max_items = 20
+            list_items = items.split(",")
+            if len(list_items) > max_items or len(list_items) < min_items:
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_RED_NO} {ctx.author.mention}, list items max be between {str(min_items)} and {str(max_items)} separated by `,`"
+                )
+                return
+            # check if valid
+            is_valid = True
+            invalid_item = ""
+            for each in list_items:
+                each = each.replace(" ", "").replace("!", "").replace("?", "")
+                if not each.strip().isalnum() or len(each.strip()) == 0:
+                    is_valid = False
+                    invalid_item = each
+                    break
+            if is_valid is False:
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_RED_NO} {ctx.author.mention}, list contains invalid word  `{invalid_item}`"
+                )
+                return
+            new_list_items = []
+            for each in list_items:
+                new_list_items.append(each.strip()[:10]) # max 10 chars
+
+            try:
+                key = str(ctx.guild.id)
+                if key in self.ttl_screen:
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, there is still ongoing screen with this guild. Wait a bit and run again."
+                    )
+                    return
+                elif len(self.ttl_screen) >= self.max_total_screen:
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, there is still many screen process by others. Try again later!"
+                    )
+                    return
+                else:
+                    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                    if serverinfo and serverinfo['is_premium'] == 0 and self.bot.config['funcmd_public']['spin_wheel'] == 0:
+                        msg = f"{ctx.author.mention}, /tb spinwheel is not enable here."
+                        await ctx.edit_original_message(content=msg)
+                        await logchanbot(
+                            f"🔄 {ctx.guild.id} / {ctx.guild.name} User `{ctx.author.id}` try to use /tb spinwheel but rejected."
+                        )
+                        return
+                    else:
+                        self.ttl_screen[key] = key
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+            time_start = time.time()
+            shuffle(new_list_items)
+            fps = 60
+            screen_s = (1366, 768)
+            resulted_color = (255, 0, 0) # RGB
+
+            def make_spinning(display_id, items, resulted_color, screen_s, fps, spin_file):
+                spinning = spin_wheel(display_id, items, resulted_color, screen_s, fps, spin_file, 15)
+                while spinning is None:
+                    spinning = spin_wheel(display_id, items, resulted_color, screen_s, fps, spin_file, 15)
+                return spinning # value of win not None
+
+            random_img_name = str(uuid.uuid4()) + "_spinning_wheel"
+            random_img_name_gif = self.bot.config['fun']['static_draw_path'] + random_img_name + ".gif"
+            spin_link = self.bot.config['fun']['static_draw_link'] + random_img_name + ".gif"
+
+            display_id = choice(self.screen_firework)
+            self.screen_firework.remove(display_id)
+            make_spinning_image = functools.partial(make_spinning, display_id, new_list_items, resulted_color, screen_s, fps, random_img_name_gif)
+            result = await self.bot.loop.run_in_executor(None, make_spinning_image)
+            self.screen_firework.append(display_id)
+
+            try:
+                key = str(ctx.guild.id)
+                if key in self.ttl_screen:
+                    del self.ttl_screen[key]
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+            await logchanbot(
+                f"🔄 {ctx.guild.id} / {ctx.guild.name} User `{ctx.author.id}` spinned with {items} got "\
+                f"result: {result} in {str(int(time.time()-time_start))}s. {spin_link}"
+            )
+
+            try:
+                e = disnake.Embed(timestamp=datetime.now())
+                e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
+                e.set_image(url=spin_link)
+                e.set_footer(text=f"Spinning Wheel requested by {ctx.author.name}#{ctx.author.discriminator}")
+                e.add_field(name="From list", value=items, inline=False)
+                e.add_field(name="Result", value=result, inline=False)
+                await ctx.edit_original_message(content=None, embed=e)
+                await self.sql_add_tbfun(
+                    str(ctx.author.id),
+                    '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                    str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'SPINNINGWHEEL', SERVER_BOT
+                )
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1070,6 +1402,20 @@ class Tb(commands.Cog):
         else:
             member = str(member.display_avatar)
         await self.tb_firework(ctx, member)
+
+    @tb.sub_command(
+        usage="tb spinwheel",
+        options=[
+            Option('list_items', 'list_items', OptionType.string, required=True)
+        ],
+        description="Make spin wheel from a list"
+    )
+    async def spinwheel(
+        self,
+        ctx,
+        list_items: str
+    ):
+        await self.tb_spinwheel(ctx, list_items)
 
     @tb.sub_command(
         usage="tb getemoji <emoji>",

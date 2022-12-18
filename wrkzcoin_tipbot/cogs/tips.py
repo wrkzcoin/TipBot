@@ -680,7 +680,6 @@ class Tips(commands.Cog):
         onoff: str
     ):
         await self.async_notifytip(ctx, onoff)
-
     # End notifytip
 
     # RandomTip
@@ -729,6 +728,8 @@ class Tips(commands.Cog):
             if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
                 coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                 coin_emoji = coin_emoji + " " if coin_emoji else ""
+            if len(coin_emoji) > 0:
+                await ctx.edit_original_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, executing /randtip with {coin_emoji}...")
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1379,7 +1380,7 @@ class Tips(commands.Cog):
 
     # TipAll
     async def async_tipall(self, ctx, amount: str, token: str, user: str):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /tipall...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing /tipall..."
         await ctx.response.send_message(msg)
 
         try:
@@ -1417,6 +1418,8 @@ class Tips(commands.Cog):
             if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
                 coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                 coin_emoji = coin_emoji + " " if coin_emoji else ""
+            if len(coin_emoji) > 0:
+                await ctx.edit_original_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, executing /tipall with {coin_emoji}...")
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

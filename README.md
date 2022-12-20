@@ -1,6 +1,6 @@
 <p align="center">
-  <img width="180" src="./images/TIPBOT.png alt="Unique Discord Cryptocurrency TipBot">
-  <h1 align="center">TipBot</h1>
+  <img width="180" src="./images/TIPBOT.png" alt="Unique Discord Cryptocurrency TipBot">
+  <h1 align="center">Cryptocurrency TipBot</h1>
 </p>
 
 <!-- Table of Contents -->

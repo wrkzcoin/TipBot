@@ -19,7 +19,6 @@ class Core(commands.Cog):
         self.bot = bot
         self.utils = Utils(self.bot)
 
-
     # Setting command
     @commands.has_permissions(manage_channels=True)
     @commands.guild_only()
@@ -46,8 +45,14 @@ class Core(commands.Cog):
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                             await asyncio.sleep(4.0)
-                await ctx.edit_original_message(content=f'{ctx.author.mention}, Found {str(count)} message(s) in {ctx.channel.mention} and deleted.')
-                await logchanbot(f"[CLEARBOTMSG] in guild {ctx.guild.name} / {ctx.guild.id} by {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} in channel #{ctx.channel.name} completed with {str(count)} message(s).")
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, Found {str(count)} message(s) in {ctx.channel.mention} and deleted."
+                )
+                await logchanbot(
+                    f"[CLEARBOTMSG] in guild {ctx.guild.name} / {ctx.guild.id} by "\
+                    f"{ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} "\
+                    f"in channel #{ctx.channel.name} completed with {str(count)} message(s)."
+                )
             else:
                 await ctx.response.send_message("There is no message by me or anymore.", ephemeral=True)
         except Exception:
@@ -64,7 +69,6 @@ class Core(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     @commands.slash_command(
         usage="uptime",
         description="Tells how long the bot has been running."
@@ -74,7 +78,6 @@ class Core(commands.Cog):
         ctx
     ):
         return await self.async_uptime(ctx)
-
 
     async def async_help(self, ctx, cmd):
         all_slash_cmds = [cmd for cmd in self.bot.all_slash_commands]
@@ -177,7 +180,7 @@ class Core(commands.Cog):
             },
             "claim": {
                 "usage": "/claim [coin]",
-                "desc": "Show reward amount for TipBpt's voting. Or set <coin> as your preferred reward.", 
+                "desc": "Show reward amount for TipBot's voting. Or set <coin> as your preferred reward.", 
                 "related": ["take", "faucet"],
                 "subcmd": []
             },
@@ -189,7 +192,7 @@ class Core(commands.Cog):
             },
             "donate": {
                 "usage": "/donate <amount> <coin>",
-                "desc": "Donate from your balance to TipBpt's dev.", 
+                "desc": "Donate from your balance to TipBot's dev.", 
                 "related": ["deposit", "withdraw"],
                 "subcmd": []
             },
@@ -488,7 +491,6 @@ You can withdraw with command `/withdraw amount coin address`. We recommend you 
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-
 
     @commands.slash_command(
         usage="help [command]",

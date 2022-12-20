@@ -3,6 +3,9 @@ import sys, os
 import time
 import uuid
 import subprocess
+from datetime import datetime
+import random
+import io
 
 import disnake
 from disnake.ext import commands
@@ -20,7 +23,6 @@ import functools
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_CHECKMARK, SERVER_BOT, EMOJI_INFORMATION
 import store
 from cogs.utils import Utils
-from config import config
 
 
 class Tool(commands.Cog):
@@ -33,41 +35,53 @@ class Tool(commands.Cog):
         # TTS path
         self.tts_path = "./tts/"
 
-    async def sql_add_tts(self, user_id: str, user_name: str, msg_content: str, lang: str, tts_mp3: str, user_server: str='DISCORD'):
+    async def sql_add_tts(
+        self, user_id: str, user_name: str, msg_content: str, lang: str, tts_mp3: str, user_server: str='DISCORD'
+    ):
         user_server = user_server.upper()
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `discord_tts` (`user_id`, `user_name`, `msg_content`, `lang`, `time`, `tts_mp3`, `user_server`)
-                              VALUES (%s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (user_id, user_name, msg_content, lang, int(time.time()), tts_mp3, user_server))
+                    sql = """ INSERT INTO `discord_tts` 
+                    (`user_id`, `user_name`, `msg_content`, `lang`, `time`, `tts_mp3`, `user_server`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (
+                        user_id, user_name, msg_content, lang, int(time.time()), tts_mp3, user_server
+                    ))
                     await conn.commit()
                     return True
         except Exception:
             await logchanbot("tools " +str(traceback.format_exc()))
         return False
 
-    async def sql_add_trans_tts(self, user_id: str, user_name: str, original: str, translated: str, to_lang: str, media_file: str, user_server: str='DISCORD'):
+    async def sql_add_trans_tts(
+        self, user_id: str, user_name: str, original: str, translated: str, 
+        to_lang: str, media_file: str, user_server: str='DISCORD'
+    ):
         user_server = user_server.upper()
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `discord_trans_tts` (`user_id`, `user_name`, `original`, `translated`, `to_lang`, `time`, `media_file`, `user_server`)
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (user_id, user_name, original, translated, to_lang, int(time.time()), media_file, user_server))
+                    sql = """ INSERT INTO `discord_trans_tts` (`user_id`, `user_name`, `original`, `translated`, 
+                    `to_lang`, `time`, `media_file`, `user_server`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (
+                        user_id, user_name, original, translated, 
+                        to_lang, int(time.time()), media_file, user_server
+                    ))
                     await conn.commit()
                     return True
         except Exception:
             await logchanbot("tools " +str(traceback.format_exc()))
         return False
-
 
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-
 
     @commands.slash_command(description="Various tool's commands.")
     async def tool(self, ctx):
@@ -126,8 +140,10 @@ class Tool(commands.Cog):
                 voice_file = await self.bot.loop.run_in_executor(None, make_voice)
                 file = disnake.File(self.tts_path + voice_file, filename=voice_file)
                 await ctx.edit_original_message(content="{}".format(ctx.author.mention), file=file)
-                await self.sql_add_tts(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator), \
-                            input_text, 'en', voice_file, SERVER_BOT)
+                await self.sql_add_tts(
+                    str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                    input_text, 'en', voice_file, SERVER_BOT
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("tools " +str(traceback.format_exc()))
@@ -295,7 +311,10 @@ class Tool(commands.Cog):
                     await ctx.edit_original_message(content=f'{ctx.author.mention}, internal error.')
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                await ctx.edit_original_message(content=f'{ctx.author.mention}, internal error. The media file could be too big or text too long. Please reduce your text length.')
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, internal error. The media file could be "\
+                        f"too big or text too long. Please reduce your text length."
+                    )
                 await logchanbot(f"[TRANSLATE] {ctx.author.name}#{ctx.author.discriminator} failed to get translation with {to_lang} ```{input_text}```")
 
         try:
@@ -378,6 +397,147 @@ class Tool(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @commands.guild_only()
+    @commands.slash_command(
+        dm_permission=False,
+        name="whoreact",
+        description="Get list of user who reacts on a message."
+    )
+    async def command_whoreact(
+        self,
+        ctx,
+        msg_id: str,
+        channel: disnake.TextChannel=None
+    ) -> None:
+        """ /whoreact <message ID> """
+        await ctx.response.send_message(f"{ctx.author.mention} finding message & re-action...")    
+        try:
+            msg_id = int(msg_id)
+            try:
+                if channel is not None:
+                    _msg: disnake.Message = await channel.fetch_message(msg_id)
+                    msg_link = "<https://discord.com/channels/"+str(ctx.guild.id)+"/"+str(channel.id)+"/"+str(msg_id) + ">"
+                else:
+                    _msg: disnake.Message = await ctx.channel.fetch_message(msg_id)
+                    msg_link = "<https://discord.com/channels/"+str(ctx.guild.id)+"/"+str(ctx.channel.id)+"/"+str(msg_id) + ">"
+            except disnake.errors.NotFound:
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, message not found or wrong channel."
+                )
+                return
+
+            if _msg is None:
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, I can't find that message `{str(msg_id)}` ({msg_link}). "\
+                        "Try again later or double check the ID."
+                )
+            else:
+                attend_list = []
+                if len(_msg.reactions) > 0:
+                    for each_r in _msg.reactions:
+                        attend_list += [user async for user in each_r.users() if not user.bot and user != ctx.author]
+                    
+                    attend_list = list(set(attend_list))
+                    if len(attend_list) > 0:
+                        list_user_ids = " ".join(["<@{}>".format(u.id) for u in attend_list])
+                        list_user_names = " ".join(["{}#{}".format(u.name, u.discriminator) for u in attend_list])
+                        concat_str = f"Total list of user ID ({str(len(attend_list))}):\n"+list_user_ids+"\n\nList of user name(s):\n"+list_user_names
+                        if len(concat_str) < 1000:
+                            await ctx.edit_original_message(
+                                content="```{}```".format(concat_str)
+                            )
+                        else:
+                            data_file = disnake.File(io.BytesIO(concat_str.encode()), filename=f"Re-act on message_{msg_id}_{str(int(time.time()))}.txt")
+                            await ctx.edit_original_message(content=None, file=data_file)
+                    else:
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, there is no one re-act on that message {msg_link}."
+                        )
+                else:
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, I can't find anyone re-act to that message {msg_link}."
+                    )
+        except ValueError:
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, invalid message ID."
+            )
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.guild_only()
+    @commands.slash_command(
+        dm_permission=False,
+        name="pickuser",
+        description="Pick a user from who re-act on a message."
+    )
+    async def command_pickuser(
+        self,
+        ctx,
+        msg_id: str,
+        emoji_str: str,
+        channel: disnake.TextChannel=None
+    ) -> None:
+        """ /pickuser <message ID> <emoji> """
+        await ctx.response.send_message(f"{ctx.author.mention} finding message & re-action...")    
+        try:
+            msg_id = int(msg_id)
+            try:
+                if channel is not None:
+                    _msg: disnake.Message = await channel.fetch_message(msg_id)
+                else:
+                    _msg: disnake.Message = await ctx.channel.fetch_message(msg_id)
+            except disnake.errors.NotFound:
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, message not found or wrong channel."
+                )
+                return
+
+            if _msg is None:
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, I can't find that message `{str(msg_id)}`. Try again later or double check the ID."
+                )
+            else:
+                # check if that's his message
+                if _msg.author != ctx.author:
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, you can only do with your message. Try again!"
+                    )
+                    return
+                else:
+                    my_emoji = disnake.PartialEmoji.from_str(emoji_str)
+                    if my_emoji is None:
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, I can't get emoji from string `{emoji_str}`!"
+                        )
+                        return
+
+                    attend_list = []
+                    if len(_msg.reactions) > 0:
+                        for each_r in _msg.reactions:
+                            if str(each_r) == str(emoji_str):
+                                attend_list = [user async for user in each_r.users() if not user.bot and user != ctx.author]
+                            else:
+                                continue
+                        if len(attend_list) > 1:
+                            random.seed(datetime.now())
+                            picked_u = random.choice(attend_list)
+                            await ctx.edit_original_message(
+                                content=f"{ctx.author.mention}, there are total {str(len(attend_list))} users. A random selected {picked_u.mention} by {self.bot.user.mention}."
+                            )
+                        else:
+                            await ctx.edit_original_message(
+                                content=f"{ctx.author.mention}, need more user to re-act on that mesage with {emoji_str}."
+                            )
+                    else:
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, I can't find anyone re-act with {emoji_str}."
+                        )
+        except ValueError:
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, invalid message ID."
+            )
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 def setup(bot):
     bot.add_cog(Tool(bot))

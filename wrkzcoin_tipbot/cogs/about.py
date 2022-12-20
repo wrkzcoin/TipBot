@@ -8,7 +8,6 @@ import disnake
 import store
 from Bot import RowButtonRowCloseAnyMessage, logchanbot, SERVER_BOT
 from cogs.utils import Utils
-from config import config
 from disnake.ext import commands
 
 
@@ -34,7 +33,7 @@ class About(commands.Cog):
         return None
 
     async def async_about(self, ctx):
-        await ctx.response.send_message(f"{ctx.author.mention} loading about...")
+        await ctx.response.defer(ephemeral=False)
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", 
                                          str(ctx.author.id), SERVER_BOT, "/about", int(time.time())))
@@ -62,8 +61,10 @@ class About(commands.Cog):
             description = "Total guild(s): `{}` Total member(s): `{}`\n" \
                 "Unique: `{}` Bots: `{}`\n" \
                 "Online: `{}`\n\n" \
-                "**Usage**: CPU: `{} %` Memory: `{} MiB`".format(guilds, total_members, total_unique, total_bots,
-                                                             total_online, round(cpu_usage, 1), round(memory_usage, 1))
+                "**Usage**: CPU: `{} %` Memory: `{} MiB`".format(
+                    guilds, total_members, total_unique, total_bots,
+                    total_online, round(cpu_usage, 1), round(memory_usage, 1)
+            )
             ts = datetime.fromtimestamp(int(psutil.Process().create_time()))
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -71,12 +72,11 @@ class About(commands.Cog):
         botdetails.add_field(name='Creator\'s Discord Name:', value='pluton#8888', inline=True)
         botdetails.add_field(name='My Github:', value="[TipBot Github](https://github.com/wrkzcoin/TipBot)",
                              inline=True)
-        botdetails.add_field(name='Invite Me:', value=config.discord.invite_link, inline=True)
+        botdetails.add_field(name='Invite Me:', value=self.bot.config['discord']['invite_link'], inline=True)
         try:
             get_tipping_count = await self.get_tipping_count()
             if get_tipping_count:
                 botdetails.add_field(name="Tips", value='{:,.0f}'.format(get_tipping_count['nos_tipping']), inline=True)
-                botdetails.add_field(name="Wallets", value='{:,.0f}'.format(get_tipping_count['nos_user']), inline=True)
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:

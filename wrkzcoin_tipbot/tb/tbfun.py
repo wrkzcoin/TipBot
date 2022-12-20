@@ -9,7 +9,7 @@ import os.path
 import hashlib
 
 from Bot import *
-from config import config
+config = load_config()
 
 
 async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str, gif_image: str):
@@ -40,7 +40,7 @@ async def action(url_image1: str, url_image2: str, saved_path: str, funcmd: str,
 
         hash_object2 = hashlib.sha256(res_data2)
         hex_dig2 = str(hash_object2.hexdigest())
-        cache_path = config.fun.fun_img_path + funcmd.upper() + "_" + hex_dig1 + hex_dig2 + ".gif"
+        cache_path = config['fun']['fun_img_path'] + funcmd.upper() + "_" + hex_dig1 + hex_dig2 + ".gif"
         if os.path.exists(cache_path):
             # copyfile(cache_path, saved_path)
             print("usge cache")

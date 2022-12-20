@@ -3,12 +3,36 @@ import traceback
 from typing import List
 import time
 from cachetools import TTLCache
+from sqlitedict import SqliteDict
 
 import disnake
 from disnake.ext import commands
 
 import store
 from Bot import RowButtonRowCloseAnyMessage, logchanbot
+
+
+# https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
+
+def print_color(prt, color: str):
+    if color == "red":
+        print(f"\033[91m{prt}\033[00m")
+    elif color == "green":
+        print(f"\033[92m{prt}\033[00m")
+    elif color == "yellow":
+        print(f"\033[93m{prt}\033[00m")
+    elif color == "lightpurple":
+        print(f"\033[94m{prt}\033[00m")
+    elif color == "purple":
+        print(f"\033[95m{prt}\033[00m")
+    elif color == "cyan":
+        print(f"\033[96m{prt}\033[00m")
+    elif color == "lightgray":
+        print(f"\033[97m{prt}\033[00m")
+    elif color == "black":
+        print(f"\033[98m{prt}\033[00m")
+    else:
+        print(f"\033[0m{prt}\033[00m")
 
 async def get_all_coin_names(
     what: str,
@@ -80,7 +104,10 @@ class MenuPage(disnake.ui.View):
         self.embed_count = 0
 
         # Gets the embed object.
-        embed = self.embeds[self.embed_count]
+        try:
+            embed = self.embeds[self.embed_count]
+        except IndexError:
+            return
 
         self.last_page.disabled = False
 
@@ -101,7 +128,11 @@ class MenuPage(disnake.ui.View):
         self.embed_count -= 1
 
         # Gets the embed object.
-        embed = self.embeds[self.embed_count]
+        try:
+            embed = self.embeds[self.embed_count]
+        except IndexError:
+            self.embed_count += 1
+            return
 
         self.last_page.disabled = False
 
@@ -136,7 +167,11 @@ class MenuPage(disnake.ui.View):
         self.embed_count += 1
 
         # Gets the embed object.
-        embed = self.embeds[self.embed_count]
+        try:
+            embed = self.embeds[self.embed_count]
+        except IndexError:
+            self.embed_count -= 1
+            return
 
         # Enables the previous page button and disables the next page button if we're on the last embed.
         self.prev_page.disabled = False
@@ -157,7 +192,11 @@ class MenuPage(disnake.ui.View):
         self.embed_count = len(self.embeds) - 1
 
         # Gets the embed object.
-        embed = self.embeds[self.embed_count]
+        try:
+            embed = self.embeds[self.embed_count]
+        except IndexError:
+            self.embed_count = len(self.embeds) + 1
+            return
 
         self.first_page.disabled = False
 
@@ -175,6 +214,13 @@ class Utils(commands.Cog):
         self.bot = bot
         self.commanding_save = 10
         self.adding_commands = False
+        self.cache_kv_db_test = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="test", autocommit=True)
+        self.cache_kv_db_general = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="general", autocommit=True)
+        self.cache_kv_db_block = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="block", autocommit=True)
+        self.cache_kv_db_pools = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="pools", autocommit=True)
+        self.cache_kv_db_paprika = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="paprika", autocommit=True)
+        self.cache_kv_db_faucet = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="faucet", autocommit=True)
+        self.cache_kv_db_market_guild = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="market_guild", autocommit=True)
 
     async def get_bot_settings(self):
         try:
@@ -269,9 +315,10 @@ class Utils(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `bot_commanded` (`guild_id`, `user_id`, `user_server`, `command`, `timestamp`)
-                              VALUES (%s, %s, %s, %s, %s)
-                              """
+                    sql = """ INSERT INTO `bot_commanded` 
+                    (`guild_id`, `user_id`, `user_server`, `command`, `timestamp`)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """
                     await cur.executemany(sql, self.bot.commandings)
                     await conn.commit()
                     if cur.rowcount > 0:
@@ -285,6 +332,141 @@ class Utils(commands.Cog):
                     await logchanbot("[bot_commanded] removed: " +str(each))
         self.adding_commands = False
 
+    async def get_trade_channel_list(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `discord_server`
+                    WHERE `trade_channel` IS NOT NULL
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    def set_cache_kv(self, table: str, key: str, value):
+        try:
+            if table.lower() == "test":
+                self.cache_kv_db_test[key.upper()] = value
+                return True            
+            elif table.lower() == "general":
+                self.cache_kv_db_general[key.upper()] = value
+                return True
+            elif table.lower() == "block":
+                self.cache_kv_db_block[key.upper()] = value
+                return True
+            elif table.lower() == "pools":
+                self.cache_kv_db_pools[key.upper()] = value
+                return True
+            elif table.lower() == "paprika":
+                self.cache_kv_db_paprika[key.upper()] = value
+                return True
+            elif table.lower() == "faucet":
+                self.cache_kv_db_faucet[key.upper()] = value
+                return True
+            elif table.lower() == "market_guild":
+                self.cache_kv_db_market_guild[key.upper()] = value
+                return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    def get_cache_kv(self, table: str, key: str):
+        try:
+            if table.lower() == "test":
+                return self.cache_kv_db_test[key.upper()]
+            elif table.lower() == "general":
+                return self.cache_kv_db_general[key.upper()]
+            elif table.lower() == "block":
+                return self.cache_kv_db_block[key.upper()]
+            elif table.lower() == "pools":
+                return self.cache_kv_db_pools[key.upper()]
+            elif table.lower() == "paprika":
+                return self.cache_kv_db_paprika[key.upper()]
+            elif table.lower() == "faucet":
+                return self.cache_kv_db_faucet[key.upper()]
+            elif table.lower() == "market_guild":
+                return self.cache_kv_db_market_guild[key.upper()]
+        except KeyError:
+            pass
+        return None
+
+    def del_cache_kv(self, table: str, key: str):
+        try:
+            if table.lower() == "test":
+                del self.cache_kv_db_test[key.upper()]
+                return True
+            elif table.lower() == "general":
+                del self.cache_kv_db_general[key.upper()]
+                return True
+            elif table.lower() == "block":
+                del self.cache_kv_db_block[key.upper()]
+                return True
+            elif table.lower() == "pools":
+                del self.cache_kv_db_pools[key.upper()]
+                return True
+            elif table.lower() == "paprika":
+                del self.cache_kv_db_paprika[key.upper()]
+                return True
+            elif table.lower() == "faucet":
+                del self.cache_kv_db_faucet[key.upper()]
+                return True
+            elif table.lower() == "market_guild":
+                del self.cache_kv_db_market_guild[key.upper()]
+                return True
+        except KeyError:
+            pass
+        return False
+
+    def get_cache_kv_list(self, table: str):
+        try:
+            if table.lower() == "test":
+                return self.cache_kv_db_test
+            elif table.lower() == "general":
+                return self.cache_kv_db_general
+            elif table.lower() == "block":
+                return self.cache_kv_db_block
+            elif table.lower() == "pools":
+                return self.cache_kv_db_pools
+            elif table.lower() == "paprika":
+                return self.cache_kv_db_paprika
+            elif table.lower() == "faucet":
+                return self.cache_kv_db_faucet
+            elif table.lower() == "market_guild":
+                return self.cache_kv_db_market_guild
+        except KeyError:
+            pass
+        return None
+
+    async def cog_load(self):
+        # for testing table
+        if self.cache_kv_db_test is None:
+            self.cache_kv_db_test = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="test", autocommit=True)
+        if self.cache_kv_db_general is None:
+            self.cache_kv_db_general = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="general", autocommit=True)
+        if self.cache_kv_db_block is None:
+            self.cache_kv_db_block = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="block", autocommit=True)
+        if self.cache_kv_db_pools is None:
+            self.cache_kv_db_pools = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="pools", autocommit=True)
+        if self.cache_kv_db_paprika is None:
+            self.cache_kv_db_paprika = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="paprika", autocommit=True)
+        if self.cache_kv_db_faucet is None:
+            self.cache_kv_db_faucet = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="faucet", autocommit=True)
+        if self.cache_kv_db_market_guild is None:
+            self.cache_kv_db_market_guild = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="market_guild", autocommit=True)
+
+    def cog_unload(self):
+        self.cache_kv_db_test.close()
+        self.cache_kv_db_general.close()
+        self.cache_kv_db_block.close()
+        self.cache_kv_db_pools.close()
+        self.cache_kv_db_paprika.close()
+        self.cache_kv_db_faucet.close()
+        self.cache_kv_db_market_guild.close()
 
 def setup(bot):
     bot.add_cog(Utils(bot))

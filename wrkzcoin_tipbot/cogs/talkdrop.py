@@ -21,7 +21,6 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
 from disnake.ext import commands, tasks
-from config import config
 
 from cogs.utils import Utils
 
@@ -70,7 +69,6 @@ class TalkDrop(commands.Cog):
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
 
-
     @tasks.loop(seconds=30.0)
     async def talkdrop_check(self):
         await self.bot.wait_until_ready()
@@ -85,13 +83,20 @@ class TalkDrop(commands.Cog):
                 for each_talkdrop in get_list_talkdrop:
                     await self.bot.wait_until_ready()
                     # print("Checkping talkdrop: {}".format(each_talkdrop['message_id']))
+                    coin_name = each_talkdrop['token_name']
+                    coin_emoji = ""
+                    try:
+                        channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
+                        if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                            coin_emoji = coin_emoji + " " if coin_emoji else ""
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
                     try:
                         attend_list = await store.get_talkdrop_collectors(each_talkdrop['message_id'])
                         # Update view
                         owner_displayname = each_talkdrop['from_ownername']
                         equivalent_usd = each_talkdrop['real_amount_usd_text']
-
-                        coin_name = each_talkdrop['token_name']
                         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -101,8 +106,18 @@ class TalkDrop(commands.Cog):
                         if each_talkdrop['talkdrop_time'] < int(time.time()):
                             embed = disnake.Embed(
                                 title="✍️ Talk Drop Ends! ✍️",
-                                description="You can collect only if you have chatted in channel <#{}> from {} ago.".format(each_talkdrop['talked_in_channel'], seconds_str_days(time_passed)),
-                                timestamp=datetime.fromtimestamp(each_talkdrop['talkdrop_time']))
+                                description="You can collect only if you have chatted in channel <#{}> from {} ago.".format(
+                                    each_talkdrop['talked_in_channel'], seconds_str_days(time_passed)
+                                ),
+                                timestamp=datetime.fromtimestamp(each_talkdrop['talkdrop_time'])
+                            )
+                            if len(coin_emoji) > 0:
+                                extension = ".png"
+                                if coin_emoji.startswith("<a:"):
+                                    extension = ".gif"
+                                split_id = coin_emoji.split(":")[2]
+                                link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+                                embed.set_thumbnail(url=link)
                             embed.set_footer(text=f"Contributed by {owner_displayname} | /talkdrop | Ended")
                             all_name_list = []
                             if len(attend_list) > 0:
@@ -118,15 +133,21 @@ class TalkDrop(commands.Cog):
                             indiv_amount = each_talkdrop['real_amount'] / len(all_name_list) if len(all_name_list) > 0 else each_talkdrop['real_amount']
                             amount_in_usd = indiv_amount * each_talkdrop['unit_price_usd'] if each_talkdrop['unit_price_usd'] and each_talkdrop['unit_price_usd'] > 0.0 else 0.0
                             indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
-                            embed.add_field(name='Each Member Receives:',
-                                            value=f"{indiv_amount_str} {token_display}",
-                                            inline=True)
-                            embed.add_field(name='Total Amount', 
-                                            value=num_format_coin(each_talkdrop['real_amount'], coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
-                            embed.add_field(name='Minimum Messages',
-                                            value=each_talkdrop['minimum_message'],
-                                            inline=True)
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{coin_emoji}{indiv_amount_str} {token_display}",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Total Amount', 
+                                value=coin_emoji + num_format_coin(each_talkdrop['real_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Minimum Messages',
+                                value=each_talkdrop['minimum_message'],
+                                inline=True
+                            )
                             try:
                                 channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
                                 if channel:
@@ -159,9 +180,17 @@ class TalkDrop(commands.Cog):
                         else:
                             embed = disnake.Embed(
                                 title="✍️ Talk Drop ✍️",
-                                description="You can collect only if you have chatted in channel <#{}> from {} ago.".format(each_talkdrop['talked_in_channel'], seconds_str_days(time_passed)),
+                                description="You can collect only if you have chatted in channel <#{}> from {} ago.".format(
+                                    each_talkdrop['talked_in_channel'], seconds_str_days(time_passed)
+                                ),
                                 timestamp=datetime.fromtimestamp(each_talkdrop['talkdrop_time']))
-
+                            if len(coin_emoji) > 0:
+                                extension = ".png"
+                                if coin_emoji.startswith("<a:"):
+                                    extension = ".gif"
+                                split_id = coin_emoji.split(":")[2]
+                                link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+                                embed.set_thumbnail(url=link)
                             time_left = seconds_str_days(each_talkdrop['talkdrop_time'] - int(time.time())) if int(time.time()) < each_talkdrop['talkdrop_time'] else "00:00:00"
                             lap_div = int((each_talkdrop['talkdrop_time'] - int(time.time()))/30)
                             embed.set_footer(text=f"Contributed by {owner_displayname} | /talkdrop | Time left: {time_left}")
@@ -187,14 +216,22 @@ class TalkDrop(commands.Cog):
                             except Exception:
                                 pass
                             indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
-                            embed.add_field(name='Each Member Receives:',
-                                            value=f"{indiv_amount_str} {token_display}", inline=True)
-                            embed.add_field(name='Total Amount', 
-                                            value=num_format_coin(each_talkdrop['real_amount'], coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
-                            embed.add_field(name='Minimum Messages',
-                                            value=each_talkdrop['minimum_message'],
-                                            inline=True)
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{coin_emoji}{indiv_amount_str} {token_display}",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Total Amount', 
+                                value=coin_emoji + num_format_coin(each_talkdrop['real_amount'], coin_name, coin_decimal, False) + " " \
+                                    + coin_name,
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Minimum Messages',
+                                value=each_talkdrop['minimum_message'],
+                                inline=True
+                            )
                             try:
                                 channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
                                 if channel is None:
@@ -210,7 +247,9 @@ class TalkDrop(commands.Cog):
                                         if each_talkdrop['failed_check'] > 3:
                                             turn_off = True
                                         await store.update_talkdrop_failed(each_talkdrop['message_id'], turn_off)
-                                        await logchanbot("talkdrop_check: can not find message ID: {} in channel: {}".format(each_talkdrop['message_id'], each_talkdrop['channel_id']))
+                                        await logchanbot("talkdrop_check: can not find message ID: {} in channel: {}".format(
+                                            each_talkdrop['message_id'], each_talkdrop['channel_id'])
+                                        )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                 await asyncio.sleep(2.0)
@@ -224,8 +263,10 @@ class TalkDrop(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
 
-    async def async_talkdrop(self, ctx, amount: str, token: str, channel: disnake.TextChannel, 
-                             from_when: str, end: str, minimum_message: int):
+    async def async_talkdrop(
+        self, ctx, amount: str, token: str, channel: disnake.TextChannel, 
+        from_when: str, end: str, minimum_message: int
+    ):
         coin_name = token.upper()
         await ctx.response.send_message(f"{ctx.author.mention}, /talkdrop preparation... ")
 
@@ -268,17 +309,17 @@ class TalkDrop(commands.Cog):
         # Check if there is many airdrop/mathtip/triviatip/partydrop/talkdrop
         try:
             count_ongoing = await store.discord_freetip_ongoing(str(ctx.author.id), "ONGOING")
-            if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != config.discord.ownerID:
+            if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 return
             count_ongoing = await store.discord_freetip_ongoing_guild(str(ctx.guild.id), "ONGOING")
             # Check max if set in guild
-            if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and ctx.author.id != config.discord.ownerID:
+            if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 return
-            elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != config.discord.ownerID:
+            elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(f"[TALKDROP] server {str(ctx.guild.id)} has no data in discord_server.")
@@ -291,6 +332,13 @@ class TalkDrop(commands.Cog):
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
 
+            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+            coin_emoji = coin_emoji + " " if coin_emoji else ""
+            try:
+                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
+                    coin_emoji = ""
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -299,11 +347,13 @@ class TalkDrop(commands.Cog):
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                   SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name,
-                                                                      type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -321,8 +371,10 @@ class TalkDrop(commands.Cog):
         
         # Check amount
         if not amount.isdigit() and amount.upper() == "ALL":
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                   type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin, 
+                height, deposit_confirm_depth, SERVER_BOT
+            )
             amount = float(userdata_balance['adjust'])
         # If $ is in amount, let's convert to coin/token
         elif "$" in amount[-1] or "$" in amount[0]:  # last is $
@@ -359,8 +411,9 @@ class TalkDrop(commands.Cog):
         # end of check if amount is all
 
         # Check if tx in progress
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+        if str(ctx.author.id) in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -371,21 +424,26 @@ class TalkDrop(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if amount <= 0:
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.author.id), coin_name, wallet_address, type_coin,
+            height, deposit_confirm_depth, SERVER_BOT
+        )
+        actual_balance = float(userdata_balance['adjust'])
+
+        if amount <= 0 or actual_balance <= 0:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
 
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
-        actual_balance = float(userdata_balance['adjust'])
-
         if amount > max_tip or amount < min_tip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, amount cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, amount cannot be bigger than "\
+                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
+                f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a drop of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a drop of "\
+                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -396,18 +454,19 @@ class TalkDrop(commands.Cog):
             return
 
         # Check if there is enough talk in that channel
-        message_talker = await store.sql_get_messages(str(ctx.guild.id), 
-                                                      str(channel.id), 
-                                                      int(from_when), None)
+        message_talker = await store.sql_get_messages(
+            str(ctx.guild.id), str(channel.id),int(from_when), None
+        )
         if ctx.author.id in message_talker:
             message_talker.remove(ctx.author.id)
         if len(message_talker) <= 1:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, there are not not enough active text in that channel {channel.mention}. Try again later!'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there are not not enough active text in that channel "\
+                f"{channel.mention}. Try again later!"
             await ctx.edit_original_message(content=msg)
             return
 
-        if ctx.author.id not in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+        if str(ctx.author.id) not in self.bot.tipping_in_progress:
+            self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
 
         equivalent_usd = ""
         total_in_usd = 0.0
@@ -433,37 +492,57 @@ class TalkDrop(commands.Cog):
         owner_displayname = "{}#{}".format(ctx.author.name, ctx.author.discriminator)
         embed = disnake.Embed(
             title="✍️ Talk Drop ✍️",
-            description="You can collect only if you have chatted in channel {} from {} ago.".format(channel.mention, seconds_str_days(int(from_when))),
+            description="You can collect only if you have chatted in channel {} from {} ago.".format(
+                channel.mention, seconds_str_days(int(from_when))
+            ),
             timestamp=datetime.fromtimestamp(talkdrop_end))
-        embed.add_field(name='Total Amount',
-                        value=num_format_coin(amount, coin_name, coin_decimal, False) + " " + coin_name,
-                        inline=True)
+        embed.add_field(
+            name='Total Amount',
+            value=coin_emoji + num_format_coin(amount, coin_name, coin_decimal, False) + " " + coin_name,
+            inline=True
+        )
         time_left = seconds_str_days(duration_s)
-        embed.add_field(name='Minimum Messages',
-                        value=minimum_message,
-                        inline=True)
+        embed.add_field(
+            name='Minimum Messages',
+            value=minimum_message,
+            inline=True
+        )
+        if len(coin_emoji) > 0:
+            extension = ".png"
+            if coin_emoji.startswith("<a:"):
+                extension = ".gif"
+            split_id = coin_emoji.split(":")[2]
+            link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+            embed.set_thumbnail(url=link)
         embed.set_footer(text=f"Contributed by {owner_displayname} | /talkdrop | Time left: {time_left}")
         try:
             view = TalkDropButton(ctx, duration_s, self.bot.coin_list, self.bot, ctx.channel.id) 
             msg = await ctx.channel.send(content=None, embed=embed, view=view)
             view.message = msg
             view.channel_interact = ctx.channel.id
-            talkdrop = await store.insert_talkdrop_create(coin_name, contract, str(ctx.author.id),
-                                                          owner_displayname, str(view.message.id),
-                                                          str(ctx.guild.id), str(ctx.channel.id), 
-                                                          str(channel.id), talked_from_when, minimum_message, 
-                                                          amount, total_in_usd, equivalent_usd,
-                                                          per_unit, coin_decimal, 
-                                                          talkdrop_end, "ONGOING")
+            await store.insert_talkdrop_create(
+                coin_name, contract, str(ctx.author.id),
+                owner_displayname, str(view.message.id),
+                str(ctx.guild.id), str(ctx.channel.id), 
+                str(channel.id), talked_from_when, minimum_message, 
+                amount, total_in_usd, equivalent_usd,
+                per_unit, coin_decimal, 
+                talkdrop_end, "ONGOING"
+            )
             await ctx.edit_original_message(content="/talkdrop created 👇")
+        except disnake.errors.Forbidden:
+            await ctx.edit_original_message(content="Missing permission! Or failed to send embed message.")
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+        try:
+            del self.bot.tipping_in_progress[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='talkdrop <amount> <token> <channel> <from when> <end>',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
@@ -501,15 +580,25 @@ class TalkDrop(commands.Cog):
     ):
         await self.async_talkdrop(ctx, amount, token, channel, from_when, end, minimum_message)
 
+    @talkdrop.autocomplete("token")
+    async def talkdrop_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.talkdrop_check.is_running():
+                self.talkdrop_check.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.talkdrop_check.start()
-
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.talkdrop_check.is_running():
+                self.talkdrop_check.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.talkdrop_check.stop()
+        self.talkdrop_check.cancel()
         
 
 def setup(bot):

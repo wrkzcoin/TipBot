@@ -45,7 +45,6 @@ class RandomNumber(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     @commands.slash_command(
         usage="rand [1-100]",
         options=[

@@ -11,8 +11,6 @@ from disnake.app_commands import Option, OptionChoice
 
 # ascii table
 from terminaltables import AsciiTable
-
-from config import config
 import store
 from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, \
     EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, RowButtonRowCloseAnyMessage, human_format, \
@@ -69,12 +67,15 @@ class Trade(commands.Cog):
         if coin2 is None:
             get_markets = await store.sql_get_open_order_by_alluser(coin1.upper(), 'OPEN', option.upper(), 200)
             title = "**MARKET {}**".format(coin1.upper())
-            no_trading_msg = f"Currently, no opening selling or buying market for {coin1.upper()}. Please make some open order for others."
+            no_trading_msg = f"Currently, no opening selling or buying market for {coin1.upper()}. "\
+                f"Please make some open order for others."
         else:
-            get_markets = await store.sql_get_open_order_by_alluser_by_coins(coin1.upper(), coin2.upper(), "OPEN",
-                                                                             option)
+            get_markets = await store.sql_get_open_order_by_alluser_by_coins(
+                coin1.upper(), coin2.upper(), "OPEN", option
+            )
             title = "**MARKET {}/{}**".format(coin1.upper(), coin2.upper())
-            no_trading_msg = f"Currently, no opening selling market pair for {coin1.upper()} with {coin2.upper()}. Please make some open order for others."
+            no_trading_msg = f"Currently, no opening selling market pair for {coin1.upper()} with {coin2.upper()}. "\
+                f"Please make some open order for others."
 
         if get_markets and len(get_markets) > 0:
             list_numb = 0
@@ -179,11 +180,13 @@ class Trade(commands.Cog):
             return
         # Check if both coin has trade enable
         if getattr(getattr(self.bot.coin_list, sell_ticker), "enable_trade") != 1:
-            msg = f"{ctx.author.mention}, invalid trade ticker `{sell_ticker}`. They may not be enable for trade. Check with TipBot dev team."
+            msg = f"{ctx.author.mention}, invalid trade ticker `{sell_ticker}`. They may not be enable for trade. "\
+                "Check with TipBot dev team."
             await ctx.edit_original_message(content=msg)
             return
         if getattr(getattr(self.bot.coin_list, buy_ticker), "enable_trade") != 1:
-            msg = f"{ctx.author.mention}, invalid trade ticker `{buy_ticker}`. They may not be enable for trade. Check with TipBot dev team."
+            msg = f"{ctx.author.mention}, invalid trade ticker `{buy_ticker}`. They may not be enable for trade. "\
+                "Check with TipBot dev team."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -194,8 +197,9 @@ class Trade(commands.Cog):
 
         # get opened order:
         user_count_order = await store.sql_count_open_order_by_sellerid(str(ctx.author.id), SERVER_BOT)
-        if user_count_order >= config.trade.Max_Open_Order:
-            msg = f"{ctx.author.mention}, you have maximum opened selling **{config.trade.Max_Open_Order}**. Please cancel some or wait."
+        if user_count_order >= self.bot.config['trade']['Max_Open_Order']:
+            msg = f"{ctx.author.mention}, you have maximum opened selling **{self.bot.config['trade']['Max_Open_Order']}**. "\
+                f"Please cancel some or wait."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -211,15 +215,19 @@ class Trade(commands.Cog):
         max_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_max_buysell")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
         if sell_amount < min_tx or sell_amount > max_tx:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade for {coin_name} cannot be smaller than {num_format_coin(min_tx, coin_name, coin_decimal_sell, False)} {token_display} or bigger than {num_format_coin(max_tx, coin_name, coin_decimal_sell, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, trade for {coin_name} cannot be smaller than "\
+                f"{num_format_coin(min_tx, coin_name, coin_decimal_sell, False)} {token_display} or bigger than "\
+                f"{num_format_coin(max_tx, coin_name, coin_decimal_sell, False)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         # Get balance user
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0, 0)
+            get_deposit = await self.wallet_api.sql_register_user(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+            )
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -228,8 +236,10 @@ class Trade(commands.Cog):
             wallet_address = get_deposit['destination_tag']
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.author.id), coin_name, wallet_address, type_coin,
+            height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
         if sell_amount > actual_balance:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance of {coin_name} to trade. Having {num_format_coin(actual_balance, coin_name, coin_decimal_sell, False)} {coin_name} and needed {num_format_coin(sell_amount, coin_name, coin_decimal_sell, False)} {coin_name}.'
@@ -253,25 +263,45 @@ class Trade(commands.Cog):
         if sell_amount / buy_amount < self.min_ratio or buy_amount / sell_amount < self.min_ratio:
             msg = f"{ctx.author.mention}, ratio buy/sell rate is so low."
             await ctx.edit_original_message(content=msg)
-            return
         else:
             sell_div_get = round(sell_amount / buy_amount, 12)
-            fee_sell = round(config.trade.Trade_Margin * sell_amount, 8)
-            fee_buy = round(config.trade.Trade_Margin * buy_amount, 8)
+            fee_sell = round(self.bot.config['trade']['Trade_Margin'] * sell_amount, 8)
+            fee_buy = round(self.bot.config['trade']['Trade_Margin'] * buy_amount, 8)
             if fee_sell == 0: fee_sell = 0.00000010
             if fee_buy == 0: fee_buy = 0.00000010
-            order_add = await store.sql_store_openorder(sell_ticker, coin_decimal_sell, sell_amount,
-                                                        sell_amount - fee_sell, str(ctx.author.id), buy_ticker,
-                                                        coin_decimal_buy, buy_amount, buy_amount - fee_buy,
-                                                        sell_div_get, SERVER_BOT)
+            order_add = await store.sql_store_openorder(
+                sell_ticker, coin_decimal_sell, sell_amount,
+                sell_amount - fee_sell, str(ctx.author.id), buy_ticker,
+                coin_decimal_buy, buy_amount, buy_amount - fee_buy,
+                sell_div_get, SERVER_BOT
+            )
             if order_add:
-                get_message = "New open order created: #**{}**```Selling: {} {}\nFor: {} {}\nFee: {} {}```".format(
+                buy_msg = "You can buy with `/market buy ref_number:{}`.".format(order_add)
+                additional_message = " You will sell {} {} and you can get {} {}.".format(
+                    num_format_coin(buy_amount, buy_ticker, coin_decimal_buy, False), buy_ticker,
+                    num_format_coin(sell_amount-fee_sell, sell_ticker, coin_decimal_sell, False), sell_ticker,
+                )
+                get_message = "New p2p open order created: #**{}**```Selling: {} {}\nFor: {} {}\nFee: {} {}```".format(
                     order_add,
                     num_format_coin(sell_amount, sell_ticker, coin_decimal_sell, False), sell_ticker,
                     num_format_coin(buy_amount, buy_ticker, coin_decimal_buy, False), buy_ticker,
-                    num_format_coin(fee_sell, sell_ticker, coin_decimal_sell, False), sell_ticker)
-            await ctx.edit_original_message(content=get_message)
-            return
+                    num_format_coin(fee_sell, sell_ticker, coin_decimal_sell, False), sell_ticker
+                )
+                await ctx.edit_original_message(content=get_message)
+                # Find guild where there is trade channel assign
+                get_guilds = await self.utils.get_trade_channel_list()
+                if len(get_guilds) > 0:
+                    for item in get_guilds:
+                        try:
+                            get_guild = self.bot.get_guild(int(item['serverid']))
+                            if get_guild:
+                                channel = self.bot.get_channel(int(item['trade_channel']))
+                                if channel:
+                                    await channel.send(get_message+buy_msg+additional_message)
+                                    if channel.id == ctx.channel.id:
+                                        await ctx.edit_original_message(content=f"{ctx.author.mention}, sell order posted!")
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
 
     @commands.slash_command(
         description="Various crypto p2p trading commands."
@@ -282,24 +312,35 @@ class Trade(commands.Cog):
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. "\
+                        "Please request Guild owner to enable by `/SETTING TRADE`'
                     await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                            f"{ctx.author.name} / {ctx.author.id} tried **trade/market command** in "\
+                            f"{ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
+                        )
                     return
+                elif serverinfo and serverinfo['trade_channel'] is not None and \
+                    int(serverinfo['trade_channel']) != ctx.channel.id:
+                    channel = ctx.guild.get_channel(int(serverinfo['trade_channel']))
+                    if channel is not None:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, trade channel was assigned to {channel.mention}."
+                        await ctx.response.send_message(msg)
         except Exception:
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 return
 
-    @market.sub_command(usage="market sell <sell_amount> <sell_ticker> <buy_amount> <buy_ticker>",
-                        options=[
-                            Option('sell_amount', 'Enter amount of coin to sell', OptionType.string, required=True),
-                            Option('sell_ticker', 'Enter coin ticker/name to sell', OptionType.string, required=True),
-                            Option('buy_amount', 'Enter amount of coin to buy', OptionType.string, required=True),
-                            Option('buy_ticker', 'Enter coin ticker/name to buy', OptionType.string, required=True)
-                        ],
-                        description="Make an opened sell of a coin for another coin.")
+    @market.sub_command(
+        usage="market sell <sell_amount> <sell_ticker> <buy_amount> <buy_ticker>",
+        options=[
+            Option('sell_amount', 'Enter amount of coin to sell', OptionType.string, required=True),
+            Option('sell_ticker', 'Enter coin ticker/name to sell', OptionType.string, required=True),
+            Option('buy_amount', 'Enter amount of coin to buy', OptionType.string, required=True),
+            Option('buy_ticker', 'Enter coin ticker/name to buy', OptionType.string, required=True)
+        ],
+        description="Make an opened sell of a coin for another coin."
+    )
     async def sell(
         self,
         ctx,
@@ -320,27 +361,33 @@ class Trade(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         await self.bot_log()
-        try:
-            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
-                    await ctx.edit_original_message(content=msg)
-                    if self.enable_logchan:
-                        await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
-                    return
-        except Exception:
-            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                return
+        await self.make_open_order(ctx, sell_amount, sell_ticker, buy_amount, buy_ticker)
 
-        create_order = await self.make_open_order(ctx, sell_amount, sell_ticker, buy_amount, buy_ticker)
+    @sell.autocomplete("sell_ticker")
+    async def sell_sell_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        list_trade = []
+        for each in self.bot.coin_name_list:
+            if getattr(getattr(self.bot.coin_list, each), "enable_trade") == 1:
+                list_trade.append(each)
+        return [name for name in list_trade if string in name.lower()][:10]
 
-    @market.sub_command(usage="market myorder [coin]",
-                        options=[
-                            Option('ticker', 'ticker', OptionType.string, required=False)
-                        ],
-                        description="Check your opened orders.")
+    @sell.autocomplete("buy_ticker")
+    async def sell_buy_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        list_trade = []
+        for each in self.bot.coin_name_list:
+            if getattr(getattr(self.bot.coin_list, each), "enable_trade") == 1:
+                list_trade.append(each)
+        return [name for name in list_trade if string in name.lower()][:10]
+
+    @market.sub_command(
+        usage="market myorder [coin]",
+        options=[
+            Option('ticker', 'ticker', OptionType.string, required=False)
+        ],
+        description="Check your opened orders."
+    )
     async def myorder(
         self,
         ctx,
@@ -348,7 +395,6 @@ class Trade(commands.Cog):
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, market loading..."
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/market myorder", int(time.time())))
@@ -357,20 +403,6 @@ class Trade(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         await self.bot_log()
-        try:
-            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
-                    await ctx.edit_original_message(content=msg)
-                    if self.enable_logchan:
-                        await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
-                    return
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                return
 
         if ticker:
             if len(ticker) < 6:
@@ -398,15 +430,13 @@ class Trade(commands.Cog):
                             ['PAIR', 'Selling', 'For', 'Order #']
                         ]
                         for order_item in get_open_order:
-                            table_data.append([order_item['pair_name'],
-                                               num_format_coin(order_item['amount_sell'], order_item['coin_sell'],
-                                                               getattr(
-                                                                   getattr(self.bot.coin_list, order_item['coin_sell']),
-                                                                   "decimal"), False) + order_item['coin_sell'],
-                                               num_format_coin(order_item['amount_get_after_fee'],
-                                                               order_item['coin_get'], getattr(
-                                                       getattr(self.bot.coin_list, order_item['coin_get']), "decimal"),
-                                                               False) + order_item['coin_get'], order_item['order_id']])
+                            table_data.append([
+                                order_item['pair_name'], num_format_coin(order_item['amount_sell'], order_item['coin_sell'],
+                                getattr(getattr(self.bot.coin_list, order_item['coin_sell']), "decimal"), False) + order_item['coin_sell'],
+                                num_format_coin(order_item['amount_get_after_fee'], order_item['coin_get'],
+                                getattr(getattr(self.bot.coin_list, order_item['coin_get']), "decimal"), False) + order_item['coin_get'],
+                                order_item['order_id']
+                            ])
                         table = AsciiTable(table_data)
                         # table.inner_column_border = False
                         # table.outer_border = False
@@ -493,12 +523,22 @@ class Trade(commands.Cog):
                 msg = f'{ctx.author.mention}, you do not have any active selling.'
                 await ctx.edit_original_message(content=msg)
 
+    @myorder.autocomplete("ticker")
+    async def myorder_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        list_trade = []
+        for each in self.bot.coin_name_list:
+            if getattr(getattr(self.bot.coin_list, each), "enable_trade") == 1:
+                list_trade.append(each)
+        return [name for name in list_trade if string in name.lower()][:10]
 
-    @market.sub_command(usage="market cancel <ref_number|all>",
-                        options=[
-                            Option('order_num', 'order_num', OptionType.string, required=True)
-                        ],
-                        description="Cancel your opened order or all.")
+    @market.sub_command(
+        usage="market cancel <ref_number|all>",
+        options=[
+            Option('order_num', 'order_num', OptionType.string, required=True)
+        ],
+        description="Cancel your opened order or all."
+    )
     async def cancel(
         self,
         ctx,
@@ -516,19 +556,6 @@ class Trade(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         await self.bot_log()
-        try:
-            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
-                    await ctx.edit_original_message(content=msg)
-                    if self.enable_logchan:
-                        await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
-                    return
-        except Exception:
-            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                return
 
         if order_num.upper() == 'ALL':
             get_open_order = await store.sql_get_open_order_by_sellerid_all(str(ctx.author.id), 'OPEN')
@@ -585,20 +612,21 @@ class Trade(commands.Cog):
                             cancel_order = await store.sql_cancel_open_order_by_sellerid(str(ctx.author.id), order_num)
                             if cancel_order: cancelled = True
                     if cancelled is False:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you do not have sell #**{order_num}**. Please check command `/myorder`.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have sell #**{order_num}**. "\
+                            "Please check command `/myorder`."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
                         msg = f'{ctx.author.mention}, you cancelled #**{order_num}**.'
                         await ctx.edit_original_message(content=msg)
 
-
-    @market.sub_command(usage="market buy <ref_number>",
-                        options=[
-                            Option('ref_number', 'ref_number', OptionType.string, required=True)
-                        ],
-                        description="Trade from a referenced number."
-                        )
+    @market.sub_command(
+        usage="market buy <ref_number>",
+        options=[
+            Option('ref_number', 'ref_number', OptionType.string, required=True)
+        ],
+        description="Trade from a referenced number."
+    )
     async def buy(
         self,
         ctx,
@@ -616,20 +644,6 @@ class Trade(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         await self.bot_log()
-        try:
-            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
-                    await ctx.edit_original_message(content=msg)
-                    if self.enable_logchan:
-                        await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
-                    return
-        except Exception:
-            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                return
-
         # check if the argument is ref or ticker by length
         if len(ref_number) < 6:
             # assume it is ticker
@@ -687,7 +701,7 @@ class Trade(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
             else:
-                msg = f'{ctx.author.mention}, no opening selling **{coin_name}**. Please make some open order for others.'
+                msg = f"{ctx.author.mention}, no opening selling **{coin_name}**. Please make some open order for others."
                 await ctx.edit_original_message(content=msg)
                 return
         else:
@@ -706,11 +720,13 @@ class Trade(commands.Cog):
                     net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                     type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                     deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                    get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name,
-                                                                           type_coin, SERVER_BOT, 0)
+                    get_deposit = await self.wallet_api.sql_get_userwallet(
+                        str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
                     if get_deposit is None:
-                        get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name,
-                                                                              type_coin, SERVER_BOT, 0, 0)
+                        get_deposit = await self.wallet_api.sql_register_user(
+                            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                        )
 
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -719,9 +735,10 @@ class Trade(commands.Cog):
                         wallet_address = get_deposit['destination_tag']
 
                     height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                    userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name,
-                                                                           wallet_address, type_coin, height,
-                                                                           deposit_confirm_depth, SERVER_BOT)
+                    userdata_balance = await store.sql_user_balance_single(
+                        str(ctx.author.id), coin_name, wallet_address, type_coin, height,
+                        deposit_confirm_depth, SERVER_BOT
+                    )
                     actual_balance = float(userdata_balance['adjust'])
 
                     if actual_balance < get_order_num['amount_get_after_fee']:
@@ -755,25 +772,46 @@ class Trade(commands.Cog):
                         except Exception:
                             pass
                         # let's make order update
-                        match_order = await store.sql_match_order_by_sellerid(str(ctx.author.id), ref_number,
-                                                                              SERVER_BOT,
-                                                                              get_order_num['sell_user_server'],
-                                                                              get_order_num['userid_sell'], True)
+                        match_order = await store.sql_match_order_by_sellerid(
+                            str(ctx.author.id), ref_number,
+                            SERVER_BOT,
+                            get_order_num['sell_user_server'],
+                            get_order_num['userid_sell'], True
+                        )
                         if match_order:
                             try:
-                                msg = '{} #**{}** Order completed! ```Get: {}{}\nFrom selling: {}{}\nFee: {}{}\n```'.format(
-                                    ctx.author.mention, ref_number,
-                                    num_format_coin(get_order_num['amount_sell_after_fee'], get_order_num['coin_sell'],
-                                                    getattr(getattr(self.bot.coin_list, get_order_num['coin_sell']),
-                                                            "decimal"), False), get_order_num['coin_sell'],
-                                    num_format_coin(get_order_num['amount_get_after_fee'], get_order_num['coin_get'],
-                                                    getattr(getattr(self.bot.coin_list, get_order_num['coin_get']),
-                                                            "decimal"), False), get_order_num['coin_get'],
-                                    num_format_coin(get_order_num['amount_get'] - get_order_num['amount_get_after_fee'],
-                                                    get_order_num['coin_get'],
-                                                    getattr(getattr(self.bot.coin_list, get_order_num['coin_get']),
-                                                            "decimal"), False), get_order_num['coin_get'])
+                                got_amount = num_format_coin(
+                                    get_order_num['amount_sell_after_fee'],
+                                    get_order_num['coin_sell'],
+                                    getattr(getattr(self.bot.coin_list, get_order_num['coin_sell']), "decimal"),
+                                    False
+                                )
+                                from_selling = num_format_coin(
+                                    get_order_num['amount_get'],
+                                    get_order_num['coin_get'],
+                                    getattr(getattr(self.bot.coin_list, get_order_num['coin_get']), "decimal"),
+                                    False
+                                )
+                                msg = '**{}** Order completed! ```Get: {}{}\nFrom selling: {}{}```'.format(
+                                    ref_number,
+                                    got_amount,
+                                    get_order_num['coin_sell'],
+                                    from_selling,
+                                    get_order_num['coin_get']
+                                )
+                                # Find guild where there is trade channel assign
                                 await ctx.edit_original_message(content=msg)
+                                get_guilds = await self.utils.get_trade_channel_list()
+                                if len(get_guilds) > 0:
+                                    for item in get_guilds:
+                                        try:
+                                            get_guild = self.bot.get_guild(int(item['serverid']))
+                                            if get_guild:
+                                                channel = self.bot.get_channel(int(item['trade_channel']))
+                                                if channel and ctx.channel.id != channel.id:
+                                                    await channel.send(msg)
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                 try:
                                     sold = num_format_coin(get_order_num['amount_sell'], get_order_num['coin_sell'],
                                                            getattr(
@@ -812,19 +850,19 @@ class Trade(commands.Cog):
                             await ctx.edit_original_message(content=msg)
                             return
             else:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** does not exist or already completed.'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** does not exist or already completed."
                 await ctx.edit_original_message(content=msg)
 
-    @market.sub_command(usage="market list <coin/pair> <desc|asc>",
-                        options=[
-                            Option('coin', 'coin or pair', OptionType.string, required=True),
-                            Option('option_order', 'desc or asc', OptionType.string, required=False, choices=[
-                                OptionChoice("desc", "desc"),
-                                OptionChoice("asc", "asc")
-                            ]
-                                   )
-                        ],
-                        description="Make an opened sell of a coin for another coin.")
+    @market.sub_command(
+        usage="market list <coin/pair> <desc|asc>",
+        options=[
+            Option('coin', 'coin or pair', OptionType.string, required=True),
+            Option('option_order', 'desc or asc', OptionType.string, required=False, choices=[
+                OptionChoice("desc", "desc"),
+                OptionChoice("asc", "asc")]
+            )
+        ],
+        description="Make an opened sell of a coin for another coin.")
     async def list(
         self,
         ctx,
@@ -843,19 +881,6 @@ class Trade(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         await self.bot_log()
-        try:
-            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade function is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING TRADE`'
-                    await ctx.edit_original_message(content=msg)
-                    if self.enable_logchan:
-                        await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried **trade/market command** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
-                    return
-        except Exception:
-            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                return
 
         if option_order is None:
             option_order = "DESC"  # ascending
@@ -915,35 +940,53 @@ class Trade(commands.Cog):
                 if item_nos == 0 or (item_nos > 0 and item_nos % per_page == 0):
                     if item_nos > 0 and item_nos % per_page == 0:
                         all_pages.append(page)
-                    page = disnake.Embed(title=get_list_orders['title'],
-                                         description="Thank you for trading with TipBot!",
-                                         color=disnake.Color.blue(),
-                                         timestamp=datetime.now(), )
+                    page = disnake.Embed(
+                        title=get_list_orders['title'],
+                        description="Thank you for trading with TipBot!",
+                        color=disnake.Color.blue(),
+                        timestamp=datetime.now(),
+                    )
                     page.set_thumbnail(url=ctx.author.display_avatar)
                     page.set_footer(text="Use the reactions to flip pages.")
                     empty_page = True
-                page.add_field(name="{}: **# {}** (Ratio: {})".format(each_page['pair'], each_page['order_number'],
-                                                                      each_page['rate']),
-                               value="Selling {} for {}".format(each_page['selling'], each_page['for']),
-                               inline=False)
+                page.add_field(
+                    name="{}: **# {}** (Ratio: {})".format(each_page['pair'], each_page['order_number'], each_page['rate']),
+                    value="Selling {} for {}".format(each_page['selling'], each_page['for']),
+                    inline=False)
                 empty_page = False
                 item_nos += 1
             if empty_page is False:
                 all_pages.append(page)
             if len(all_pages) == 1:
                 all_pages[0].set_footer(text="Please create more opened orders with /market sell")
-                await ctx.edit_original_message(content=None, embed=all_pages[0],
-                                                view=RowButtonRowCloseAnyMessage())
+                await ctx.edit_original_message(
+                    content=None,
+                    embed=all_pages[0],
+                    view=RowButtonRowCloseAnyMessage()
+                )
             elif len(all_pages) > 1:
-                await ctx.edit_original_message(content=None, embed=all_pages[0],
-                                                view=MenuPage(ctx, all_pages, timeout=30, disable_remove=False))
+                await ctx.edit_original_message(
+                    content=None,
+                    embed=all_pages[0],
+                    view=MenuPage(ctx, all_pages, timeout=30, disable_remove=False)
+                )
         else:
             no_open = ""
             if coin_pair and len(coin_pair) == 2:
                 no_open = " for {}/{}".format(coin_pair[0], coin_pair[1])
-            msg = f'{ctx.author.mention}, there is no result{no_open}. Please create opened order with /market sell command.'
+            msg = f"{ctx.author.mention}, there is no result{no_open}. Please create opened order with /market sell command."
             await ctx.edit_original_message(content=msg)
             return
+
+    @list.autocomplete("coin")
+    async def marketlist_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        string = string.lower()
+        list_trade = []
+        for each in self.bot.coin_name_list:
+            if getattr(getattr(self.bot.coin_list, each), "enable_trade") == 1:
+                list_trade.append(each)
+        return [name for name in list_trade if string in name.lower()][:10]
 
     @market.sub_command(
         usage="market listcoins",
@@ -973,11 +1016,11 @@ class Trade(commands.Cog):
             coin_list_names = ", ".join(trade_coins)
             if len(trade_coins) > 0:
                 await ctx.edit_original_message(
-                    content=f'{ctx.author.mention}, list of supported coins/tokens for /market:```{coin_list_names}```')
+                    content=f"{ctx.author.mention}, list of supported coins/tokens for /market:```{coin_list_names}```")
             else:
-                await ctx.edit_original_message(content=f'{ctx.author.mention}, please check again later. I got none now.')
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, please check again later. I got none now.")
         else:
-            await ctx.edit_original_message(content=f'{ctx.author.mention}, please check again later. I got none now.')
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, please check again later. I got none now.")
 
     @market.sub_command(
         usage="market listpairs",
@@ -1008,12 +1051,12 @@ class Trade(commands.Cog):
             coin_pairs = ", ".join(trade_pairs)
             if len(trade_pairs) > 0:
                 await ctx.edit_original_message(
-                    content=f'{ctx.author.mention}, list of available opened pairs:```{coin_pairs}```')
+                    content=f"{ctx.author.mention}, list of available opened pairs:```{coin_pairs}```"
+                )
             else:
-                await ctx.edit_original_message(content=f'{ctx.author.mention}, please check again later. I got none now.')
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, please check again later. I got none now.")
         else:
-            await ctx.edit_original_message(content=f'{ctx.author.mention}, please check again later. I got none now.')
-
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, please check again later. I got none now.")
 
 def setup(bot):
     bot.add_cog(Trade(bot))

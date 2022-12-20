@@ -20,8 +20,6 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
 from disnake.ext import commands, tasks
-from config import config
-
 from cogs.utils import Utils
 
 class PartyButton(disnake.ui.View):
@@ -105,8 +103,15 @@ class PartyDrop(commands.Cog):
                         owner_displayname = get_message['from_ownername']
                         sponsor_amount = get_message['init_amount']
                         equivalent_usd = get_message['real_init_amount_usd_text']
-
                         coin_name = get_message['token_name']
+                        coin_emoji = ""
+                        try:
+                            channel = self.bot.get_channel(int(get_message['channel_id']))
+                            if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                coin_emoji = coin_emoji + " " if coin_emoji else ""
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
                         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -116,9 +121,22 @@ class PartyDrop(commands.Cog):
                         if each_party['partydrop_time'] < int(time.time()):
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop Ends! 🎉",
-                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name),
+                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: {}`{} {}`. "\
+                                    "Party Pot will be distributed equally to all attendees after "\
+                                    "completion.".format(
+                                        coin_emoji,
+                                        num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False),
+                                        coin_name
+                                ),
                                 timestamp=datetime.fromtimestamp(get_message['partydrop_time']))
                             embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Ended")
+                            if len(coin_emoji) > 0:
+                                extension = ".png"
+                                if coin_emoji.startswith("<a:"):
+                                    extension = ".gif"
+                                split_id = coin_emoji.split(":")[2]
+                                link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+                                embed.set_thumbnail(url=link)
                             user_tos = []
                             user_tos.append({'from_user': get_message['from_userid'], 'to_user': str(self.bot.user.id), 'guild_id': get_message['guild_id'], 'channel_id': get_message['channel_id'], 'amount': get_message['init_amount'], 'coin': get_message['token_name'], 'decimal': get_message['token_decimal'], 'contract': get_message['contract'], 'real_amount_usd': get_message['real_init_amount_usd'], 'extra_message': None})
                             all_name_list = []
@@ -140,17 +158,26 @@ class PartyDrop(commands.Cog):
                             indiv_amount = total_amount / len(all_name_list) # including initiator
                             amount_in_usd = indiv_amount * get_message['unit_price_usd'] if get_message['unit_price_usd'] and get_message['unit_price_usd'] > 0.0 else 0.0
                             indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
-                            embed.add_field(name='Each Member Receives:',
-                                            value=f"{indiv_amount_str} {token_display}",
-                                            inline=True)
-                            embed.add_field(name='Started amount', 
-                                            value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
-                            embed.add_field(name='Party Pot', 
-                                            value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{coin_emoji}{indiv_amount_str} {token_display}",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Started amount', 
+                                value=coin_emoji + num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Party Pot', 
+                                value=coin_emoji + num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
                             try:
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
+                                if channel is None:
+                                    await logchanbot("party_check: can not find channel ID: {}".format(each_party['channel_id']))
+                                    await asyncio.sleep(2.0)
                                 _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
                                 await _msg.edit(content=None, embed=embed, view=None)
                                 # Update balance
@@ -175,9 +202,20 @@ class PartyDrop(commands.Cog):
                         else:
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop 🎉",
-                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False), coin_name),
+                                description="Each click will deduct from your TipBot's balance. Minimum entrance cost: {}`{} {}`. "\
+                                    "Party Pot will be distributed equally to all attendees after "\
+                                    "completion.".format(
+                                        coin_emoji, num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False),
+                                        coin_name
+                                ),
                                 timestamp=datetime.fromtimestamp(get_message['partydrop_time']))
-
+                            if len(coin_emoji) > 0:
+                                extension = ".png"
+                                if coin_emoji.startswith("<a:"):
+                                    extension = ".gif"
+                                split_id = coin_emoji.split(":")[2]
+                                link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+                                embed.set_thumbnail(url=link)
                             time_left = seconds_str_days(get_message['partydrop_time'] - int(time.time())) if int(time.time()) < get_message['partydrop_time'] else "00:00:00"
                             lap_div = int((get_message['partydrop_time'] - int(time.time()))/30)
                             embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Time left: {time_left}")
@@ -207,31 +245,39 @@ class PartyDrop(commands.Cog):
                                 pass
                             amount_in_usd = indiv_amount * get_message['unit_price_usd'] if get_message['unit_price_usd'] and get_message['unit_price_usd'] > 0.0 else 0.0
                             indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
-                            embed.add_field(name='Each Member Receives:',
-                                            value=f"{indiv_amount_str} {token_display}", inline=True)
-                            embed.add_field(name='Started amount', 
-                                            value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
-                            embed.add_field(name='Party Pot', 
-                                            value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
-                                            inline=True)
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{coin_emoji}{indiv_amount_str} {token_display}",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Started amount', 
+                                value=coin_emoji + num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Party Pot', 
+                                value=coin_emoji + num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
+                                inline=True
+                            )
                             try:
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 if channel is None:
                                     await logchanbot("party_check: can not find channel ID: {}".format(each_party['channel_id']))
                                     await asyncio.sleep(2.0)
-                                try:
-                                    _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
-                                    await _msg.edit(content=None, embed=embed)
-                                except disnake.errors.NotFound:
-                                    # add fail check
-                                    turn_off = False
-                                    if each_party['failed_check'] > 3:
-                                        turn_off = True
-                                    await store.update_party_failed(each_party['message_id'], turn_off)
-                                    await logchanbot("party_check: can not find message ID: {} in channel: {}".format(each_party['message_id'], each_party['channel_id']))
-                                except Exception:
-                                    traceback.print_exc(file=sys.stdout)
+                                else:
+                                    try:
+                                        _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
+                                        await _msg.edit(content=None, embed=embed)
+                                    except disnake.errors.NotFound:
+                                        # add fail check
+                                        turn_off = False
+                                        if each_party['failed_check'] > 3:
+                                            turn_off = True
+                                        await store.update_party_failed(each_party['message_id'], turn_off)
+                                        await logchanbot("party_check: can not find message ID: {} in channel: {}".format(each_party['message_id'], each_party['channel_id']))
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                 await asyncio.sleep(2.0)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -280,17 +326,17 @@ class PartyDrop(commands.Cog):
         # Check if there is many airdrop/mathtip/triviatip/partydrop
         try:
             count_ongoing = await store.discord_freetip_ongoing(str(ctx.author.id), "ONGOING")
-            if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != config.discord.ownerID:
+            if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 return
             count_ongoing = await store.discord_freetip_ongoing_guild(str(ctx.guild.id), "ONGOING")
             # Check max if set in guild
-            if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and ctx.author.id != config.discord.ownerID:
+            if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 return
-            elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != config.discord.ownerID:
+            elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(f"[PARTYDROP] server {str(ctx.guild.id)} has no data in discord_server.")
@@ -302,7 +348,13 @@ class PartyDrop(commands.Cog):
         try:
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-
+            coin_emoji = ""
+            try:
+                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -311,11 +363,13 @@ class PartyDrop(commands.Cog):
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                   SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name,
-                                                                      type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -333,8 +387,9 @@ class PartyDrop(commands.Cog):
         
         # Check min_amount
         if not min_amount.isdigit() and min_amount.upper() == "ALL":
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                   type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
             min_amount = float(userdata_balance['adjust'])
         # If $ is in min_amount, let's convert to coin/token
         elif "$" in min_amount[-1] or "$" in min_amount[0]:  # last is $
@@ -372,8 +427,9 @@ class PartyDrop(commands.Cog):
 
         # Check sponsor_amount
         if not sponsor_amount.isdigit() and sponsor_amount.upper() == "ALL":
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                   type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
             sponsor_amount = float(userdata_balance['adjust'])
         # If $ is in sponsor_amount, let's convert to coin/token
         elif "$" in sponsor_amount[-1] or "$" in sponsor_amount[0]:  # last is $
@@ -410,8 +466,9 @@ class PartyDrop(commands.Cog):
         # end of check if sponsor_amount is all
 
         # Check if tx in progress
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+        if str(ctx.author.id) in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -439,34 +496,41 @@ class PartyDrop(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        if min_amount <= 0 or sponsor_amount <= 0:
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.author.id), coin_name, wallet_address, type_coin,
+            height, deposit_confirm_depth, SERVER_BOT
+        )
+        actual_balance = float(userdata_balance['adjust'])
+
+        if min_amount <= 0 or sponsor_amount <= 0 or actual_balance <= 0:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
 
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
-        actual_balance = float(userdata_balance['adjust'])
-
         if min_amount > max_tip or min_amount < min_tip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, minimum amount cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, minimum amount cannot be bigger than "\
+                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
+                f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif sponsor_amount > 5*max_tip or sponsor_amount < min_tip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, sponored amount cannot be bigger than **{num_format_coin(5*max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, sponored amount cannot be bigger than "\
+                f"**{num_format_coin(5*max_tip, coin_name, coin_decimal, False)} {token_display}** "\
+                f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif min_amount > sponsor_amount/5:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, sponsored amount must be at least 5x of minimum amount.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, sponsored amount must be at least 5x of minimum amount."
             await ctx.edit_original_message(content=msg)
             return
         elif sponsor_amount > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to sponsor **{num_format_coin(sponsor_amount, coin_name, coin_decimal, False)} {token_display}**.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to sponsor "\
+                f"**{num_format_coin(sponsor_amount, coin_name, coin_decimal, False)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
-        if ctx.author.id not in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+        if str(ctx.author.id) not in self.bot.tipping_in_progress:
+            self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
 
         equivalent_usd = ""
         total_in_usd = 0.0
@@ -490,36 +554,61 @@ class PartyDrop(commands.Cog):
         owner_displayname = "{}#{}".format(ctx.author.name, ctx.author.discriminator)
         embed = disnake.Embed(
             title=f"🎉 Party Drop 🎉",
-            description="Each click will deduct from your TipBot's balance. Minimum entrance cost: `{} {}`. Party Pot will be distributed equally to all attendees after completion.".format(num_format_coin(min_amount, coin_name, coin_decimal, False), coin_name),
-            timestamp=datetime.fromtimestamp(party_end))
-        embed.add_field(name='Started amount',
-                        value=num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
-                        inline=True)
-        embed.add_field(name='Party Pot',
-                        value=num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
-                        inline=True)
+            description="Each click will deduct from your TipBot's balance. Minimum entrance cost: {}`{} {}`. "\
+                "Party Pot will be distributed equally to all attendees after "\
+                "completion.".format(
+                    coin_emoji,
+                    num_format_coin(min_amount, coin_name, coin_decimal, False),
+                    coin_name
+            ),
+            timestamp=datetime.fromtimestamp(party_end)
+        )
+        embed.add_field(
+            name='Started amount',
+            value=coin_emoji + num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
+            inline=True
+        )
+        embed.add_field(
+            name='Party Pot',
+            value=coin_emoji + num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
+            inline=True
+        )
         time_left = seconds_str_days(duration_s)
         embed.set_footer(text=f"Initiated by {owner_displayname} | /partydrop | Time left: {time_left}")
+        if len(coin_emoji) > 0:
+            extension = ".png"
+            if coin_emoji.startswith("<a:"):
+                extension = ".gif"
+            split_id = coin_emoji.split(":")[2]
+            link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")).strip() + extension
+            embed.set_thumbnail(url=link)
         try:
             view = PartyButton(ctx, duration_s, self.bot.coin_list, self.bot, ctx.channel.id) 
             msg = await ctx.channel.send(content=None, embed=embed, view=view)
             view.message = msg
             view.channel_interact = ctx.channel.id
-            party = await store.insert_partydrop_create(coin_name, contract, str(ctx.author.id),
-                                                        owner_displayname, str(view.message.id),
-                                                        str(ctx.guild.id), str(ctx.channel.id), 
-                                                        min_amount, sponsor_amount, total_in_usd,
-                                                        equivalent_usd, per_unit, coin_decimal, 
-                                                        party_end, "ONGOING")
+            await store.insert_partydrop_create(
+                coin_name, contract, str(ctx.author.id),
+                owner_displayname, str(view.message.id),
+                str(ctx.guild.id), str(ctx.channel.id), 
+                min_amount, sponsor_amount, total_in_usd,
+                equivalent_usd, per_unit, coin_decimal, 
+                party_end, "ONGOING"
+            )
             await ctx.edit_original_message(content="/partydrop created 👇")
+        except disnake.errors.Forbidden:
+            await ctx.edit_original_message(content="Missing permission! Or failed to send embed message.")
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+        try:
+            del self.bot.tipping_in_progress[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='partydrop <amount> <token> <duration>',
         options=[
             Option('min_amount', 'min_amount', OptionType.string, required=True),
@@ -550,15 +639,25 @@ class PartyDrop(commands.Cog):
     ):
         await self.async_partydrop(ctx, min_amount, sponsor_amount, token, duration)
 
+    @partydrop.autocomplete("token")
+    async def partydrop_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.party_check.is_running():
+                self.party_check.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.party_check.start()
-
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.party_check.is_running():
+                self.party_check.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.party_check.stop()
+        self.party_check.cancel()
 
 
 def setup(bot):

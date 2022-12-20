@@ -35,7 +35,7 @@ class Coininfo(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.response.edit_original_message(content=msg)
             return
 
@@ -117,6 +117,10 @@ class Coininfo(commands.Cog):
     ):
         await self.get_coininfo(ctx, coin)
 
+    @coininfo.autocomplete("coin")
+    async def coin_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     async def async_coinlist(self, ctx):
         await ctx.response.send_message(f"{ctx.author.mention} getting coin list...")
@@ -148,7 +152,13 @@ class Coininfo(commands.Cog):
                         network['SOL'].append(coin_name)
                     else:
                         network['Others'].append(coin_name)
-            embed = disnake.Embed(title=f'Coin/Token list in TipBot', description="Currently, [supported {} coins/tokens](https://coininfo.bot.tips/).".format(len(self.bot.coin_name_list)), timestamp=datetime.now())
+            embed = disnake.Embed(
+                title=f"Coin/Token list in TipBot",
+                description="Currently, [supported {} coins/tokens](https://coininfo.bot.tips/).".format(
+                    len(self.bot.coin_name_list)
+                ),
+                timestamp=datetime.now()
+            )
             for k, v in network.items():
                 list_coins = ", ".join(v)
                 if k != "Others":
@@ -165,8 +175,7 @@ class Coininfo(commands.Cog):
             embed.set_footer(text=f"Requested by {ctx.author.name}#{ctx.author.discriminator} | Total: {str(len(self.bot.coin_name_list))} ")
             await ctx.edit_original_message(content=None, embed=embed)
         else:
-            await ctx.edit_original_message(content=f'{ctx.author.mention}, error loading. check back later.')
-
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, error loading. check back later.")
 
     @commands.slash_command(
         usage="coinlist",

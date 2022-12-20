@@ -10,12 +10,14 @@ from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
 from cogs.utils import Utils
+from cogs.paprika import Paprika
 
 
 class Price(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.utils = Utils(self.bot)
+        self.pap = Paprika(self.bot)
 
     async def async_price(self, ctx, amount: str = None, token: str = None):
 
@@ -37,6 +39,13 @@ class Price(commands.Cog):
         invalid_token_list = []
         coin_paprika_symbol_list = [each.upper() for each in self.bot.coin_paprika_symbol_list.keys()]
 
+        update_date = datetime.datetime.now()
+        try:
+            if coin_name not in self.bot.coin_price_dex:
+                update_date = self.bot.coin_paprika_symbol_list[coin_name]['last_updated'].replace(
+                    tzinfo=datetime.timezone.utc)
+        except Exception:
+            pass
         if amount is None and token is None:
             msg = f"{ctx.author.mention}, invalid command usage!"
             await ctx.edit_original_message(content=msg)
@@ -135,9 +144,35 @@ class Price(commands.Cog):
             if coin_name in self.bot.token_hints:
                 id = self.bot.token_hints[coin_name]['ticker_name']
                 per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                try:
+                    cache_pap_coin = self.utils.get_cache_kv("paprika", id)
+                    if cache_pap_coin is not None and cache_pap_coin['fetched_time'] + self.bot.config['kv_db']['paprika_ttl_coin_id'] > int(time.time()):
+                        print(f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S} get paprika used cache for coin id [{id}]...")
+                        per_unit = cache_pap_coin['price']
+                        update_date = cache_pap_coin['timestamp']
+                    elif cache_pap_coin is None:
+                        get_pap_coin = await self.pap.fetch_coin_paprika(coin_name)
+                        if get_pap_coin is not None:
+                            per_unit = get_pap_coin['price']
+                            update_date = get_pap_coin['timestamp']
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
                 name = self.bot.coin_paprika_id_list[id]['name']
             else:
                 per_unit = self.bot.coin_paprika_symbol_list[coin_name]['price_usd']
+                try:
+                    cache_pap_coin = self.utils.get_cache_kv("paprika", coin_name)
+                    if cache_pap_coin is not None and cache_pap_coin['fetched_time'] + self.bot.config['kv_db']['paprika_ttl_coin_id'] > int(time.time()):
+                        print(f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S} get paprika used cache for coin id [{coin_name}]...")
+                        per_unit = cache_pap_coin['price']
+                        update_date = cache_pap_coin['timestamp']
+                    elif cache_pap_coin is None:
+                        get_pap_coin = await self.pap.fetch_coin_paprika(coin_name)
+                        if get_pap_coin is not None:
+                            per_unit = get_pap_coin['price']
+                            update_date = get_pap_coin['timestamp']
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
                 name = coin_name
                 if 'name' in self.bot.coin_paprika_symbol_list[coin_name]:
                     name = self.bot.coin_paprika_symbol_list[coin_name]['name']
@@ -154,15 +189,11 @@ class Price(commands.Cog):
                     total_price_str = "{:.4f}".format(total_price)
                 else:
                     total_price_str = "{:.8f}".format(total_price)
-                update_date = datetime.datetime.now()
-                try:
-                    if coin_name not in self.bot.coin_price_dex:
-                        update_date = self.bot.coin_paprika_symbol_list[coin_name]['last_updated'].replace(
-                            tzinfo=datetime.timezone.utc)
-                except Exception:
-                    pass
-                embed = disnake.Embed(title="PRICE CHECK", description=f'**{coin_name}** | _{name}_',
-                                      timestamp=update_date)
+                embed = disnake.Embed(
+                    title="PRICE CHECK",
+                    description=f'**{coin_name}** | _{name}_',
+                    timestamp=update_date
+                )
                 embed.add_field(name="Price",
                                 value="```{} {} = {} {}```".format(amount_old, coin_name, total_price_str, "USD"),
                                 inline=False)
@@ -181,8 +212,32 @@ class Price(commands.Cog):
                 if each_coin in self.bot.token_hints:
                     id = self.bot.token_hints[each_coin]['ticker_name']
                     per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                    try:
+                        cache_pap_coin = self.utils.get_cache_kv("paprika", id)
+                        if cache_pap_coin is not None and cache_pap_coin['fetched_time'] + self.bot.config['kv_db']['paprika_ttl_coin_id'] > int(time.time()):
+                            print(f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S} get paprika used cache for coin id [{id}]...")
+                            per_unit = cache_pap_coin['price']
+                            update_date = cache_pap_coin['timestamp']
+                        elif cache_pap_coin is None:
+                            get_pap_coin = await self.pap.fetch_coin_paprika(coin_name)
+                            if get_pap_coin is not None:
+                                per_unit = get_pap_coin['price']
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
                 else:
                     per_unit = self.bot.coin_paprika_symbol_list[each_coin]['price_usd']
+                    try:
+                        cache_pap_coin = self.utils.get_cache_kv("paprika", id)
+                        if cache_pap_coin is not None and cache_pap_coin['fetched_time'] + self.bot.config['kv_db']['paprika_ttl_coin_id'] > int(time.time()):
+                            print(f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S} get paprika used cache for coin id [{id}]...")
+                            per_unit = cache_pap_coin['price']
+                        elif cache_pap_coin is None:
+                            get_pap_coin = await self.pap.fetch_coin_paprika(coin_name)
+                            if get_pap_coin is not None:
+                                per_unit = get_pap_coin['price']
+                                update_date = get_pap_coin['timestamp']
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
                 per_unit_str = ""
                 if per_unit > 1000:
                     per_unit_str = "{:,.2f}".format(per_unit)
@@ -195,20 +250,29 @@ class Price(commands.Cog):
                 else:
                     per_unit_str = "{:.8f}".format(per_unit)
                 coin_price.append("{} {} = {} {}".format(1, each_coin, per_unit_str, "USD"))
-            embed = disnake.Embed(title="PRICE CHECK", description='```{}```'.format(", ".join(token_list)),
-                                  timestamp=datetime.datetime.now())
-            embed.add_field(name="Price List", value="```{}```".format("\n".join(coin_price)), inline=False)
+            embed = disnake.Embed(
+                title="PRICE CHECK",
+                description='```{}```'.format(", ".join(token_list)),
+                timestamp=datetime.datetime.now()
+            )
+            embed.add_field(
+                name="Price List",
+                value="```{}```".format("\n".join(coin_price)),
+                inline=False
+            )
             if len(invalid_token_list) > 0:
                 invalid_token_list = list(set(invalid_token_list))
-                embed.add_field(name="Invalid Coin/Token",
-                                value="```{}```".format(", ".join(invalid_token_list).strip()), inline=False)
+                embed.add_field(
+                    name="Invalid Coin/Token",
+                    value="```{}```".format(", ".join(invalid_token_list).strip()),
+                    inline=False
+                )
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             embed.set_footer(text="Credit: https://api.coinpaprika.com/")
             await ctx.edit_original_message(content=None, embed=embed, view=RowButtonRowCloseAnyMessage())
         else:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention} I could not find this information.'
             await ctx.edit_original_message(content=msg)
-
 
     @commands.slash_command(
         usage="price <amount> <token>",

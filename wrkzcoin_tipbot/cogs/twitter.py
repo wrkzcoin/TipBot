@@ -15,7 +15,6 @@ from disnake.app_commands import Option, OptionChoice
 from datetime import datetime, timezone
 import base64
 
-from config import config
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, num_format_coin, text_to_num, is_ascii, \
     decrypt_string, EMOJI_INFORMATION, DEFAULT_TICKER, NOTIFICATION_OFF_CMD, EMOJI_MONEYFACE, EMOJI_ARROW_RIGHTHOOK, \
     EMOJI_HOURGLASS_NOT_DONE
@@ -65,24 +64,32 @@ class Twitter(commands.Cog):
             await logchanbot("twitter " +str(traceback.format_exc()))
         return None
 
-    async def update_reward(self, guild_id: str, amount: float, coin_name: str, coin_decimal: int, added_by_uid: str,
-                            added_by_name: str, disable: bool = False, channel: str = None, rt_link: str = None,
-                            end_time: int = None):
+    async def update_reward(
+        self, guild_id: str, amount: float, coin_name: str, coin_decimal: int, added_by_uid: str,
+        added_by_name: str, disable: bool = False, channel: str = None, rt_link: str = None,
+        end_time: int = None
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if disable is True:
-                        sql = """ UPDATE `discord_server` SET `rt_reward_amount`=%s, `rt_reward_coin`=%s, `rt_reward_channel`=%s, `rt_link`=%s, `rt_end_timestamp`=%s WHERE `serverid`=%s LIMIT 1 """
+                        sql = """ UPDATE `discord_server` 
+                        SET `rt_reward_amount`=%s, `rt_reward_coin`=%s, `rt_reward_channel`=%s, `rt_link`=%s, `rt_end_timestamp`=%s 
+                        WHERE `serverid`=%s LIMIT 1 """
                         await cur.execute(sql, (None, None, None, None, None, guild_id))
                         await conn.commit()
                         return cur.rowcount
                     else:
-                        sql = """ UPDATE `discord_server` SET `rt_reward_amount`=%s, `rt_reward_coin`=%s, `rt_reward_channel`=%s, `rt_link`=%s, `rt_end_timestamp`=%s WHERE `serverid`=%s LIMIT 1;
+                        sql = """ UPDATE `discord_server` 
+                        SET `rt_reward_amount`=%s, `rt_reward_coin`=%s, `rt_reward_channel`=%s, `rt_link`=%s, `rt_end_timestamp`=%s 
+                        WHERE `serverid`=%s LIMIT 1;
                                   
-                                  INSERT INTO `twitter_rt_reward` (`guild_id`, `reward_amount`, `reward_coin`, `reward_coin_decimal`, `added_by_uid`, `added_by_name`, `reward_to_channel`, `tweet_link`, `added_date`, `expired_date`)
-                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                  """
+                        INSERT INTO `twitter_rt_reward` (`guild_id`, `reward_amount`, `reward_coin`, 
+                        `reward_coin_decimal`, `added_by_uid`, `added_by_name`, `reward_to_channel`, 
+                        `tweet_link`, `added_date`, `expired_date`)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """
                         await cur.execute(sql, (amount, coin_name.upper(), channel, rt_link, end_time, guild_id,
                                                 guild_id, amount, coin_name.upper(), coin_decimal, added_by_uid,
                                                 added_by_name, channel, rt_link, int(time.time()), end_time))
@@ -121,7 +128,9 @@ class Twitter(commands.Cog):
             await logchanbot("twitter " +str(traceback.format_exc()))
         return None
 
-    async def add_fetch_user(self, name: str, requested_by_uid: str, requested_by_name: str, result: str):
+    async def add_fetch_user(
+        self, name: str, requested_by_uid: str, requested_by_name: str, result: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -136,9 +145,11 @@ class Twitter(commands.Cog):
             await logchanbot("twitter " +str(traceback.format_exc()))
         return 0
 
-    async def add_fetch_tw(self, id_str: str, user_screen_name: str, status_link: str, text: str, json_dump: str,
-                           created_at: int, created_at_str: str, is_retweeted: int, retweet_count: int, favorite_count,
-                           refetched_at):
+    async def add_fetch_tw(
+        self, id_str: str, user_screen_name: str, status_link: str, text: str, json_dump: str,
+        created_at: int, created_at_str: str, is_retweeted: int, retweet_count: int, favorite_count,
+        refetched_at
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -162,14 +173,17 @@ class Twitter(commands.Cog):
             await logchanbot("twitter " +str(traceback.format_exc()))
         return 0
 
-    async def add_fetch_timeline(self, subscribe_to: str, response_dump: str, latest_tweet_id_str: str,
-                                 latest_created_at: str, latest_full_text: str):
+    async def add_fetch_timeline(
+        self, subscribe_to: str, response_dump: str, latest_tweet_id_str: str,
+        latest_created_at: str, latest_full_text: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `twitter_fetch_latest_user_timeline` (`subscribe_to`, `response_dump`, `latest_tweet_id_str`, `latest_created_at`, `latest_full_text`, `fetched_date`) 
-                              VALUE (%s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO `twitter_fetch_latest_user_timeline` (`subscribe_to`, `response_dump`, 
+                    `latest_tweet_id_str`, `latest_created_at`, `latest_full_text`, `fetched_date`) 
+                    VALUE (%s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (
                     subscribe_to, response_dump, latest_tweet_id_str, latest_created_at, latest_full_text,
                     int(time.time())))
@@ -185,7 +199,8 @@ class Twitter(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `twitter_fetch_latest_user_timeline` WHERE `subscribe_to`=%s ORDER BY `fetched_date` DESC LIMIT 1 """
+                    sql = """ SELECT * FROM `twitter_fetch_latest_user_timeline` 
+                    WHERE `subscribe_to`=%s ORDER BY `fetched_date` DESC LIMIT 1 """
                     await cur.execute(sql, (subscribe_to))
                     result = await cur.fetchone()
                     if result: return result
@@ -193,14 +208,17 @@ class Twitter(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def add_guild_sub(self, guild_id: str, subscribe_to: str, subscribe_to_user_id: str, push_to_channel_id: str,
-                            added_by_uid: str, added_by_uname: str):
+    async def add_guild_sub(
+        self, guild_id: str, subscribe_to: str, subscribe_to_user_id: str, push_to_channel_id: str,
+        added_by_uid: str, added_by_uname: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `twitter_guild_subscribe` (`guild_id`, `subscribe_to`, `subscribe_to_user_id`, `push_to_channel_id`, `added_by_uid`, `added_by_uname`, `added_time`) 
-                              VALUE (%s, %s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO `twitter_guild_subscribe` (`guild_id`, `subscribe_to`, 
+                    `subscribe_to_user_id`, `push_to_channel_id`, `added_by_uid`, `added_by_uname`, `added_time`) 
+                    VALUE (%s, %s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (
                     guild_id, subscribe_to, subscribe_to_user_id, push_to_channel_id, added_by_uid, added_by_uname,
                     int(time.time())))
@@ -211,14 +229,17 @@ class Twitter(commands.Cog):
             await logchanbot("twitter " +str(traceback.format_exc()))
         return 0
 
-    async def del_guild_sub(self, guild_id: str, subscribe_to: str, subscribe_to_user_id: str, added_by_uid: str,
-                            added_by_uname: str):
+    async def del_guild_sub(
+        self, guild_id: str, subscribe_to: str, subscribe_to_user_id: str, added_by_uid: str,
+        added_by_uname: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ DELETE FROM `twitter_guild_subscribe` WHERE `guild_id`=%s AND `subscribe_to`=%s LIMIT 1;
-                              INSERT INTO `twitter_guild_unsubscribe` (`guild_id`, `subscribe_to`, `subscribe_to_user_id`, `deleted_by_uid`, `deleted_by_uname`, `date_deleted`) 
+                              INSERT INTO `twitter_guild_unsubscribe` (`guild_id`, `subscribe_to`, `subscribe_to_user_id`, 
+                                  `deleted_by_uid`, `deleted_by_uname`, `date_deleted`) 
                               VALUE (%s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (
                     guild_id, subscribe_to, guild_id, subscribe_to, subscribe_to_user_id, added_by_uid, added_by_uname,
@@ -298,14 +319,17 @@ class Twitter(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def add_posted(self, guild_id: str, subscribe_to: str, push_to_channel_id: str, tweet_id_str: str,
-                         msg_id: str):
+    async def add_posted(
+        self, guild_id: str, subscribe_to: str, push_to_channel_id: str, 
+        tweet_id_str: str, msg_id: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `twitter_posted_guild` (`guild_id`, `subscribe_to`, `push_to_channel_id`, `tweet_id_str`, `msg_id`, `posted_date`) 
-                              VALUE (%s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO `twitter_posted_guild` (`guild_id`, `subscribe_to`, `push_to_channel_id`, 
+                    `tweet_id_str`, `msg_id`, `posted_date`) 
+                    VALUE (%s, %s, %s, %s, %s, %s) """
                     await cur.execute(sql, (
                     guild_id, subscribe_to, push_to_channel_id, tweet_id_str, msg_id, int(time.time())))
                     await conn.commit()
@@ -320,7 +344,8 @@ class Twitter(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `twitter_fetch_bot_messages` ORDER BY `created_timestamp` DESC LIMIT 1 """
+                    sql = """ SELECT * FROM `twitter_fetch_bot_messages` 
+                    ORDER BY `created_timestamp` DESC LIMIT 1 """
                     await cur.execute(sql, )
                     result = await cur.fetchone()
                     if result: return result
@@ -333,8 +358,10 @@ class Twitter(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `twitter_fetch_bot_messages` (`message_json_dump`, `message_data_dump`, `text`, `message_id`, `sender_id`, `recipient_id`, `created_timestamp`, `inserted_date`) 
-                              VALUE (%s, %s, %s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO `twitter_fetch_bot_messages` 
+                    (`message_json_dump`, `message_data_dump`, `text`, `message_id`, 
+                    `sender_id`, `recipient_id`, `created_timestamp`, `inserted_date`) 
+                    VALUE (%s, %s, %s, %s, %s, %s, %s, %s) """
                     await cur.executemany(sql, data_rows)
                     await conn.commit()
                     return cur.rowcount
@@ -343,19 +370,22 @@ class Twitter(commands.Cog):
             await logchanbot("twitter " +str(traceback.format_exc()))
         return 0
 
-    async def twitter_linkme_add_or_regen(self, discord_user_id: str, discord_user_name: str, secret_key: str,
-                                          generated_date: int, twitter_screen_name: str):
+    async def twitter_linkme_add_or_regen(
+        self, discord_user_id: str, discord_user_name: str, secret_key: str,
+        generated_date: int, twitter_screen_name: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `twitter_linkme` (`discord_user_id`, `discord_user_name`, `secret_key`, `generated_date`, `twitter_screen_name`) 
-                              VALUE (%s, %s, %s, %s, %s) 
-                              ON DUPLICATE KEY 
-                              UPDATE 
-                              `secret_key`=VALUES(`secret_key`),
-                              `generated_date`=VALUES(`generated_date`),
-                              `twitter_screen_name`=VALUES(`twitter_screen_name`)
+                    sql = """ INSERT INTO `twitter_linkme` (`discord_user_id`, `discord_user_name`, `secret_key`, 
+                    `generated_date`, `twitter_screen_name`) 
+                    VALUE (%s, %s, %s, %s, %s) 
+                    ON DUPLICATE KEY 
+                        UPDATE 
+                        `secret_key`=VALUES(`secret_key`),
+                        `generated_date`=VALUES(`generated_date`),
+                        `twitter_screen_name`=VALUES(`twitter_screen_name`)
                               """
                     await cur.execute(sql, (
                     discord_user_id, discord_user_name, secret_key, generated_date, twitter_screen_name))
@@ -382,8 +412,10 @@ class Twitter(commands.Cog):
             await logchanbot("twitter " +str(traceback.format_exc()))
         return None
 
-    async def twitter_linkme_update_verify(self, discord_user_id: str, id_str: str, twitter_screen_name: str,
-                                           status_link: str, text: str, json_dump: str, created_at: int):
+    async def twitter_linkme_update_verify(
+        self, discord_user_id: str, id_str: str, twitter_screen_name: str,
+        status_link: str, text: str, json_dump: str, created_at: int
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -402,20 +434,24 @@ class Twitter(commands.Cog):
             await logchanbot("twitter " +str(traceback.format_exc()))
         return None
 
-    async def twitter_unlink(self, discord_user_id: str, discord_user_name: str, twitter_screen_name: str,
-                             is_verified: int):
+    async def twitter_unlink(
+        self, discord_user_id: str, discord_user_name: str, twitter_screen_name: str,
+        is_verified: int
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `twitter_unlinkme` (`discord_user_id`, `discord_user_name`, `twitter_screen_name`, `is_verified`, `unlink_date`)
-                              VALUES (%s, %s, %s, %s, %s);
+                    sql = """ INSERT INTO `twitter_unlinkme` (`discord_user_id`, `discord_user_name`, 
+                    `twitter_screen_name`, `is_verified`, `unlink_date`)
+                    VALUES (%s, %s, %s, %s, %s);
                               
-                              DELETE FROM `twitter_linkme` WHERE `discord_user_id`=%s LIMIT 1;
-                              """
+                    DELETE FROM `twitter_linkme` WHERE `discord_user_id`=%s LIMIT 1;
+                    """
                     await cur.execute(sql, (
-                    discord_user_id, discord_user_name, twitter_screen_name, is_verified, int(time.time()),
-                    discord_user_id))
+                        discord_user_id, discord_user_name, twitter_screen_name, 
+                        is_verified, int(time.time()), discord_user_id)
+                    )
                     await conn.commit()
                     return cur.rowcount
         except Exception:
@@ -445,8 +481,10 @@ class Twitter(commands.Cog):
         fetch_user = await self.bot.loop.run_in_executor(None, func_get_user)
         # add to DB
         try:
-            await self.add_fetch_user(user_name, by_id, by_name,
-                                      json.dumps(fetch_user._json) if fetch_user is not None else None)
+            await self.add_fetch_user(
+                user_name, by_id, by_name,
+                json.dumps(fetch_user._json) if fetch_user is not None else None
+            )
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return fetch_user
@@ -480,15 +518,14 @@ class Twitter(commands.Cog):
             is_rt = 0
             if tweet['retweeted'] is True:
                 is_rt = 1
-            await self.add_fetch_tw(tweet_id_str, tweet['user']['screen_name'],
-                                    "https://twitter.com/{}/status/{}".format(tweet['user']['screen_name'],
-                                                                              tweet_id_str), tweet['text'],
-                                    json.dumps(tweet), int_timestamp, tweet['created_at'], is_rt,
-                                    tweet['retweet_count'], tweet['favorite_count'], int(time.time()))
+            await self.add_fetch_tw(
+                tweet_id_str, tweet['user']['screen_name'], "https://twitter.com/{}/status/{}".format(tweet['user']['screen_name'],
+                tweet_id_str), tweet['text'], json.dumps(tweet), int_timestamp, tweet['created_at'], is_rt,
+                tweet['retweet_count'], tweet['favorite_count'], int(time.time())
+            )
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return tweet
-
 
     @tasks.loop(seconds=60.0)
     async def post_tweets(self):
@@ -521,10 +558,10 @@ class Twitter(commands.Cog):
                                     # find the guild/channel
                                     channel = self.bot.get_channel(int(each_tw['push_to_channel_id']))
                                     if channel:
-                                        embed = disnake.Embed(title="New Tweet by {}!".format(each_t['user']['name']),
-                                                              timestamp=datetime.strptime(each_t['created_at'],
-                                                                                          '%a %b %d %H:%M:%S +0000 %Y').replace(
-                                                                  tzinfo=timezone.utc))
+                                        embed = disnake.Embed(
+                                            title="New Tweet by {}!".format(each_t['user']['name']),
+                                            timestamp=datetime.strptime(each_t['created_at'], '%a %b %d %H:%M:%S +0000 %Y').replace(tzinfo=timezone.utc)
+                                        )
                                         embed.add_field(name="Tweet", value=each_t['full_text'], inline=False)
                                         embed.add_field(name="Link", value="<https://twitter.com/{}/status/{}>".format(
                                             each_t['user']['screen_name'], each_t['id_str']), inline=False)
@@ -542,9 +579,11 @@ class Twitter(commands.Cog):
                                             await logchanbot("[TWITTER] - Posted to guild {} / channel {}:{}".format(
                                                 each_tw['guild_id'], each_tw['push_to_channel_id'], each_t['full_text']))
                                             if msg:
-                                                added = await self.add_posted(each_tw['guild_id'], each_tw['subscribe_to'],
-                                                                              each_tw['push_to_channel_id'],
-                                                                              each_t['id_str'], str(msg.id))
+                                                added = await self.add_posted(
+                                                    each_tw['guild_id'], each_tw['subscribe_to'],
+                                                    each_tw['push_to_channel_id'],
+                                                    each_t['id_str'], str(msg.id)
+                                                )
                                                 await asyncio.sleep(2.0)
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
@@ -583,14 +622,15 @@ class Twitter(commands.Cog):
                     self.twitter_auth['access_token_secret']
                 )
                 api = tweepy.API(auth)
-                response = api.user_timeline(screen_name=user_name,
-                                             # 200 is the maximum allowed count
-                                             count=count,
-                                             include_rts=False,
-                                             # Necessary to keep full_text
-                                             # otherwise only the first 140 words are extracted
-                                             tweet_mode='extended'
-                                             )
+                response = api.user_timeline(
+                    screen_name=user_name,
+                    # 200 is the maximum allowed count
+                    count=count,
+                    include_rts=False,
+                    # Necessary to keep full_text
+                    # otherwise only the first 140 words are extracted
+                    tweet_mode='extended'
+                )
             except Exception:
                 return None
             return response
@@ -625,21 +665,26 @@ class Twitter(commands.Cog):
                         # Check latest one:
                         last_record = await self.get_latest_in_timeline(twitter_link)
                         if last_record is None:
-                            inserts = await self.add_fetch_timeline(twitter_link, json.dumps(tweets),
-                                                                    latest_tweet_id_str, old_time, latest_full_text)
+                            inserts = await self.add_fetch_timeline(
+                                twitter_link, json.dumps(tweets), latest_tweet_id_str, old_time, latest_full_text
+                            )
                         else:
                             if last_record['latest_tweet_id_str'] != latest_tweet_id_str:
-                                inserts = await self.add_fetch_timeline(twitter_link, json.dumps(tweets),
-                                                                        latest_tweet_id_str, old_time, latest_full_text)
+                                inserts = await self.add_fetch_timeline(
+                                    twitter_link, json.dumps(tweets),
+                                    latest_tweet_id_str, old_time, latest_full_text
+                                )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-
     @commands.guild_only()
-    @commands.slash_command(description="Various twitter's commands.")
+    @commands.slash_command(
+        dm_permission=False,
+        description="Various twitter's commands."
+    )
     async def twitter(self, ctx):
         pass
 
@@ -725,7 +770,8 @@ class Twitter(commands.Cog):
                 # 2] Check if link is already in and active
                 check_sub_link = await self.get_list_subscribe(str(ctx.guild.id))
                 if len(check_sub_link) >= serverinfo['max_twitter_subscription']:
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your guild `{ctx.guild.name}` has maximum number of subscription already to twitter. If you need more, please contact TipBpt's dev."
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your guild `{ctx.guild.name}` has maximum "\
+                        "number of subscription already to twitter. If you need more, please contact TipBot's dev."
                     await ctx.edit_original_message(content=msg)
                     return
                 if len(check_sub_link) >= 0:
@@ -738,22 +784,24 @@ class Twitter(commands.Cog):
                     if exist is True:
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your guild `{ctx.guild.name}` already subscribe to <{twitter_link}>."
                         await ctx.edit_original_message(content=msg)
-                        return
                     else:
                         # let's add
                         # guild_id: str, subscribe_to: str, subscribe_to_user_id: str, push_to_channel_id: str, added_by_uid: str, added_by_uname: str):
-                        add = await self.add_guild_sub(str(ctx.guild.id), "https://twitter.com/{}".format(user), user,
-                                                       str(channel.id), str(ctx.author.id),
-                                                       "{}#{}".format(ctx.author.name, ctx.author.discriminator))
+                        add = await self.add_guild_sub(
+                            str(ctx.guild.id), "https://twitter.com/{}".format(user), user,
+                            str(channel.id), str(ctx.author.id),
+                            "{}#{}".format(ctx.author.name, ctx.author.discriminator)
+                        )
                         if add > 0:
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully subscribe to <{twitter_link}> and to channel {channel.mention}."
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
-                                f"[TWITTER] - New subscribe of guild {ctx.guild.name} / {ctx.guild.id} to <{twitter_link}> by {ctx.author.name}#{ctx.author.discriminator}.")
+                                f"[TWITTER] - New subscribe of guild {ctx.guild.name} / {ctx.guild.id} to <{twitter_link}> "\
+                                f"by {ctx.author.name}#{ctx.author.discriminator}."
+                            )
                         else:
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, internal error."
                             await ctx.edit_original_message(content=msg)
-                        return
 
     @commands.guild_only()
     @twitter.sub_command(
@@ -818,12 +866,16 @@ class Twitter(commands.Cog):
                     return
                 else:
                     # let's delete
-                    delete = await self.del_guild_sub(str(ctx.guild.id), twitter_link, user, str(ctx.author.id),
-                                                      "{}#{}".format(ctx.author.name, ctx.author.discriminator))
+                    await self.del_guild_sub(
+                        str(ctx.guild.id), twitter_link, user, str(ctx.author.id),
+                        "{}#{}".format(ctx.author.name, ctx.author.discriminator)
+                    )
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully unsubscribe from <{twitter_link}>."
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(
-                        f"[TWITTER] - Unubscribe of guild {ctx.guild.name} / {ctx.guild.id} from <{twitter_link}> by {ctx.author.name}#{ctx.author.discriminator}.")
+                        f"[TWITTER] - Unubscribe of guild {ctx.guild.name} / {ctx.guild.id} from "\
+                        f"<{twitter_link}> by {ctx.author.name}#{ctx.author.discriminator}."
+                    )
 
     @commands.guild_only()
     @twitter.sub_command(
@@ -838,7 +890,6 @@ class Twitter(commands.Cog):
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you do not have a permission to `/twitter listsub` here."
             await ctx.response.send_message(msg)
             return
-
         await self.bot_log()
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo is None:
@@ -860,7 +911,6 @@ class Twitter(commands.Cog):
         if len(check_sub_link) == 0:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your guild `{ctx.guild.name}` doesn't subscribe to any twitter yet."
             await ctx.edit_original_message(content=msg)
-            return
         else:
             links = []
             for each in check_sub_link:
@@ -869,7 +919,6 @@ class Twitter(commands.Cog):
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your guild `{ctx.guild.name}` subscribed to:\n\n" + "\n".join(
                 links)
             await ctx.edit_original_message(content=msg)
-            return
 
     @commands.guild_only()
     @twitter.sub_command(
@@ -898,7 +947,6 @@ class Twitter(commands.Cog):
         twitter_link: str
     ):
         await self.bot_log()
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
         await ctx.response.send_message(msg)
 
@@ -951,7 +999,9 @@ class Twitter(commands.Cog):
                 # Check if tweet has already too many tweet:
                 if get_tweet['retweet_count'] > 100:
                     await ctx.edit_original_message(
-                        content=f"{EMOJI_INFORMATION} {ctx.author.mention}, status link <{twitter_link}> has many RT already, not supported yet!")
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention}, status link <{twitter_link}> "\
+                            f"has many RT already, not supported yet!"
+                    )
                     return
                 else:
                     twitter_link = "https://twitter.com/{}/status/{}".format(get_tweet['user']['screen_name'], ids)
@@ -979,11 +1029,13 @@ class Twitter(commands.Cog):
         min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-        get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin,
-                                                               SERVER_BOT, 0)
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
         if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(str(ctx.guild.id), coin_name, net_name, type_coin,
-                                                                  SERVER_BOT, 0, 1)
+            get_deposit = await self.wallet_api.sql_register_user(
+                str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 1
+            )
 
         wallet_address = get_deposit['balance_wallet_address']
         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -992,8 +1044,9 @@ class Twitter(commands.Cog):
             wallet_address = get_deposit['destination_tag']
 
         height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-        userdata_balance = await store.sql_user_balance_single(str(ctx.guild.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
 
         amount = amount.replace(",", "")
@@ -1013,12 +1066,14 @@ class Twitter(commands.Cog):
         # We assume at least guild need to have 100x of reward or depends on guild's population
 
         elif amount * 100 > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least 100x reward balance. 100x rewards = {num_format_coin(amount * 100, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least 100x reward balance. "\
+                f"100x rewards = {num_format_coin(amount * 100, coin_name, coin_decimal, False)} {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
         elif amount * population > actual_balance:
 
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x reward balance. {str(population)}x rewards = {num_format_coin(amount * population, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x reward balance. "\
+                f"{str(population)}x rewards = {num_format_coin(amount * population, coin_name, coin_decimal, False)} {token_display}.'
             await ctx.edit_original_message(content=msg)
             return
         else:
@@ -1035,17 +1090,22 @@ class Twitter(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
                 return
 
-            rt_reward = await self.update_reward(str(ctx.guild.id), float(amount), coin_name, coin_decimal,
-                                                 str(ctx.author.id),
-                                                 "{}#{}".format(ctx.author.name, ctx.author.discriminator), False,
-                                                 channel_str, twitter_link,
-                                                 int(time.time()) + int(duration) * 24 * 3600)
+            rt_reward = await self.update_reward(
+                str(ctx.guild.id), float(amount), coin_name, coin_decimal,
+                str(ctx.author.id),
+                "{}#{}".format(ctx.author.name, ctx.author.discriminator), False,
+                channel_str, twitter_link,
+                int(time.time()) + int(duration) * 24 * 3600
+            )
             if rt_reward > 0:
                 msg = f'{ctx.author.mention}, successfully set reward for RT in guild {ctx.guild.name} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for RT link <{twitter_link}>.'
                 await ctx.edit_original_message(content=msg)
                 try:
                     await logchanbot(
-                        f'[TWITTER] A user {ctx.author.name}#{ctx.author.discriminator} set a RT reward in guild {ctx.guild.name} / {ctx.guild.id} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for <{twitter_link}>.')
+                        f'[TWITTER] A user {ctx.author.name}#{ctx.author.discriminator} set a "\
+                        f"RT reward in guild {ctx.guild.name} / {ctx.guild.id} to "\
+                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for <{twitter_link}>.'
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
@@ -1068,7 +1128,6 @@ class Twitter(commands.Cog):
     ):
         await self.bot_log()
         twitter_name = twitter_name.replace("@", "")
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your twitter..."
         await ctx.response.send_message(msg, ephemeral=True)
 
@@ -1117,9 +1176,11 @@ class Twitter(commands.Cog):
                 # generate
                 from string import ascii_uppercase
                 secret_key = ''.join(random.choice(ascii_uppercase) for i in range(32))
-                add = await self.twitter_linkme_add_or_regen(str(ctx.author.id),
-                                                             "{}#{}".format(ctx.author.name, ctx.author.discriminator),
-                                                             secret_key, int(time.time()), twitter_name)
+                add = await self.twitter_linkme_add_or_regen(
+                    str(ctx.author.id),
+                    "{}#{}".format(ctx.author.name, ctx.author.discriminator),
+                    secret_key, int(time.time()), twitter_name
+                )
                 if add > 0:
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, one more step to verify:```1) Open your twitter @{twitter_name} and post a status by mentioning @BotTipsTweet and containing a string {secret_key} in your new tweet.\n2) Copy that tweet status full link to clipboard\n3) Execute command with with TipBot /twitter linkme <your twitter name> <url_status>```"
                     await ctx.edit_original_message(content=msg)
@@ -1167,18 +1228,19 @@ class Twitter(commands.Cog):
                             await ctx.edit_original_message(content=msg)
                         elif secret_key in get_tweet['text'] and bot_name.upper() in get_tweet[
                             'text'].upper() and screen_name.upper() == get_linkme['twitter_screen_name'].upper():
-                            update = await self.twitter_linkme_update_verify(str(ctx.author.id),
-                                                                             get_tweet['user']['id_str'], screen_name,
-                                                                             status_link, get_tweet['text'],
-                                                                             json.dumps(get_tweet), int_timestamp)
+                            update = await self.twitter_linkme_update_verify(
+                                str(ctx.author.id), get_tweet['user']['id_str'], screen_name,
+                                status_link, get_tweet['text'], json.dumps(get_tweet), int_timestamp
+                            )
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, sucessfully verified you with twitter `@{screen_name}`."
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
-                                f"[TWITTER] - Discord User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} linked with `@{screen_name}`.")
+                                f"[TWITTER] - Discord User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} "\
+                                f"linked with `@{screen_name}`."
+                            )
                         else:
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, error, please report."
                             await ctx.edit_original_message(content=msg)
-                        return
 
     @twitter.sub_command(
         usage="twitter unlinkme",
@@ -1189,7 +1251,6 @@ class Twitter(commands.Cog):
         ctx
     ):
         await self.bot_log()
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your twitter..."
         await ctx.response.send_message(msg, ephemeral=True)
 
@@ -1207,20 +1268,24 @@ class Twitter(commands.Cog):
             await ctx.edit_original_message(content=msg)
         elif get_linkme and get_linkme['is_verified'] == 0:
             # If use haven't verified, move it to twitter_unlinkme
-            unlink_user = await self.twitter_unlink(str(ctx.author.id),
-                                                    "{}#{}".format(ctx.author.name, ctx.author.discriminator),
-                                                    get_linkme['twitter_screen_name'], get_linkme['is_verified'])
+            unlink_user = await self.twitter_unlink(
+                str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator),
+                get_linkme['twitter_screen_name'], get_linkme['is_verified']
+            )
             msg = f"{ctx.author.mention}, you haven't verified but we removed the pending one as per your request."
             await ctx.edit_original_message(content=msg)
         elif get_linkme and get_linkme['is_verified'] == 1:
             twitter_screen_name = get_linkme['twitter_screen_name']
-            unlink_user = await self.twitter_unlink(str(ctx.author.id),
-                                                    "{}#{}".format(ctx.author.name, ctx.author.discriminator),
-                                                    get_linkme['twitter_screen_name'], get_linkme['is_verified'])
+            unlink_user = await self.twitter_unlink(
+                str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator),
+                get_linkme['twitter_screen_name'], get_linkme['is_verified']
+            )
             msg = f"{ctx.author.mention}, sucessfully unlink with `{twitter_screen_name}`."
             await ctx.edit_original_message(content=msg)
             await logchanbot(
-                f"[TWITTER] - Discord User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} unlinked with `@{twitter_screen_name}`.")
+                f"[TWITTER] - Discord User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} "\
+                f"unlinked with `@{twitter_screen_name}`."
+            )
 
     @twitter.sub_command(
         usage="twitter tip <amount> <coin> <twitter link | username>",
@@ -1279,7 +1344,10 @@ class Twitter(commands.Cog):
             get_user = await self.get_discord_by_twid(twitter)
             if get_user is None:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, can't find a Discord user with twitter `{old_twitter}`. He may not be verified. How to get verified <https://www.youtube.com/watch?v=q79_1M0_Hsw>.")
+                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, can't find a Discord user with "\
+                        f"twitter `{old_twitter}`. He may not be verified. How to get "\
+                        f"verified <https://www.youtube.com/watch?v=q79_1M0_Hsw>."
+                    )
                 return
             else:
                 # Check if himself
@@ -1300,11 +1368,13 @@ class Twitter(commands.Cog):
                     # token_info = getattr(self.bot.coin_list, coin_name)
                     token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                     contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                    get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name,
-                                                                           type_coin, SERVER_BOT, 0)
+                    get_deposit = await self.wallet_api.sql_get_userwallet(
+                        str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
                     if get_deposit is None:
-                        get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name,
-                                                                              type_coin, SERVER_BOT, 0, 0)
+                        get_deposit = await self.wallet_api.sql_register_user(
+                            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                        )
 
                     wallet_address = get_deposit['balance_wallet_address']
                     if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -1313,8 +1383,9 @@ class Twitter(commands.Cog):
                         wallet_address = get_deposit['destination_tag']
 
                     # Check if tx in progress
-                    if ctx.author.id in self.bot.TX_IN_PROCESS:
-                        msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+                    if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                        int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -1323,9 +1394,10 @@ class Twitter(commands.Cog):
                     all_amount = False
                     if not amount.isdigit() and amount.upper() == "ALL":
                         all_amount = True
-                        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name,
-                                                                               wallet_address, type_coin, height,
-                                                                               deposit_confirm_depth, SERVER_BOT)
+                        userdata_balance = await store.sql_user_balance_single(
+                            str(ctx.author.id), coin_name, wallet_address, type_coin, height,
+                            deposit_confirm_depth, SERVER_BOT
+                        )
                         amount = float(userdata_balance['adjust'])
                     # If $ is in amount, let's convert to coin/token
                     elif "$" in amount[-1] or "$" in amount[0]:  # last is $
@@ -1361,23 +1433,29 @@ class Twitter(commands.Cog):
                             return
                     # end of check if amount is all
                     notifyList = await store.sql_get_tipnotify()
-                    userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name,
-                                                                           wallet_address, type_coin, height,
-                                                                           deposit_confirm_depth, SERVER_BOT)
+                    userdata_balance = await store.sql_user_balance_single(
+                        str(ctx.author.id), coin_name,
+                        wallet_address, type_coin, height,
+                        deposit_confirm_depth, SERVER_BOT
+                    )
                     actual_balance = float(userdata_balance['adjust'])
 
                     if amount > max_tip or amount < min_tip:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than "\
+                            f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
+                            f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
                         await ctx.edit_original_message(content=msg)
                         return
                     elif amount > actual_balance:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a random tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a random tip of "\
+                            f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
                         await ctx.edit_original_message(content=msg)
                         return
 
-                    # add queue also randtip
-                    if ctx.author.id in self.bot.TX_IN_PROCESS:
-                        msg = f'{EMOJI_ERROR} {ctx.author.mention} {EMOJI_HOURGLASS_NOT_DONE}, you have another tx in progress.'
+                    # add queue
+                    if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                        int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -1399,13 +1477,15 @@ class Twitter(commands.Cog):
                                 equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
 
                     tip = None
-                    if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.append(ctx.author.id)
-                    user_to = await self.wallet_api.sql_get_userwallet(get_user['discord_user_id'], coin_name, net_name,
-                                                                       type_coin, SERVER_BOT, 0)
+                    if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                        self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
+                    user_to = await self.wallet_api.sql_get_userwallet(
+                        get_user['discord_user_id'], coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
                     if user_to is None:
-                        user_to = await self.wallet_api.sql_register_user(get_user['discord_user_id'], coin_name,
-                                                                          net_name, type_coin, SERVER_BOT, 0)
+                        user_to = await self.wallet_api.sql_register_user(
+                            get_user['discord_user_id'], coin_name, net_name, type_coin, SERVER_BOT, 0
+                        )
 
                     try:
                         guild_id = "DM"
@@ -1424,16 +1504,19 @@ class Twitter(commands.Cog):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tip = await store.sql_user_balance_mv_single(str(ctx.author.id), get_user['discord_user_id'],
-                                                                     guild_id, channel_id, amount, coin_name,
-                                                                     "TWITTERTIP", coin_decimal, SERVER_BOT, contract,
-                                                                     amount_in_usd, None)
+                        tip = await store.sql_user_balance_mv_single(
+                            str(ctx.author.id), get_user['discord_user_id'],
+                            guild_id, channel_id, amount, coin_name,
+                            "TWITTERTIP", coin_decimal, SERVER_BOT, contract,
+                            amount_in_usd, None
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot("twitter " +str(traceback.format_exc()))
-                    # remove queue from randtip
-                    if ctx.author.id in self.bot.TX_IN_PROCESS:
-                        self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+                    try:
+                        del self.bot.tipping_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                     if tip:
                         # tipper shall always get DM. Ignore notifyList
                         try:
@@ -1469,7 +1552,6 @@ class Twitter(commands.Cog):
         plain: str = 'embed'
     ):
         await self.bot_log()
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
         await ctx.response.send_message(msg, ephemeral=True)
 
@@ -1516,12 +1598,14 @@ class Twitter(commands.Cog):
                 twitter_id_str = get_linkme['id_str']
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-                get_deposit = await self.wallet_api.sql_get_userwallet(twitter_id_str, coin_name, net_name, type_coin,
-                                                                       user_server, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    twitter_id_str, coin_name, net_name, type_coin, user_server, 0
+                )
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 if get_deposit is None:
-                    get_deposit = await self.wallet_api.sql_register_user(twitter_id_str, coin_name, net_name,
-                                                                          type_coin, user_server, 0, 0)
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        twitter_id_str, coin_name, net_name, type_coin, user_server, 0, 0
+                    )
 
                 wallet_address = get_deposit['balance_wallet_address']
                 description = ""
@@ -1533,8 +1617,10 @@ class Twitter(commands.Cog):
                 if getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee") and getattr(
                         getattr(self.bot.coin_list, coin_name), "real_deposit_fee") > 0:
                     real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
-                    fee_txt = " You must deposit at least {} {} to cover fees needed to credit your account. This fee will be deducted from your deposit amount.".format(
-                        num_format_coin(real_min_deposit, coin_name, coin_decimal, False), token_display)
+                    fee_txt = " You must deposit at least {} {} to cover fees needed to credit your account. "\
+                        f"This fee will be deducted from your deposit amount.".format(
+                            num_format_coin(real_min_deposit, coin_name, coin_decimal, False), token_display
+                        )
                 embed = disnake.Embed(title=f'Deposit for your twitter {twitter_screen_name}',
                                       description=description + fee_txt,
                                       timestamp=datetime.fromtimestamp(int(time.time())))
@@ -1549,7 +1635,7 @@ class Twitter(commands.Cog):
                     address_path = qr_address.replace('{', '_').replace('}', '_').replace(':', '_').replace('"',
                                                                                                             "_").replace(
                         ',', "_").replace(' ', "_")
-                    embed.set_thumbnail(url=config.storage.deposit_url + address_path + ".png")
+                    embed.set_thumbnail(url=self.bot.config['storage']['deposit_url'] + address_path + ".png")
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
@@ -1564,13 +1650,12 @@ class Twitter(commands.Cog):
                 if coin_name == "HNT":  # put memo and base64
                     try:
                         address_memo = wallet_address.split()
-                        embed.add_field(name="MEMO", value="```Ascii: {}\nBase64: {}```".format(address_memo[2],
-                                                                                                base64.b64encode(
-                                                                                                    address_memo[
-                                                                                                        2].encode(
-                                                                                                        'ascii')).decode(
-                                                                                                    'ascii')),
-                                        inline=False)
+                        embed.add_field(
+                            name="MEMO", 
+                            value="```Ascii: {}\nBase64: {}```".format(
+                                address_memo[2], base64.b64encode(address_memo[2].encode('ascii')).decode('ascii')
+                            ),
+                            inline=False)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                 embed.set_footer(text="Use: /twitter deposit plain (for plain text)")
@@ -1669,9 +1754,11 @@ class Twitter(commands.Cog):
                         page.set_thumbnail(url=ctx.author.display_avatar)
                         page.set_footer(text="Use the reactions to flip pages.")
                     # height can be None
-                    userdata_balance = await store.sql_user_balance_single(twitter_id_str, coin_name, wallet_address,
-                                                                           type_coin, height, deposit_confirm_depth,
-                                                                           user_server)
+                    userdata_balance = await store.sql_user_balance_single(
+                        twitter_id_str, coin_name, wallet_address,
+                        type_coin, height, deposit_confirm_depth,
+                        user_server
+                    )
                     total_balance = userdata_balance['adjust']
                     if total_balance == 0:
                         zero_tokens.append(coin_name)
@@ -1753,26 +1840,37 @@ class Twitter(commands.Cog):
                     view = MenuPage(ctx, all_pages, timeout=30, disable_remove=True)
                     view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
                 except Exception:
-                    msg = f'{ctx.author.mention}, internal error when checking /twitter balances. Try again later. If problem still persists, contact TipBot dev.'
+                    msg = f'{ctx.author.mention}, internal error when checking /twitter balances. Try again later. "\
+                        f"If problem still persists, contact TipBot dev.'
                     await ctx.edit_original_message(content=msg)
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(f"[ERROR] /twitter balances with {ctx.author.name}#{ctx.author.discriminator}")
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            # twitter fetch latest tweet
+            if not self.fetch_latest_tweets.is_running():
+                self.fetch_latest_tweets.start()
+            # post to channel
+            if not self.post_tweets.is_running():
+                self.post_tweets.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        # twitter fetch latest tweet
-        self.fetch_latest_tweets.start()
-        # post to channel
-        self.post_tweets.start()
-
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            # twitter fetch latest tweet
+            if not self.fetch_latest_tweets.is_running():
+                self.fetch_latest_tweets.start()
+            # post to channel
+            if not self.post_tweets.is_running():
+                self.post_tweets.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
         # twitter fetch latest tweet
-        self.fetch_latest_tweets.stop()
+        self.fetch_latest_tweets.cancel()
         # post to channel
-        self.post_tweets.stop()
+        self.post_tweets.cancel()
 
 def setup(bot):
     bot.add_cog(Twitter(bot))

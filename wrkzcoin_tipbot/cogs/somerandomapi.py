@@ -31,8 +31,10 @@ class SomeRandomAPI(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `some_random_api_fact` (`name`, `fact`, `requested_by_uid`, `requested_by_name`, `requested_time`) 
-                              VALUES (%s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO `some_random_api_fact` 
+                    (`name`, `fact`, `requested_by_uid`, `requested_by_name`, `requested_time`) 
+                    VALUES (%s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (name, fact, requested_by_uid, requested_by_name, int(time.time())))
                     await conn.commit()
                     return cur.rowcount
@@ -45,8 +47,10 @@ class SomeRandomAPI(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `some_random_api_joke` (`joke`, `requested_by_uid`, `requested_by_name`, `requested_time`) 
-                              VALUES (%s, %s, %s, %s) """
+                    sql = """ INSERT INTO `some_random_api_joke` 
+                    (`joke`, `requested_by_uid`, `requested_by_name`, `requested_time`) 
+                    VALUES (%s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (joke, requested_by_uid, requested_by_name, int(time.time())))
                     await conn.commit()
                     return cur.rowcount
@@ -54,13 +58,19 @@ class SomeRandomAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return 0
 
-    async def add_animal_db(self, image_url: str, local_path: str, sha256: str, requested_by_uid: str,
-                            requested_by_name: str, jsondump: str):
+    async def add_animal_db(
+        self, image_url: str, local_path: str, sha256: str, requested_by_uid: str,
+        requested_by_name: str, jsondump: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `some_random_api_animal` (`image_url`, `local_path`, `sha256`, `jsondump`, `requested_by_uid`, `requested_by_name`, `inserted_date`) VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO `some_random_api_animal` 
+                    (`image_url`, `local_path`, `sha256`, `jsondump`, 
+                    `requested_by_uid`, `requested_by_name`, `inserted_date`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (
                     image_url, local_path, sha256, jsondump, requested_by_uid, requested_by_name, int(time.time())))
 
@@ -75,10 +85,12 @@ class SomeRandomAPI(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `some_random_api_animal` WHERE `image_url`=%s LIMIT 1 """
-                    await cur.execute(sql, (image_url))
+                    sql = """ SELECT * FROM `some_random_api_animal` 
+                    WHERE `image_url`=%s LIMIT 1 """
+                    await cur.execute(sql, image_url)
                     result = await cur.fetchone()
-                    if result: return result
+                    if result:
+                        return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
@@ -102,7 +114,11 @@ class SomeRandomAPI(commands.Cog):
                         file_name = image_url.split("/")[-1] + "." + mime_type.split("/")[1]
                         with open(saved_path + file_name, "wb") as f:
                             f.write(BytesIO(res_data).getbuffer())
-                        return {"saved_location": saved_path + file_name, "image_type": mime_type, "sha256": hex_dig}
+                        return {
+                            "saved_location": saved_path + file_name,
+                            "image_type": mime_type,
+                            "sha256": hex_dig
+                        }
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
@@ -182,11 +198,12 @@ class SomeRandomAPI(commands.Cog):
                         if check is None:
                             fetch_img = await self.fetch_image(fetch["image"], self.some_random_api_path_animal, 32)
                             if fetch_img:
-                                add = await self.add_animal_db(fetch["image"], fetch_img['saved_location'],
-                                                               fetch_img['sha256'], str(ctx.author.id),
-                                                               "{}#{}".format(ctx.author.name,
-                                                                              ctx.author.discriminator),
-                                                               json.dumps(fetch))
+                                await self.add_animal_db(
+                                    fetch["image"], fetch_img['saved_location'],
+                                    fetch_img['sha256'], str(ctx.author.id),
+                                    "{}#{}".format(ctx.author.name, ctx.author.discriminator),
+                                    json.dumps(fetch)
+                                )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                 else:
@@ -240,8 +257,10 @@ class SomeRandomAPI(commands.Cog):
                     await ctx.edit_original_message(content=None, embed=embed)
                     # Insert DB # Check if DB exists
                     try:
-                        add = await self.add_fact_db(name, fact, str(ctx.author.id),
-                                                     "{}#{}".format(ctx.author.name, ctx.author.discriminator))
+                        await self.add_fact_db(
+                            name, fact, str(ctx.author.id),
+                            "{}#{}".format(ctx.author.name, ctx.author.discriminator)
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                 else:
@@ -287,10 +306,16 @@ class SomeRandomAPI(commands.Cog):
             fetch = await self.fetch_sra(url, 16)
             if fetch:
                 if "link" in fetch:
-                    embed = disnake.Embed(title=f"Image {name}", description=f"Random Image", timestamp=datetime.now())
+                    embed = disnake.Embed(
+                        title=f"Image {name}",
+                        description=f"Random Image",
+                        timestamp=datetime.now()
+                    )
                     embed.set_image(url=fetch["link"])
                     embed.set_footer(
-                        text=f"Requested by {ctx.author.name}#{ctx.author.discriminator} | Powered by {self.poweredby}")
+                        text=f"Requested by {ctx.author.name}#{ctx.author.discriminator} "\
+                            f"| Powered by {self.poweredby}"
+                    )
                     await ctx.edit_original_message(content=None, embed=embed)
                     # Insert DB # Check if DB exists
                     try:
@@ -298,11 +323,12 @@ class SomeRandomAPI(commands.Cog):
                         if check is None:
                             fetch_img = await self.fetch_image(fetch["link"], self.some_random_api_path_animal, 32)
                             if fetch_img:
-                                add = await self.add_animal_db(fetch["link"], fetch_img['saved_location'],
-                                                               fetch_img['sha256'], str(ctx.author.id),
-                                                               "{}#{}".format(ctx.author.name,
-                                                                              ctx.author.discriminator),
-                                                               json.dumps(fetch))
+                                await self.add_animal_db(
+                                    fetch["link"], fetch_img['saved_location'],
+                                    fetch_img['sha256'], str(ctx.author.id),
+                                    "{}#{}".format(ctx.author.name, ctx.author.discriminator),
+                                    json.dumps(fetch)
+                                )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                 else:
@@ -342,8 +368,9 @@ class SomeRandomAPI(commands.Cog):
                         text=f"Requested by {ctx.author.name}#{ctx.author.discriminator} | Powered by {self.poweredby}")
                     await ctx.edit_original_message(content=None, embed=embed)
                     try:
-                        add = await self.add_joke_db(joke, str(ctx.author.id),
-                                                     "{}#{}".format(ctx.author.name, ctx.author.discriminator))
+                        await self.add_joke_db(
+                            joke, str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator)
+                        )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                 else:
@@ -355,7 +382,6 @@ class SomeRandomAPI(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-
 
 def setup(bot):
     bot.add_cog(SomeRandomAPI(bot))

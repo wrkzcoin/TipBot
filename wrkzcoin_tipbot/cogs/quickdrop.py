@@ -8,19 +8,17 @@ from decimal import Decimal
 from typing import Dict
 import asyncio
 from cachetools import TTLCache
+from disnake.app_commands import Option
+from disnake.enums import ButtonStyle
+from disnake.enums import OptionType
+from disnake.app_commands import Option, OptionChoice
 
 import disnake
 import store
 from Bot import num_format_coin, logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, SERVER_BOT, text_to_num, \
     truncate, seconds_str_days
 from cogs.wallet import WalletAPI
-from disnake.app_commands import Option
-from disnake.enums import ButtonStyle
-from disnake.enums import OptionType
-from disnake.app_commands import Option, OptionChoice
-
 from disnake.ext import commands, tasks
-from config import config
 
 from cogs.utils import Utils
 
@@ -86,8 +84,15 @@ class QuickDrop(commands.Cog):
                         owner_displayname = each_drop['from_ownername']
                         amount = each_drop['real_amount']
                         equivalent_usd = each_drop['real_amount_usd_text']
-
                         coin_name = each_drop['token_name']
+                        try:
+                            channel = self.bot.get_channel(int(each_drop['channel_id']))
+                            coin_emoji = ""
+                            if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                coin_emoji = coin_emoji + " " if coin_emoji else ""
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
                         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -100,16 +105,26 @@ class QuickDrop(commands.Cog):
                                 description="First come, first serve!",
                                 timestamp=datetime.fromtimestamp(each_drop['expiring_time']))
                             embed.set_footer(text=f"Dropped by {owner_displayname} | Used with /quickdrop | Ended")
-                            embed.add_field(name='Owner',
-                                            value=owner_displayname,
-                                            inline=False)
+                            embed.add_field(
+                                name='Owner',
+                                value=owner_displayname,
+                                inline=False
+                            )
                             if each_drop['collected_by_userid'] is None:
-                                embed.add_field(name='Collected by',
-                                                value="None",
-                                                inline=False)
-                            embed.add_field(name='Amount',
-                                            value="🎉🎉 {} {} 🎉🎉".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name),
-                                            inline=False)
+                                embed.add_field(
+                                    name='Collected by',
+                                    value="None",
+                                    inline=False
+                                )
+                            embed.add_field(
+                                name='Amount',
+                                value="🎉🎉 {}{} {} 🎉🎉".format(
+                                    coin_emoji,
+                                    num_format_coin(amount, coin_name, coin_decimal, False),
+                                    coin_name
+                                ),
+                                inline=False
+                            )
                             try:
                                 channel = self.bot.get_channel(int(each_drop['channel_id']))
                                 _msg: disnake.Message = await channel.fetch_message(int(each_drop['message_id']))
@@ -127,7 +142,7 @@ class QuickDrop(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
 
-    async def async_quickdrop(self, ctx, amount: str, token: str):
+    async def async_quickdrop(self, ctx, amount: str, token: str, verify: str="OFF"):
         coin_name = token.upper()
         await ctx.response.send_message(f"{ctx.author.mention}, /quickdrop preparation... ")
 
@@ -164,17 +179,17 @@ class QuickDrop(commands.Cog):
         # Check if there is many airdrop/mathtip/triviatip/partydrop/quickdrop
         try:
             count_ongoing = await store.discord_freetip_ongoing(str(ctx.author.id), "ONGOING")
-            if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != config.discord.ownerID:
+            if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 return
             count_ongoing = await store.discord_freetip_ongoing_guild(str(ctx.guild.id), "ONGOING")
             # Check max if set in guild
-            if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and ctx.author.id != config.discord.ownerID:
+            if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 return
-            elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != config.discord.ownerID:
+            elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(f"[QUICKDROP] server {str(ctx.guild.id)} has no data in discord_server.")
@@ -195,11 +210,13 @@ class QuickDrop(commands.Cog):
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                   SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name,
-                                                                      type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -217,8 +234,10 @@ class QuickDrop(commands.Cog):
         try:
             # Check amount
             if not amount.isdigit() and amount.upper() == "ALL":
-                userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                       type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                userdata_balance = await store.sql_user_balance_single(
+                    str(ctx.author.id), coin_name, wallet_address,
+                    type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
                 amount = float(userdata_balance['adjust'])
             # If $ is in amount, let's convert to coin/token
             elif "$" in amount[-1] or "$" in amount[0]:  # last is $
@@ -255,8 +274,9 @@ class QuickDrop(commands.Cog):
             # end of check if amount is all
 
             # Check if tx in progress
-            if ctx.author.id in self.bot.TX_IN_PROCESS:
-                msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+            if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+                msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
                 await ctx.edit_original_message(content=msg)
                 return
 
@@ -269,26 +289,31 @@ class QuickDrop(commands.Cog):
 
             default_duration = 60
 
-            if amount <= 0:
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin,
+                height, deposit_confirm_depth, SERVER_BOT
+            )
+            actual_balance = float(userdata_balance['adjust'])
+
+            if amount <= 0 or actual_balance <= 0:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
                 await ctx.edit_original_message(content=msg)
                 return
 
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                                   height, deposit_confirm_depth, SERVER_BOT)
-            actual_balance = float(userdata_balance['adjust'])
-
             if amount > max_tip or amount < min_tip:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, amount cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, amount cannot be bigger than "\
+                    f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
+                    f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
                 await ctx.edit_original_message(content=msg)
                 return
             elif amount > actual_balance:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to drop **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to drop "\
+                    f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
                 await ctx.edit_original_message(content=msg)
                 return
 
-            if ctx.author.id not in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.append(ctx.author.id)
+            if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
 
             equivalent_usd = ""
             total_in_usd = 0.0
@@ -314,40 +339,59 @@ class QuickDrop(commands.Cog):
                 title=f"📦📦📦 Quick Drop 📦📦📦",
                 description="First come, first serve!",
                 timestamp=datetime.now())
-            embed.add_field(name='Owner',
-                            value="{}#{}".format(ctx.author.name, ctx.author.discriminator),
-                            inline=False)
-            embed.add_field(name='Amount',
-                            value="❔❔❔❔❔",
-                            inline=False)
+            embed.add_field(
+                name='Owner',
+                value="{}#{}".format(ctx.author.name, ctx.author.discriminator),
+                inline=False
+            )
+            embed.add_field(
+                name='Amount',
+                value="❔❔❔❔❔",
+                inline=False
+            )
             embed.set_footer(text=f"Dropped by {owner_displayname} | Used with /quickdrop")
             try:
                 view = QuickDropButton(ctx, default_duration, self.bot.coin_list, self.bot, ctx.channel.id) 
                 msg = await ctx.channel.send(content=None, embed=embed, view=view)
                 view.message = msg
                 view.channel_interact = ctx.channel.id
-                quick = await store.insert_quickdrop_create(coin_name, contract, str(ctx.author.id),
-                                                            owner_displayname, str(view.message.id),
-                                                            str(ctx.guild.id), str(ctx.channel.id), 
-                                                            amount, total_in_usd,
-                                                            equivalent_usd, per_unit, coin_decimal, 
-                                                            drop_end, "ONGOING")
+                need_verify = 0
+                if verify == "ON":
+                    need_verify = 1
+                await store.insert_quickdrop_create(
+                    coin_name, contract, str(ctx.author.id),
+                    owner_displayname, str(view.message.id),
+                    str(ctx.guild.id), str(ctx.channel.id), 
+                    amount, total_in_usd,
+                    equivalent_usd, per_unit, coin_decimal, 
+                    drop_end, "ONGOING", need_verify
+                )
                 await ctx.delete_original_message()
+            except disnake.errors.Forbidden:
+                await ctx.edit_original_message(content="Missing permission! Or failed to send embed message.")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-            if ctx.author.id in self.bot.TX_IN_PROCESS:
-                self.bot.TX_IN_PROCESS.remove(ctx.author.id)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        try:
+            del self.bot.tipping_in_progress[str(ctx.author.id)]
+        except Exception:
+            pass
 
 
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='quickdrop <amount> <token>',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
-            Option('token', 'token', OptionType.string, required=True)
+            Option('token', 'token', OptionType.string, required=True),
+            Option('verify', 'verify (ON | OFF)', OptionType.string, required=False, choices=[
+                OptionChoice("ON", "ON"),
+                OptionChoice("OFF", "OFF")
+            ]
+            )
         ],
         description="Quick drop and first people to collect when tap."
     )
@@ -355,19 +399,30 @@ class QuickDrop(commands.Cog):
         self,
         ctx,
         amount: str,
-        token: str
+        token: str,
+        verify: str="OFF"
     ):
-        await self.async_quickdrop(ctx, amount, token)
+        await self.async_quickdrop(ctx, amount, token, verify)
 
+    @quickdrop.autocomplete("token")
+    async def quickdrop_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.quickdrop_check.is_running():
+                self.quickdrop_check.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.quickdrop_check.start()
-
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.quickdrop_check.is_running():
+                self.quickdrop_check.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.quickdrop_check.stop()
+        self.quickdrop_check.cancel()
 
 
 def setup(bot):

@@ -11,13 +11,11 @@ from decimal import Decimal
 import random
 import math
 
-from config import config
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, \
     seconds_str, RowButtonRowCloseAnyMessage, SERVER_BOT, createBox
 
 import store
 from cogs.wallet import WalletAPI
-import redis_utils
 from cogs.utils import Utils
 
 
@@ -47,26 +45,29 @@ class database_economy():
         self.bot = bot
         # DB
         self.pool = None
-        
+
         self.eco_salt_collecting_time = 21600 # 6 hrs
         self.eco_salt_qty_per_field = 100 # kg
-
 
     async def economy_get_user(self, user_id: str, user_name: str):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_userinfo WHERE `user_id` = %s LIMIT 1 """
+                    sql = """ SELECT * FROM discord_economy_userinfo 
+                    WHERE `user_id` = %s LIMIT 1
+                    """
                     await cur.execute(sql, (user_id,))
                     result = await cur.fetchone()
                     if result is None:
-                        sql = """ INSERT INTO discord_economy_userinfo (`user_id`, `user_name`, `joined`) 
-                                  VALUES (%s, %s, %s) """
+                        sql = """ INSERT INTO discord_economy_userinfo 
+                        (`user_id`, `user_name`, `joined`) 
+                        VALUES (%s, %s, %s) """
                         await cur.execute(sql, (user_id, user_name, int(time.time()),))
                         await conn.commit()
 
-                        sql = """ SELECT * FROM discord_economy_userinfo WHERE `user_id` = %s LIMIT 1 """
+                        sql = """ SELECT * FROM discord_economy_userinfo 
+                        WHERE `user_id` = %s LIMIT 1 """
                         await cur.execute(sql, (user_id,))
                         result = await cur.fetchone()
                         return result
@@ -83,15 +84,19 @@ class database_economy():
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if all_activities:
-                        sql = """ SELECT * FROM discord_economy_activities WHERE `user_id` = %s ORDER BY `id` DESC """
-                        await cur.execute(sql, (user_id,))
+                        sql = """ SELECT * FROM discord_economy_activities 
+                        WHERE `user_id` = %s ORDER BY `id` DESC """
+                        await cur.execute(sql, user_id)
                         result = await cur.fetchall()
-                        if result: return result
+                        if result:
+                            return result
                     else:
-                        sql = """ SELECT * FROM discord_economy_activities WHERE `user_id` = %s ORDER BY `id` DESC LIMIT 1 """
-                        await cur.execute(sql, (user_id,))
+                        sql = """ SELECT * FROM discord_economy_activities 
+                        WHERE `user_id` = %s ORDER BY `id` DESC LIMIT 1 """
+                        await cur.execute(sql, user_id)
                         result = await cur.fetchone()
-                        if result: return result
+                        if result:
+                            return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -103,7 +108,9 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_activities WHERE `user_id` = %s AND `status`=%s AND `started`>%s ORDER BY `started` DESC """
+                    sql = """ SELECT * FROM discord_economy_activities 
+                    WHERE `user_id` = %s AND `status`=%s AND `started`>%s 
+                    ORDER BY `started` DESC """
                     await cur.execute(sql, (user_id, 'COMPLETED', lap_duration,))
                     result = await cur.fetchall()
                     if result: return result
@@ -118,12 +125,14 @@ class database_economy():
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if get_all:
-                        sql = """ SELECT * FROM discord_economy_work_reward WHERE `status`=%s ORDER BY `work_id` ASC """
+                        sql = """ SELECT * FROM discord_economy_work_reward 
+                        WHERE `status`=%s ORDER BY `work_id` ASC """
                         await cur.execute(sql, (1))
                         result = await cur.fetchall()
                         if result: return result
                     else:
-                        sql = """ SELECT * FROM discord_economy_work_reward WHERE `guild_id` = %s AND `status`=%s ORDER BY `work_id` ASC """
+                        sql = """ SELECT * FROM discord_economy_work_reward 
+                        WHERE `guild_id` = %s AND `status`=%s ORDER BY `work_id` ASC """
                         await cur.execute(sql, (guild_id, 1))
                         result = await cur.fetchall()
                         if result: return result
@@ -137,7 +146,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_work_reward WHERE `work_id`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM discord_economy_work_reward 
+                    WHERE `work_id`=%s LIMIT 1 """
                     await cur.execute(sql, (work_id))
                     result = await cur.fetchone()
                     if result: return result
@@ -146,15 +156,24 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-    async def economy_insert_activity(self, user_id: str, guild_id: str, work_id: int, duration_in_second: int, reward_coin_name: str, reward_amount: float, fee_amount: float, reward_decimal: int, exp: float, health: float, energy: float):
+    async def economy_insert_activity(
+        self, user_id: str, guild_id: str, work_id: int, duration_in_second: int, 
+        reward_coin_name: str, reward_amount: float, fee_amount: float, 
+        reward_decimal: int, exp: float, health: float, energy: float
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_economy_activities (`user_id`, `guild_id`, `work_id`, `started`, `duration_in_second`, `reward_coin_name`, 
-                              `reward_amount`, `fee_amount`, `reward_decimal`, `exp`, `health`, `energy`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (user_id, guild_id, work_id, int(time.time()), duration_in_second, reward_coin_name, reward_amount, fee_amount, reward_decimal, exp, health, energy))
+                    sql = """ INSERT INTO discord_economy_activities 
+                    (`user_id`, `guild_id`, `work_id`, `started`, `duration_in_second`, `reward_coin_name`, 
+                    `reward_amount`, `fee_amount`, `reward_decimal`, `exp`, `health`, `energy`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    await cur.execute(sql, (
+                        user_id, guild_id, work_id, int(time.time()), duration_in_second, reward_coin_name, 
+                        reward_amount, fee_amount, reward_decimal, exp, health, energy
+                        )
+                    )
                     await conn.commit()
                     return True
         except Exception:
@@ -162,17 +181,22 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-    async def economy_update_activity(self, act_id: int, user_id: str, exp: int, health: float, energy: float):
+    async def economy_update_activity(
+        self, act_id: int, user_id: str, exp: int, health: float, energy: float
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE discord_economy_activities SET `completed`=%s, `status`=%s 
-                              WHERE `id`=%s AND `user_id`=%s """
+                    sql = """ UPDATE discord_economy_activities 
+                    SET `completed`=%s, `status`=%s 
+                    WHERE `id`=%s AND `user_id`=%s
+                    """
                     await cur.execute(sql, (int(time.time()), 'COMPLETED', act_id, user_id,))
                     # 2nd query
-                    sql = """ UPDATE discord_economy_userinfo SET `exp`=`exp`+%s, `health_current`=`health_current`+%s,
-                              `energy_current`=`energy_current`+%s WHERE `user_id`=%s """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `exp`=`exp`+%s, `health_current`=`health_current`+%s,
+                    `energy_current`=`energy_current`+%s WHERE `user_id`=%s """
                     await cur.execute(sql, (exp, health, energy, user_id,))
                     await conn.commit()
                     return True
@@ -187,12 +211,14 @@ class database_economy():
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if get_all:
-                        sql = """ SELECT * FROM discord_economy_food ORDER BY `food_id` ASC """
+                        sql = """ SELECT * FROM discord_economy_food 
+                        ORDER BY `food_id` ASC """
                         await cur.execute(sql)
                         result = await cur.fetchall()
                         if result: return result
                     else:
-                        sql = """ SELECT * FROM discord_economy_food WHERE `guild_id` = %s ORDER BY `food_id` ASC """
+                        sql = """ SELECT * FROM discord_economy_food 
+                        WHERE `guild_id` = %s ORDER BY `food_id` ASC """
                         await cur.execute(sql, (guild_id,))
                         result = await cur.fetchall()
                         if result: return result
@@ -201,7 +227,10 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-    async def economy_insert_eating(self, user_id: str, guild_id: str, cost_coin_name: str, cost_expense_amount: float, fee_amount: float, cost_decimal: int, contract: str, gained_energy: float):
+    async def economy_insert_eating(
+        self, user_id: str, guild_id: str, cost_coin_name: str, cost_expense_amount: float, 
+        fee_amount: float, cost_decimal: int, contract: str, gained_energy: float
+    ):
         try:
             cost_expense_amount_after_fee = cost_expense_amount - fee_amount
             currentTs = int(time.time())
@@ -211,12 +240,18 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_economy_eating (`user_id`, `guild_id`, `date`, `cost_coin_name`, `cost_expense_amount`, 
-                              `fee_amount`, `cost_decimal`, `gained_energy`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (user_id, guild_id, int(time.time()), cost_coin_name, cost_expense_amount, fee_amount, cost_decimal, gained_energy,))
+                    sql = """ INSERT INTO discord_economy_eating 
+                    (`user_id`, `guild_id`, `date`, `cost_coin_name`, `cost_expense_amount`, 
+                    `fee_amount`, `cost_decimal`, `gained_energy`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (
+                        user_id, guild_id, int(time.time()), cost_coin_name, cost_expense_amount, fee_amount, 
+                        cost_decimal, gained_energy,)
+                    )
                     # 2nd query
-                    sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`+%s WHERE `user_id`=%s """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `energy_current`=`energy_current`+%s WHERE `user_id`=%s """
                     await cur.execute(sql, (gained_energy, user_id,))
 
                     # Update balance user_id -> guild_id
@@ -237,7 +272,13 @@ class database_economy():
                               `update_date`=VALUES(`update_date`);
 
                               """
-                    await cur.execute(sql, ( cost_coin_name, contract, user_id, guild_id, guild_id, channel_id, cost_expense_amount_after_fee, real_amount_usd, cost_decimal, "ECONOMY", currentTs, user_server, user_id, cost_coin_name, user_server, -cost_expense_amount_after_fee, currentTs, guild_id, cost_coin_name, user_server, cost_expense_amount_after_fee, currentTs ))
+                    await cur.execute(sql, (
+                        cost_coin_name, contract, user_id, guild_id, guild_id, channel_id, cost_expense_amount_after_fee,
+                        real_amount_usd, cost_decimal, "ECONOMY", currentTs, user_server, user_id, cost_coin_name,
+                        user_server, -cost_expense_amount_after_fee, currentTs, guild_id, cost_coin_name, user_server,
+                        cost_expense_amount_after_fee, currentTs
+                        )
+                    )
 
                     # Update balance user_id -> "ECONOMY" [system]
                     sql = """ INSERT INTO user_balance_mv 
@@ -256,7 +297,13 @@ class database_economy():
                               `balance`=`balance`+VALUES(`balance`), 
                               `update_date`=VALUES(`update_date`);
                               """
-                    await cur.execute(sql, ( cost_coin_name, contract, user_id, "ECONOMY", guild_id, channel_id, fee_amount, real_amount_usd, cost_decimal, "ECONOMY", currentTs, user_server, user_id, cost_coin_name, user_server, -fee_amount, currentTs, "ECONOMY", cost_coin_name, user_server, fee_amount, currentTs ))
+                    await cur.execute(sql, (
+                        cost_coin_name, contract, user_id, "ECONOMY", guild_id, channel_id, fee_amount, 
+                        real_amount_usd, cost_decimal, "ECONOMY", currentTs, user_server, user_id, 
+                        cost_coin_name, user_server, -fee_amount, currentTs, "ECONOMY", 
+                        cost_coin_name, user_server, fee_amount, currentTs
+                        )
+                    )
                     await conn.commit()
                     return True
         except Exception:
@@ -264,13 +311,13 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-
     async def economy_get_food_id(self, food_id: int):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_food WHERE `food_id`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM discord_economy_food 
+                    WHERE `food_id`=%s LIMIT 1 """
                     await cur.execute(sql, (food_id))
                     result = await cur.fetchone()
                     if result: return result
@@ -285,7 +332,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_eating WHERE `guild_id` = %s AND `date`>%s ORDER BY `date` DESC """
+                    sql = """ SELECT * FROM discord_economy_eating 
+                    WHERE `guild_id` = %s AND `date`>%s ORDER BY `date` DESC """
                     await cur.execute(sql, (guild_id, lap_duration,))
                     result = await cur.fetchall()
                     if result: return result
@@ -300,7 +348,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_eating WHERE `user_id` = %s AND `date`>%s ORDER BY `date` DESC """
+                    sql = """ SELECT * FROM discord_economy_eating 
+                    WHERE `user_id` = %s AND `date`>%s ORDER BY `date` DESC """
                     await cur.execute(sql, (user_id, lap_duration,))
                     result = await cur.fetchall()
                     if result: return result
@@ -314,7 +363,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_secret_items WHERE `usable`=%s """
+                    sql = """ SELECT * FROM discord_economy_secret_items 
+                    WHERE `usable`=%s """
                     await cur.execute(sql, ('YES'))
                     result = await cur.fetchall()
                     if result: return result
@@ -323,7 +373,10 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return []
 
-    async def economy_insert_secret_findings(self, item_id: int, user_id: str, guild_id: str, item_health: float, item_energy: float, item_gem: int, can_use: bool=True):
+    async def economy_insert_secret_findings(
+        self, item_id: int, user_id: str, guild_id: str, item_health: float, 
+        item_energy: float, item_gem: int, can_use: bool=True
+    ):
         usable = "NO"
         if can_use:
             usable = "YES"
@@ -331,15 +384,19 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_economy_secret_findings (`item_id`, `user_id`, `guild_id`, `date`, 
-                              `item_health`, `item_energy`, `item_gem`, `can_use`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO discord_economy_secret_findings 
+                    (`item_id`, `user_id`, `guild_id`, `date`, 
+                    `item_health`, `item_energy`, `item_gem`, `can_use`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (item_id, user_id, guild_id, int(time.time()), item_health, item_energy, item_gem, usable,))
                     # 2nd query
                     if item_id != 8:
-                        sql = """ UPDATE discord_economy_userinfo SET `backpack_items`=`backpack_items`+1 WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `backpack_items`=`backpack_items`+1 WHERE `user_id`=%s """
                         await cur.execute(sql, (user_id,))
-                    sql = """ UPDATE discord_economy_secret_items SET `found_times`=`found_times`+1 WHERE `id`=%s """
+                    sql = """ UPDATE discord_economy_secret_items 
+                    SET `found_times`=`found_times`+1 WHERE `id`=%s """
                     await cur.execute(sql, (item_id,))
                     await conn.commit()
                     return True
@@ -354,7 +411,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_secret_findings WHERE `user_id` = %s AND `date`>%s ORDER BY `date` DESC """
+                    sql = """ SELECT * FROM discord_economy_secret_findings 
+                    WHERE `user_id` = %s AND `date`>%s ORDER BY `date` DESC """
                     await cur.execute(sql, (user_id, lap_duration,))
                     result = await cur.fetchall()
                     if result: return result
@@ -387,7 +445,6 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return []
 
-
     async def economy_get_item_id(self, item_id: int):
         try:
             await store.openConnection()
@@ -401,20 +458,30 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-    async def economy_item_update_used(self, user_id: str, item_id: str, gained_energy: float=0.0, gained_health: float=0.0):
+    async def economy_item_update_used(
+        self, user_id: str, item_id: str, gained_energy: float=0.0, gained_health: float=0.0
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE discord_economy_secret_findings SET `used_date`=%s, `used`=%s WHERE `used`=%s AND `item_id`=%s AND `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_secret_findings SET `used_date`=%s, `used`=%s 
+                    WHERE `used`=%s AND `item_id`=%s AND `user_id`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (int(time.time()), 'YES', 'NO', item_id, user_id,))
                     # 2nd query
                     if gained_energy >= 0:
-                        sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`+%s, `backpack_items`=`backpack_items`-1 WHERE `user_id`=%s LIMIT 1 """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `energy_current`=`energy_current`+%s, `backpack_items`=`backpack_items`-1 
+                        WHERE `user_id`=%s LIMIT 1
+                        """
                         await cur.execute(sql, (gained_energy, user_id,))
                     # could be 3rd query
                     if gained_health >= 0:
-                        sql = """ UPDATE discord_economy_userinfo SET `health_current`=`health_current`+%s, `backpack_items`=`backpack_items`-1 WHERE `user_id`=%s LIMIT 1 """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `health_current`=`health_current`+%s, `backpack_items`=`backpack_items`-1 
+                        WHERE `user_id`=%s LIMIT 1
+                        """
                         await cur.execute(sql, (gained_health, user_id,))
                     await conn.commit()
                     return True
@@ -428,7 +495,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_shopbot WHERE `item_name`=%s OR `item_emoji`=%s LIMIT 1 """
+                    sql = """ SELECT * FROM discord_economy_shopbot 
+                    WHERE `item_name`=%s OR `item_emoji`=%s LIMIT 1 """
                     await cur.execute(sql, (item_name, item_name))
                     result = await cur.fetchone()
                     if result: return result
@@ -442,7 +510,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_shopbot ORDER BY `credit_cost` DESC """
+                    sql = """ SELECT * FROM discord_economy_shopbot 
+                    ORDER BY `credit_cost` DESC """
                     await cur.execute(sql,)
                     result = await cur.fetchall()
                     if result: return result
@@ -451,69 +520,123 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return []
 
-
-    async def discord_economy_userinfo_what(self, guild_id: str, user_id: str, item_id: int, what: str, item_nos: int, credit: int):
+    async def discord_economy_userinfo_what(
+        self, guild_id: str, user_id: str, item_id: int, what: str, item_nos: int, credit: int
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE discord_economy_shopbot SET `numb_bought`=`numb_bought`+1 WHERE `id`=%s """
+                    sql = """ UPDATE discord_economy_shopbot 
+                    SET `numb_bought`=`numb_bought`+1 WHERE `id`=%s """
                     await cur.execute(sql, (item_id,))
                     # 2nd query
                     if what.upper() == "BAIT" or what == "🎣":
-                        sql = """ UPDATE discord_economy_userinfo SET `fishing_bait`=`fishing_bait`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `fishing_bait`=`fishing_bait`+%s, `credit`=`credit`+%s 
+                        WHERE `user_id`=%s
+                        """
                         await cur.execute(sql, (item_nos, credit, user_id,))
                     elif what.upper() == "SEED" or what == "🌱":
-                        sql = """ UPDATE discord_economy_userinfo SET `tree_seed`=`tree_seed`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `tree_seed`=`tree_seed`+%s, `credit`=`credit`+%s
+                        WHERE `user_id`=%s
+                        """
                         await cur.execute(sql, (item_nos, credit, user_id,))
                     elif what.upper() == "FARM" or what == "👨‍🌾":
-                        sql = """ UPDATE discord_economy_userinfo SET `numb_farm`=`numb_farm`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `numb_farm`=`numb_farm`+%s, `credit`=`credit`+%s
+                        WHERE `user_id`=%s
+                        """
                         await cur.execute(sql, (item_nos, credit, user_id,))
-                    elif what.upper() == "CHICKENFARM" or what.upper() == "CHICKEN_FARM" or what.upper() == "CHICKEN FARM":
-                        sql = """ UPDATE discord_economy_userinfo SET `numb_chicken_farm`=`numb_chicken_farm`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                    elif what.upper() == "CHICKENFARM" or what.upper() == "CHICKEN_FARM" or \
+                        what.upper() == "CHICKEN FARM":
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `numb_chicken_farm`=`numb_chicken_farm`+%s, `credit`=`credit`+%s 
+                        WHERE `user_id`=%s
+                        """
                         await cur.execute(sql, (item_nos, credit, user_id,))
                     elif what.upper() == "TRACTOR" or what == "🚜":
-                        sql = """ UPDATE discord_economy_userinfo SET `numb_tractor`=`numb_tractor`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `numb_tractor`=`numb_tractor`+%s, `credit`=`credit`+%s 
+                        WHERE `user_id`=%s
+                        """
                         await cur.execute(sql, (item_nos, credit, user_id,))
                     elif what.upper() == "BOAT" or what == "🚣":
-                        sql = """ UPDATE discord_economy_userinfo SET `numb_boat`=`numb_boat`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `numb_boat`=`numb_boat`+%s, `credit`=`credit`+%s 
+                        WHERE `user_id`=%s
+                        """
                         await cur.execute(sql, (item_nos, credit, user_id,))
                     elif what.upper() == "DAIRY CATTLE" or what == "DAIRYCATTLE":
-                        sql = """ UPDATE discord_economy_userinfo SET `numb_dairy_cattle`=`numb_dairy_cattle`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `numb_dairy_cattle`=`numb_dairy_cattle`+%s, `credit`=`credit`+%s 
+                        WHERE `user_id`=%s
+                        """
                         await cur.execute(sql, (item_nos, credit, user_id,))
                     elif what.upper() == "MARKET" or what == "🛒":
-                        sql = """ UPDATE discord_economy_userinfo SET `numb_market`=`numb_market`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `numb_market`=`numb_market`+%s, `credit`=`credit`+%s
+                        WHERE `user_id`=%s
+                        """
                         await cur.execute(sql, (item_nos, credit, user_id,))
                     elif what.upper() == "COW" or what == "🐄":
-                        sql = """ UPDATE discord_economy_userinfo SET `numb_cow`=`numb_cow`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `numb_cow`=`numb_cow`+%s, `credit`=`credit`+%s 
+                        WHERE `user_id`=%s
+                        """
                         await cur.execute(sql, (item_nos, credit, user_id,))
                         # insert to dairy ownership
-                        sql = """ INSERT INTO discord_economy_dairy_cattle_ownership (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
-                                  VALUES (%s, %s, %s, %s, %s) """
-                        await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+config.economy.dairy_collecting_time))
+                        sql = """ INSERT INTO discord_economy_dairy_cattle_ownership 
+                        (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
+                        VALUES (%s, %s, %s, %s, %s) """
+                        await cur.execute(sql, (
+                            user_id, guild_id, int(time.time()), credit,
+                            int(time.time())+self.bot.config['economy']['dairy_collecting_time']
+                        ))
                     elif what.upper() == "SALT FIELD":
-                        sql = """ UPDATE discord_economy_userinfo SET `numb_salt_field`=`numb_salt_field`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `numb_salt_field`=`numb_salt_field`+%s, `credit`=`credit`+%s 
+                        WHERE `user_id`=%s """
                         await cur.execute(sql, (item_nos, credit, user_id,))
                         # insert to dairy ownership
-                        sql = """ INSERT INTO discord_economy_salt_farm_ownership (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
-                                  VALUES (%s, %s, %s, %s, %s) """
-                        await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+self.eco_salt_collecting_time))
+                        sql = """ INSERT INTO discord_economy_salt_farm_ownership 
+                        (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
+                        VALUES (%s, %s, %s, %s, %s) """
+                        await cur.execute(sql, (
+                            user_id, guild_id, int(time.time()), credit, 
+                            int(time.time())+self.eco_salt_collecting_time
+                        ))
                     elif what.upper() == "SALT FARM":
-                        sql = """ UPDATE discord_economy_userinfo SET `numb_salt_farm`=`numb_salt_farm`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `numb_salt_farm`=`numb_salt_farm`+%s, `credit`=`credit`+%s 
+                        WHERE `user_id`=%s
+                        """
                         await cur.execute(sql, (item_nos, credit, user_id,))
                     elif what.upper() == "CHICKEN" or what == "🐔":
-                        sql = """ UPDATE discord_economy_userinfo SET `numb_chicken`=`numb_chicken`+%s, `credit`=`credit`+%s WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `numb_chicken`=`numb_chicken`+%s, `credit`=`credit`+%s 
+                        WHERE `user_id`=%s
+                        """
                         await cur.execute(sql, (item_nos, credit, user_id,))
                         # insert to dairy ownership
-                        sql = """ INSERT INTO discord_economy_chickenfarm_ownership (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
-                                  VALUES (%s, %s, %s, %s, %s) """
-                        await cur.execute(sql, (user_id, guild_id, int(time.time()), credit, int(time.time())+config.economy.egg_collecting_time))
+                        sql = """ INSERT INTO discord_economy_chickenfarm_ownership 
+                        (`user_id`, `guild_id`, `bought_date`, `credit_cost`, `possible_collect_date`) 
+                        VALUES (%s, %s, %s, %s, %s)
+                        """
+                        await cur.execute(sql, (
+                            user_id, guild_id, int(time.time()), credit,
+                            int(time.time())+self.bot.config['economy']['egg_collecting_time']
+                        ))
                     elif what.upper() == "CREDIT" or what == "💵":
-                        sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s,`gem_credit`=`gem_credit`-1 WHERE `user_id`=%s """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `credit`=`credit`+%s,`gem_credit`=`gem_credit`-1 
+                        WHERE `user_id`=%s """
                         await cur.execute(sql, (credit, user_id))
                     # update to activities
-                    sql = """ INSERT INTO discord_economy_shopbot_activities (`shopitem_id`, `user_id`, `guild_id`, `credit_cost`, `date`) 
-                              VALUES (%s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO discord_economy_shopbot_activities 
+                    (`shopitem_id`, `user_id`, `guild_id`, `credit_cost`, `date`) 
+                    VALUES (%s, %s, %s, %s, %s) """
                     await cur.execute(sql, (item_id, user_id, guild_id, credit, int(time.time()),))
                     await conn.commit()
                     return True
@@ -522,13 +645,12 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-
     async def economy_get_list_fish_items(self):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_fish_items """
+                    sql = """ SELECT * FROM `discord_economy_fish_items` """
                     await cur.execute(sql,)
                     result = await cur.fetchall()
                     if result: return result
@@ -537,24 +659,39 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return []
 
-    async def economy_insert_fishing_multiple(self, list_fish, total_energy_loss: float, total_exp: float, user_id: str):
+    async def economy_insert_fishing_multiple(
+        self, list_fish, total_energy_loss: float, total_exp: float, user_id: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_economy_fishing (`fish_id`, `user_id`, `guild_id`, `fish_strength`, `fish_weight`, 
-                               `exp_gained`, `energy_loss`, `caught`, `date`, `sellable`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO `discord_economy_fishing` (`fish_id`, `user_id`, `guild_id`, 
+                    `fish_strength`, `fish_weight`, 
+                    `exp_gained`, `energy_loss`, `caught`, `date`, `sellable`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                     fishing_arr = []
                     for each_fish in list_fish:
-                        fishing_arr.append((each_fish['id'], each_fish['user_id'], each_fish['guild_id'], each_fish['fish_strength'], each_fish['fish_weight'], each_fish['exp_gained'], each_fish['energy_loss'], each_fish['caught'], int(time.time()), 'YES'))
+                        fishing_arr.append((
+                            each_fish['id'], each_fish['user_id'], each_fish['guild_id'],
+                            each_fish['fish_strength'], each_fish['fish_weight'],
+                            each_fish['exp_gained'], each_fish['energy_loss'],
+                            each_fish['caught'], int(time.time()), 'YES'
+                        ))
                     await cur.executemany(sql, fishing_arr)
 
                     ## add experience and engery loss
-                    sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`-%s, `fishing_exp`=`fishing_exp`+%s,`fishing_bait`=`fishing_bait`-%s WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE `discord_economy_userinfo` 
+                    SET `energy_current`=`energy_current`-%s, 
+                    `fishing_exp`=`fishing_exp`+%s,`fishing_bait`=`fishing_bait`-%s 
+                    WHERE `user_id`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (total_energy_loss, total_exp, len(list_fish), user_id,))
                     # add fish found
-                    sql = """ UPDATE discord_economy_fish_items SET `found_times`=`found_times`+1 WHERE `id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_fish_items 
+                    SET `found_times`=`found_times`+1 
+                    WHERE `id`=%s LIMIT 1
+                    """
                     fishing_id_arr = []
                     for each_fish in list_fish:
                         fishing_id_arr.append((each_fish['id']))
@@ -571,10 +708,12 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT A.fish_id, B.fish_name, B.fish_emoji, B.minimum_sell_kg, B.credit_per_kg, A.user_id, A.sold, 
-                              COUNT(*) AS numbers, SUM(fish_weight) AS Weights 
-                              FROM discord_economy_fishing A JOIN discord_economy_fish_items B ON B.id = A.fish_id 
-                              AND A.user_id=%s AND A.sold=%s AND A.caught=%s GROUP BY A.fish_id """
+                    sql = """ SELECT A.fish_id, B.fish_name, B.fish_emoji, B.minimum_sell_kg, 
+                    B.credit_per_kg, A.user_id, A.sold, 
+                    COUNT(*) AS numbers, SUM(fish_weight) AS Weights 
+                    FROM discord_economy_fishing A JOIN discord_economy_fish_items B ON B.id = A.fish_id 
+                    AND A.user_id=%s AND A.sold=%s AND A.caught=%s GROUP BY A.fish_id
+                    """
                     await cur.execute(sql, (user_id, 'NO', 'YES'))
                     result = await cur.fetchall()
                     if result: return result
@@ -583,20 +722,31 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return []
 
-
-    async def economy_sell_fish(self, fish_id: int, user_id: str, guild_id: str, total_weight: float, total_credit: float):
+    async def economy_sell_fish(
+        self, fish_id: int, user_id: str, guild_id: str, total_weight: float, total_credit: float
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_economy_fish_sold (`fish_id`, `user_id`, `guild_id`, `total_weight`, `total_credit`, `date`) 
-                              VALUES (%s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (fish_id, user_id, guild_id, total_weight, total_credit, int(time.time()),))
+                    sql = """ INSERT INTO discord_economy_fish_sold 
+                    (`fish_id`, `user_id`, `guild_id`, `total_weight`, `total_credit`, `date`) 
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (
+                        fish_id, user_id, guild_id, total_weight, total_credit, int(time.time()),
+                    ))
                     ## add user credit
-                    sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `credit`=`credit`+%s 
+                    WHERE `user_id`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (total_credit, user_id,))
                     # update selected fish to sold
-                    sql = """ UPDATE discord_economy_fishing SET `sold`=%s, `sold_date`=%s WHERE `fish_id`=%s AND `user_id`=%s AND `sold`=%s AND `sellable`=%s """
+                    sql = """ UPDATE discord_economy_fishing 
+                    SET `sold`=%s, `sold_date`=%s 
+                    WHERE `fish_id`=%s AND `user_id`=%s AND `sold`=%s AND `sellable`=%s
+                    """
                     await cur.execute(sql, ('YES', int(time.time()), fish_id, user_id, 'NO', 'YES'))
                     await conn.commit()
                     return True
@@ -611,21 +761,27 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_economy_fish_sold (`fish_id`, `user_id`, `guild_id`, `total_weight`, `total_credit`, `date`) 
-                              VALUES (%s, %s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO discord_economy_fish_sold 
+                    (`fish_id`, `user_id`, `guild_id`, `total_weight`, `total_credit`, `date`) 
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """
                     fish_sold = []
                     fishing_sold = []
                     total_credit = 0.0
                     for each_fish in fish_ids:
-                        fish_sold.append(( each_fish['fish_id'], user_id, guild_id, each_fish['total_weight'], each_fish['total_credit'], timestamp ))
+                        fish_sold.append((each_fish['fish_id'], user_id, guild_id, each_fish['total_weight'], each_fish['total_credit'], timestamp ))
                         fishing_sold.append(( 'YES', timestamp, each_fish['fish_id'], user_id, 'NO', 'YES' ))
                         total_credit += each_fish['total_credit']
                     await cur.executemany(sql, fish_sold)
                     ## add user credit
-                    sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `credit`=`credit`+%s 
+                    WHERE `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, ( total_credit, user_id ))
                     # update selected fish to sold
-                    sql = """ UPDATE discord_economy_fishing SET `sold`=%s, `sold_date`=%s WHERE `fish_id`=%s AND `user_id`=%s AND `sold`=%s AND `sellable`=%s """
+                    sql = """ UPDATE discord_economy_fishing 
+                    SET `sold`=%s, `sold_date`=%s 
+                    WHERE `fish_id`=%s AND `user_id`=%s AND `sold`=%s AND `sellable`=%s """
                     await cur.executemany(sql, fishing_sold)
                     await conn.commit()
                     return True
@@ -634,17 +790,24 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-    async def economy_insert_planting(self, user_id: str, guild_id: str, exp_gained: float, energy_loss: float):
+    async def economy_insert_planting(
+        self, user_id: str, guild_id: str, exp_gained: float, energy_loss: float
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_economy_planting (`user_id`, `guild_id`, `exp_gained`, `energy_loss`, `date`) 
-                              VALUES (%s, %s, %s, %s, %s) """
+                    sql = """ INSERT INTO discord_economy_planting 
+                    (`user_id`, `guild_id`, `exp_gained`, `energy_loss`, `date`) 
+                    VALUES (%s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (user_id, guild_id, exp_gained, energy_loss, int(time.time()),))
                     ## add experience and engery loss
-                    sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`-%s,`tree_seed`=`tree_seed`-1,`plant_exp`=`plant_exp`+%s, `tree_planted`=`tree_planted`+1 
-                              WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `energy_current`=`energy_current`-%s,`tree_seed`=`tree_seed`-1,
+                    `plant_exp`=`plant_exp`+%s, `tree_planted`=`tree_planted`+1 
+                    WHERE `user_id`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (energy_loss, exp_gained, user_id,))
                     await conn.commit()
                     return True
@@ -653,16 +816,24 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-    async def economy_insert_woodcutting(self, user_id: str, guild_id: str, timber_volume: float, leaf_kg: float, energy_loss: float):
+    async def economy_insert_woodcutting(
+        self, user_id: str, guild_id: str, timber_volume: float, leaf_kg: float, energy_loss: float
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_economy_woodcutting (`user_id`, `guild_id`, `timber_volume`, `leaf_kg`, `energy_loss`, `date`) 
-                              VALUES (%s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (user_id, guild_id, timber_volume, leaf_kg, energy_loss, int(time.time()),))
+                    sql = """ INSERT INTO discord_economy_woodcutting 
+                    (`user_id`, `guild_id`, `timber_volume`, `leaf_kg`, `energy_loss`, `date`) 
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (
+                        user_id, guild_id, timber_volume, leaf_kg, energy_loss, int(time.time()),
+                    ))
                     ## add experience and engery loss
-                    sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`-%s,`tree_cut`=`tree_cut`+1 WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `energy_current`=`energy_current`-%s,`tree_cut`=`tree_cut`+1 
+                    WHERE `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, (energy_loss, user_id,))
                     await conn.commit()
                     return True
@@ -677,14 +848,22 @@ class database_economy():
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT COUNT(*) AS tree_numbers, SUM(timber_volume) AS timbers 
-                              FROM discord_economy_woodcutting WHERE `user_id`=%s AND `timber_sold`=%s """
+                    FROM discord_economy_woodcutting WHERE `user_id`=%s AND `timber_sold`=%s
+                    """
                     await cur.execute(sql, (user_id, 'NO'))
                     result = await cur.fetchone()
                     sql = """ SELECT COUNT(*) AS tree_numbers, SUM(leaf_kg) AS leaves 
-                              FROM discord_economy_woodcutting WHERE `user_id`=%s AND `leaf_sold`=%s """
+                    FROM discord_economy_woodcutting WHERE `user_id`=%s AND `leaf_sold`=%s
+                    """
                     await cur.execute(sql, (user_id, 'NO'))
                     result2 = await cur.fetchone()
-                    if result and result2: return {'timber_nos': result['tree_numbers'], 'timber_vol': result['timbers'], 'leaf_nos': result2['tree_numbers'], 'leaf_kg': result2['leaves']}
+                    if result and result2:
+                        return {
+                            'timber_nos': result['tree_numbers'],
+                            'timber_vol': result['timbers'],
+                            'leaf_nos': result2['tree_numbers'],
+                            'leaf_kg': result2['leaves']
+                        }
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -725,11 +904,12 @@ class database_economy():
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT A.id, A.plant_id, B.plant_name, B.growing_emoji, B.plant_emoji, B.duration_harvest, A.user_id, A.date, 
-                              A.harvest_date, A.can_harvest_date, A.harvested, A.number_of_item, A.credit_per_item, A.sold, 
-                              COUNT(*) as numbers, SUM(B.number_of_item) AS total_products 
-                              FROM discord_economy_farm_planting A JOIN discord_economy_farm_plantlist B ON B.id = A.plant_id 
-                              AND A.harvested=%s AND A.sold=%s AND A.user_id=%s
-                              GROUP BY A.plant_id """
+                    A.harvest_date, A.can_harvest_date, A.harvested, A.number_of_item, A.credit_per_item, A.sold, 
+                    COUNT(*) as numbers, SUM(B.number_of_item) AS total_products 
+                    FROM discord_economy_farm_planting A JOIN discord_economy_farm_plantlist B ON B.id = A.plant_id 
+                    AND A.harvested=%s AND A.sold=%s AND A.user_id=%s
+                    GROUP BY A.plant_id
+                    """
                     await cur.execute(sql, ('YES', 'NO', user_id))
                     result = await cur.fetchall()
                     if result: return result
@@ -744,9 +924,10 @@ class database_economy():
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT A.id, A.plant_id, B.plant_name, B.growing_emoji, B.plant_emoji, B.duration_harvest, A.user_id, A.date, 
-                              A.harvest_date, A.can_harvest_date, A.harvested, A.number_of_item, A.credit_per_item 
-                              FROM discord_economy_farm_planting A JOIN discord_economy_farm_plantlist B ON B.id = A.plant_id 
-                              AND A.user_id=%s WHERE A.harvested=%s ORDER BY id ASC """
+                    A.harvest_date, A.can_harvest_date, A.harvested, A.number_of_item, A.credit_per_item 
+                    FROM discord_economy_farm_planting A JOIN discord_economy_farm_plantlist B ON B.id = A.plant_id 
+                    AND A.user_id=%s WHERE A.harvested=%s ORDER BY id ASC
+                    """
                     await cur.execute(sql, (user_id, 'NO'))
                     result = await cur.fetchall()
                     if result: return result
@@ -755,39 +936,64 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return []
 
-    async def economy_farm_insert_crop(self, plant_id: int, user_id: str, guild_id: str, can_harvest_date: int, number_of_item: int, credit_per_item: float, exp_gained: float, energy_loss: float, numb_planting: int=1):
+    async def economy_farm_insert_crop(
+        self, plant_id: int, user_id: str, guild_id: str, can_harvest_date: int, 
+        number_of_item: int, credit_per_item: float, exp_gained: float, 
+        energy_loss: float, numb_planting: int=1
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if numb_planting > 1:
                         sql = """ INSERT INTO discord_economy_farm_planting (`plant_id`, `user_id`, `guild_id`, `date`, `can_harvest_date`, 
-                                  `number_of_item`, `credit_per_item`, `energy_loss`, `exp_gained`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                        `number_of_item`, `credit_per_item`, `energy_loss`, `exp_gained`) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
                         energy_loss = round(energy_loss/numb_planting, 2)
-                        temp_list = [(plant_id, user_id, guild_id, int(time.time()), can_harvest_date, number_of_item, credit_per_item, energy_loss, exp_gained)]*numb_planting
+                        temp_list = [
+                            (
+                                plant_id, user_id, guild_id, int(time.time()), can_harvest_date, 
+                                number_of_item, credit_per_item, energy_loss, exp_gained
+                            )
+                        ]*numb_planting
                         await cur.executemany(sql, temp_list)
                         inserted = cur.rowcount
                         ## add experience and engery loss
-                        sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`-%s,`tree_seed`=`tree_seed`-%s,`plant_exp`=`plant_exp`+%s, `farm_grow`=`farm_grow`+%s 
-                                  WHERE `user_id`=%s LIMIT 1 """
-                        await cur.execute(sql, (energy_loss, numb_planting, exp_gained*numb_planting, numb_planting, user_id,))
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `energy_current`=`energy_current`-%s,`tree_seed`=`tree_seed`-%s,
+                        `plant_exp`=`plant_exp`+%s, `farm_grow`=`farm_grow`+%s 
+                        WHERE `user_id`=%s LIMIT 1 """
+                        await cur.execute(sql, (
+                            energy_loss, numb_planting, exp_gained*numb_planting, numb_planting, user_id,
+                        ))
                         # add planted numbers found
-                        sql = """ UPDATE discord_economy_farm_plantlist SET `planted_times`=`planted_times`+%s WHERE `id`=%s LIMIT 1 """
+                        sql = """ UPDATE discord_economy_farm_plantlist 
+                        SET `planted_times`=`planted_times`+%s
+                        WHERE `id`=%s LIMIT 1 """
                         await cur.execute(sql, (numb_planting, plant_id,))
                         await conn.commit()
                         return True
                     elif numb_planting == 1:
-                        sql = """ INSERT INTO discord_economy_farm_planting (`plant_id`, `user_id`, `guild_id`, `date`, `can_harvest_date`, 
-                                  `number_of_item`, `credit_per_item`, `energy_loss`, `exp_gained`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                        await cur.execute(sql, (plant_id, user_id, guild_id, int(time.time()), can_harvest_date, number_of_item, credit_per_item, energy_loss, exp_gained,))
+                        sql = """ INSERT INTO discord_economy_farm_planting 
+                        (`plant_id`, `user_id`, `guild_id`, `date`, `can_harvest_date`, 
+                        `number_of_item`, `credit_per_item`, `energy_loss`, `exp_gained`) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """
+                        await cur.execute(sql, (
+                            plant_id, user_id, guild_id, int(time.time()), can_harvest_date, 
+                            number_of_item, credit_per_item, energy_loss, exp_gained,
+                        ))
                         ## add experience and engery loss
-                        sql = """ UPDATE discord_economy_userinfo SET `energy_current`=`energy_current`-%s,`tree_seed`=`tree_seed`-1,`plant_exp`=`plant_exp`+%s, `farm_grow`=`farm_grow`+1 
-                                  WHERE `user_id`=%s LIMIT 1 """
+                        sql = """ UPDATE discord_economy_userinfo 
+                        SET `energy_current`=`energy_current`-%s,`tree_seed`=`tree_seed`-1,
+                        `plant_exp`=`plant_exp`+%s, `farm_grow`=`farm_grow`+1 
+                        WHERE `user_id`=%s LIMIT 1
+                        """
                         await cur.execute(sql, (energy_loss, exp_gained, user_id,))
                         # add planted numbers found
-                        sql = """ UPDATE discord_economy_farm_plantlist SET `planted_times`=`planted_times`+1 WHERE `id`=%s LIMIT 1 """
+                        sql = """ UPDATE discord_economy_farm_plantlist 
+                        SET `planted_times`=`planted_times`+1
+                        WHERE `id`=%s LIMIT 1 """
                         await cur.execute(sql, (plant_id,))
                         await conn.commit()
                         return True                
@@ -801,7 +1007,10 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE discord_economy_farm_planting SET `harvest_date`=%s, `harvested`=%s WHERE `user_id`=%s AND `id`=%s AND `harvested`=%s """
+                    sql = """ UPDATE discord_economy_farm_planting 
+                    SET `harvest_date`=%s, `harvested`=%s 
+                    WHERE `user_id`=%s AND `id`=%s AND `harvested`=%s
+                    """
                     list_update = []
                     for each_item in plantlist:
                         list_update.append((int(time.time()), 'YES', user_id, each_item, 'NO'))
@@ -813,16 +1022,21 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-    async def economy_farm_sell_item(self, plant_id: int, user_id: str, guild_id: str, total_credit: float, farm_item_sold: int):        
+    async def economy_farm_sell_item(
+        self, plant_id: int, user_id: str, guild_id: str, total_credit: float, farm_item_sold: int
+    ):        
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     ## add user credit
-                    sql = """ UPDATE discord_economy_userinfo SET `credit`=`credit`+%s, `farm_item_sold`=`farm_item_sold`+%s WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `credit`=`credit`+%s, `farm_item_sold`=`farm_item_sold`+%s 
+                    WHERE `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, (total_credit, farm_item_sold, user_id,))
                     # update selected item to sold
-                    sql = """ UPDATE discord_economy_farm_planting SET `sold`=%s, `sold_date`=%s WHERE `plant_id`=%s AND `user_id`=%s AND `sold`=%s AND `harvested`=%s """
+                    sql = """ UPDATE discord_economy_farm_planting SET `sold`=%s, `sold_date`=%s 
+                    WHERE `plant_id`=%s AND `user_id`=%s AND `sold`=%s AND `harvested`=%s """
                     await cur.execute(sql, ('YES', int(time.time()), plant_id, user_id, 'NO', 'YES'))
                     await conn.commit()
                     return True
@@ -836,7 +1050,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_dairy_cattle_ownership WHERE `user_id`=%s """
+                    sql = """ SELECT * FROM discord_economy_dairy_cattle_ownership 
+                    WHERE `user_id`=%s """
                     await cur.execute(sql, (user_id))
                     result = await cur.fetchall()
                     if result: return result
@@ -845,25 +1060,32 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return []
 
-    async def economy_dairy_collecting(self, user_id: str, cowlist, qty_collect: float, credit_raw_milk_liter: float):
+    async def economy_dairy_collecting(
+        self, user_id: str, cowlist, qty_collect: float, credit_raw_milk_liter: float
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_economy_dairy_collected (`user_id`, `collected_date`, `collected_qty`, `credit_per_item`) 
-                              VALUES (%s, %s, %s, %s) """
+                    sql = """ INSERT INTO discord_economy_dairy_collected 
+                    (`user_id`, `collected_date`, `collected_qty`, `credit_per_item`) 
+                    VALUES (%s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (user_id, int(time.time()), qty_collect, credit_raw_milk_liter))
 
                     ## add raw_milk_qty
                     sql = """ UPDATE discord_economy_userinfo SET `raw_milk_qty`=`raw_milk_qty`+%s 
-                              WHERE `user_id`=%s LIMIT 1 """
+                    WHERE `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, (qty_collect, user_id,))
 
                     sql = """ UPDATE discord_economy_dairy_cattle_ownership SET `last_collect_date`=%s, `possible_collect_date`=%s, `total_produced_qty`=`total_produced_qty`+%s 
-                              WHERE `user_id`=%s AND `id`=%s """
+                    WHERE `user_id`=%s AND `id`=%s """
                     list_update = []
                     for each_item in cowlist:
-                        list_update.append((int(time.time()), int(time.time())+config.economy.dairy_collecting_time, config.economy.raw_milk_per_cow, user_id, each_item))
+                        list_update.append((
+                            int(time.time()), int(time.time())+self.bot.config['economy']['dairy_collecting_time'],
+                            self.bot.config['economy']['raw_milk_per_cow'], user_id, each_item
+                        ))
                     await cur.executemany(sql, list_update)
                     await conn.commit()
                     return True
@@ -877,7 +1099,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_dairy_collected WHERE `user_id`=%s AND `sold`=%s """
+                    sql = """ SELECT * FROM discord_economy_dairy_collected 
+                    WHERE `user_id`=%s AND `sold`=%s """
                     await cur.execute(sql, (user_id, 'NO'))
                     result = await cur.fetchall()
                     if result: return result
@@ -892,11 +1115,16 @@ class database_economy():
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     ## update raw_milk_qty
-                    sql = """ UPDATE discord_economy_userinfo SET `raw_milk_qty`=`raw_milk_qty`-%s, `raw_milk_qty_sold`=`raw_milk_qty_sold`+%s, `credit`=`credit`+%s 
-                              WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `raw_milk_qty`=`raw_milk_qty`-%s, `raw_milk_qty_sold`=`raw_milk_qty_sold`+%s,
+                    `credit`=`credit`+%s 
+                    WHERE `user_id`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (qty_sell, qty_sell, credit, user_id,))
-                    sql = """ UPDATE discord_economy_dairy_collected SET `sold`=%s, `sold_date`=%s 
-                              WHERE `user_id`=%s AND `id`=%s AND `sold`=%s """
+                    sql = """ UPDATE discord_economy_dairy_collected 
+                    SET `sold`=%s, `sold_date`=%s 
+                    WHERE `user_id`=%s AND `id`=%s AND `sold`=%s
+                    """
                     list_update = []
                     for each_item in ids:
                         list_update.append(('YES', int(time.time()), user_id, each_item, 'NO'))
@@ -914,7 +1142,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_salt_farm_ownership WHERE `user_id`=%s """
+                    sql = """ SELECT * FROM discord_economy_salt_farm_ownership 
+                    WHERE `user_id`=%s """
                     await cur.execute(sql, (user_id))
                     result = await cur.fetchall()
                     if result: return result
@@ -923,25 +1152,37 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return []
 
-    async def economy_salt_collecting(self, user_id: str, salt_farm_list, qty_collect: float, credit_raw_salt_kg: float):
+    async def economy_salt_collecting(
+        self, user_id: str, salt_farm_list, qty_collect: float, credit_raw_salt_kg: float
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_economy_salt_collected (`user_id`, `collected_date`, `collected_qty`, `credit_per_item`) 
-                              VALUES (%s, %s, %s, %s) """
+                    sql = """ INSERT INTO discord_economy_salt_collected 
+                    (`user_id`, `collected_date`, `collected_qty`, `credit_per_item`) 
+                    VALUES (%s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (user_id, int(time.time()), qty_collect, credit_raw_salt_kg))
 
                     ## add salt_qty
-                    sql = """ UPDATE discord_economy_userinfo SET `salt_qty`=`salt_qty`+%s 
-                              WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `salt_qty`=`salt_qty`+%s 
+                    WHERE `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, ( qty_collect, user_id, ))
 
-                    sql = """ UPDATE discord_economy_salt_farm_ownership SET `last_collect_date`=%s, `possible_collect_date`=%s, `total_produced_qty`=`total_produced_qty`+%s 
-                              WHERE `user_id`=%s AND `id`=%s """
+                    sql = """ UPDATE discord_economy_salt_farm_ownership 
+                    SET `last_collect_date`=%s, `possible_collect_date`=%s, 
+                    `total_produced_qty`=`total_produced_qty`+%s 
+                    WHERE `user_id`=%s AND `id`=%s
+                    """
                     list_update = []
                     for each_item in salt_farm_list:
-                        list_update.append((int(time.time()), int(time.time())+self.eco_salt_collecting_time, self.eco_salt_qty_per_field, user_id, each_item))
+                        list_update.append((
+                            int(time.time()), int(time.time())+self.eco_salt_collecting_time,
+                            self.eco_salt_qty_per_field, user_id, each_item
+                            )
+                        )
                     await cur.executemany(sql, list_update)
                     await conn.commit()
                     return True
@@ -955,7 +1196,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_salt_collected WHERE `user_id`=%s AND `sold`=%s """
+                    sql = """ SELECT * FROM discord_economy_salt_collected 
+                    WHERE `user_id`=%s AND `sold`=%s """
                     await cur.execute(sql, (user_id, 'NO'))
                     result = await cur.fetchall()
                     if result: return result
@@ -970,11 +1212,14 @@ class database_economy():
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     ## update salt_qty
-                    sql = """ UPDATE discord_economy_userinfo SET `salt_qty`=`salt_qty`-%s, `salt_qty_sold`=`salt_qty_sold`+%s, `credit`=`credit`+%s 
-                              WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `salt_qty`=`salt_qty`-%s, `salt_qty_sold`=`salt_qty_sold`+%s, `credit`=`credit`+%s 
+                    WHERE `user_id`=%s LIMIT 1
+                    """
                     await cur.execute(sql, ( qty_sell, qty_sell, credit, user_id ))
-                    sql = """ UPDATE discord_economy_salt_collected SET `sold`=%s, `sold_date`=%s 
-                              WHERE `user_id`=%s AND `id`=%s AND `sold`=%s """
+                    sql = """ UPDATE discord_economy_salt_collected 
+                    SET `sold`=%s, `sold_date`=%s 
+                    WHERE `user_id`=%s AND `id`=%s AND `sold`=%s """
                     list_update = []
                     for each_item in ids:
                         list_update.append(( 'YES', int(time.time()), user_id, each_item, 'NO' ))
@@ -985,7 +1230,6 @@ class database_economy():
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
         return None
-
     # end salt
 
     async def economy_chicken_farm_ownership(self, user_id: str):
@@ -993,7 +1237,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_chickenfarm_ownership WHERE `user_id`=%s """
+                    sql = """ SELECT * FROM discord_economy_chickenfarm_ownership 
+                    WHERE `user_id`=%s """
                     await cur.execute(sql, (user_id))
                     result = await cur.fetchall()
                     if result: return result
@@ -1007,20 +1252,27 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_economy_egg_collected (`user_id`, `collected_date`, `collected_qty`, `credit_per_item`) 
-                              VALUES (%s, %s, %s, %s) """
+                    sql = """ INSERT INTO discord_economy_egg_collected 
+                    (`user_id`, `collected_date`, `collected_qty`, `credit_per_item`) 
+                    VALUES (%s, %s, %s, %s) """
                     await cur.execute(sql, (user_id, int(time.time()), qty_collect, credit_egg))
 
                     ## add egg
-                    sql = """ UPDATE discord_economy_userinfo SET `egg_qty`=`egg_qty`+%s 
-                              WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `egg_qty`=`egg_qty`+%s 
+                    WHERE `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, (qty_collect, user_id,))
 
-                    sql = """ UPDATE discord_economy_chickenfarm_ownership SET `last_collect_date`=%s, `possible_collect_date`=%s, `total_produced_qty`=`total_produced_qty`+%s 
-                              WHERE `user_id`=%s AND `id`=%s """
+                    sql = """ UPDATE discord_economy_chickenfarm_ownership 
+                    SET `last_collect_date`=%s, `possible_collect_date`=%s, 
+                    `total_produced_qty`=`total_produced_qty`+%s 
+                    WHERE `user_id`=%s AND `id`=%s """
                     list_update = []
                     for each_item in chickenlist:
-                        list_update.append((int(time.time()), int(time.time())+config.economy.egg_collecting_time, config.economy.egg_per_chicken, user_id, each_item))
+                        list_update.append((
+                            int(time.time()), int(time.time())+self.bot.config['economy']['egg_collecting_time'], 
+                            self.bot.config['economy']['egg_per_chicken'], user_id, each_item
+                        ))
                     await cur.executemany(sql, list_update)
                     await conn.commit()
                     return True
@@ -1034,7 +1286,8 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_egg_collected WHERE `user_id`=%s AND `sold`=%s """
+                    sql = """ SELECT * FROM discord_economy_egg_collected 
+                    WHERE `user_id`=%s AND `sold`=%s """
                     await cur.execute(sql, (user_id, 'NO'))
                     result = await cur.fetchall()
                     if result: return result
@@ -1049,11 +1302,13 @@ class database_economy():
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     ## update egg
-                    sql = """ UPDATE discord_economy_userinfo SET `egg_qty`=`egg_qty`-%s, `egg_qty_sold`=`egg_qty_sold`+%s, `credit`=`credit`+%s 
-                              WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `egg_qty`=`egg_qty`-%s, `egg_qty_sold`=`egg_qty_sold`+%s, `credit`=`credit`+%s 
+                    WHERE `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, (qty_sell, qty_sell, credit, user_id,))
-                    sql = """ UPDATE discord_economy_egg_collected SET `sold`=%s, `sold_date`=%s 
-                              WHERE `user_id`=%s AND `id`=%s AND `sold`=%s """
+                    sql = """ UPDATE discord_economy_egg_collected 
+                    SET `sold`=%s, `sold_date`=%s 
+                    WHERE `user_id`=%s AND `id`=%s AND `sold`=%s """
                     list_update = []
                     for each_item in ids:
                         list_update.append(('YES', int(time.time()), user_id, each_item, 'NO'))
@@ -1065,13 +1320,17 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-    async def economy_upgrade(self, what, level_inc: int, credit_cost: float, user_id: str):
+    async def economy_upgrade(
+        self, what, level_inc: int, credit_cost: float, user_id: str
+    ):
         # what=farm_level, boat_level
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE discord_economy_userinfo SET `"""+what+"""`=`"""+what+"""`+%s, `credit`=`credit`-%s WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `"""+what+"""`=`"""+what+"""`+%s, `credit`=`credit`-%s 
+                    WHERE `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, ( level_inc, credit_cost, user_id ))
                     await conn.commit()
                     return True
@@ -1080,13 +1339,16 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-
-    async def economy_upgrade_worker(self, what, level_inc: int, credit_cost: float, add_energy: int, user_id: str):
+    async def economy_upgrade_worker(
+        self, what, level_inc: int, credit_cost: float, add_energy: int, user_id: str
+    ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE discord_economy_userinfo SET `"""+what+"""`=`"""+what+"""`+%s, `credit`=`credit`-%s, `energy_total`=`energy_total`+%s WHERE `user_id`=%s LIMIT 1 """
+                    sql = """ UPDATE discord_economy_userinfo 
+                    SET `"""+what+"""`=`"""+what+"""`+%s, `credit`=`credit`-%s, `energy_total`=`energy_total`+%s 
+                    WHERE `user_id`=%s LIMIT 1 """
                     await cur.execute(sql, ( level_inc, credit_cost, add_energy, user_id ))
                     await conn.commit()
                     return True
@@ -1095,13 +1357,13 @@ class database_economy():
             await logchanbot(traceback.format_exc())
         return None
 
-
     async def economy_leaderboard(self, option: str="exp", number: int=20):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_economy_userinfo ORDER BY `"""+option+"""` DESC LIMIT """+str(number)
+                    sql = """ SELECT * FROM discord_economy_userinfo 
+                    ORDER BY `"""+option+"""` DESC LIMIT """+str(number)
                     await cur.execute(sql,)
                     result = await cur.fetchall()
                     if result: return result
@@ -1111,7 +1373,6 @@ class database_economy():
         return []
     ## end of economy
 
-
 class Economy(commands.Cog):
 
     def __init__(self, bot):
@@ -1119,7 +1380,6 @@ class Economy(commands.Cog):
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
 
-        redis_utils.openRedis()
         self.botLogChan = None
         self.db = database_economy(bot)
         self.enable_logchan = True
@@ -1176,6 +1436,13 @@ class Economy(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        if str(ctx.author.id) not in self.bot.queue_game_economy:
+            self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
+            await ctx.edit_original_message(content=msg)
+            return
+
         # Getting list
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo:
@@ -1185,10 +1452,10 @@ class Economy(commands.Cog):
             elif get_userinfo['tree_seed'] >= self.eco_max_seed[str(get_userinfo['farm_level'])] and (item_name.upper() == "SEED" or item_name == "🌱"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum of seeds already.")
                 return
-            elif get_userinfo['numb_farm'] >= config.economy.max_farm_per_user and (item_name.upper() == "FARM" or item_name == "👨‍🌾"):
+            elif get_userinfo['numb_farm'] >= self.bot.config['economy']['max_farm_per_user'] and (item_name.upper() == "FARM" or item_name == "👨‍🌾"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a farm already.")
                 return
-            elif get_userinfo['numb_chicken_farm'] >= config.economy.max_chickenfarm_per_user and (item_name.upper() == "CHICKENFARM" or item_name.upper() == "CHICKEN FARM"):
+            elif get_userinfo['numb_chicken_farm'] >= self.bot.config['economy']['max_chickenfarm_per_user'] and (item_name.upper() == "CHICKENFARM" or item_name.upper() == "CHICKEN FARM"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a chicken farm already.")
                 return
             elif get_userinfo['numb_chicken_farm'] == 0 and (item_name.upper() == "CHICKEN" or item_name == "🐔"):
@@ -1200,13 +1467,13 @@ class Economy(commands.Cog):
             elif get_userinfo['numb_salt_farm'] == 0 and item_name.upper() == "SALT FIELD":
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have a salt farm. Please buy one.")
                 return
-            elif get_userinfo['numb_chicken'] >= config.economy.max_chicken_per_user and (item_name.upper() == "CHICKEN" or item_name == "🐔"):
+            elif get_userinfo['numb_chicken'] >= self.bot.config['economy']['max_chicken_per_user'] and (item_name.upper() == "CHICKEN" or item_name == "🐔"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum number of chicken already.")
                 return
-            elif get_userinfo['numb_tractor'] >= config.economy.max_tractor_per_user and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
+            elif get_userinfo['numb_tractor'] >= self.bot.config['economy']['max_tractor_per_user'] and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a tractor already.")
                 return
-            elif get_userinfo['numb_dairy_cattle'] >= config.economy.max_dairycattle_per_user and (item_name.upper() == "DAIRY CATTLE" or item_name == "DAIRYCATTLE"):
+            elif get_userinfo['numb_dairy_cattle'] >= self.bot.config['economy']['max_dairycattle_per_user'] and (item_name.upper() == "DAIRY CATTLE" or item_name == "DAIRYCATTLE"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a dairy cattle already.")
                 return
             elif get_userinfo['numb_dairy_cattle'] == 0 and item_name.upper() == "COW":
@@ -1215,7 +1482,7 @@ class Economy(commands.Cog):
             elif get_userinfo['numb_farm'] == 0 and (item_name.upper() == "TRACTOR" or item_name == "🚜"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have a farm.")
                 return
-            elif get_userinfo['numb_boat'] >= config.economy.max_boat_per_user and (item_name.upper() == "BOAT" or item_name == "🚣"):
+            elif get_userinfo['numb_boat'] >= self.bot.config['economy']['max_boat_per_user'] and (item_name.upper() == "BOAT" or item_name == "🚣"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention} You have a boat already.")
                 return
             elif get_userinfo['numb_cow'] >= self.eco_max_cow_level[str(get_userinfo['dairy_farm_level'])] and (item_name.upper() == "COW" or item_name == "🐄"):
@@ -1224,7 +1491,7 @@ class Economy(commands.Cog):
             elif get_userinfo['numb_salt_field'] >= self.eco_max_salt_farm_level[str(get_userinfo['salt_farm_level'])] and item_name.upper() == "SALT FIELD":
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have maximum number of salt field already.")
                 return
-            elif get_userinfo['numb_market'] >= config.economy.max_market_per_user and (item_name.upper() == "MARKET" or item_name == "🛒"):
+            elif get_userinfo['numb_market'] >= self.bot.config['economy']['max_market_per_user'] and (item_name.upper() == "MARKET" or item_name == "🛒"):
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have a market already.")
                 return
             else:
@@ -1265,8 +1532,6 @@ class Economy(commands.Cog):
                                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, your level `{level}` is still low. Needed level `{str(needed_level)}`.")
                                 return
                             else:
-                                if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
-                                    self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                                 # Make order
                                 add_item_numbers = get_shop_item['item_numbers']
                                 update_item = await self.db.discord_economy_userinfo_what(str(ctx.guild.id), str(ctx.author.id), get_shop_item['id'], item_name, 0, add_item_numbers)
@@ -1298,8 +1563,6 @@ class Economy(commands.Cog):
                                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, your fishing exp `{your_fishing_exp}`  is still low. Needed fishing exp `{str(need_fishing_exp)}`.")
                                 return
                             else:
-                                if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
-                                    self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                                 # Make order
                                 item_numbers = get_shop_item['item_numbers']
                                 credit_cost = get_shop_item['credit_cost']
@@ -1334,15 +1597,12 @@ class Economy(commands.Cog):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
-                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
         else:
             await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, internal error.")
-            return
 
     async def eco_sell(self, ctx, item_name):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your storage..."
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/eco sell", int(time.time())))
@@ -1350,13 +1610,20 @@ class Economy(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        if str(ctx.author.id) not in self.bot.queue_game_economy:
+            self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
+            await ctx.edit_original_message(content=msg)
+            return
+
         # Getting list of work in the guild and re-act
         market_factored = 1.0
         extra_bonus = ""
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['numb_market'] >= 1:
             extra_bonus = "🛒 "
-            market_factored = config.economy.market_price_factor
+            market_factored = self.bot.config['economy']['market_price_factor']
 
         try:
             get_fish_inventory_list = await self.db.economy_get_list_fish_caught(str(ctx.author.id), sold='NO', caught='YES')
@@ -1378,14 +1645,10 @@ class Economy(commands.Cog):
                     credit += total_earn
                 selling_fish = await self.db.economy_sell_fish_mutiple(selected_fish, str(ctx.author.id), str(ctx.guild.id))
                 if selling_fish:
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                     msg = "{}You sold\n```{}\nTotal: {:,.2f}kg and Credit: {:,.2f}```Your credit now is: `{:,.2f}`.".format(extra_bonus, "\n".join(sold_list), weight, credit, get_userinfo['credit'])
                     await ctx.followup.send(msg)
                     return
                 else:
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                     msg = f"{ctx.author.mention}, internal error."
                     await ctx.edit_original_message(content=msg)
                     return
@@ -1402,44 +1665,32 @@ class Economy(commands.Cog):
                             selected_fish = each_item
                             break
                     if selected_fish is None:
-                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                         msg = f"{ctx.author.mention}, you do not have `{item_name}` to sell."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
                         # Have that item to sell
                         if selected_fish['Weights'] < selected_fish['minimum_sell_kg']:
-                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                             msg = "{} You do not have sufficient {} to sell. Minimum {:,.2f}kg, having {:,.2f}kg. Alternatively, use `/eco sell all fish`.".format(ctx.author.mention, item_name, selected_fish['minimum_sell_kg'], selected_fish['Weights'])
                             await ctx.edit_original_message(content=msg)
                             return
                         else:
                             # Enough to sell. Update credit, and mark fish as sold
                             # We round credit earning
-                            if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
-                                self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                             total_earn = int(float(selected_fish['Weights']) * float(selected_fish['credit_per_kg']) * market_factored)
                             total_weight = float(selected_fish['Weights'])
                             get_userinfo['credit'] += total_earn
                             
                             selling_fish = await self.db.economy_sell_fish(selected_fish['fish_id'], str(ctx.author.id), str(ctx.guild.id), total_weight, total_earn)
                             if selling_fish:
-                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 msg = "{}You sold {:,.2f}kg of {} for `{}` Credit(s) (`{:,.2f} Credit per kg`). Your credit now is: `{:,.2f}`.".format(extra_bonus, total_weight, item_name, total_earn, float(selected_fish['credit_per_kg']) * market_factored, get_userinfo['credit'])
                                 await ctx.edit_original_message(content=msg)
                                 return
                             else:
-                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 msg = f"{ctx.author.mention}, internal error."
                                 await ctx.edit_original_message(content=msg)
                                 return
                 else:
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                     msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have any fish to sell. Do fishing!"
                     await ctx.edit_original_message(content=msg)
                     return
@@ -1452,33 +1703,23 @@ class Economy(commands.Cog):
                             selected_item = each_item
                             break
                     if selected_item is None:
-                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                         msg = f"{ctx.author.mention}, you do not have `{item_name}` to sell."
                         await ctx.edit_original_message(content=msg)
                     else:
                         # No minimum to sell
                         # Enough to sell. Update credit, and mark fish as sold
                         # We round credit earning
-                        if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
-                            self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                         total_earn = int(float(selected_item['total_products']) * float(selected_item['credit_per_item']) * market_factored)
                         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
                         get_userinfo['credit'] += total_earn
                         selling_item = await self.db.economy_farm_sell_item(selected_item['plant_id'], str(ctx.author.id), str(ctx.guild.id), total_earn, selected_item['total_products'])
                         if selling_item:
-                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                             msg = "{}You sold {:,.0f} of {} for `{}` Credit(s) (`{:,.2f} Credit per one`). Your credit now is: `{:,.2f}`.".format(extra_bonus, selected_item['total_products'], item_name, total_earn, float(selected_item['credit_per_item']) * market_factored, get_userinfo['credit'])
                             await ctx.edit_original_message(content=msg)
                         else:
-                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                             msg = f"{ctx.author.mention} Internal error."
                             await ctx.edit_original_message(content=msg)
                 else:
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                     msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have any vegetable or fruit to sell. Plant and harvest!"
                     await ctx.edit_original_message(content=msg)
                 return
@@ -1499,21 +1740,15 @@ class Economy(commands.Cog):
                             sell_milk = await self.db.economy_dairy_sell_milk(str(ctx.author.id), ids, credit_sell, qty_raw_milk)
                             if sell_milk:
                                 get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
-                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 msg = "{}You sold {:,.2f} liter(s) of milk for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(extra_bonus, qty_raw_milk, credit_sell, get_userinfo['credit'])
                                 await ctx.edit_original_message(content=msg)
                                 return
                         else:
-                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                            msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!!"
+                            msg = f"{ctx.author.name}#{ctx.author.discriminator}, you do not have milk to sell!!"
                             await ctx.edit_original_message(content=msg)
                             return
                     else:
-                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                        msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have milk to sell!"
+                        msg = f"{ctx.author.name}#{ctx.author.discriminator}, you do not have milk to sell!"
                         await ctx.edit_original_message(content=msg)
                         return
                 except Exception:
@@ -1536,20 +1771,14 @@ class Economy(commands.Cog):
                             sell_salt = await self.db.economy_sell_salt(str(ctx.author.id), ids, credit_sell, qty_raw_salt)
                             if sell_salt:
                                 get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
-                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 msg = "{}You sold {:,.2f} kg(s) of salt for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(extra_bonus, qty_raw_salt, credit_sell, get_userinfo['credit'])
                                 await ctx.edit_original_message(content=msg)
                                 return
                         else:
-                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                             msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have salt to sell!!"
                             await ctx.edit_original_message(content=msg)
                             return
                     else:
-                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                         msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have salt to sell!"
                         await ctx.edit_original_message(content=msg)
                         return
@@ -1573,21 +1802,15 @@ class Economy(commands.Cog):
                             sell_milk = await self.db.economy_chickenfarm_sell_egg(str(ctx.author.id), ids, credit_sell, qty_eggs)
                             if sell_milk:
                                 get_userinfo['credit'] = float(get_userinfo['credit']) + float(credit_sell)
-                                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                                 msg = "{}You sold {:,.0f} chicken egg(s) for `{:,.2f}` Credit(s). Your credit now is: `{:,.2f}`.".format(extra_bonus, qty_eggs, credit_sell, get_userinfo['credit'])
                                 await ctx.edit_original_message(content=msg)
                                 return
                         else:
-                            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                            msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have chicken egg(s) to sell!!"
+                            msg = f"{ctx.author.name}#{ctx.author.discriminator}, you do not have chicken egg(s) to sell!!"
                             await ctx.edit_original_message(content=msg)
                             return
                     else:
-                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                        msg = f"{ctx.author.name}#{ctx.author.discriminator}, You do not have chicken egg(s) to sell!"
+                        msg = f"{ctx.author.name}#{ctx.author.discriminator}, you do not have chicken egg(s) to sell!"
                         await ctx.edit_original_message(content=msg)
                         return
                 except Exception:
@@ -1600,8 +1823,6 @@ class Economy(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     async def eco_info(self, ctx, member):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking info..."
@@ -1622,7 +1843,7 @@ class Economy(commands.Cog):
             count_eating_record = await self.db.economy_get_guild_eating_list_record(str(ctx.guild.id), 12*3600)
             if count_eating_record is None:
                 count_eating_record = []
-            allowed_eating_session = int(config.economy.max_guild_food*len(ctx.guild.members))
+            allowed_eating_session = int(self.bot.config['economy']['max_guild_food']*len(ctx.guild.members))
             try:
                 get_inventory_from_backpack = await self.db.economy_get_user_inventory(str(member.id), 'Gem')
                 if get_inventory_from_backpack and 'numbers' in get_inventory_from_backpack:
@@ -1644,7 +1865,7 @@ class Economy(commands.Cog):
                 get_user_inventory = await self.db.economy_get_user_inventory(str(member.id))
                 nos_items = sum(each_item['numbers'] for each_item in get_user_inventory if each_item['item_name'] != "Gem")
                 items_str = ''.join([each_item['item_emoji'] for each_item in get_user_inventory]) if len(get_user_inventory) > 0 else ''
-                embed.add_field(name="Backpack", value='{}/{} {}'.format(nos_items, config.economy.max_backpack_items, items_str), inline=True)
+                embed.add_field(name="Backpack", value='{}/{} {}'.format(nos_items, self.bot.config['economy']['max_backpack_items'], items_str), inline=True)
                 embed.add_field(name="Fishing Bait", value='{}/{}'.format(get_userinfo['fishing_bait'], self.eco_max_bait[str(get_userinfo['boat_level'])]), inline=True)
                 embed.add_field(name="Fishing Exp", value='{:,.0f}'.format(get_userinfo['fishing_exp']), inline=True)
                 embed.add_field(name="Seed - Planted/Cut", value='{}/{} - {}/{}'.format(get_userinfo['tree_seed'], self.eco_max_seed[str(get_userinfo['farm_level'])], get_userinfo['tree_planted'], get_userinfo['tree_cut']), inline=True)
@@ -1678,18 +1899,24 @@ class Economy(commands.Cog):
                 error = disnake.Embed(title=":exclamation: Error", description=" :warning: You need to mention the user you want this info for!", color=0xe51e1e)
                 await ctx.edit_original_message(content=None, embed=error)
         else:
-            await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, internal error.')
+            await ctx.edit_original_message(
+                content=f"{EMOJI_RED_NO} {ctx.author.mention}, internal error."
+            )
 
     async def eco_items(self, ctx):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking backpack items.."
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/eco items", int(time.time())))
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+        if str(ctx.author.id) in self.bot.queue_game_economy:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
+            await ctx.edit_original_message(content=msg)
+            return
 
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
@@ -1703,34 +1930,43 @@ class Economy(commands.Cog):
         elif get_user_inventory and len(get_user_inventory) > 0:
             # list all of them
             try:
-                if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
-                    # Add work if he needs to do
-                    e = disnake.Embed(title="{}#{} Item in backpack".format(ctx.author.name, ctx.author.discriminator), description="Economy game in TipBot", timestamp=datetime.now())
-                    all_item_backpack = {}
-                    if get_user_inventory and len(get_user_inventory) > 0:
-                        for each_item in get_user_inventory:
-                            if each_item['item_health'] > 0:
-                                e.add_field(name=each_item['item_name'] + " " + each_item['item_emoji'] + "x" +str(each_item['numbers']), value="```Health: {}```".format(each_item['item_health']), inline=False)
-                                all_item_backpack[str(each_item['item_emoji'])] = each_item['item_id']
-                            if each_item['item_energy'] > 0:
-                                e.add_field(name=each_item['item_name'] + " " + each_item['item_emoji'] + "x" +str(each_item['numbers']), value="```Energy: {}```".format(each_item['item_energy']), inline=False)
-                                all_item_backpack[str(each_item['item_emoji'])] = each_item['item_id']
-                            if each_item['item_gem'] > 0:
-                                pass
-                                #e.add_field(name=each_item['item_name'] + " " + each_item['item_emoji'] + "x" +str(each_item['numbers']), value="```Gem: {}```".format(each_item['item_gem']), inline=False)
-                        e.set_footer(text=f"User {ctx.author.name}#{ctx.author.discriminator}")
-                        e.set_thumbnail(url=ctx.author.display_avatar)                        
-                        view = EconomyButton([each_items for each_items in all_item_backpack.keys()], str(ctx.author.id), "item", 10)
-                        await ctx.edit_original_message(content=None, embed=e, view=view)
-                    else:
-                        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                        await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention} You do not have anything in your backpack.")
-                        return
+                # Add work if he needs to do
+                e = disnake.Embed(
+                    title="{}#{} Item in backpack".format(ctx.author.name, ctx.author.discriminator),
+                    description="Economy game in TipBot",
+                    timestamp=datetime.now()
+                )
+                all_item_backpack = {}
+                if get_user_inventory and len(get_user_inventory) > 0:
+                    for each_item in get_user_inventory:
+                        if each_item['item_health'] > 0:
+                            e.add_field(
+                                name=each_item['item_name'] + " " + each_item['item_emoji'] + "x" +str(each_item['numbers']),
+                                value="```Health: {}```".format(each_item['item_health']),
+                                inline=False
+                            )
+                            all_item_backpack[str(each_item['item_emoji'])] = each_item['item_id']
+                        if each_item['item_energy'] > 0:
+                            e.add_field(
+                                name=each_item['item_name'] + " " + each_item['item_emoji'] + "x" +str(each_item['numbers']),
+                                value="```Energy: {}```".format(each_item['item_energy']),
+                                inline=False
+                            )
+                            all_item_backpack[str(each_item['item_emoji'])] = each_item['item_id']
+                        if each_item['item_gem'] > 0:
+                            pass
+                            #e.add_field(name=each_item['item_name'] + " " + each_item['item_emoji'] + "x" +str(each_item['numbers']), value="```Gem: {}```".format(each_item['item_gem']), inline=False)
+                    e.set_footer(text=f"User {ctx.author.name}#{ctx.author.discriminator}")
+                    e.set_thumbnail(url=ctx.author.display_avatar)                        
+                    view = EconomyButton([each_items for each_items in all_item_backpack.keys()], str(ctx.author.id), "item", 10)
+                    await ctx.edit_original_message(content=None, embed=e, view=view)
+                    self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
+                else:
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have anything in your backpack."
+                    )
+                    return
             except Exception:
-                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 traceback.print_exc(file=sys.stdout)
         else:
             await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, not have anything in your backpack.")
@@ -1738,7 +1974,6 @@ class Economy(commands.Cog):
     async def eco_lumber(self, ctx, member):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking lumber storage.."
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/eco lumber", int(time.time())))
@@ -1794,13 +2029,19 @@ class Economy(commands.Cog):
         # get farm plant list
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm and seeds..."
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, f"/eco plant {plant_name}", int(time.time())))
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+        if str(ctx.author.id) not in self.bot.queue_game_economy:
+            self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
+            await ctx.edit_original_message(content=msg)
+            return
 
         plant_list_arr = await self.db.economy_farm_get_list_plants()
         plant_list_names = [name['plant_name'].lower() for name in plant_list_arr]
@@ -1839,47 +2080,36 @@ class Economy(commands.Cog):
                 will_plant = self.eco_max_plant_level[str(get_userinfo['farm_level'])] - check_planting_nos
             # If health less than 50%, stop
             if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
-                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, your health is having issue. Do some heatlh check or sport activities.")
                 return
             # If energy less than 20%, stop
             if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.2:
-                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you have very small energy. Eat to powerup (`/eco eat`).")
                 return
 
-            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                await ctx.edit_original_message(content=f"{ctx.author.mention}, you are ongoing with one **game economy** play.")
-                return
-            else:
-                self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
-
             if plant_name not in plant_list_names and plant_name != "TREE":
                 plant_name_str = ", ".join(plant_list_names)
-                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, they are not available. Please use any of this `{plant_name_str}`.")
                 return
             
             if check_planting_nos >= self.eco_max_plant_level[str(get_userinfo['farm_level'])] and plant_name != "TREE":
-                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, you planted maximum number of crops already.")
                 return
             elif plant_name == "TREE":
                 await asyncio.sleep(0.1)
-                exp_gained = config.economy.plant_exp_gained
+                exp_gained = self.bot.config['economy']['plant_exp_gained']
                 energy_loss = exp_gained * 2
                 insert_item = await self.db.economy_insert_planting(str(ctx.author.id), str(ctx.guild.id), exp_gained, energy_loss)
                 if insert_item:
-                    msg = await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted a tree. You gained `{str(exp_gained)}` planting experience and used `{str(energy_loss)}` energy.')
+                    msg = await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted a tree. "\
+                            f"You gained `{str(exp_gained)}` planting experience and used `{str(energy_loss)}` energy."
+                        )
             else:
                 # Not tree and not max, let's plant
                 # Using tractor, loss same energy but gain more experience
                 await asyncio.sleep(0.1)
-                exp_gained = config.economy.plant_exp_gained
+                exp_gained = self.bot.config['economy']['plant_exp_gained']
                 energy_loss = exp_gained * 2
                 selected_crop = None
                 for each_item in plant_list_arr:
@@ -1887,11 +2117,19 @@ class Economy(commands.Cog):
                         selected_crop = each_item
                         break
                 crop_name = "`" + selected_crop['plant_name'] + "` " + selected_crop['plant_emoji']
-                insert_item = await self.db.economy_farm_insert_crop(selected_crop['id'], str(ctx.author.id), str(ctx.guild.id), 
-                                                                   selected_crop['duration_harvest']+int(time.time()), selected_crop['number_of_item'],
-                                                                   selected_crop['credit_per_item'], exp_gained, energy_loss, will_plant)
+                insert_item = await self.db.economy_farm_insert_crop(
+                    selected_crop['id'], str(ctx.author.id), str(ctx.guild.id), 
+                    selected_crop['duration_harvest']+int(time.time()), selected_crop['number_of_item'],
+                    selected_crop['credit_per_item'], exp_gained, energy_loss, will_plant
+                )
                 if insert_item:
-                    await ctx.edit_original_message(content=f'{with_tractor}{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have planted `{will_plant}` {crop_name} in your farm. You gained `{str(exp_gained*will_plant)}` planting experience and used `{str(energy_loss)}` energy. You have {str(check_planting_nos+will_plant)} crop(s) in your farm now.')
+                    await ctx.edit_original_message(
+                        content=f"{with_tractor}{EMOJI_INFORMATION} {ctx.author.mention} Nice! "\
+                            f"You have planted `{will_plant}` {crop_name} in your farm. "\
+                            f"You gained `{str(exp_gained*will_plant)}` planting experience "\
+                            f"and used `{str(energy_loss)}` energy. "\
+                            f"You have {str(check_planting_nos+will_plant)} crop(s) in your farm now."
+                        )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1905,6 +2143,13 @@ class Economy(commands.Cog):
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+        if str(ctx.author.id) not in self.bot.queue_game_economy:
+            self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
+            await ctx.edit_original_message(content=msg)
+            return
 
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if what == "MILK" and get_userinfo and get_userinfo['numb_dairy_cattle'] == 0:
@@ -1927,8 +2172,6 @@ class Economy(commands.Cog):
             return
         elif what == "MILK":
             try:
-                if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                 total_can_collect = 0
                 qty_collect = 0.0
                 get_cows = await self.db.economy_dairy_cow_ownership(str(ctx.author.id))
@@ -1937,12 +2180,16 @@ class Economy(commands.Cog):
                     for each_cow in get_cows:
                         if each_cow['possible_collect_date'] < int(time.time()):
                             total_can_collect += 1
-                            qty_collect += config.economy.raw_milk_per_cow
+                            qty_collect += self.bot.config['economy']['raw_milk_per_cow']
                             id_collecting.append(each_cow['id'])
                     if total_can_collect > 0:
-                        insert_collecting = await self.db.economy_dairy_collecting(str(ctx.author.id), id_collecting, qty_collect, config.economy.credit_raw_milk_liter)
+                        insert_collecting = await self.db.economy_dairy_collecting(
+                            str(ctx.author.id), id_collecting, qty_collect, 
+                            self.bot.config['economy']['credit_raw_milk_liter']
+                        )
                         if insert_collecting:
-                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, nice! You have collected `{qty_collect}` liters of milk from `{total_can_collect}` cow(s).'
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, nice! "\
+                                f"You have collected `{qty_collect}` liters of milk from `{total_can_collect}` cow(s)."
                             await ctx.edit_original_message(content=msg)
                     else:
                         msg = f"{ctx.author.mention}, you need to wait a bit longer. It\'s not time yet."
@@ -1955,8 +2202,6 @@ class Economy(commands.Cog):
                 await logchanbot(traceback.format_exc())
         elif what == "EGG":
             try:
-                if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                 total_can_collect = 0
                 qty_collect = 0.0
                 get_chickens = await self.db.economy_chicken_farm_ownership(str(ctx.author.id))
@@ -1965,12 +2210,15 @@ class Economy(commands.Cog):
                     for each_chicken in get_chickens:
                         if each_chicken['possible_collect_date'] < int(time.time()):
                             total_can_collect += 1
-                            qty_collect += config.economy.egg_per_chicken
+                            qty_collect += self.bot.config['economy']['egg_per_chicken']
                             id_collecting.append(each_chicken['id'])
                     if total_can_collect > 0:
-                        insert_collecting = await self.db.economy_egg_collecting(str(ctx.author.id), id_collecting, qty_collect, config.economy.credit_egg)
+                        insert_collecting = await self.db.economy_egg_collecting(
+                            str(ctx.author.id), id_collecting, qty_collect, self.bot.config['economy']['credit_egg']
+                        )
                         if insert_collecting:
-                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, nice! You have collected `{qty_collect}` egg(s) from `{total_can_collect}` chicken(s).'
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, nice! "\
+                                f"You have collected `{qty_collect}` egg(s) from `{total_can_collect}` chicken(s)."
                             await ctx.edit_original_message(content=msg)
                     else:
                         msg = f"{ctx.author.mention}, you need to wait a bit longer. It\'s not time yet."
@@ -1983,8 +2231,6 @@ class Economy(commands.Cog):
                 await logchanbot(traceback.format_exc())
         elif what == "SALT":
             try:
-                if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
                 total_can_collect = 0
                 qty_collect = 0.0
                 get_salt_fields = await self.db.economy_salt_farm_ownership(str(ctx.author.id))
@@ -1996,9 +2242,12 @@ class Economy(commands.Cog):
                             qty_collect += self.db.eco_salt_qty_per_field
                             id_collecting.append(each_field['id'])
                     if total_can_collect > 0:
-                        insert_collecting = await self.db.economy_salt_collecting(str(ctx.author.id), id_collecting, qty_collect, self.eco_salt_credit_per_kg)
+                        insert_collecting = await self.db.economy_salt_collecting(
+                            str(ctx.author.id), id_collecting, qty_collect, self.eco_salt_credit_per_kg
+                        )
                         if insert_collecting:
-                            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, nice! You have collected `{qty_collect}` kg of salt from `{total_can_collect}` field(s).'
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, nice! "\
+                                f"You have collected `{qty_collect}` kg of salt from `{total_can_collect}` field(s)."
                             await ctx.edit_original_message(content=msg)
                     else:
                         msg = f"{ctx.author.mention}, you need to wait a bit longer. It\'s not time yet."
@@ -2012,13 +2261,10 @@ class Economy(commands.Cog):
         else:
             msg = f"{ctx.author.mention}, sorry `{what}` is not available."
             await ctx.edit_original_message(content=msg)
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     async def eco_dairy(self, ctx, member):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your dairy cattle..."
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/eco dairy", int(time.time())))
@@ -2148,8 +2394,8 @@ class Economy(commands.Cog):
                 get_chickens = await self.db.economy_chicken_farm_ownership(str(member.id))
                 if get_chickens and len(get_chickens) > 0:
                     chickens_array_emoji = [chicken_emoji]*len(get_chickens)
-                    if len(chickens_array_emoji) < config.economy.max_chicken_per_user:
-                        chickens_array_emoji = chickens_array_emoji + [soil]*(config.economy.max_chicken_per_user - len(chickens_array_emoji))
+                    if len(chickens_array_emoji) < self.bot.config['economy']['max_chicken_per_user']:
+                        chickens_array_emoji = chickens_array_emoji + [soil]*(self.bot.config['economy']['max_chicken_per_user'] - len(chickens_array_emoji))
                     i=1
                     for each_chicken in chickens_array_emoji:
                         if (i-1) % 9 == 0:
@@ -2172,7 +2418,7 @@ class Economy(commands.Cog):
                         can_harvest_string = "\n".join(can_collect)
                 else:
                     # Empty cattle
-                    chickens_array_emoji = [soil]*(config.economy.max_chicken_per_user)
+                    chickens_array_emoji = [soil]*(self.bot.config['economy']['max_chicken_per_user'])
                     i=1
                     for each_chicken in chickens_array_emoji:
                         if (i-1) % 9 == 0:
@@ -2207,7 +2453,6 @@ class Economy(commands.Cog):
     async def eco_farm(self, ctx, member):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm..."
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/eco farm", int(time.time())))
@@ -2303,7 +2548,6 @@ class Economy(commands.Cog):
     async def eco_saltfarm(self, ctx, member):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your salt farm..."
         await ctx.response.send_message(msg)
-
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/eco saltfarm", int(time.time())))
@@ -2401,11 +2645,6 @@ class Economy(commands.Cog):
                 await logchanbot(traceback.format_exc())
 
     async def eco_harvest(self, ctx):
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you are ongoing with one **game economy** play."
-            await ctx.response.send_message(msg)
-            return
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your farm..."
         await ctx.response.send_message(msg)
 
@@ -2416,14 +2655,19 @@ class Economy(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        if str(ctx.author.id) not in self.bot.queue_game_economy:
+            self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
+            await ctx.edit_original_message(content=msg)
+            return
+
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['numb_farm'] == 0:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have any farm."
             await ctx.edit_original_message(content=msg)
             return
         try:
-            if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
-                self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
             total_can_harvest = 0
             can_harvest = []
             havested_crops = ""
@@ -2438,8 +2682,6 @@ class Economy(commands.Cog):
                 if total_can_harvest == 0:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, All your crops are not able to harvest yet!"
                     await ctx.edit_original_message(content=msg)
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                     return
                 else:
                     # Let's update farming
@@ -2452,9 +2694,6 @@ class Economy(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-
 
     async def eco_fishing(self, ctx):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your fishing tools..."
@@ -2466,6 +2705,13 @@ class Economy(commands.Cog):
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+        if str(ctx.author.id) not in self.bot.queue_game_economy:
+            self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
+            await ctx.edit_original_message(content=msg)
+            return
 
         # If user has so many items and not use:
         # Getting list of work in the guild and re-act
@@ -2489,25 +2735,14 @@ class Economy(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you are ongoing with one **game economy** play."
-            await ctx.edit_original_message(content=msg)
-            return
-        else:
-            self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
-
         try:
             # If health less than 50%, stop
             if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
-                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your health is having issue. Do some heatlh check."
                 await ctx.edit_original_message(content=msg)
                 return
             # If energy less than 20%, stop
             if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.2:
-                if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                    self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have very small energy. Eat to powerup."
                 await ctx.edit_original_message(content=msg)
                 return
@@ -2545,9 +2780,9 @@ class Economy(commands.Cog):
                 # Get a selected fish
                 fish_strength = round(random.uniform(float(selected_item['fish_strength_min']), float(selected_item['fish_strength_max'])), 2)
                 fish_weight = round(random.uniform(float(selected_item['fish_weight_min']), float(selected_item['fish_weight_max'])), 2)
-                energy_loss = round(float(fish_strength)*config.economy.fishing_energy_loss_ratio, 2)
+                energy_loss = round(float(fish_strength)*self.bot.config['economy']['fishing_energy_loss_ratio'], 2)
                 if caught == "YES":
-                    exp_gained = int(fish_weight*config.economy.fishing_exp_strength_ratio) + 1
+                    exp_gained = int(fish_weight*self.bot.config['economy']['fishing_exp_strength_ratio']) + 1
                     numb_caught += 1
                 else:
                     exp_gained = 0
@@ -2568,7 +2803,9 @@ class Economy(commands.Cog):
             total_exp = round(total_exp, 2)
             if will_fishing > 0: 
                 await asyncio.sleep(0.1)
-                insert_item = await self.db.economy_insert_fishing_multiple(selected_item_list, total_energy_loss, total_exp, str(ctx.author.id))
+                insert_item = await self.db.economy_insert_fishing_multiple(
+                    selected_item_list, total_energy_loss, total_exp, str(ctx.author.id)
+                )
                 if numb_caught > 0:
                     item_info_list = []
                     total_weight = 0.0
@@ -2578,10 +2815,18 @@ class Economy(commands.Cog):
                             total_weight += each_fish['fish_weight']
                     item_info = "\n".join(item_info_list)
                     item_info_with_weight = item_info + "\nTotal: {:.2f}kg".format(total_weight)
-                    await ctx.edit_original_message(content=f'{with_boat}{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have caught `{numb_caught}` fish: ```{item_info_with_weight}```You used `{will_fishing}` bait(s). You gained `{str(total_exp)}` fishing experience and used `{str(total_energy_loss)}` energy.')
+                    await ctx.edit_original_message(
+                        content=f"{with_boat}{EMOJI_INFORMATION} {ctx.author.mention} Nice! "\
+                            f"You have caught `{numb_caught}` fish: ```{item_info_with_weight}```"\
+                            f"You used `{will_fishing}` bait(s). You gained `{str(total_exp)}` "\
+                            f"fishing experience and used `{str(total_energy_loss)}` energy."
+                        )
                 else:
                     # Not caught
-                    await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention}, you didn’t catch anything. Better luck next time! You used `{str(total_energy_loss)}` energy!')
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention}, you didn’t catch anything. "\
+                            f"Better luck next time! You used `{str(total_energy_loss)}` energy!"
+                        )
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no fish."
                 await ctx.edit_original_message(content=msg)
@@ -2589,8 +2834,6 @@ class Economy(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     async def eco_woodcutting(self, ctx):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your tool..."
@@ -2603,53 +2846,57 @@ class Economy(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        if str(ctx.author.id) not in self.bot.queue_game_economy:
+            self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
+            await ctx.edit_original_message(content=msg)
+            return
+
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         if get_userinfo and get_userinfo['tree_cut'] > 10:
-            if get_userinfo['tree_planted'] / get_userinfo['tree_cut'] < config.economy.ratio_plant_cut:
+            if get_userinfo['tree_planted'] / get_userinfo['tree_cut'] < self.bot.config['economy']['ratio_plant_cut']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have cut many trees than planting. Please plant some trees."
                 await ctx.edit_original_message(content=msg)
                 return
 
         # If health less than 50%, stop
         if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
-            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your health is having issue. Do some heatlh check."
             await ctx.edit_original_message(content=msg)
             return
         # If energy less than 20%, stop
         if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.5:
-            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have very small energy. Eat to powerup."
             await ctx.edit_original_message(content=msg)
             return
 
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you are ongoing with one **game economy** play."
-            await ctx.edit_original_message(content=msg)
-            return
-        else:
-            self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
-
         try:
             # Get list of items:
             await asyncio.sleep(0.1)
-            timber_volume = math.floor(random.uniform(config.economy.plant_volume_rand_min, config.economy.plant_volume_rand_max)) + 1
-            leaf_kg = math.floor(config.economy.leaf_per_volume * timber_volume) + 1
+            timber_volume = math.floor(
+                random.uniform(
+                    self.bot.config['economy']['plant_volume_rand_min'],
+                    self.bot.config['economy']['plant_volume_rand_max'])
+                ) + 1
+            leaf_kg = math.floor(self.bot.config['economy']['leaf_per_volume'] * timber_volume) + 1
             energy_loss = int(timber_volume/5) + 10
             try:
-                insert_woodcut = await self.db.economy_insert_woodcutting(str(ctx.author.id), str(ctx.guild.id), timber_volume, leaf_kg, energy_loss)
+                insert_woodcut = await self.db.economy_insert_woodcutting(
+                    str(ctx.author.id), str(ctx.guild.id), timber_volume, leaf_kg, energy_loss
+                )
                 if insert_woodcut:
-                    await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} You cut a tree. You got `{timber_volume}m3` of timber, `{leaf_kg}kg` of leaves. You used `{energy_loss}` energy.')
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention} You cut a tree. "\
+                            f"You got `{timber_volume}m3` of timber, `{leaf_kg}kg` of leaves. "\
+                            f"You used `{energy_loss}` energy."
+                    )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot(traceback.format_exc())
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     async def eco_search(self, ctx):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your search..."
@@ -2662,34 +2909,34 @@ class Economy(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        if str(ctx.author.id) not in self.bot.queue_game_economy:
+            self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
+        else:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
+            await ctx.edit_original_message(content=msg)
+            return
+
         # If user has so many items and not use:
         # Getting list of work in the guild and re-act
         get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
         get_user_inventory = await self.db.economy_get_user_inventory(str(ctx.author.id))
         nos_items = sum(each_item['numbers'] for each_item in get_user_inventory if each_item['item_name'] != "Gem")
-        if get_userinfo and nos_items >= config.economy.max_backpack_items:
+        if get_userinfo and nos_items >= self.bot.config['economy']['max_backpack_items']:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there are many items in your backpack. Please use them first."
             await ctx.edit_original_message(content=msg)
             return
 
         # If user just searched recently;
-        get_last_searching = await self.db.economy_get_user_searched_item_list_record(str(ctx.author.id), config.economy.search_duration_lap)
-        if get_last_searching and len(get_last_searching) >= config.economy.search_duration_lap_nos_item:
-            remaining = config.economy.search_duration_lap - int(time.time()) + get_last_searching[0]['date']
+        get_last_searching = await self.db.economy_get_user_searched_item_list_record(str(ctx.author.id), self.bot.config['economy']['search_duration_lap'])
+        if get_last_searching and len(get_last_searching) >= self.bot.config['economy']['search_duration_lap_nos_item']:
+            remaining = self.bot.config['economy']['search_duration_lap'] - int(time.time()) + get_last_searching[0]['date']
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you just searched recently. Try again in `{seconds_str(remaining)}`."
             await ctx.edit_original_message(content=msg)
             return
 
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you are ongoing with one **game economy** play."
-            await ctx.edit_original_message(content=msg)
-            return
-        else:
-            self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
-
         try:
             # Get list of items:
-            if random.randint(1,100) < config.economy.luck_search:
+            if random.randint(1,100) < self.bot.config['economy']['luck_search']:
                 # You get luck
                 try:
                     item_list = await self.db.economy_get_list_secret_items()
@@ -2703,36 +2950,44 @@ class Economy(commands.Cog):
                             item_info += " with {:,.2f} refillable energy".format(selected_item['item_energy'])
                         if selected_item['item_gem'] and selected_item['item_gem'] > 0:
                             item_info += " with {:,.0f} gem(s)".format(selected_item['item_gem'])
-                        await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} Nice! You have found a box and with {item_info} inside. You put it into your backpack.')
+                        await ctx.edit_original_message(
+                            content=f"{EMOJI_INFORMATION} {ctx.author.mention} Nice! "\
+                                f"You have found a box and with {item_info} inside. "\
+                                "You put it into your backpack."
+                        )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             else:
                 # Get empty box
-                #economy_insert_secret_findings(item_id: int, user_id: str, guild_id: str, item_health: float, item_energy: float, item_gem: int, can_use: bool=True):
-                insert_item = await self.db.economy_insert_secret_findings(8, str(ctx.author.id), str(ctx.guild.id), 0, 0, 0, False)
+                #economy_insert_secret_findings(
+                # item_id: int, user_id: str, guild_id: str, item_health: float, item_energy: float, item_gem: int, can_use: bool=True
+                # ):
+                insert_item = await self.db.economy_insert_secret_findings(
+                    8, str(ctx.author.id), str(ctx.guild.id), 0, 0, 0, False
+                )
                 if insert_item:
-                    await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} You found an empty box. Good luck next time!')
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention} "\
+                            "You found an empty box. Good luck next time!"
+                    )
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-
 
     async def eco_eat(self, ctx):
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you are ongoing with one **game economy** play."
-            await ctx.response.send_message(msg)
-            return
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your meal orders..."
         await ctx.response.send_message(msg)
 
         try:
-            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM", 
                                          str(ctx.author.id), SERVER_BOT, "/eco eat", int(time.time())))
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+        if str(ctx.author.id) in self.bot.queue_game_economy:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
+            await ctx.edit_original_message(content=msg)
+            return
 
         # If a user ate a lot already for the last 12h
         user_eat_record = await self.db.economy_get_user_eating_list_record(str(ctx.author.id), 12*3600)
@@ -2743,7 +2998,7 @@ class Economy(commands.Cog):
         
         # If guild already has many food ordered last 12h
         count_eating_record = await self.db.economy_get_guild_eating_list_record(str(ctx.guild.id), 12*3600)
-        allowed_eating_session = int(config.economy.max_guild_food*len(ctx.guild.members))
+        allowed_eating_session = int(self.bot.config['economy']['max_guild_food']*len(ctx.guild.members))
         if count_eating_record and len(count_eating_record) > allowed_eating_session:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, restaurant out of food. There were allowed only **{str(allowed_eating_session)}** orders for the last 12h."
             await ctx.edit_original_message(content=msg)
@@ -2758,43 +3013,42 @@ class Economy(commands.Cog):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you still have much energy."
                 await ctx.edit_original_message(content=msg)
                 return
-            if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
-                self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
-                    # Add work if he needs to do
-                e = disnake.Embed(title="{}#{} Food list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy game in TipBot", timestamp=datetime.now())
-                get_foodlist_guild = await self.db.economy_get_guild_foodlist(str(ctx.guild.id), False)
-                all_food_in_guild = {}
-                if get_foodlist_guild and len(get_foodlist_guild) > 0:
-                    for each_food in get_foodlist_guild:
-                        coin_name = each_food['cost_coin_name']
-                        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                        e.add_field(name=each_food['food_name'] + " " + each_food['food_emoji'], value="```Energy: {} / Cost: {}{}```".format(each_food['gained_energy'], num_format_coin(each_food['cost_expense_amount'], coin_name, coin_decimal, False), each_food['cost_coin_name']), inline=False)
-                        all_food_in_guild[str(each_food['food_emoji'])] = each_food['food_id']
-                    e.set_footer(text=f"User {ctx.author.name}#{ctx.author.discriminator}")
-                    e.set_thumbnail(url=ctx.author.display_avatar)                    
-                    view = EconomyButton([each_food['food_emoji'] for each_food in get_foodlist_guild], str(ctx.author.id), "eat", 10)
-                    await ctx.edit_original_message(content=None, embed=e, view=view)
-                else:
-                    if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-                        self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, sorry, there is no available work yet."
-                    await ctx.edit_original_message(content=msg)
-                    return
+
+            # Add work if he needs to do
+            e = disnake.Embed(title="{}#{} Food list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy game in TipBot", timestamp=datetime.now())
+            get_foodlist_guild = await self.db.economy_get_guild_foodlist(str(ctx.guild.id), False)
+            all_food_in_guild = {}
+            if get_foodlist_guild and len(get_foodlist_guild) > 0:
+                for each_food in get_foodlist_guild:
+                    coin_name = each_food['cost_coin_name']
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    e.add_field(name=each_food['food_name'] + " " + each_food['food_emoji'], value="```Energy: {} / Cost: {}{}```".format(each_food['gained_energy'], num_format_coin(each_food['cost_expense_amount'], coin_name, coin_decimal, False), each_food['cost_coin_name']), inline=False)
+                    all_food_in_guild[str(each_food['food_emoji'])] = each_food['food_id']
+                e.set_footer(text=f"User {ctx.author.name}#{ctx.author.discriminator}")
+                e.set_thumbnail(url=ctx.author.display_avatar)                    
+                view = EconomyButton([each_food['food_emoji'] for each_food in get_foodlist_guild], str(ctx.author.id), "eat", 10)
+                await ctx.edit_original_message(content=None, embed=e, view=view)
+                self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
+            else:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, sorry, there is no available work yet."
+                await ctx.edit_original_message(content=msg)
+                return
         else:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error."
             await ctx.edit_original_message(content=msg)
             return
 
-
     async def eco_work(self, ctx, claim: str=None):        
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
-        if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
-            self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking your work..."
         await ctx.response.send_message(msg)
+
+        if str(ctx.author.id) in self.bot.queue_game_economy:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another economy action in progress."
+            await ctx.edit_original_message(content=msg)
+            return
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -2847,6 +3101,7 @@ class Economy(commands.Cog):
                         e.set_thumbnail(url=ctx.author.display_avatar)
                         view = EconomyButton([each_work['work_emoji'] for each_work in get_worklist_guild], str(ctx.author.id), "work", 10)
                         await ctx.edit_original_message(content=None, embed=e, view=view)
+                        self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
                     else:
                         msg = f"{EMOJI_ERROR} {ctx.author.mention}, sorry, there is no available work yet."
                         await ctx.edit_original_message(content=msg)
@@ -2886,7 +3141,10 @@ class Economy(commands.Cog):
                                 await logchanbot(traceback.format_exc())
                             # End negative check
                             if get_last_act['reward_amount'] > total_balance:
-                                await logchanbot(str(get_last_act['guild_id']) + f' runs out of balance for coin {coin_name}. Stop rewarding.')
+                                await logchanbot(
+                                    str(get_last_act['guild_id']) + f" runs out of balance for coin {coin_name}. "\
+                                        "Stop rewarding."
+                                )
                                 msg = f"{EMOJI_ERROR} {ctx.author.mention}, this guild runs out of balance to give reward."
                                 await ctx.edit_original_message(content=msg)
                                 return
@@ -2938,8 +3196,14 @@ class Economy(commands.Cog):
                                             del self.bot.user_balance_cache[key_coin]
                                     except Exception:
                                         pass
-                                    reward = await store.sql_user_balance_mv_single(get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id), get_last_act['reward_amount'], coin_name, 'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd, None)
-                                    await ctx.edit_original_message(content=f'{EMOJI_INFORMATION} {ctx.author.mention} ```{completed_task}```')
+                                    reward = await store.sql_user_balance_mv_single(
+                                        get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), 
+                                        str(ctx.channel.id), get_last_act['reward_amount'], coin_name, 
+                                        'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd, None
+                                    )
+                                    await ctx.edit_original_message(
+                                        content=f"{EMOJI_INFORMATION} {ctx.author.mention} ```{completed_task}```"
+                                    )
                                 else:
                                     msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."
                                     await ctx.edit_original_message(content=msg)
@@ -2971,9 +3235,9 @@ class Economy(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-
     @commands.guild_only()
     @commands.slash_command(
+        dm_permission=False,
         description="Economy game commands."
     )
     async def eco(self, ctx):
@@ -2982,14 +3246,16 @@ class Economy(commands.Cog):
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
         if serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "NO":
             if self.enable_logchan:
-                await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} tried **/economy** in {ctx.guild.name} / {ctx.guild.id} which is not ENABLE.')
+                await self.botLogChan.send(
+                    f"{ctx.author.name} / {ctx.author.id} tried **/economy** in "\
+                    f"{ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
+                )
             msg = f"{ctx.author.mention}, economy game is not available in this guild yet. Please request TipBot dev team if you want to add with your customization."
             await ctx.response.send_message(msg)
         elif serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "YES" and serverinfo['economy_channel'] and int(serverinfo['economy_channel']) != ctx.channel.id:
             EcoChan = self.bot.get_channel(int(serverinfo['economy_channel']))
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {EcoChan.mention} is the economy channel!!!"
             await ctx.response.send_message(msg)
-
 
     @eco.sub_command(
         usage="eco items", 
@@ -2999,9 +3265,7 @@ class Economy(commands.Cog):
         self, 
         ctx
     ):
-        eco_items = await self.eco_items(ctx)
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-
+        await self.eco_items(ctx)
 
     @eco.sub_command(
         usage="eco info <member>", 
@@ -3017,8 +3281,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_info = await self.eco_info(ctx, member)
-
+        await self.eco_info(ctx, member)
 
     @eco.sub_command(
         usage="eco sell <item>", 
@@ -3033,7 +3296,10 @@ class Economy(commands.Cog):
         item_name: str
     ):
         await self.eco_sell(ctx, item_name)
-
+        try:
+            del self.bot.queue_game_economy[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @eco.sub_command(
         usage="eco buy <item>", 
@@ -3048,13 +3314,13 @@ class Economy(commands.Cog):
         *, 
         item_name: str
     ):
-        eco_buy = await self.eco_buy(ctx, item_name)
+        await self.eco_buy(ctx, item_name)
         if item_name is None:
             item_name = "LIST"
-        if item_name.upper() == "LIST":
-            if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-            return
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
+        try:
+            del self.bot.queue_game_economy[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @eco.sub_command(
         usage="eco lumber <member>", 
@@ -3070,7 +3336,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_lumber = await self.eco_lumber(ctx, member)
+        await self.eco_lumber(ctx, member)
 
     @eco.sub_command(
         usage="eco fish <member>", 
@@ -3086,7 +3352,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_fish = await self.eco_fish(ctx, member)
+        await self.eco_fish(ctx, member)
 
     @eco.sub_command(
         usage="eco plant <crop name>", 
@@ -3111,9 +3377,11 @@ class Economy(commands.Cog):
         ctx, 
         plant_name: str
     ):
-        eco_plant = await self.eco_plant(ctx, plant_name)
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-
+        await self.eco_plant(ctx, plant_name)
+        try:
+            del self.bot.queue_game_economy[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @eco.sub_command(
         usage="eco collect <what>", 
@@ -3132,9 +3400,11 @@ class Economy(commands.Cog):
         ctx, 
         what: str
     ):
-        eco_collect = await self.eco_collect(ctx, what)
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO: self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
-
+        await self.eco_collect(ctx, what)
+        try:
+            del self.bot.queue_game_economy[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @eco.sub_command(
         usage="eco dairy <member>", 
@@ -3150,7 +3420,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_dairy = await self.eco_dairy(ctx, member)
+        await self.eco_dairy(ctx, member)
 
     @eco.sub_command(
         usage="eco chicken <member>", 
@@ -3166,7 +3436,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_chicken = await self.eco_chicken(ctx, member)
+        await self.eco_chicken(ctx, member)
 
     @eco.sub_command(
         usage="eco saltfarm <member>", 
@@ -3182,7 +3452,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_saltfarm = await self.eco_saltfarm(ctx, member)
+        await self.eco_saltfarm(ctx, member)
 
     @eco.sub_command(
         usage="eco farm <member>", 
@@ -3198,7 +3468,7 @@ class Economy(commands.Cog):
     ):
         if member is None:
             member = ctx.author
-        eco_farm = await self.eco_farm(ctx, member)
+        await self.eco_farm(ctx, member)
 
     @eco.sub_command(
         usage="eco harvest", 
@@ -3208,7 +3478,11 @@ class Economy(commands.Cog):
         self, 
         ctx
     ):
-        eco_harvest = await self.eco_harvest(ctx)
+        await self.eco_harvest(ctx)
+        try:
+            del self.bot.queue_game_economy[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @eco.sub_command(
         usage="eco fishing", 
@@ -3218,7 +3492,11 @@ class Economy(commands.Cog):
         self, 
         ctx
     ):
-        eco_fishing = await self.eco_fishing(ctx)
+        await self.eco_fishing(ctx)
+        try:
+            del self.bot.queue_game_economy[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @eco.sub_command(
         usage="eco woodcutting", 
@@ -3228,7 +3506,11 @@ class Economy(commands.Cog):
         self, 
         ctx
     ):
-        eco_woodcutting = await self.eco_woodcutting(ctx)
+        await self.eco_woodcutting(ctx)
+        try:
+            del self.bot.queue_game_economy[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @eco.sub_command(
         usage="eco search", 
@@ -3238,7 +3520,11 @@ class Economy(commands.Cog):
         self, 
         ctx
     ):
-        eco_search = await self.eco_search(ctx)
+        await self.eco_search(ctx)
+        try:
+            del self.bot.queue_game_economy[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @eco.sub_command(
         usage="eco eat", 
@@ -3248,7 +3534,7 @@ class Economy(commands.Cog):
         self, 
         ctx
     ):
-        eco_eat = await self.eco_eat(ctx)
+        await self.eco_eat(ctx)
 
     @eco.sub_command(
         usage="eco work", 
@@ -3258,14 +3544,10 @@ class Economy(commands.Cog):
         self, 
         ctx
     ):
-        if ctx.author.id not in self.bot.GAME_INTERACTIVE_ECO:
-            self.bot.GAME_INTERACTIVE_ECO.append(ctx.author.id)
         try:
-            eco_work = await self.eco_work(ctx)
+            await self.eco_work(ctx)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        if ctx.author.id in self.bot.GAME_INTERACTIVE_ECO:
-            self.bot.GAME_INTERACTIVE_ECO.remove(ctx.author.id)
 
     # Leaderboard
     @eco.sub_command(
@@ -3291,7 +3573,6 @@ class Economy(commands.Cog):
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, no record yet."
             await ctx.response.send_message(msg)
             return
-
 
     # Upgrade
     @eco.sub_command(

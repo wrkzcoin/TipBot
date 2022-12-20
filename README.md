@@ -1,8 +1,33 @@
-### TipBot (Work still in progress)
+<p align="center">
+  <img width="180" src="./images/TIPBOT.png" alt="Unique Discord Cryptocurrency TipBot">
+  <h1 align="center">Cryptocurrency TipBot</h1>
+</p>
+
+<!-- Table of Contents -->
+
+<summary><h2 style="display: inline-block">Table of Contents</h2></summary>
+<ul>
+    <li><a href="#intro">Intro</a></li>
+    <li><a href="#our-discord">Our Discord</a></li>
+    <li><a href="#integration">Integration</a></li>
+    <li><a href="#help-commands">Help Commands</a></li>
+    <li><a href="#how-to-invite">How to invite</a></li>
+    <li><a href="#basic-crypto-tipping">Basic crypto tipping</a></li>
+    <li><a href="#balance-check">Balance check</a></li>
+    <li><a href="#other-youtube-guides">Other YouTube guides</a></li>
+    <li><a href="#bot-directory-links">Bot directory links</a></li>
+    <li><a href="#donation">Donation</a></li>    
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#api">API</a></li>
+    <li><a href="#credit-and-thanks-to">Credit and thanks to</a></li>
+</ul>
+
+
+### Intro
 
 This TipBot's code is not ready for deployment. We keep it here for easier bug tracking.
 
-### Discord
+### Our Discord
 
 * WrkzCoin: <https://discordapp.com/invite/GpHzURM>
 
@@ -35,17 +60,21 @@ Refer to <https://coininfo.bot.tips> for the entire list.
 
 ### How to invite
 
-[![Basic Crypto Tipping](https://img.youtube.com/vi/eNCaJgR3TzY/0.jpg)](https://www.youtube.com/watch?v=eNCaJgR3TzY)
+[![How to invite](https://img.youtube.com/vi/eNCaJgR3TzY/0.jpg)](https://www.youtube.com/watch?v=eNCaJgR3TzY)
 
 ### Basic crypto tipping
 
 [![Basic Crypto Tipping](https://img.youtube.com/vi/w2VWYJ2foTo/0.jpg)](https://www.youtube.com/watch?v=w2VWYJ2foTo)
 
+### Balance check
+
+[![Checking Balance](https://img.youtube.com/vi/tc1xxsggVMo/0.jpg)](https://www.youtube.com/watch?v=tc1xxsggVMo)
+
 ### Other YouTube guides
 
 * TipBot v2 Playlist: <https://www.youtube.com/playlist?list=PLdhRV9sbg4Cqwn8CuaZJ_hAjnnpscOLum>
 
-### Bot directory links (Discord)
+### Bot directory links
 
 * topgg: <https://top.gg/bot/474841349968101386/>
 
@@ -53,17 +82,17 @@ Refer to <https://coininfo.bot.tips> for the entire list.
 
 * discords.com: <https://discords.com/bots/bot/474841349968101386>
 
-### Balance check
+### Donation:
 
-[![Checking Balance](https://img.youtube.com/vi/tc1xxsggVMo/0.jpg)](https://www.youtube.com/watch?v=tc1xxsggVMo)
+* [Refer to donation link](./DONATION.md)
 
-### Donation address list:
-
-* Refer to <https://github.com/wrkzcoin/TipBot/blob/multip-tipbot-new-api/DONATION.md>
+### API:
+* [Refer to API link](./TRADE_API.md)
 * Swagger: <http://tradeapi.bot.tips/>
 
-### Public API for Trading:
-* Refer to <https://github.com/wrkzcoin/TipBot/blob/multip-tipbot-new-api/TRADE_API.md>
+## Contributing
+
+Please feel free to open an issue for any suggestions.
 
 ### Credit and thanks to:
 
@@ -79,3 +108,6 @@ Refer to <https://coininfo.bot.tips> for the entire list.
 * https://bootsnipp.com/snippets/84kpo for footer of both redeem.bot.tips and deposit.bot.tips
 * https://github.com/jamescoxon/xrb_reddit_tipbot for our starting code for reddit TipBot
 * Coin creators, testers, donors on discord servers.
+
+[![Star History Chart](https://api.star-history.com/svg?repos=wrkzcoin/TipBot&type=Date)](https://star-history.com/#wrkzcoin/TipBot&Date)
+

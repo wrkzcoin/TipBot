@@ -10,15 +10,19 @@ import time
 import json
 from discord_webhook import DiscordWebhook
 
-from config import config
+from config import load_config
 
+config = load_config()
 pool = None
 sleep_no_records = 60
 
 
 def logchanbot(content: str):
     try:
-        webhook = DiscordWebhook(url=os.environ.get('debug_tipbot_webhook'), content=content[0:1000])
+        webhook = DiscordWebhook(
+            url=config['discord']['twitter_webhook'],
+            content=content[0:1000]
+        )
         webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -28,12 +32,13 @@ async def openConnection():
     global pool
     try:
         if pool is None:
-            pool = await aiomysql.create_pool(host=config.mysql.host, port=3306, minsize=2, maxsize=4,
-                                              user=config.mysql.user, password=config.mysql.password,
-                                              db=config.mysql.db, cursorclass=DictCursor, autocommit=True)
+            pool = await aiomysql.create_pool(
+                host=config['mysql']['host'], port=3306, minsize=1, maxsize=2,
+                user=config['mysql']['user'], password=config['mysql']['password'],
+                db=config['mysql']['db'], cursorclass=DictCursor, autocommit=True
+            )
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-
 
 # Let's run balance update by a separate process
 async def fetch_bot_timeline():
@@ -119,6 +124,7 @@ async def fetch_bot_timeline():
         await asyncio.sleep(time_lap)
 
 
-loop = asyncio.get_event_loop()
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 loop.run_until_complete(fetch_bot_timeline())
 loop.close()

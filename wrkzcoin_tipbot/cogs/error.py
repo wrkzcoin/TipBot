@@ -18,17 +18,23 @@ class Error(commands.Cog):
         error = getattr(error, "original", error)  # get original error
 
         if isinstance(error, commands.DisabledCommand):
-            await ctx.response.send_message(f'{ctx.author.mention} Sorry. This command is disabled and cannot be used.')
+            await ctx.response.send_message(
+                f"{ctx.author.mention} Sorry. This command is disabled and cannot be used."
+            )
 
         if isinstance(error, commands.MissingPermissions):
             await logchanbot(
-                f"{ctx.author.mention} / {ctx.author.name}#{ctx.author.discriminator} tried {ctx.data.name} but lack of permission [MissingPermissions].")
+                f"{ctx.author.mention} / {ctx.author.name}#{ctx.author.discriminator} "\
+                f"tried {ctx.data.name} but lack of permission [MissingPermissions]."
+            )
             return await ctx.response.send_message(
-                f'{ctx.author.mention} Does not have the perms to use this: `{ctx.data.name}` command.')
+                f"{ctx.author.mention} Does not have the perms to use this: `{ctx.data.name}` command."
+            )
 
         if isinstance(error, commands.MissingRole):
-            return await ctx.response.send_message(f'{ctx.author.mention}: ' + str(error),
-                                                   view=RowButtonRowCloseAnyMessage())
+            return await ctx.response.send_message(
+                f"{ctx.author.mention}: " + str(error), view=RowButtonRowCloseAnyMessage()
+            )
 
         if isinstance(error, commands.NoPrivateMessage):
             await logchanbot(
@@ -56,8 +62,8 @@ class Error(commands.Cog):
         if isinstance(error, commands.MissingRequiredArgument):
             embed = disnake.Embed(title="Error!", description="You appear to be missing a required argument!",
                                   color=disnake.Color.red())
-            embed.add_field(name="Missing argument", value=f'`{error.args[0]}`', inline=False)
-            embed.add_field(name="Command Usage", value=f'`{ctx.command.usage}`', inline=False)
+            embed.add_field(name="Missing argument", value=f"`{error.args[0]}`", inline=False)
+            embed.add_field(name="Command Usage", value=f"`{ctx.command.usage}`", inline=False)
             if ctx.command.aliases:
                 aliases = "`" + "".join("!" + c + ", " for c in ctx.command.aliases) + "`"
                 embed.add_field(name="Command Aliases", value=f"{aliases}", inline=False)
@@ -66,8 +72,8 @@ class Error(commands.Cog):
         if isinstance(error, commands.BadArgument):
             embed = disnake.Embed(title="Error!", description="An argument you entered is invalid!",
                                   color=disnake.Color.red())
-            embed.add_field(name="Bad Argument", value=f'`{error.args[0]}`', inline=False)
-            embed.add_field(name="Command Usage", value=f'`{ctx.command.usage}`', inline=False)
+            embed.add_field(name="Bad Argument", value=f"`{error.args[0]}`", inline=False)
+            embed.add_field(name="Command Usage", value=f"`{ctx.command.usage}`", inline=False)
             if ctx.command.aliases:
                 aliases = "`" + "".join("!" + c for c in ctx.command.aliases) + "`"
                 embed.add_field(name="Command Aliases", value=f"{aliases}", inline=False)
@@ -75,8 +81,8 @@ class Error(commands.Cog):
 
         if isinstance(error, disnake.ext.commands.errors.ExtensionNotLoaded):
             embed = disnake.Embed(title="Error!", description="Cog not found!", color=disnake.Color.red())
-            embed.add_field(name="Bad Argument", value=f'`{error.args[0]}`', inline=False)
-            embed.add_field(name="Command Usage", value=f'`{ctx.command.usage}`', inline=False)
+            embed.add_field(name="Bad Argument", value=f"`{error.args[0]}`", inline=False)
+            embed.add_field(name="Command Usage", value=f"`{ctx.command.usage}`", inline=False)
             embed.add_field(name='Loaded Cogs:', value="".join("`" + c + "`\n" for c in sorted(self.client.cogs)),
                             inline=False)
             return await ctx.response.send_message(embed=embed, view=RowButtonRowCloseAnyMessage())
@@ -98,21 +104,24 @@ class Error(commands.Cog):
         error = getattr(error, "original", error)  # get original error
 
         if isinstance(error, commands.NoPrivateMessage):
-            await ctx.reply(f'{ctx.author.mention} This command cannot be used in private messages.')
+            await ctx.reply(f"{ctx.author.mention} This command cannot be used in private messages.")
 
         elif isinstance(error, commands.DisabledCommand):
-            await ctx.reply(f'{ctx.author.mention} Sorry. This command is disabled and cannot be used.')
+            await ctx.reply(f"{ctx.author.mention} Sorry. This command is disabled and cannot be used.")
 
         if isinstance(error, commands.MissingPermissions):
             return await ctx.reply(
-                f'{ctx.author.mention} Does not have the perms to use this: `{ctx.command.name}` command.')
+                f"{ctx.author.mention} Does not have the perms to use this: `{ctx.command.name}` command."
+            )
 
         if isinstance(error, commands.MissingRole):
-            return await ctx.reply(f'{ctx.author.mention}: ' + str(error), view=RowButtonRowCloseAnyMessage())
+            return await ctx.reply(f"{ctx.author.mention}: " + str(error), view=RowButtonRowCloseAnyMessage())
 
         if isinstance(error, commands.NoPrivateMessage):
-            return await ctx.reply(f"{ctx.author.mention} This command cannot be used in a DM.",
-                                   view=RowButtonRowCloseAnyMessage())
+            return await ctx.reply(
+                f"{ctx.author.mention} This command cannot be used in a DM.",
+                view=RowButtonRowCloseAnyMessage()
+            )
 
         if isinstance(error, commands.CheckFailure) or isinstance(error, commands.CheckAnyFailure):
             await ctx.reply(
@@ -132,8 +141,8 @@ class Error(commands.Cog):
         if isinstance(error, commands.MissingRequiredArgument):
             embed = disnake.Embed(title="Error!", description="You appear to be missing a required argument!",
                                   color=disnake.Color.red())
-            embed.add_field(name="Missing argument", value=f'`{error.args[0]}`', inline=False)
-            embed.add_field(name="Command Usage", value=f'`{ctx.command.usage}`', inline=False)
+            embed.add_field(name="Missing argument", value=f"`{error.args[0]}`", inline=False)
+            embed.add_field(name="Command Usage", value=f"`{ctx.command.usage}`", inline=False)
             if ctx.command.aliases:
                 aliases = "`" + "".join("!" + c + ", " for c in ctx.command.aliases) + "`"
                 embed.add_field(name="Command Aliases", value=f"{aliases}", inline=False)
@@ -142,8 +151,8 @@ class Error(commands.Cog):
         if isinstance(error, commands.BadArgument):
             embed = disnake.Embed(title="Error!", description="An argument you entered is invalid!",
                                   color=disnake.Color.red())
-            embed.add_field(name="Bad Argument", value=f'`{error.args[0]}`', inline=False)
-            embed.add_field(name="Command Usage", value=f'`{ctx.command.usage}`', inline=False)
+            embed.add_field(name="Bad Argument", value=f"`{error.args[0]}`", inline=False)
+            embed.add_field(name="Command Usage", value=f"`{ctx.command.usage}`", inline=False)
             if ctx.command.aliases:
                 aliases = "`" + "".join("!" + c for c in ctx.command.aliases) + "`"
                 embed.add_field(name="Command Aliases", value=f"{aliases}", inline=False)
@@ -151,8 +160,8 @@ class Error(commands.Cog):
 
         if isinstance(error, disnake.ext.commands.errors.ExtensionNotLoaded):
             embed = disnake.Embed(title="Error!", description="Cog not found!", color=disnake.Color.red())
-            embed.add_field(name="Bad Argument", value=f'`{error.args[0]}`', inline=False)
-            embed.add_field(name="Command Usage", value=f'`{ctx.command.usage}`', inline=False)
+            embed.add_field(name="Bad Argument", value=f"`{error.args[0]}`", inline=False)
+            embed.add_field(name="Command Usage", value=f"`{ctx.command.usage}`", inline=False)
             embed.add_field(name='Loaded Cogs:', value="".join("`" + c + "`\n" for c in sorted(self.client.cogs)),
                             inline=False)
             return await ctx.reply(embed=embed, view=RowButtonRowCloseAnyMessage())

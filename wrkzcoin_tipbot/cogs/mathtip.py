@@ -23,7 +23,6 @@ from Bot import num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EM
     EMOJI_MONEYFACE, NOTIFICATION_OFF_CMD, EMOJI_SPEAK, EMOJI_BELL, EMOJI_BELL_SLASH, EMOJI_HOURGLASS_NOT_DONE, \
     EMOJI_INFORMATION, EMOJI_PARTY, SERVER_BOT, seconds_str, RowButtonCloseMessage, RowButtonRowCloseAnyMessage, \
     text_to_num, truncate
-from config import config
 
 from cogs.wallet import WalletAPI
 from cogs.utils import Utils
@@ -80,6 +79,9 @@ class MathButton(disnake.ui.View):
             token_display = getattr(getattr(self.coin_list, coin_name), "display_name")
             usd_equivalent_enable = getattr(getattr(self.coin_list, coin_name), "usd_equivalent_enable")
 
+            coin_emoji = getattr(getattr(self.coin_list, coin_name), "coin_emoji_discord")
+            coin_emoji = coin_emoji + " " if coin_emoji else ""
+
             indiv_amount_str = num_format_coin(truncate(amount / len(answered_msg_id['right_ids']), 4), coin_name,
                                                coin_decimal, False) if len(
                 answered_msg_id['right_ids']) > 0 else num_format_coin(truncate(amount, 4), coin_name, coin_decimal,
@@ -104,18 +106,36 @@ class MathButton(disnake.ui.View):
                     total_equivalent_usd = " ~ {:,.4f} USD".format(each_amount_in_usd)
 
             embed = disnake.Embed(
-                title=f"🧮 Math Tip {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {total_equivalent_usd} - Total answer {total_answer}",
-                description=get_mathtip['eval_content'], timestamp=datetime.fromtimestamp(get_mathtip['math_endtime']))
-            embed.add_field(name="Correct answer", value=get_mathtip['eval_answer'], inline=False)
-            embed.add_field(name="Correct ( {} )".format(len(answered_msg_id['right_ids'])), value="{}".format(
-                " | ".join(answered_msg_id['right_names']) if len(answered_msg_id['right_names']) > 0 else "N/A"),
-                            inline=False)
-            embed.add_field(name="Incorrect ( {} )".format(len(answered_msg_id['wrong_ids'])), value="{}".format(
-                " | ".join(answered_msg_id['wrong_names']) if len(answered_msg_id['wrong_names']) > 0 else "N/A"),
-                            inline=False)
+                title=f"🧮 Math Tip {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                    f"{token_display} {total_equivalent_usd} - Total answer {total_answer}",
+                description=get_mathtip['eval_content'],
+                timestamp=datetime.fromtimestamp(get_mathtip['math_endtime']
+            )
+            )
+            embed.add_field(
+                name="Correct answer",
+                value=get_mathtip['eval_answer'],
+                inline=False
+            )
+            embed.add_field(
+                name="Correct ( {} )".format(len(answered_msg_id['right_ids'])),
+                value="{}".format(
+                    " | ".join(answered_msg_id['right_names']) if len(answered_msg_id['right_names']) > 0 else "N/A"),
+                inline=False
+            )
+            embed.add_field(
+                name="Incorrect ( {} )".format(len(answered_msg_id['wrong_ids'])),
+                value="{}".format(
+                    " | ".join(answered_msg_id['wrong_names']) if len(answered_msg_id['wrong_names']) > 0 else "N/A"),
+                inline=False
+            )
             if len(answered_msg_id['right_ids']) > 0:
-                embed.add_field(name='Each Winner Receives:', value=f"{indiv_amount_str} {token_display}", inline=True)
-            embed.set_footer(text=f"Trivia tip by {owner_displayname}")
+                embed.add_field(
+                    name='Each Winner Receives:',
+                    value=f"{coin_emoji}{indiv_amount_str} {token_display}",
+                    inline=True
+                )
+            embed.set_footer(text=f"MathTip by {owner_displayname}")
 
             if len(answered_msg_id['right_ids']) > 0:
                 try:
@@ -129,13 +149,12 @@ class MathButton(disnake.ui.View):
                             del self.bot.user_balance_cache[key_coin]
                 except Exception:
                     pass
-                trivia_tipping = await store.sql_user_balance_mv_multiple(get_mathtip['from_userid'],
-                                                                          answered_msg_id['right_ids'],
-                                                                          get_mathtip['guild_id'],
-                                                                          get_mathtip['channel_id'],
-                                                                          float(indiv_amount), coin_name, "MATHTIP",
-                                                                          coin_decimal, SERVER_BOT, contract,
-                                                                          float(each_amount_in_usd), None)
+                await store.sql_user_balance_mv_multiple(
+                    get_mathtip['from_userid'], answered_msg_id['right_ids'],
+                    get_mathtip['guild_id'], get_mathtip['channel_id'],
+                    float(indiv_amount), coin_name, "MATHTIP", coin_decimal, SERVER_BOT, contract,
+                    float(each_amount_in_usd), None
+                )
             # Change status
             change_status = await store.discord_mathtip_update(get_mathtip['message_id'], "COMPLETED")
             await original_message.edit(embed=embed, view=self)
@@ -144,7 +163,6 @@ class MathButton(disnake.ui.View):
 
 
 class MathTips(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
@@ -174,7 +192,8 @@ class MathTips(commands.Cog):
         if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
             'tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']
-            msg = f'{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`'
+            msg = f"{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. "\
+                "You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`"
             await ctx.edit_original_message(content=msg)
             return
 
@@ -188,18 +207,24 @@ class MathTips(commands.Cog):
         # Check if there is many airdrop/mathtip/triviatip
         try:
             count_ongoing = await store.discord_freetip_ongoing(str(ctx.author.id), "ONGOING")
-            if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != config.discord.ownerID:
-                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. Please wait for them to complete first!'
+            if count_ongoing >= self.max_ongoing_by_user and \
+                ctx.author.id != self.bot.config['discord']['owner_id']:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. "\
+                    f"Please wait for them to complete first!"
                 await ctx.edit_original_message(content=msg)
                 return
             count_ongoing = await store.discord_freetip_ongoing_guild(str(ctx.guild.id), "ONGOING")
             # Check max if set in guild
-            if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and ctx.author.id != config.discord.ownerID:
-                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
+            if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and\
+                 ctx.author.id != self.bot.config['discord']['owner_id']:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops"\
+                    f" or tips in this guild. Please wait for them to complete first!"
                 await ctx.edit_original_message(content=msg)
                 return
-            elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != config.discord.ownerID:
-                msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. Please wait for them to complete first!'
+            elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and\
+                 ctx.author.id != self.bot.config['discord']['owner_id']:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or"\
+                    f" tips in this guild. Please wait for them to complete first!"
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(f"[MATHTIP] server {str(ctx.guild.id)} has no data in discord_server.")
                 return
@@ -210,7 +235,13 @@ class MathTips(commands.Cog):
         try:
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-
+            try:
+                coin_emoji = ""
+                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -218,11 +249,13 @@ class MathTips(commands.Cog):
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.author.id), coin_name, net_name, type_coin,
-                                                                   SERVER_BOT, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(str(ctx.author.id), coin_name, net_name,
-                                                                      type_coin, SERVER_BOT, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
 
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -241,15 +274,18 @@ class MathTips(commands.Cog):
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
             all_amount = True
-            userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address,
-                                                                   type_coin, height, deposit_confirm_depth, SERVER_BOT)
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin, 
+                height, deposit_confirm_depth, SERVER_BOT
+            )
             amount = float(userdata_balance['adjust'])
         # If $ is in amount, let's convert to coin/token
         elif "$" in amount[-1] or "$" in amount[0]:  # last is $
             # Check if conversion is allowed for this coin.
             amount = amount.replace(",", "").replace("$", "")
             if usd_equivalent_enable == 0:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not "\
+                    f"enabled for this `{coin_name}`."
                 await ctx.edit_original_message(content=msg)
                 return
             else:
@@ -266,7 +302,8 @@ class MathTips(commands.Cog):
                 if per_unit and per_unit > 0:
                     amount = float(Decimal(amount) / Decimal(per_unit))
                 else:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\
+                        f"Try with different method."
                     await ctx.edit_original_message(content=msg)
                     return
         else:
@@ -279,8 +316,9 @@ class MathTips(commands.Cog):
         # end of check if amount is all
 
         # Check if tx in progress
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            msg = f'{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress.'
+        if str(ctx.author.id) in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -333,7 +371,8 @@ class MathTips(commands.Cog):
             duration_s = default_duration
             # Just info, continue
         elif duration_s < self.math_duration_min or duration_s > self.math_duration_max:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid duration. Please use between {str(self.math_duration_min)}s to {str(self.math_duration_max)}s.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid duration. "\
+                f"Please use between {str(self.math_duration_min)}s to {str(self.math_duration_max)}s."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -403,22 +442,27 @@ class MathTips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        userdata_balance = await store.sql_user_balance_single(str(ctx.author.id), coin_name, wallet_address, type_coin,
-                                                               height, deposit_confirm_depth, SERVER_BOT)
+        userdata_balance = await store.sql_user_balance_single(
+            str(ctx.author.id), coin_name, wallet_address, type_coin,
+            height, deposit_confirm_depth, SERVER_BOT
+        )
         actual_balance = float(userdata_balance['adjust'])
 
         if amount > max_tip or amount < min_tip:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Transactions cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger "\
+                f"than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
+                f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} Insufficient balance to do a math tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a math tip of "\
+                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
-        ## add to DB
-        if ctx.author.id not in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.append(ctx.author.id)
+        ## add to queue
+        if str(ctx.author.id) not in self.bot.tipping_in_progress:
+            self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
 
         equivalent_usd = ""
         total_in_usd = 0.0
@@ -440,9 +484,13 @@ class MathTips(commands.Cog):
 
         owner_displayname = "{}#{}".format(ctx.author.name, ctx.author.discriminator)
         embed = disnake.Embed(
-            title=f"🧮 Math Tip {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
+            title=f"🧮 Math Tip {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
             description=eval_string_original, timestamp=datetime.fromtimestamp(int(time.time()) + duration_s))
-        embed.add_field(name="Answering", value="None", inline=False)
+        embed.add_field(
+            name="Answering",
+            value="None",
+            inline=False
+        )
         embed.set_footer(text=f"Math tip by {owner_displayname}")
 
         answers = [str(result_float), str(wrong_answer_1), str(wrong_answer_2), str(wrong_answer_3)]
@@ -451,22 +499,29 @@ class MathTips(commands.Cog):
         try:
             view = MathButton(ctx, answers, index_answer, duration_s, self.bot.coin_list)
             view.message = await ctx.original_message()
-            insert_mathtip = await store.insert_discord_mathtip(coin_name, contract, str(ctx.author.id),
-                                                                owner_displayname, str(view.message.id),
-                                                                eval_string_original, result_float, wrong_answer_1,
-                                                                wrong_answer_2, wrong_answer_3, str(ctx.guild.id),
-                                                                str(ctx.channel.id), amount, total_in_usd,
-                                                                equivalent_usd, per_unit, coin_decimal,
-                                                                int(time.time()) + duration_s, net_name)
+            await store.insert_discord_mathtip(
+                coin_name, contract, str(ctx.author.id),
+                owner_displayname, str(view.message.id),
+                eval_string_original, result_float, wrong_answer_1,
+                wrong_answer_2, wrong_answer_3, str(ctx.guild.id),
+                str(ctx.channel.id), amount, total_in_usd,
+                equivalent_usd, per_unit, coin_decimal,
+                int(time.time()) + duration_s, net_name
+            )
             await ctx.edit_original_message(content=None, embed=embed, view=view)
+        except disnake.errors.Forbidden:
+            await ctx.edit_original_message(content="Missing permission! Or failed to send embed message.")
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        if ctx.author.id in self.bot.TX_IN_PROCESS:
-            self.bot.TX_IN_PROCESS.remove(ctx.author.id)
+        try:
+            del self.bot.tipping_in_progress[str(ctx.author.id)]
+        except Exception:
+            pass
 
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
+        dm_permission=False,
         usage='mathtip <amount> <token> <duration> <math expression>',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
@@ -486,6 +541,10 @@ class MathTips(commands.Cog):
     ):
         await self.async_mathtip(ctx, amount, token, duration, math_exp)
 
+    @mathtip.autocomplete("token")
+    async def mathtip_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
 def setup(bot):
     bot.add_cog(MathTips(bot))

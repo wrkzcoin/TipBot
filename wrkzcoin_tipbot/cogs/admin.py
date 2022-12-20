@@ -25,7 +25,6 @@ from Bot import num_format_coin, SERVER_BOT, logchanbot, encrypt_string, decrypt
 from aiomysql.cursors import DictCursor
 from attrdict import AttrDict
 from cogs.wallet import WalletAPI
-from config import config
 from disnake.ext import commands, tasks
 from eth_account import Account
 from httpx import AsyncClient, Timeout, Limits
@@ -57,19 +56,20 @@ class Admin(commands.Cog):
         self.pool_local_db_extra = None
         self.old_message_data_age = 60 * 24 * 3600  # max. 2 month
 
-
     async def openConnection_extra(self):
         if self.local_db_extra is None:
             await self.get_local_db_extra_auth()
         if self.local_db_extra is not None:
             try:
                 if self.pool_local_db_extra is None:
-                    self.pool_local_db_extra = await aiomysql.create_pool(host=self.local_db_extra['dbhost'], port=3306,
-                                                                          minsize=1, maxsize=2,
-                                                                          user=self.local_db_extra['dbuser'],
-                                                                          password=self.local_db_extra['dbpass'],
-                                                                          db=self.local_db_extra['dbname'],
-                                                                          cursorclass=DictCursor, autocommit=True)
+                    self.pool_local_db_extra = await aiomysql.create_pool(
+                        host=self.local_db_extra['dbhost'], port=3306,
+                        minsize=1, maxsize=2,
+                        user=self.local_db_extra['dbuser'],
+                        password=self.local_db_extra['dbpass'],
+                        db=self.local_db_extra['dbname'],
+                        cursorclass=DictCursor, autocommit=True
+                    )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
@@ -93,8 +93,8 @@ class Admin(commands.Cog):
             await self.openConnection_extra()
             async with self.pool_local_db_extra.acquire() as conn_extra:
                 async with conn_extra.cursor() as cur_extra:
-                    sql = """ SELECT * FROM `discord_messages` ORDER BY `id` DESC LIMIT """ + str(number_msg)
-                    await cur_extra.execute(sql, )
+                    sql = """ SELECT * FROM `discord_messages` ORDER BY `id` DESC LIMIT %s """
+                    await cur_extra.execute(sql, number_msg)
                     result = await cur_extra.fetchall()
                     if result and len(result) > 0:
                         # Insert to original DB and delete
@@ -108,7 +108,9 @@ class Admin(commands.Cog):
                         await store.openConnection()
                         async with store.pool.acquire() as conn:
                             async with conn.cursor() as cur:
-                                sql = """ INSERT INTO `discord_messages` (`id`, `serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, `message_author`, `message_id`, `message_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                                sql = """ INSERT INTO `discord_messages` (`id`, `serverid`, `server_name`, `channel_id`, 
+                                `channel_name`, `user_id`, `message_author`, `message_id`, `message_time`) 
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
                                 await cur.executemany(sql, data_rows)
                                 await conn.commit()
                                 inserted = cur.rowcount
@@ -133,8 +135,8 @@ class Admin(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_messages` ORDER BY `id` ASC LIMIT """ + str(number_msg)
-                    await cur.execute(sql, )
+                    sql = """ SELECT * FROM `discord_messages` ORDER BY `id` ASC LIMIT %s """
+                    await cur.execute(sql, number_msg)
                     result = await cur.fetchall()
                     if result and len(result) > 0:
                         # Insert to extra DB and delete
@@ -150,7 +152,9 @@ class Admin(commands.Cog):
                             await self.openConnection_extra()
                             async with self.pool_local_db_extra.acquire() as conn_extra:
                                 async with conn_extra.cursor() as cur_extra:
-                                    sql = """ INSERT INTO `discord_messages` (`id`, `serverid`, `server_name`, `channel_id`, `channel_name`, `user_id`, `message_author`, `message_id`, `message_time`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) 
+                                    sql = """ INSERT INTO `discord_messages` (`id`, `serverid`, `server_name`, `channel_id`, 
+                                    `channel_name`, `user_id`, `message_author`, `message_id`, `message_time`) 
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) 
                                     ON DUPLICATE KEY UPDATE 
                                     `message_time`=VALUES(`message_time`) """
                                     await cur_extra.executemany(sql, data_rows)
@@ -191,7 +195,6 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("admin " +str(traceback.format_exc()))
         return None
-
 
     async def user_balance_multi(self, query_list):
         sql_list = []
@@ -639,13 +642,14 @@ class Admin(commands.Cog):
             await logchanbot("admin " +str(traceback.format_exc()))
         return None
 
-
-    async def user_balance(self, user_id: str, coin: str, address: str, coin_family: str, top_block: int,
-                           confirmed_depth: int = 0, user_server: str = 'DISCORD'):
+    async def user_balance(
+        self, user_id: str, coin: str, address: str, coin_family: str, top_block: int,
+        confirmed_depth: int = 0, user_server: str = 'DISCORD'
+    ):
         # address: TRTL/BCN/XMR = paymentId
         token_name = coin.upper()
         user_server = user_server.upper()
-        if top_block is None:
+        if confirmed_depth == 0 or top_block is None:
             # If we can not get top block, confirm after 20mn. This is second not number of block
             nos_block = 20 * 60
         else:
@@ -836,7 +840,7 @@ class Admin(commands.Cog):
                             WHERE `address`=%s AND `coin_name`=%s AND `amount`>0 
                             AND `time_insert`< %s), 0))
                             """
-                            query_param += [address, token_name, nos_block]
+                            query_param += [address, token_name, int(time.time()) - nos_block]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(`amount`)  
@@ -927,7 +931,7 @@ class Admin(commands.Cog):
                                       AND `coin_name`=%s AND `amount`>0 
                                       AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
@@ -969,7 +973,7 @@ class Admin(commands.Cog):
                             WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
@@ -995,7 +999,7 @@ class Admin(commands.Cog):
                             WHERE `destination_tag`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address, token_name, nos_block, user_server]
+                            query_param += [address, token_name, int(time.time()) - nos_block, user_server]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
@@ -1021,7 +1025,7 @@ class Admin(commands.Cog):
                                       AND `coin_name`=%s AND `amount`>0 
                                       AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
@@ -1043,7 +1047,7 @@ class Admin(commands.Cog):
                             FROM `ada_get_transfers` WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address, "incoming", token_name, nos_block, user_server]
+                            query_param += [address, "incoming", token_name, int(time.time()) - nos_block, user_server]
 
                         else:
                             sql += """
@@ -1203,7 +1207,8 @@ class Admin(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE coin_settings SET `""" + what + """`=%s WHERE `coin_name`=%s AND `""" + what + """`<>%s LIMIT 1 """
+                    sql = """ UPDATE coin_settings SET `""" + what + """`=%s 
+                    WHERE `coin_name`=%s AND `""" + what + """`<>%s LIMIT 1 """
                     await cur.execute(sql, (toggle, coin_name, toggle))
                     await conn.commit()
                     return cur.rowcount
@@ -1232,8 +1237,6 @@ class Admin(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
-    @commands.is_owner()
     @commands.guild_only()
     @commands.slash_command(
         usage='say',
@@ -1247,11 +1250,18 @@ class Admin(commands.Cog):
         ctx,
         text: str
     ):
-        # let bot post some message (testing) etc.
-        await logchanbot(f"[TIPBOT SAY] {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator} asked to say ```{text}```")
-        await ctx.channel.send(text)
-        await ctx.response.send_message(f"Message sent!", ephemeral=True)
-
+        try:
+            if ctx.author.id != self.bot.config['discord']['owner']:
+                await ctx.response.send_message(f"You have no permission!", ephemeral=True)
+            else:
+                # let bot post some message (testing) etc.
+                await logchanbot(f"[TIPBOT SAY] {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator} asked to say:\n{text}")
+                await ctx.channel.send("{} asked:\{}".format(ctx.author.mention, text))
+                await ctx.response.send_message(f"Message sent!", ephemeral=True)
+        except disnake.errors.Forbidden:
+            await ctx.response.send_message(f"I have no permission to send text!", ephemeral=True)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
     @commands.dm_only()
@@ -1261,7 +1271,7 @@ class Admin(commands.Cog):
         description="Various admin commands."
     )
     async def admin(self, ctx):
-        if ctx.invoked_subcommand is None: await ctx.reply(f'{ctx.author.mention}, invalid admin command')
+        if ctx.invoked_subcommand is None: await ctx.reply(f"{ctx.author.mention}, invalid admin command")
         return
 
     @commands.is_owner()
@@ -1270,7 +1280,7 @@ class Admin(commands.Cog):
         await self.bot.wait_until_ready()
         game = disnake.Game(name=msg)
         await self.bot.change_presence(status=disnake.Status.online, activity=game)
-        msg = f'{ctx.author.mention}, changed status to: {msg}'
+        msg = f"{ctx.author.mention}, changed status to: {msg}"
         await ctx.reply(msg)
         return
 
@@ -1284,7 +1294,7 @@ class Admin(commands.Cog):
                     headers = {
                         'Content-Type': 'application/json'
                     }
-                    data_json = {"mnemonic_sentence": seeds, "passphrase": config.ada.default_passphrase,
+                    data_json = {"mnemonic_sentence": seeds, "passphrase": self.bot.config['ada']['default_passphrase'],
                                  "name": wallet_name, "address_pool_gap": number}
                     async with aiohttp.ClientSession() as session:
                         async with session.post(url, headers=headers, json=data_json, timeout=timeout) as response:
@@ -1298,7 +1308,7 @@ class Admin(commands.Cog):
                 return None
 
             if param is None:
-                msg = f'{ctx.author.mention}, this action requires <param> (number)!'
+                msg = f"{ctx.author.mention}, this action requires <param> (number)!"
                 await ctx.reply(msg)
                 return
             else:
@@ -1314,7 +1324,7 @@ class Admin(commands.Cog):
                                 await cur.execute(sql, (wallet_name))
                                 result = await cur.fetchone()
                                 if result:
-                                    msg = f'{ctx.author.mention}, wallet `{wallet_name}` already exist!'
+                                    msg = f"{ctx.author.mention}, wallet `{wallet_name}` already exist!"
                                     await ctx.reply(msg)
                                     return
                     except Exception:
@@ -1325,7 +1335,7 @@ class Admin(commands.Cog):
                     mnemo = Mnemonic("english")
                     words = str(mnemo.generate(strength=256))
                     seeds = words.split()
-                    create = await call_ada_wallet(config.ada.default_wallet_url + "v2/wallets", wallet_name, seeds,
+                    create = await call_ada_wallet(self.bot.config['ada']['default_wallet_url'] + "v2/wallets", wallet_name, seeds,
                                                    number, 300)
                     if create:
                         try:
@@ -1333,18 +1343,19 @@ class Admin(commands.Cog):
                             async with store.pool.acquire() as conn:
                                 async with conn.cursor() as cur:
                                     wallet_d = create['id']
-                                    sql = """ INSERT INTO `ada_wallets` (`wallet_rpc`, `passphrase`, `wallet_name`, `wallet_id`, `seed`) VALUES (%s, %s, %s, %s, %s) """
+                                    sql = """ INSERT INTO `ada_wallets` (`wallet_rpc`, `passphrase`, `wallet_name`, `wallet_id`, `seed`) 
+                                    VALUES (%s, %s, %s, %s, %s) """
                                     await cur.execute(sql, (
-                                        config.ada.default_wallet_url, encrypt_string(config.ada.default_passphrase),
+                                        self.bot.config['ada']['default_wallet_url'], encrypt_string(self.bot.config['ada']['default_passphrase']),
                                         wallet_name, wallet_d, encrypt_string(words)))
                                     await conn.commit()
-                                    msg = f'{ctx.author.mention}, wallet `{wallet_name}` created with number `{number}` and wallet ID: `{wallet_d}`.'
+                                    msg = f"{ctx.author.mention}, wallet `{wallet_name}` created with number `{number}` and wallet ID: `{wallet_d}`."
                                     await ctx.reply(msg)
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                    msg = f'{ctx.author.mention}, invalid <param> (wallet_name.number)!'
+                    msg = f"{ctx.author.mention}, invalid <param> (wallet_name.number)!"
                     await ctx.reply(msg)
                     return
         elif action == "MOVE" or action == "MV":  # no param, move from all deposit balance to withdraw
@@ -1452,9 +1463,8 @@ class Admin(commands.Cog):
                                                                                "quantity": each_asset['quantity']})
                                                 # async def estimate_fee_with_asset(url: str, to_address: str, assets, amount_atomic: int, timeout: int=90):
                                                 estimate_tx = await estimate_fee_with_asset(
-                                                    each_w['wallet_rpc'] + "v2/wallets/" + each_w[
-                                                        'wallet_id'] + "/payment-fees", withdraw_address, assets,
-                                                    amount, 10)
+                                                    each_w['wallet_rpc'] + "v2/wallets/" + each_w['wallet_id'] \
+                                                        + "/payment-fees", withdraw_address, assets, amount, 10)
                                                 if estimate_tx and "minimum_coins" in estimate_tx and "estimated_min" in estimate_tx:
                                                     sending_tx = await send_tx(
                                                         each_w['wallet_rpc'] + "v2/wallets/" + each_w[
@@ -1465,7 +1475,7 @@ class Admin(commands.Cog):
                                                     if "code" in sending_tx and "message" in sending_tx:
                                                         # send error
                                                         wallet_id = each_w['wallet_id']
-                                                        msg = f'{ctx.author.mention}, error with `{wallet_id}`\n````{str(sending_tx)}``'
+                                                        msg = f"{ctx.author.mention}, error with `{wallet_id}`\n````{str(sending_tx)}``"
                                                         await ctx.reply(msg)
                                                         print(msg)
                                                     elif "status" in sending_tx and sending_tx['status'] == "pending":
@@ -1473,23 +1483,23 @@ class Admin(commands.Cog):
                                                         # success
                                                         wallet_id = each_w['wallet_id']
                                                         tx_hash = sending_tx['id']
-                                                        msg = f'{ctx.author.mention}, successfully transfer `{wallet_id}` to `{withdraw_address}` via `{tx_hash}`.'
+                                                        msg = f"{ctx.author.mention}, successfully transfer `{wallet_id}` to `{withdraw_address}` via `{tx_hash}`."
                                                         await ctx.reply(msg)
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                             if has_deposit is False:
-                                msg = f'{ctx.author.mention}, there is no any wallet with balance sufficient to transfer.!'
+                                msg = f"{ctx.author.mention}, there is no any wallet with balance sufficient to transfer.!"
                                 await ctx.reply(msg)
                                 return
                         else:
-                            msg = f'{ctx.author.mention}, doesnot have any wallet in DB!'
+                            msg = f"{ctx.author.mention}, doesnot have any wallet in DB!"
                             await ctx.reply(msg)
                             return
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif action == "DELETE" or action == "DEL":  # param is name only
             if param is None:
-                msg = f'{ctx.author.mention}, required param `wallet_name`!'
+                msg = f"{ctx.author.mention}, required param `wallet_name`!"
                 await ctx.reply(msg)
                 return
 
@@ -1519,7 +1529,7 @@ class Admin(commands.Cog):
                         if result:
                             wallet_id = result['wallet_id']
                             delete = await call_ada_delete_wallet(
-                                config.ada.default_wallet_url + "v2/wallets/" + wallet_id, 300)
+                                self.bot.config['ada']['default_wallet_url'] + "v2/wallets/" + wallet_id, 300)
                             if delete is True:
                                 try:
                                     await store.openConnection()
@@ -1531,17 +1541,17 @@ class Admin(commands.Cog):
                                                       DELETE FROM `ada_wallets` WHERE `wallet_id`=%s LIMIT 1 """
                                             await cur.execute(sql, (wallet_id, wallet_id))
                                             await conn.commit()
-                                            msg = f'{ctx.author.mention}, sucessfully delete wallet `{wallet_name}` | `{wallet_id}`.'
+                                            msg = f"{ctx.author.mention}, sucessfully delete wallet `{wallet_name}` | `{wallet_id}`."
                                             await ctx.reply(msg)
                                             return
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
                             else:
-                                msg = f'{ctx.author.mention}, failed to delete `{wallet_name}` | `{wallet_id}` from wallet server!'
+                                msg = f"{ctx.author.mention}, failed to delete `{wallet_name}` | `{wallet_id}` from wallet server!"
                                 await ctx.reply(msg)
                                 return
                         else:
-                            msg = f'{ctx.author.mention}, wallet `{wallet_name}` not exist in database!'
+                            msg = f"{ctx.author.mention}, wallet `{wallet_name}` not exist in database!"
                             await ctx.reply(msg)
                             return
             except Exception:
@@ -1567,14 +1577,14 @@ class Admin(commands.Cog):
                             await ctx.author.send(file=data_file)
                             return
                         else:
-                            msg = f'{ctx.author.mention}, nothing in DB!'
+                            msg = f"{ctx.author.mention}, nothing in DB!"
                             await ctx.reply(msg)
                             return
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 return
         else:
-            msg = f'{ctx.author.mention}, action not exist!'
+            msg = f"{ctx.author.mention}, action not exist!"
             await ctx.reply(msg)
 
     @commands.is_owner()
@@ -1600,14 +1610,14 @@ class Admin(commands.Cog):
             _msg: disnake.Message = await _channel.fetch_message(int(msg_id))
             if _msg is not None:
                 if _msg.author != self.bot.user:
-                    msg = f'{ctx.author.mention}, that message `{msg_id}` was not belong to me.'
+                    msg = f"{ctx.author.mention}, that message `{msg_id}` was not belong to me."
                     await ctx.reply(msg)
                 else:
                     await _msg.edit(view=None)
-                    msg = f'{ctx.author.mention}, removed all view from `{msg_id}`.'
+                    msg = f"{ctx.author.mention}, removed all view from `{msg_id}`."
                     await ctx.reply(msg)
             else:
-                msg = f'{ctx.author.mention}, I can not find message `{msg_id}`.'
+                msg = f"{ctx.author.mention}, I can not find message `{msg_id}`."
                 await ctx.reply(msg)
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -1620,11 +1630,11 @@ class Admin(commands.Cog):
             if guild is not None:
                 await logchanbot(
                     f"[LEAVING] {ctx.author.name}#{ctx.author.discriminator} / {str(ctx.author.id)} commanding to leave guild `{guild.name} / {guild_id}`.")
-                msg = f'{ctx.author.mention}, OK leaving guild `{guild.name} / {guild_id}`.'
+                msg = f"{ctx.author.mention}, OK leaving guild `{guild.name} / {guild_id}`."
                 await ctx.reply(msg)
                 await guild.leave()
             else:
-                msg = f'{ctx.author.mention}, I can not find guild id `{guild_id}`.'
+                msg = f"{ctx.author.mention}, I can not find guild id `{guild_id}`."
                 await ctx.reply(msg)
             return
         except Exception:
@@ -1637,14 +1647,17 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
+            list_user_balances = []
+            list_user_balances.append("user id, server, balance, coin name")
             try:
                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                deposit_confirm_depth = 0 # including all pending
+                # getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                 height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
@@ -1654,7 +1667,8 @@ class Admin(commands.Cog):
                 list_guilds = [g.id for g in self.bot.guilds]
                 already_checked = []
                 if len(all_user_id) > 0:
-                    msg = f'{ctx.author.mention}, {EMOJI_INFORMATION} **{coin_name}** there are total {str(len(all_user_id))} user records. Wait a big while...'
+                    msg = f"{ctx.author.mention}, {EMOJI_INFORMATION} **{coin_name}** there are "\
+                        f"total {str(len(all_user_id))} user records. Wait a big while..."
                     await ctx.reply(msg)
                     sum_balance = 0.0
                     sum_user = 0
@@ -1666,11 +1680,11 @@ class Admin(commands.Cog):
                             continue
                         else:
                             already_checked.append(each_user_id['user_id'])
-                        get_deposit = await self.wallet_api.sql_get_userwallet(each_user_id['user_id'], coin_name,
-                                                                               net_name, type_coin,
-                                                                               each_user_id['user_server'],
-                                                                               each_user_id['chat_id'] if each_user_id[
-                                                                                   'chat_id'] else 0)
+                        get_deposit = await self.wallet_api.sql_get_userwallet(
+                            each_user_id['user_id'], coin_name, net_name, type_coin,
+                            each_user_id['user_server'], 
+                            each_user_id['chat_id'] if each_user_id['chat_id'] else 0
+                        )
                         if get_deposit is None:
                             continue
                         wallet_address = get_deposit['balance_wallet_address']
@@ -1678,12 +1692,27 @@ class Admin(commands.Cog):
                             wallet_address = get_deposit['paymentid']
                         elif type_coin in ["XRP"]:
                             wallet_address = get_deposit['destination_tag']
-                        userdata_balance = await self.user_balance(each_user_id['user_id'], coin_name, wallet_address,
-                                                                   type_coin, height, deposit_confirm_depth,
-                                                                   each_user_id['user_server'])
+                        userdata_balance = await self.user_balance(
+                            each_user_id['user_id'], coin_name, wallet_address,
+                            type_coin, height, deposit_confirm_depth,
+                            each_user_id['user_server']
+                        )
                         total_balance = userdata_balance['adjust']
-                        if total_balance < 0:
-                            negative_users.append(negative_users)
+                        member_name = "N/A"
+                        if each_user_id['user_id'].isdigit():
+                            member = self.bot.get_user(int(each_user_id['user_id']))
+                            if member is not None:
+                                member_name = "{}#{}".format(member.name, member.discriminator)
+                        if total_balance > 0:
+                            list_user_balances.append("{},{},{},{},{}".format(
+                                each_user_id['user_id'],
+                                member_name,
+                                each_user_id['user_server'],
+                                total_balance,
+                                coin_name
+                            ))
+                        elif total_balance < 0:
+                            negative_users.append(each_user_id['user_id'])
                         sum_balance += total_balance
                         sum_user += 1
                         try:
@@ -1718,7 +1747,9 @@ class Admin(commands.Cog):
                                             wallet_stat.append(
                                                 "name: {}, syncing: {}, height: {}, addr. used {:,.2f}{}".format(
                                                     each_w['wallet_name'], each_w['syncing'], each_w['height'],
-                                                    each_w['used_address'] / each_w['address_pool_gap'] * 100, "%"))
+                                                    each_w['used_address'] / each_w['address_pool_gap'] * 100, "%"
+                                                )
+                                            )
                                         wallet_stat_str = "\n".join(wallet_stat)
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -1727,22 +1758,31 @@ class Admin(commands.Cog):
                     msg_checkcoin += "Total balance: " + num_format_coin(sum_balance, coin_name, coin_decimal,
                                                                          False) + " " + coin_name + "\n"
                     msg_checkcoin += "Total user/guild not found (discord): " + str(sum_unfound_user) + "\n"
-                    msg_checkcoin += "Total balance not found (discord): " + num_format_coin(sum_unfound_balance,
-                                                                                             coin_name, coin_decimal,
-                                                                                             False) + " " + coin_name + "\n"
+                    msg_checkcoin += "Total balance not found (discord): " + num_format_coin(
+                        sum_unfound_balance, coin_name, coin_decimal, False
+                        ) + " " + coin_name + "\n"
                     if len(negative_users) > 0:
                         msg_checkcoin += "Negative balance: " + str(len(negative_users)) + "\n"
                         msg_checkcoin += "Negative users: " + ", ".join(negative_users)
                     msg_checkcoin += "Time token: {}s".format(duration)
                     msg_checkcoin += "```"
+                    # List balance sheet
+                    balance_sheet_file = disnake.File(
+                        BytesIO(("\n".join(list_user_balances)).encode()),
+                        filename=f"balance_sheet_{coin_name}_{str(int(time.time()))}.csv"
+                    )
                     if len(msg_checkcoin) > 1000:
-                        data_file = disnake.File(BytesIO(msg_checkcoin.encode()),
-                                                 filename=f"auditcoin_{coin_name}_{str(int(time.time()))}.txt")
-                        await ctx.reply(file=data_file)
+                        data_file = disnake.File(
+                            BytesIO(msg_checkcoin.encode()),
+                            filename=f"auditcoin_{coin_name}_{str(int(time.time()))}.txt"
+                        )
+                        reply_msg = await ctx.reply(file=data_file)
+                        await reply_msg.reply(file=balance_sheet_file)
                     else:
-                        await ctx.reply(msg_checkcoin)
+                        reply_msg = await ctx.reply(msg_checkcoin)
+                        await reply_msg.reply(file=balance_sheet_file)
                 else:
-                    msg = f'{ctx.author.mention}, {coin_name}: there is no users for this.'
+                    msg = f"{ctx.author.mention}, {coin_name}: there is no users for this."
                     await ctx.reply(msg)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -1760,19 +1800,22 @@ class Admin(commands.Cog):
             if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
                 coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
-                await ctx.reply(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
+                await ctx.reply(f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
                 return
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+            deposit_confirm_depth = 0
+            # deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            get_deposit = await self.wallet_api.sql_get_userwallet(member_id, coin_name, net_name, type_coin,
-                                                                   user_server, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                member_id, coin_name, net_name, type_coin, user_server, 0
+            )
             if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(member_id, coin_name, net_name, type_coin,
-                                                                      user_server, 0, 0)
+                get_deposit = await self.wallet_api.sql_register_user(
+                    member_id, coin_name, net_name, type_coin, user_server, 0, 0
+                )
             wallet_address = get_deposit['balance_wallet_address']
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                 wallet_address = get_deposit['paymentid']
@@ -1786,11 +1829,13 @@ class Admin(commands.Cog):
                     await self.utils.update_user_balance_call(member_id, type_coin)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                userdata_balance = await self.user_balance(member_id, coin_name, wallet_address, type_coin, height,
-                                                           deposit_confirm_depth, user_server)
+                userdata_balance = await self.user_balance(
+                    member_id, coin_name, wallet_address, type_coin, height, deposit_confirm_depth, user_server
+                )
                 total_balance = userdata_balance['adjust']
-                balance_str = "UserId: {}\n{}{} Details:\n{}".format(member_id, total_balance, coin_name,
-                                                                     json.dumps(userdata_balance))
+                balance_str = "UserId: {}\n{}{} Details:\n{}".format(
+                    member_id, total_balance, coin_name, json.dumps(userdata_balance)
+                )
                 await ctx.reply(balance_str)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -1798,7 +1843,9 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='credit <user> <amount> <coin> <server>', description='Credit a user')
+    @admin.command(
+        hidden=True, usage='credit <user> <amount> <coin> <server>', description='Credit a user'
+    )
     async def credit(self, ctx, member_id: str, amount: str, coin: str, user_server: str = "DISCORD"):
         user_server = user_server.upper()
         if user_server not in ["DISCORD", "TWITTER", "TELEGRAM", "REDDIT"]:
@@ -1815,7 +1862,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
 
@@ -1829,14 +1876,17 @@ class Admin(commands.Cog):
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
             if amount > max_tip or amount < min_tip:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, credit cannot be bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**.'
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, credit cannot be bigger than **"\
+                    f"{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**"\
+                    f" or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
                 await ctx.reply(msg)
                 return
 
-            get_deposit = await self.wallet_api.sql_get_userwallet(member_id, coin_name, net_name, type_coin,
-                                                                   user_server, 0)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                member_id, coin_name, net_name, type_coin, user_server, 0
+            )
             if get_deposit is None:
-                msg = f'{ctx.author.mention}, {member_id} not exist with server `{user_server}` in our DB.'
+                msg = f"{ctx.author.mention}, {member_id} not exist with server `{user_server}` in our DB."
                 await ctx.reply(msg)
                 return
             else:
@@ -1853,20 +1903,25 @@ class Admin(commands.Cog):
                             del self.bot.user_balance_cache[key_coin]
                     except Exception:
                         pass
-                    tip = await store.sql_user_balance_mv_single(creditor, member_id, "CREDIT+", "CREDIT+", amount,
-                                                                 coin_name, "CREDIT", coin_decimal, user_server,
-                                                                 contract, 0.0, None)
+                    tip = await store.sql_user_balance_mv_single(
+                        creditor, member_id, "CREDIT+", "CREDIT+", amount,
+                        coin_name, "CREDIT", coin_decimal, user_server,
+                        contract, 0.0, None
+                    )
                     if tip:
-                        msg = f"[CREDITING] to user {member_id} server {user_server} with amount : {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}"
+                        msg = f"[CREDITING] to user {member_id} server {user_server} with amount "\
+                            f": {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}"
                         await ctx.reply(msg)
                         await logchanbot(
-                            f"[CREDITING] {ctx.author.name}#{ctx.author.discriminator} / str(ctx.author.id) credit to user {member_id} server {user_server} with amount : {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}")
+                            f"[CREDITING] {ctx.author.name}#{ctx.author.discriminator} / {str(ctx.author.id)} "\
+                            f"credit to user {member_id} server {user_server} with amount : "\
+                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}"
+                        )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot("admin " +str(traceback.format_exc()))
         except Exception:
             traceback.print_exc(file=sys.stdout)
-
 
     @tasks.loop(seconds=60.0)
     async def auto_purge_old_message(self):
@@ -1885,54 +1940,53 @@ class Admin(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
 
-
     @commands.is_owner()
     @admin.command(hidden=True, usage='purge <item> <number>', description='Purge some items')
     async def purge(self, ctx, item: str, numbers: int = 100):
         item = item.upper()
         if item not in ["MESSAGE"]:
-            msg = f'{ctx.author.mention}, nothing to do. ITEM not exist!'
+            msg = f"{ctx.author.mention}, nothing to do. ITEM not exist!"
             await ctx.reply(msg)
             return
         elif item == "MESSAGE":
             # purgeg message
             if numbers <= 0 or numbers >= 10 ** 6:
-                msg = f'{ctx.author.mention}, nothing to do with <=0 or a million.'
+                msg = f"{ctx.author.mention}, nothing to do with <=0 or a million."
                 await ctx.reply(msg)
             else:
                 start = time.time()
                 purged_items = await self.purge_msg(numbers)
                 if purged_items >= 0:
-                    msg = f'{ctx.author.mention}, successfully purged `{item}` {str(purged_items)}. Time taken: {str(time.time() - start)}s..'
+                    msg = f"{ctx.author.mention}, successfully purged `{item}` {str(purged_items)}. "\
+                        f"Time taken: {str(time.time() - start)}s.."
                     await ctx.reply(msg)
                 else:
-                    msg = f'{ctx.author.mention}, internal error.'
+                    msg = f"{ctx.author.mention}, internal error."
                     await ctx.reply(msg)
-            return
 
     @commands.is_owner()
     @admin.command(hidden=True, usage='restore <item> <number>', description='Purge some items')
     async def restore(self, ctx, item: str, numbers: int = 100):
         item = item.upper()
         if item not in ["MESSAGE"]:
-            msg = f'{ctx.author.mention}, nothing to do. ITEM not exist!'
+            msg = f"{ctx.author.mention}, nothing to do. ITEM not exist!"
             await ctx.reply(msg)
             return
         elif item == "MESSAGE":
             # purgeg message
             if numbers <= 0 or numbers >= 10 ** 6:
-                msg = f'{ctx.author.mention}, nothing to do with <=0 or a million.'
+                msg = f"{ctx.author.mention}, nothing to do with <=0 or a million."
                 await ctx.reply(msg)
             else:
                 start = time.time()
                 purged_items = await self.restore_msg(numbers)
                 if purged_items >= 0:
-                    msg = f'{ctx.author.mention}, successfully restored `{item}` {str(purged_items)}. Time taken: {str(time.time() - start)}s..'
+                    msg = f"{ctx.author.mention}, successfully restored `{item}` {str(purged_items)}. "\
+                        f"Time taken: {str(time.time() - start)}s.."
                     await ctx.reply(msg)
                 else:
-                    msg = f'{ctx.author.mention}, internal error.'
+                    msg = f"{ctx.author.mention}, internal error."
                     await ctx.reply(msg)
-            return
 
     @commands.is_owner()
     @admin.command(hidden=True, usage='baluser <user>', description='Check user balances')
@@ -1950,7 +2004,7 @@ class Admin(commands.Cog):
             all_pages = []
             all_names = [each['coin_name'] for each in mytokens]
             total_coins = len(mytokens)
-            page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
+            page = disnake.Embed(title=f"[ BALANCE LIST {member_id} ]",
                                  color=disnake.Color.blue(),
                                  timestamp=datetime.now(), )
             page.add_field(name="Coin/Tokens: [{}]".format(len(all_names)),
@@ -1980,11 +2034,13 @@ class Admin(commands.Cog):
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                 self.wallet_api = WalletAPI(self.bot)
-                get_deposit = await self.wallet_api.sql_get_userwallet(member_id, coin_name, net_name, type_coin,
-                                                                       user_server, 0)
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    member_id, coin_name, net_name, type_coin, user_server, 0
+                )
                 if get_deposit is None:
-                    get_deposit = await self.wallet_api.sql_register_user(member_id, coin_name, net_name, type_coin,
-                                                                          user_server, 0, 0)
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        member_id, coin_name, net_name, type_coin, user_server, 0, 0
+                    )
 
                 wallet_address = get_deposit['balance_wallet_address']
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
@@ -2008,7 +2064,6 @@ class Admin(commands.Cog):
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-
                 try:
                     # Add update for future call
                     await self.utils.update_user_balance_call(member_id, type_coin)
@@ -2016,7 +2071,7 @@ class Admin(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
 
                 if num_coins == 0 or num_coins % per_page == 0:
-                    page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
+                    page = disnake.Embed(title=f"[ BALANCE LIST {member_id} ]",
                                          description="Thank you for using TipBot!",
                                          color=disnake.Color.blue(),
                                          timestamp=datetime.now(), )
@@ -2055,7 +2110,7 @@ class Admin(commands.Cog):
                 if num_coins > 0 and num_coins % per_page == 0:
                     all_pages.append(page)
                     if num_coins < total_coins - len(zero_tokens):
-                        page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
+                        page = disnake.Embed(title=f"[ BALANCE LIST {member_id} ]",
                                              description="Thank you for using TipBot!",
                                              color=disnake.Color.blue(),
                                              timestamp=datetime.now(), )
@@ -2074,13 +2129,13 @@ class Admin(commands.Cog):
                 total_all_balance_usd = "Having ~ {:,.4f}$".format(total_all_balance_usd)
             else:
                 total_all_balance_usd = "Thank you for using TipBot!"
-            page = disnake.Embed(title=f'[ BALANCE LIST {member_id} ]',
+            page = disnake.Embed(title=f"[ BALANCE LIST {member_id} ]",
                                  description=f"`{total_all_balance_usd}`",
                                  color=disnake.Color.blue(),
                                  timestamp=datetime.now(), )
             # Remove zero from all_names
             if has_none_balance is True:
-                msg = f'{member_id} does not have any balance.'
+                msg = f"{member_id} does not have any balance."
                 await ctx.reply(msg)
                 return
             else:
@@ -2106,17 +2161,12 @@ class Admin(commands.Cog):
     async def pending(self, ctx):
         ts = datetime.utcnow()
         embed = disnake.Embed(title='Pending Actions', timestamp=ts)
-        embed.add_field(name="Pending Tx", value=str(len(self.bot.TX_IN_PROCESS)), inline=True)
-        if len(self.bot.TX_IN_PROCESS) > 0:
-            string_ints = [str(num) for num in self.bot.TX_IN_PROCESS]
+        embed.add_field(name="Pending Tx", value=str(len(self.bot.tipping_in_progress)), inline=True)
+        if len(self.bot.tipping_in_progress) > 0:
+            string_ints = [str(num) for num in self.bot.tipping_in_progress]
             list_pending = '{' + ', '.join(string_ints) + '}'
             embed.add_field(name="List Pending By", value=list_pending, inline=True)
 
-        embed.add_field(name="GAME_INTERACTIVE", value=str(len(self.bot.GAME_INTERACTIVE_PROGRESS)), inline=True)
-        embed.add_field(name="GAME_INTERACTIVE_ECO", value=str(len(self.bot.GAME_INTERACTIVE_ECO)), inline=True)
-        embed.add_field(name="GAME_SLOT", value=str(len(self.bot.GAME_SLOT_IN_PROGRESS)), inline=True)
-        embed.add_field(name="GAME_DICE", value=str(len(self.bot.GAME_DICE_IN_PROGRESS)), inline=True)
-        embed.add_field(name="GAME_MAZE", value=str(len(self.bot.GAME_MAZE_IN_PROCESS)), inline=True)
         embed.set_footer(text=f"Pending requested by {ctx.author.name}#{ctx.author.discriminator}")
         try:
             await ctx.reply(embed=embed)
@@ -2132,7 +2182,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -2164,7 +2214,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -2196,7 +2246,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -2228,7 +2278,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -2260,7 +2310,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -2343,7 +2393,7 @@ class Admin(commands.Cog):
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.reply(msg)
             return
         else:
@@ -2368,43 +2418,6 @@ class Admin(commands.Cog):
                 self.bot.coin_name_list = coin_list_name
 
     @commands.is_owner()
-    @commands.command(hidden=True, usage='cleartx', description='Clear TX_IN_PROCESS')
-    async def cleartx(self, ctx):
-        if len(self.bot.TX_IN_PROCESS) == 0:
-            await ctx.reply(f'{ctx.author.mention} TX_IN_PROCESS, nothing in tx pending to clear.')
-        else:
-            try:
-                string_ints = [str(num) for num in self.bot.TX_IN_PROCESS]
-                list_pending = '{' + ', '.join(string_ints) + '}'
-                await ctx.reply(f'Clearing {str(len(self.bot.TX_IN_PROCESS))} {list_pending} in pending...')
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            self.bot.TX_IN_PROCESS = []
-        # GAME_INTERACTIVE_ECO
-        if len(self.bot.GAME_INTERACTIVE_ECO) == 0:
-            await ctx.reply(f'{ctx.author.mention}, GAME_INTERACTIVE_ECO nothing in tx pending to clear.')
-        else:
-            try:
-                string_ints = [str(num) for num in self.bot.GAME_INTERACTIVE_ECO]
-                list_pending = '{' + ', '.join(string_ints) + '}'
-                await ctx.reply(f'Clearing {str(len(self.bot.GAME_INTERACTIVE_ECO))} {list_pending} in pending...')
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            self.bot.GAME_INTERACTIVE_ECO = []
-        # GAME_INTERACTIVE_PROGRESS
-        if len(self.bot.GAME_INTERACTIVE_PROGRESS) == 0:
-            await ctx.reply(f'{ctx.author.mention}, GAME_INTERACTIVE_PROGRESS nothing in tx pending to clear.')
-        else:
-            try:
-                string_ints = [str(num) for num in self.bot.GAME_INTERACTIVE_PROGRESS]
-                list_pending = '{' + ', '.join(string_ints) + '}'
-                await ctx.reply(f'Clearing {str(len(self.bot.GAME_INTERACTIVE_PROGRESS))} {list_pending} in pending...')
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            self.bot.GAME_INTERACTIVE_PROGRESS = []
-        return
-
-    @commands.is_owner()
     @admin.command(
         usage="eval <expression>",
         description="Do some eval."
@@ -2415,7 +2428,7 @@ class Admin(commands.Cog):
         *,
         code
     ):
-        if config.discord.enable_eval != 1:
+        if self.bot.config['discord']['enable_eval'] != 1:
             return
 
         str_obj = io.StringIO()  # Retrieves a stream of data
@@ -2424,23 +2437,23 @@ class Admin(commands.Cog):
                 exec(code)
         except Exception as e:
             return await ctx.reply(f"```{e.__class__.__name__}: {e}```")
-        await ctx.reply(f'```{str_obj.getvalue()}```')
+        await ctx.reply(f"```{str_obj.getvalue()}```")
 
     @commands.is_owner()
     @admin.command(hidden=True, usage='create', description='Create an address')
     async def create(self, ctx, token: str):
         if token.upper() not in ["ERC-20", "TRC-20", "XTZ", "NEAR", "VET"]:
-            await ctx.reply(f'{ctx.author.mention}, only with ERC-20 and TRC-20.')
+            await ctx.reply(f"{ctx.author.mention}, only with ERC-20 and TRC-20.")
         elif token.upper() == "ERC-20":
             try:
                 w = await self.create_address_eth()
-                await ctx.reply(f'{ctx.author.mention}, ```{str(w)}```', view=RowButtonRowCloseAnyMessage())
+                await ctx.reply(f"{ctx.author.mention}, ```{str(w)}```", view=RowButtonRowCloseAnyMessage())
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif token.upper() == "TRC-20":
             try:
                 w = await self.create_address_trx()
-                await ctx.reply(f'{ctx.author.mention}, ```{str(w)}```', view=RowButtonRowCloseAnyMessage())
+                await ctx.reply(f"{ctx.author.mention}, ```{str(w)}```", view=RowButtonRowCloseAnyMessage())
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif token.upper() == "XTZ":
@@ -2448,7 +2461,7 @@ class Admin(commands.Cog):
                 mnemo = Mnemonic("english")
                 words = str(mnemo.generate(strength=128))
                 key = XtzKey.from_mnemonic(mnemonic=words, passphrase="", email="")
-                await ctx.reply(f'{ctx.author.mention}, ```Pub: {key.public_key_hash()}\nSeed: {words}\nKey: {key.secret_key()}```', view=RowButtonRowCloseAnyMessage())
+                await ctx.reply(f"{ctx.author.mention}, ```Pub: {key.public_key_hash()}\nSeed: {words}\nKey: {key.secret_key()}```", view=RowButtonRowCloseAnyMessage())
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif token.upper() == "NEAR":
@@ -2466,13 +2479,18 @@ class Admin(commands.Cog):
                 sender_signer = near_api.signer.Signer(address, sender_key_pair)
                 new_addr = sender_signer.public_key.hex()
                 if new_addr == address:
-                    await ctx.reply(f'{ctx.author.mention}, {address}:```Seed:{words}\nKey: {key_byte}```', view=RowButtonRowCloseAnyMessage())
+                    await ctx.reply(
+                        f"{ctx.author.mention}, {address}:```Seed:{words}\nKey: {key_byte}```",
+                        view=RowButtonRowCloseAnyMessage()
+                    )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif token.upper() == "VET":
             wallet = thor_wallet.newWallet()
-            await ctx.reply(f'{ctx.author.mention}, {wallet.address}:```key:{wallet.priv.hex()}```', view=RowButtonRowCloseAnyMessage())
-
+            await ctx.reply(
+                f"{ctx.author.mention}, {wallet.address}:```key:{wallet.priv.hex()}```",
+                view=RowButtonRowCloseAnyMessage()
+            )
 
     @commands.is_owner()
     @admin.command(
@@ -2502,14 +2520,20 @@ class Admin(commands.Cog):
         decrypt = decrypt_string(text)
         if decrypt: return await ctx.reply(f"```{decrypt}```", view=RowButtonRowCloseAnyMessage())
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.auto_purge_old_message.is_running():
+                self.auto_purge_old_message.start()
 
     async def cog_load(self):
-        await self.bot.wait_until_ready()
-        self.auto_purge_old_message.start()
+        if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.auto_purge_old_message.is_running():
+                self.auto_purge_old_message.start()
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
-        self.auto_purge_old_message.stop()
+        self.auto_purge_old_message.cancel()
 
 
 def setup(bot):

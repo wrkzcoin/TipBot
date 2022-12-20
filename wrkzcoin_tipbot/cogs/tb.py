@@ -898,23 +898,27 @@ class Tb(commands.Cog):
                 random_img_name = hex_dig + "_firework"
                 random_img_name_gif = self.bot.config['fun']['static_draw_path'] + random_img_name + ".gif"
                 firework_link = self.bot.config['fun']['static_draw_link'] + random_img_name + ".gif"
+                use_no_embed = True
                 # if hash exists
                 if os.path.exists(random_img_name_gif):
                     # send the made file, no need to create new
-                    try:
-                        e = disnake.Embed(timestamp=datetime.now())
-                        e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
-                        e.set_image(url=firework_link)
-                        e.set_footer(text=f"Firework requested by {ctx.author.name}#{ctx.author.discriminator}")
-                        await ctx.edit_original_message(content=None, embed=e)
-                        await self.sql_add_tbfun(
-                            str(ctx.author.id),
-                            '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'FIREWORK',
-                            SERVER_BOT
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
+                    if use_no_embed is True:
+                        await ctx.edit_original_message(content=firework_link)
+                    else:
+                        try:
+                            e = disnake.Embed(timestamp=datetime.now())
+                            e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
+                            e.set_image(url=firework_link)
+                            e.set_footer(text=f"Firework requested by {ctx.author.name}#{ctx.author.discriminator}")
+                            await ctx.edit_original_message(content=None, embed=e)
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                    await self.sql_add_tbfun(
+                        str(ctx.author.id),
+                        '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                        str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'FIREWORK',
+                        SERVER_BOT
+                    )
                     return
                 else:
                     img = Image.open(BytesIO(res_data)).convert("RGBA")
@@ -958,19 +962,22 @@ class Tb(commands.Cog):
                             del self.ttl_screen[key]
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                    try:
-                        e = disnake.Embed(timestamp=datetime.now())
-                        e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
-                        e.set_image(url=firework_link)
-                        e.set_footer(text=f"Firework requested by {ctx.author.name}#{ctx.author.discriminator}")
-                        await ctx.edit_original_message(content=None, embed=e)
-                        await self.sql_add_tbfun(
-                            str(ctx.author.id),
-                            '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                            str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'FIREWORK', SERVER_BOT
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
+                    if use_no_embed is True:
+                        await ctx.edit_original_message(content=firework_link)
+                    else:
+                        try:
+                            e = disnake.Embed(timestamp=datetime.now())
+                            e.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
+                            e.set_image(url=firework_link)
+                            e.set_footer(text=f"Firework requested by {ctx.author.name}#{ctx.author.discriminator}")
+                            await ctx.edit_original_message(content=None, embed=e)
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                    await self.sql_add_tbfun(
+                        str(ctx.author.id),
+                        '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                        str(ctx.channel.id), str(ctx.guild.id), ctx.guild.name, 'FIREWORK', SERVER_BOT
+                    )
             else:
                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error.'
                 await ctx.edit_original_message(content=msg)
@@ -1004,14 +1011,16 @@ class Tb(commands.Cog):
             list_items = items.split(",")
             if len(list_items) > max_items or len(list_items) < min_items:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_RED_NO} {ctx.author.mention}, list items max be between {str(min_items)} and {str(max_items)} separated by `,`"
+                    content=f"{EMOJI_RED_NO} {ctx.author.mention}, list items must be between "\
+                        f"{str(min_items)} and {str(max_items)} separated by `,`.\n"\
+                        "Example: `apple, banana, grape, nothing`"
                 )
                 return
             # check if valid
             is_valid = True
             invalid_item = ""
             for each in list_items:
-                each = each.replace(" ", "").replace("!", "").replace("?", "")
+                each = each.replace(" ", "").replace("!", "").replace("?", "").replace(".", "")
                 if not each.strip().isalnum() or len(each.strip()) == 0:
                     is_valid = False
                     invalid_item = each

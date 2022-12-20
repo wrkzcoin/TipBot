@@ -31,7 +31,7 @@ class CoinGecko(commands.Cog):
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:
-                        return [each['id'] for each in result]
+                        return [each['id'].lower() for each in result]
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("coingecko " + str(traceback.format_exc()))
@@ -62,7 +62,7 @@ class CoinGecko(commands.Cog):
                             if type(each_item) == str and each_item == "status":
                                 continue
                             try:
-                                if len(each_item['id']) > 0 and len(each_item['symbol']) > 0 and len(each_item['name']) > 0 and each_item['id'] not in existing_coinlist:
+                                if len(each_item['id']) > 0 and len(each_item['symbol']) > 0 and len(each_item['name']) > 0 and each_item['id'].lower() not in existing_coinlist:
                                     insert_list.append((each_item['id'], each_item['symbol'], each_item['name']))
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)

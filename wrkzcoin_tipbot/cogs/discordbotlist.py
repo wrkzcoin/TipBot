@@ -91,8 +91,9 @@ class DiscordBotList(commands.Cog):
                                     return web.Response(text="Thank you!")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
-                            insert_vote = await self.insert_bot_vote(user_vote, "discordbotlist", bot_id, type_vote,
-                                                                     voter)
+                            insert_vote = await self.insert_bot_vote(
+                                user_vote, "discordbotlist", bot_id, type_vote, voter
+                            )
                             if insert_vote:
                                 try:
                                     await log_to_channel(

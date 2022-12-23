@@ -1613,6 +1613,7 @@ class Guild(commands.Cog):
         coin_balance = {}
         coin_balance_usd = {}
         coin_balance_equivalent_usd = {}
+        coin_emojis = {}
         for each_token in mytokens:
             try:
                 coin_name = each_token['coin_name']
@@ -1651,6 +1652,13 @@ class Guild(commands.Cog):
                     usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                     coin_balance_usd[coin_name] = 0.0
                     coin_balance_equivalent_usd[coin_name] = ""
+                    coin_emojis[coin_name] = ""
+                    try:
+                        if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                            coin_emojis[coin_name] = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                            coin_emojis[coin_name] = coin_emojis[coin_name] + " " if coin_emojis[coin_name] else ""
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
                     if usd_equivalent_enable == 1:
                         native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
                         coin_name_for_price = coin_name
@@ -1700,7 +1708,7 @@ class Guild(commands.Cog):
                     if ctx.guild.icon:
                         page.set_thumbnail(url=str(ctx.guild.icon))
                     page.set_footer(text="Use the reactions to flip pages.")
-                page.add_field(name="{}{}".format(k, coin_balance_equivalent_usd[k]), value="{}".format(v), inline=True)
+                page.add_field(name="{}{}{}".format(coin_emojis[k], k, coin_balance_equivalent_usd[k]), value="{}".format(v), inline=True)
                 num_coins += 1
                 if num_coins > 0 and num_coins % per_page == 0:
                     all_pages.append(page)
@@ -2030,6 +2038,18 @@ class Guild(commands.Cog):
                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     if amount_in_usd > 0.0001:
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+
+            # Delete if has key
+            key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+            try:
+                if key in self.bot.user_balance_cache:
+                    del self.bot.user_balance_cache[key]
+                key = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
+                if key in self.bot.user_balance_cache:
+                    del self.bot.user_balance_cache[key]
+            except Exception:
+                pass
+            # End of del key
 
             # OK, move fund
             if str(ctx.author.id) in self.bot.tipping_in_progress:

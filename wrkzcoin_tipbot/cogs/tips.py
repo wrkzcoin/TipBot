@@ -1298,6 +1298,14 @@ class Tips(commands.Cog):
             title=f"FreeTip appears {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
             description=f"Click to collect", timestamp=datetime.fromtimestamp(int(time.time()) + duration_s))
         try:
+            # Delete if has key
+            key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+            try:
+                if key in self.bot.user_balance_cache:
+                    del self.bot.user_balance_cache[key]
+            except Exception:
+                pass
+            # End of del key
             if comment and len(comment) > 0:
                 embed.add_field(name="Comment", value=comment, inline=True)
             embed.add_field(name="Attendees", value="Click to collect!", inline=False)

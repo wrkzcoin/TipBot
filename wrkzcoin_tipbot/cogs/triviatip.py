@@ -433,6 +433,15 @@ class TriviaTips(commands.Cog):
                 if total_in_usd >= 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
 
+        # Delete if has key
+        key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+        try:
+            if key in self.bot.user_balance_cache:
+                del self.bot.user_balance_cache[key]
+        except Exception:
+            pass
+        # End of del key
+
         trivia_end = int(time.time()) + duration_s
         owner_displayname = "{}#{}".format(ctx.author.name, ctx.author.discriminator)
         embed = disnake.Embed(

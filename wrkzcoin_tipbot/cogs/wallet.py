@@ -8213,7 +8213,7 @@ class Wallet(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-    @tasks.loop(seconds=10.0)
+    @tasks.loop(seconds=30.0)
     async def update_balance_erc20(self):
         time_lap = 2  # seconds
         await self.bot.wait_until_ready()
@@ -8226,19 +8226,23 @@ class Wallet(commands.Cog):
         try:
             erc_contracts = await self.get_all_contracts("ERC-20", False)
             if len(erc_contracts) > 0:
+                tasks = []
                 for each_c in erc_contracts:
-                    try:
-                        await store.sql_check_minimum_deposit_erc20(
-                            self.bot.erc_node_list[each_c['net_name']],
-                            each_c['net_name'], each_c['coin_name'],
-                            each_c['contract'], each_c['decimal'],
-                            each_c['min_move_deposit'], each_c['min_gas_tx'],
-                            each_c['gas_ticker'], each_c['move_gas_amount'],
-                            each_c['chain_id'], each_c['real_deposit_fee'],
-                            each_c['erc20_approve_spend'], 7200
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
+                    tasks.append(store.sql_check_minimum_deposit_erc20(
+                        self.bot.erc_node_list[each_c['net_name']],
+                        each_c['net_name'], each_c['coin_name'],
+                        each_c['contract'], each_c['decimal'],
+                        each_c['min_move_deposit'], each_c['min_gas_tx'],
+                        each_c['gas_ticker'], each_c['move_gas_amount'],
+                        each_c['chain_id'], each_c['real_deposit_fee'],
+                        each_c['erc20_approve_spend'], 7200
+                    ))
+                completed = 0
+                for task in asyncio.as_completed(tasks):
+                    fetch_updates = await task
+                    if fetch_updates:
+                        completed += 1
+
             main_tokens = await self.get_all_contracts("ERC-20", True)
             if len(main_tokens) > 0:
                 tasks = []
@@ -8261,7 +8265,6 @@ class Wallet(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
-
 
     @tasks.loop(seconds=60.0)
     async def update_balance_xrp(self):
@@ -13087,6 +13090,18 @@ class Wallet(commands.Cog):
                     amount_after_fee = amount * (1 - check_list['fee_percent_from'] / 100)
                     fee_from = amount * check_list['fee_percent_from'] / 100
 
+                    # Delete if has key
+                    key_1 = str(ctx.author.id) + "_" + from_coin + "_" + SERVER_BOT
+                    key_2 = str(ctx.author.id) + "_" + to_coin + "_" + SERVER_BOT
+                    try:
+                        if key_1 in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_1]
+                        if key_2 in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_2]
+                    except Exception:
+                        pass
+                    # End of del key
+
                     # Deduct amount from
                     data_rows.append((
                         from_coin, contract_from, str(ctx.author.id), creditor, guild_id, channel_id,
@@ -13281,6 +13296,19 @@ class Wallet(commands.Cog):
 
                 if str(ctx.author.id) not in self.bot.tx_in_progress:
                     self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
+
+                    # Delete if has key
+                    key_1 = str(ctx.author.id) + "_" + from_coin + "_" + SERVER_BOT
+                    key_2 = str(ctx.author.id) + "_" + to_coin + "_" + SERVER_BOT
+                    try:
+                        if key_1 in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_1]
+                        if key_2 in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key_2]
+                    except Exception:
+                        pass
+                    # End of del key
+
                     try:
                         swap = await self.swap_coin(
                             str(ctx.author.id), from_coin, amount, contract, coin_decimal,
@@ -13864,9 +13892,11 @@ class Wallet(commands.Cog):
         # nano, banano
         self.update_balance_nano.cancel()
         self.notify_balance_nano.cancel()
+
         # TRTL-API
         self.notify_balance_bcn.cancel()
         self.update_balance_trtl_api.cancel()
+
         # TRTL-SERVICE
         self.update_balance_trtl_service.cancel()
         # XMR
@@ -13882,6 +13912,7 @@ class Wallet(commands.Cog):
         # CHIA
         self.notify_balance_chia.cancel()
         self.update_balance_chia.cancel()
+
         # ERC-20
         self.update_balance_erc20.cancel()
         self.unlocked_move_pending_erc20.cancel()

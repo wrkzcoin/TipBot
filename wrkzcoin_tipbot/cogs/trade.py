@@ -276,6 +276,16 @@ class Trade(commands.Cog):
                 sell_div_get, SERVER_BOT
             )
             if order_add:
+                try:
+                    key_coin = str(ctx.author.id) + "_" + sell_ticker+ "_" + SERVER_BOT
+                    if key_coin in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key_coin]
+                    key_coin = str(ctx.author.id) + "_" + buy_ticker + "_" + SERVER_BOT
+                    if key_coin in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key_coin]
+                except Exception:
+                    pass
+
                 buy_msg = "You can buy with `/market buy ref_number:{}`.".format(order_add)
                 additional_message = " You will sell {} {} and you can get {} {}.".format(
                     num_format_coin(buy_amount, buy_ticker, coin_decimal_buy, False), buy_ticker,

@@ -2437,7 +2437,6 @@ class WalletAPI(commands.Cog):
                     else:
                         print(f'Call {coin_name} returns {str(response.status)} with method {method_name}')
                         print(data)
-                        print(url)
         except (aiohttp.client_exceptions.ServerDisconnectedError, aiohttp.client_exceptions.ClientOSError):
             print("call_doge: got disconnected for coin: {}".format(coin_name))
         except asyncio.TimeoutError:
@@ -4384,12 +4383,12 @@ class Wallet(commands.Cog):
             "BWRKZ-WRKZ": 1,
             "WRKZ-XWRKZ": 1,
             "XWRKZ-WRKZ": 1,
+            "WRKZ-PWRKZ": 1,
+            "PWRKZ-WRKZ": 1,
             "DEGO-WDEGO": 0.001,
             "WDEGO-DEGO": 1000,
             "PGO-WPGO": 1,
-            "WPGO-PGO": 1,
-            "CDS-PCDS": 1,
-            "PCDS-CDS": 1
+            "WPGO-PGO": 1
         }
         # Donate
         self.donate_to = 386761001808166912  # pluton#8888
@@ -10407,10 +10406,24 @@ class Wallet(commands.Cog):
                 embed.add_field(name="Related Coins", value="```{}```".format(
                     getattr(getattr(self.bot.coin_list, coin_name), "related_coins")), inline=False)
 
-            if getattr(getattr(self.bot.coin_list, coin_name), "explorer_link") and len(
-                    getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")) > 0:
-                embed.add_field(name="Other links", value="[{}]({})".format("Explorer", getattr(
-                    getattr(self.bot.coin_list, coin_name), "explorer_link")), inline=False)
+            other_links = []
+            if getattr(getattr(self.bot.coin_list, coin_name), "explorer_link") and \
+                len(getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")) > 0:
+                other_links.append(
+                    "[{}]({})".format("Explorer Link", getattr(getattr(self.bot.coin_list, coin_name), "explorer_link"))
+                )
+            if getattr(getattr(self.bot.coin_list, coin_name), "id_cmc"):
+                other_links.append(
+                    "[{}]({})".format("CoinMarketCap", "https://coinmarketcap.com/currencies/" + getattr(getattr(self.bot.coin_list, coin_name), "id_cmc"))
+                )
+            if getattr(getattr(self.bot.coin_list, coin_name), "id_gecko"):
+                other_links.append(
+                    "[{}]({})".format("CoinGecko", "https://www.coingecko.com/en/coins/" + getattr(getattr(self.bot.coin_list, coin_name), "id_gecko"))
+                )
+            if getattr(getattr(self.bot.coin_list, coin_name), "id_paprika"):
+                other_links.append(
+                    "[{}]({})".format("Coinpaprika", "https://coinpaprika.com/coin/" + getattr(getattr(self.bot.coin_list, coin_name), "id_paprika"))
+                )
 
             if coin_name == "HNT":  # put memo and base64
                 try:
@@ -10436,6 +10449,8 @@ class Wallet(commands.Cog):
                     await ctx.edit_original_message(content=plain_address)
                     await ctx.followup.send(pointer_message, ephemeral=True)
                 else:
+                    if len(other_links) > 0:
+                        embed.add_field(name="Other links", value="{}".format(" | ".join(other_links)), inline=False)
                     await ctx.edit_original_message(embed=embed)
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 traceback.print_exc(file=sys.stdout)
@@ -10527,6 +10542,7 @@ class Wallet(commands.Cog):
                 timestamp=datetime.fromtimestamp(int(time.time()))
             )
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
+            coin_emoji = None
             try:
                 # height can be None
                 userdata_balance = await self.wallet_api.user_balance(
@@ -10559,19 +10575,45 @@ class Wallet(commands.Cog):
                         num_format_coin(total_balance, coin_name, coin_decimal, False), token_display),
                     inline=False
                 )
+                if getattr(getattr(self.bot.coin_list, coin_name), "related_coins"):
+                    embed.add_field(name="Related Coins", value="```{}```".format(
+                        getattr(getattr(self.bot.coin_list, coin_name), "related_coins")), inline=False)
+
+                other_links = []
+                if getattr(getattr(self.bot.coin_list, coin_name), "explorer_link") and \
+                    len(getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")) > 0:
+                    other_links.append(
+                        "[{}]({})".format("Explorer Link", getattr(getattr(self.bot.coin_list, coin_name), "explorer_link"))
+                    )
+                if getattr(getattr(self.bot.coin_list, coin_name), "id_cmc"):
+                    other_links.append(
+                        "[{}]({})".format("CoinMarketCap", "https://coinmarketcap.com/currencies/" + getattr(getattr(self.bot.coin_list, coin_name), "id_cmc"))
+                    )
+                if getattr(getattr(self.bot.coin_list, coin_name), "id_gecko"):
+                    other_links.append(
+                        "[{}]({})".format("CoinGecko", "https://www.coingecko.com/en/coins/" + getattr(getattr(self.bot.coin_list, coin_name), "id_gecko"))
+                    )
+                if getattr(getattr(self.bot.coin_list, coin_name), "id_paprika"):
+                    other_links.append(
+                        "[{}]({})".format("Coinpaprika", "https://coinpaprika.com/coin/" + getattr(getattr(self.bot.coin_list, coin_name), "id_paprika"))
+                    )
+                if len(other_links) > 0:
+                    embed.add_field(name="Other links", value="{}".format(" | ".join(other_links)), inline=False)
+
                 if getattr(getattr(self.bot.coin_list, coin_name), "deposit_note") and len(
                         getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")) > 0:
                     description = getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")
                     embed.set_footer(text=description)
-                    if coin_emoji:
-                        extension = ".png"
-                        if coin_emoji.startswith("<a:"):
-                            extension = ".gif"
-                        split_id = coin_emoji.split(":")[2]
-                        link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")) + extension
-                        embed.set_thumbnail(url=link)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+
+            if coin_emoji:
+                extension = ".png"
+                if coin_emoji.startswith("<a:"):
+                    extension = ".gif"
+                split_id = coin_emoji.split(":")[2]
+                link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")) + extension
+                embed.set_thumbnail(url=link)
 
             await ctx.edit_original_message(embed=embed)
             # Add update for future call
@@ -11023,7 +11065,7 @@ class Wallet(commands.Cog):
 
                 try:
                     key_withdraw = str(ctx.author.id) + "_" + coin_name
-                    if key_withdraw in self.withdraw_tx:
+                    if key_withdraw in self.withdraw_tx and ctx.author.id != self.bot.owner_id:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you recently executed a withdraw of "\
                             f"this coin/token **{coin_name}**. Waiting a few seconds more and re-try."
                         await ctx.edit_original_message(content=msg)
@@ -11111,7 +11153,6 @@ class Wallet(commands.Cog):
                                 f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to "\
                                 f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
                             await ctx.edit_original_message(content=msg)
-                            return
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                         try:
@@ -11123,6 +11164,7 @@ class Wallet(commands.Cog):
                             )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
+                        return
                     else:
                         msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                             f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`."
@@ -11168,7 +11210,6 @@ class Wallet(commands.Cog):
                                 f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
                             await ctx.edit_original_message(content=msg)
-                            return
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                         try:
@@ -11180,6 +11221,7 @@ class Wallet(commands.Cog):
                             )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
+                        return
                     else:
                         msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                             f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\

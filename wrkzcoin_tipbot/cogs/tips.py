@@ -1421,16 +1421,6 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        coin_emoji = ""
-        try:
-            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
-                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                coin_emoji = coin_emoji + " " if coin_emoji else ""
-            if len(coin_emoji) > 0:
-                await ctx.edit_original_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, executing /tipall with {coin_emoji}...")
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -1515,6 +1505,19 @@ class Tips(commands.Cog):
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid amount.'
             await ctx.edit_original_message(content=msg)
             return
+
+        coin_emoji = ""
+        try:
+            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                coin_emoji = coin_emoji + " " if coin_emoji else ""
+            if len(coin_emoji) > 0:
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, executing /tipall with {coin_emoji} "\
+                        f"amount {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}..."
+                )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
         notifying_list = await store.sql_get_tipnotify()
         userdata_balance = await store.sql_user_balance_single(

@@ -219,6 +219,7 @@ async def sql_changeinfo_by_server(
     server_id: str, what: str, value: str
 ):
     global pool
+    config = load_config()
     if what.lower() in config['mysql']['guild_field_list']:
         try:
             # print(f"ok try to change {what} to {value}")

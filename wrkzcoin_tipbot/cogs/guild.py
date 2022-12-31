@@ -2814,6 +2814,12 @@ class Guild(commands.Cog):
                 value="<#{}>".format(serverinfo['economy_channel']),
                 inline=True
             )
+        if serverinfo['mute_tip']:
+            embed.add_field(
+                name="Mute Tip",
+                value=serverinfo['mute_tip'],
+                inline=True
+            )
         if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_coin'] and serverinfo['vote_reward_channel']:
             embed.add_field(
                 name="Vote Reward {} {}".format(serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin']),
@@ -3424,6 +3430,47 @@ class Guild(commands.Cog):
                     )
                 msg = f"{ctx.author.mention} {coin_list} will be the only tip here in guild `{ctx.guild.name}`."
                 await ctx.edit_original_message(content=msg)
+
+    @commands.has_permissions(manage_channels=True)
+    @setting.sub_command(
+        name="mutetip",
+        usage="setting mutetip", 
+        description="Toggle ping people ON/OFF in your guild, when people tip"
+    )
+    async def setting_mutetip(
+        self, 
+        ctx,
+    ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
+        await ctx.response.send_message(msg)
+        await self.bot_log()
+        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        if serverinfo is None:
+            # Let's add some info if server return None
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                                                                
+        if serverinfo and serverinfo['mute_tip'] == "YES":
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'mute_tip', 'NO')
+            if self.enable_logchan:
+                await self.botLogChan.send(
+                    f"{ctx.author.name} / {ctx.author.id} enable PING (mention) "\
+                    f"in their guild {ctx.guild.name} / {ctx.guild.id}"
+                )
+            msg = f"{ctx.author.mention} enable PING (mention) when user(s) got tipped in their guild {ctx.guild.name}."
+            await ctx.edit_original_message(content=msg)
+        elif serverinfo and serverinfo['mute_tip'] == "NO":
+            await store.sql_changeinfo_by_server(str(ctx.guild.id), 'mute_tip', 'YES')
+            if self.enable_logchan:
+                await self.botLogChan.send(
+                    f"{ctx.author.name} / {ctx.author.id} disable PING (no mention) "\
+                    f"in their guild {ctx.guild.name} / {ctx.guild.id}"
+                )
+            msg = f"{ctx.author.mention} disable PING (no mention) when user(s) got tipped in this guild {ctx.guild.name}."
+            await ctx.edit_original_message(content=msg)
+        else:
+            msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
+            await ctx.edit_original_message(content=msg)
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(

@@ -187,7 +187,7 @@ class FreeTip_Button(disnake.ui.View):
                     get_freetip['guild_id'], get_freetip['channel_id'],
                     str(self.message.id)
                 )
-                # free tip shall always get DM. Ignore notifying_list
+                # free tip shall always get DM. Ignore notifying list
                 try:
                     if get_owner is not None:
                         await get_owner.send(
@@ -309,7 +309,7 @@ class FreeTip_Button(disnake.ui.View):
                             get_freetip['guild_id'], get_freetip['channel_id'],
                             str(self.message.id)
                         )
-                        # free tip shall always get DM. Ignore notifying_list
+                        # free tip shall always get DM. Ignore notifying list
                         try:
                             guild = self.bot.get_guild(int(get_freetip['guild_id']))
                             if get_owner is not None:
@@ -1014,7 +1014,7 @@ class Tips(commands.Cog):
             pass
 
         if tip:
-            # tipper shall always get DM. Ignore notifying_list
+            # tipper shall always get DM. Ignore notifying list
             try:
                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {rand_user.name}#{rand_user.discriminator} got your random tip of "\
                     f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** in server `{ctx.guild.name}`"
@@ -1387,7 +1387,9 @@ class Tips(commands.Cog):
     # End of FreeTip
 
     # TipAll
-    async def async_tipall(self, ctx, amount: str, token: str, user: str):
+    async def async_tipall(self, ctx, amount: str, token: str, ping: str, user: str):
+        mention_all = True if ping == "YES" else False
+        mute_tip = False
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing /tipall..."
         await ctx.response.send_message(msg)
 
@@ -1420,6 +1422,9 @@ class Tips(commands.Cog):
                 f"You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`"
             await ctx.edit_original_message(content=msg)
             return
+        if serverinfo and serverinfo['mute_tip'] == "YES":
+            mute_tip = True
+            mention_all = False
 
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -1673,12 +1678,17 @@ class Tips(commands.Cog):
             list_user_not_mention = []
             random.shuffle(listMembers)
 
+            extra_msg = NOTIFICATION_OFF_CMD
+            if mute_tip is True:
+                extra_msg = "*Guild owner mutes all mention.*"
             for member in listMembers:
                 if send_tipped_ping >= self.bot.config['discord']['maxTipAllMessage']:
                     total_found += 1
                 else:
                     if ctx.author.id != member.id and member.id != self.bot.user.id:
-                        if str(member.id) not in notifying_list:
+                        if mute_tip is True:
+                            list_user_not_mention.append("{}#{}".format(member.name, member.discriminator))
+                        elif mention_all is True and str(member.id) not in notifying_list:
                             list_user_mention.append("{}".format(member.mention))
                         else:
                             list_user_not_mention.append("{}#{}".format(member.name, member.discriminator))
@@ -1697,7 +1707,7 @@ class Tips(commands.Cog):
                             if len(mention_users) > 0:
                                 msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
                                     f"you got a tip of {coin_emoji}**{amountDiv_str} {token_display}** {equivalent_usd} from "\
-                                    f"{ctx.author.name}#{ctx.author.discriminator}\n{NOTIFICATION_OFF_CMD}"
+                                    f"{ctx.author.name}#{ctx.author.discriminator}\n{extra_msg}"
                                 await ctx.followup.send(msg)
                                 send_tipped_ping += 1
                         except Exception:
@@ -1719,12 +1729,12 @@ class Tips(commands.Cog):
                         remaining_str = " and other {} members".format(total_found - numb_mention)
                     msg = f"{EMOJI_MONEYFACE} {mention_users}{remaining_str}, "\
                         f"you got a tip of {coin_emoji}**{amountDiv_str} {token_display}** {equivalent_usd} from "\
-                        f"{ctx.author.name}#{ctx.author.discriminator}\n{NOTIFICATION_OFF_CMD}"
+                        f"{ctx.author.name}#{ctx.author.discriminator}\n{extra_msg}"
                     await ctx.followup.send(msg)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
-            # tipper shall always get DM. Ignore notifying_list
+            # tipper shall always get DM. Ignore notifying list
             try:
                 msg = f"{EMOJI_ARROW_RIGHTHOOK}, you tip {coin_emoji}{tipAmount} {token_display} to ({len(memids)}) members "\
                     f"in server `{ctx.guild.name}`.\nEach member got: {coin_emoji}**{amountDiv_str} {token_display}** "\
@@ -1741,13 +1751,16 @@ class Tips(commands.Cog):
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
             Option('token', 'token', OptionType.string, required=True),
+            Option('ping', 'mention or no mention', OptionType.string, required=False, choices=[
+                OptionChoice("YES", "YES"),
+                OptionChoice("NO", "NO")
+            ]),
             Option('user', 'user option (ONLINE or ALL)', OptionType.string, required=False, choices=[
                 OptionChoice("ONLINE", "ONLINE"),
                 OptionChoice("ONLINE EXCEPT FOR NO NOTIFICATION", "ONLINE_EXCEPT_NO_NOTIFICATION"),
                 OptionChoice("ALL EXCEPT FOR NO NOTIFICATION", "ALL_EXCEPT_NO_NOTIFICATION"),
                 OptionChoice("ALL", "ALL")
-            ]
-            )
+            ])
         ],
         description="Tip all online user"
     )
@@ -1756,10 +1769,11 @@ class Tips(commands.Cog):
         ctx,
         amount: str,
         token: str,
+        ping: str = "YES",
         user: str = "ONLINE"
     ):
         try:
-            await self.async_tipall(ctx, amount, token, user)
+            await self.async_tipall(ctx, amount, token, ping, user)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1770,9 +1784,11 @@ class Tips(commands.Cog):
     # End of TipAll
 
     # Tip Normal
-    async def async_tip(self, ctx, amount: str, token: str, args):
+    async def async_tip(self, ctx, amount: str, token: str, args, ping: str):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tip command...'
         await ctx.response.send_message(msg)
+        mention_all = True if ping == "YES" else False
+        mute_tip = False
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -1803,6 +1819,9 @@ class Tips(commands.Cog):
                 f"You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`"
             await ctx.edit_original_message(content=msg)
             return
+        if serverinfo and serverinfo['mute_tip'] == "YES":
+            mute_tip = True
+            mention_all = False
 
         # print("async_tip args: "+ str(args))
         if args == "@everyone":
@@ -1835,7 +1854,7 @@ class Tips(commands.Cog):
             list_member_ids = list(set(list_member_ids))
             if len(list_member_ids) > 0:
                 try:
-                    await self.multiple_tip(ctx, amount, coin_name, list_member_ids, False)
+                    await self.multiple_tip(ctx, amount, coin_name, list_member_ids, False, mention_all)
                 except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                     pass
                 except Exception:
@@ -1887,7 +1906,7 @@ class Tips(commands.Cog):
                                         await self.multiple_tip_talker(
                                             ctx, amount, coin_name,
                                             getattr(self.bot.coin_list, coin_name),
-                                            message_talker, False
+                                            message_talker, False, mention_all
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -1923,7 +1942,8 @@ class Tips(commands.Cog):
                                     # tip all user who are in the list
                                     try:
                                         await self.multiple_tip_talker(
-                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name), message_talker, False
+                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name),
+                                            message_talker, False, mention_all
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -1932,7 +1952,8 @@ class Tips(commands.Cog):
                                 else:
                                     try:
                                         await self.multiple_tip_talker(
-                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name), message_talker, False
+                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name),
+                                            message_talker, False, mention_all
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -1991,7 +2012,7 @@ class Tips(commands.Cog):
                                     try:
                                         await self.multiple_tip_talker(
                                             ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name), 
-                                            message_talker, False
+                                            message_talker, False, mention_all
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -2018,8 +2039,16 @@ class Tips(commands.Cog):
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
             Option('token', 'token', OptionType.string, required=True),
-            Option('args', '<@mention1> <@mention2> ... | <@role> ... | last 10u | last 10mn ', OptionType.string,
-                   required=True)
+            Option(
+                'args',
+                '<@mention1> <@mention2> ... | <@role> ... | last 10u | last 10mn ',
+                OptionType.string,
+                required=True
+            ),
+            Option('ping', 'mention or no mention', OptionType.string, required=False, choices=[
+                OptionChoice("YES", "YES"),
+                OptionChoice("NO", "NO")
+            ])
         ],
         description="Tip other people"
     )
@@ -2028,10 +2057,11 @@ class Tips(commands.Cog):
         ctx,
         amount: str,
         token: str,
-        args: str
+        args: str,
+        ping: str = "YES"
     ):
         try:
-            await self.async_tip(ctx, amount, token, args)
+            await self.async_tip(ctx, amount, token, args, ping)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -2045,6 +2075,8 @@ class Tips(commands.Cog):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing guild tip command...'
         await ctx.response.send_message(msg)
 
+        mute_tip = False
+        mention_all = True
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/guildtip", int(time.time())))
@@ -2073,6 +2105,10 @@ class Tips(commands.Cog):
                 f"You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`"
             await ctx.edit_original_message(content=msg)
             return
+
+        if serverinfo and serverinfo['mute_tip'] == "YES":
+            mute_tip = True
+            mention_all = False
 
         # print("async_tip args: "+ str(args))
         if args == "@everyone":
@@ -2155,7 +2191,8 @@ class Tips(commands.Cog):
                                     # tip all user who are in the list
                                     try:
                                         await self.multiple_tip_talker(
-                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name), message_talker, True
+                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name),
+                                            message_talker, True, mention_all
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -2194,7 +2231,7 @@ class Tips(commands.Cog):
                                     try:
                                         await self.multiple_tip_talker(
                                             ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name),
-                                            message_talker, True
+                                            message_talker, True, mention_all
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -2203,7 +2240,8 @@ class Tips(commands.Cog):
                                 else:
                                     try:
                                         await self.multiple_tip_talker(
-                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name), message_talker, True
+                                            ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name),
+                                            message_talker, True, mention_all
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -2261,7 +2299,7 @@ class Tips(commands.Cog):
                                         await self.multiple_tip_talker(
                                             ctx, amount, coin_name,
                                             getattr(self.bot.coin_list, coin_name),
-                                            message_talker, True
+                                            message_talker, True, mention_all
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -2331,6 +2369,7 @@ class Tips(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def async_ztip(self, ctx, amount_list_to):
+        mute_tip = False
         has_amount_error = False
         error_msg = None
         try:
@@ -2399,6 +2438,13 @@ class Tips(commands.Cog):
             sum_in_usd = 0.0
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             amount_token = amount_list_to.split(",")
+
+            try:
+                if serverinfo and serverinfo['mute_tip'] == "YES":
+                    mute_tip = True
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
             for each_token in amount_token:
                 if len(each_token) > 0:
                     split_amount_token = each_token.split()
@@ -2646,7 +2692,7 @@ class Tips(commands.Cog):
                     pass
                 if len(passed_tips) > 0:
                     list_mentions = []
-                    # tipper shall always get DM. Ignore notifying_list
+                    # tipper shall always get DM. Ignore notifying list
                     joined_tip_list = " / ".join(passed_tips)
                     each_tips_list = " / ".join(each_tips)
                     sum_in_usd_text = ""
@@ -2664,9 +2710,11 @@ class Tips(commands.Cog):
                                     each_user = self.bot.get_user(int(each_m))
                                 except Exception:
                                     continue
-                                if ctx.author.id != int(each_m) and each_m not in notifying_list:
+                                if mute_tip is False and ctx.author.id != int(each_m) and each_m not in notifying_list:
                                     incl_msg.append(each_user.mention)
                                     list_mentions.append(each_user)
+                                elif mute_tip is True and ctx.author.id != int(each_m) and each_m not in notifying_list:
+                                    incl_msg.append(each_user.mention)
                                 if ctx.author.id != int(each_m) and each_m in notifying_list:
                                     incl_msg.append("{}#{}".format(each_user.name, each_user.discriminator))
                             if len(incl_msg) > 0: incl_msg_str = ", ".join(incl_msg)
@@ -2684,7 +2732,10 @@ class Tips(commands.Cog):
                             pass
                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                         pass
-                    if len(list_mentions) >= 1:
+                    if 20 >= len(list_mentions) >= 1:
+                        extra_msg = NOTIFICATION_OFF_CMD
+                        if mute_tip is True:
+                            extra_msg = "*Guild owner mutes all mention.*"
                         tip_text = "a tip"
                         if len(each_tips) > 1:
                             tip_text = "tips"
@@ -2695,24 +2746,25 @@ class Tips(commands.Cog):
                                 try:
                                     msg = f"{EMOJI_MONEYFACE}, you got {tip_text} of **{each_tips_list}{sum_in_usd_text}** "\
                                         f"from {ctx.author.name}#{ctx.author.discriminator} in server "\
-                                        f"`{ctx.guild.name}`\n{NOTIFICATION_OFF_CMD}"
+                                        f"`{ctx.guild.name}`\n{extra_msg}"
                                     await member.send(msg)
                                 except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                     pass
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute z tip message...",
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute /z tip message...",
                 ephemeral=True
             )
 
     # Multiple tip
-    async def multiple_tip(self, ctx, amount, coin: str, listMembers, if_guild: bool = False):
+    async def multiple_tip(self, ctx, amount, coin: str, listMembers, if_guild: bool = False, ping: bool = True):
         coin_name = coin.upper()
         guild_name = '**{}**'.format(ctx.guild.name) if if_guild else ''
         tip_type_text = 'guild tip' if if_guild else 'tip'
         guild_or_tip = 'GUILDTIP' if if_guild else 'TIPS'
         id_tipper = str(ctx.guild.id) if if_guild else str(ctx.author.id)
+        mute_tip = False
 
         coin_emoji = ""
         try:
@@ -2877,6 +2929,8 @@ class Tips(commands.Cog):
         max_allowed = 400
         try:
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo and serverinfo['mute_tip'] == "YES":
+                mute_tip = True
             if len(memids) > max_allowed:
                 # Check if premium guild
                 if serverinfo and serverinfo['is_premium'] == 0:
@@ -2931,7 +2985,7 @@ class Tips(commands.Cog):
             pass
 
         if tips:
-            # tipper shall always get DM. Ignore notifying_list
+            # tipper shall always get DM. Ignore notifying list
             try:
                 if len(memids) > 20:
                     msg = f"{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {coin_emoji}**{tipAmount} {token_display}** {total_equivalent_usd} "\
@@ -2941,9 +2995,11 @@ class Tips(commands.Cog):
                     incl_msg = []
                     incl_msg_str = ""
                     for each_m in list_mentions:
-                        if ctx.author.id != member.id and str(member.id) not in notifying_list:
+                        if mute_tip is True:
+                            incl_msg.append("{}#{}".format(each_m.name, each_m.discriminator))
+                        elif ping is True and ctx.author.id != member.id and str(member.id) not in notifying_list:
                             incl_msg.append(each_m.mention)
-                        if ctx.author.id != member.id and str(member.id) in notifying_list:
+                        else:
                             incl_msg.append("{}#{}".format(each_m.name, each_m.discriminator))
                     if len(incl_msg) > 0: incl_msg_str = ", ".join(incl_msg)
                     msg = f"{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {coin_emoji}**{tipAmount} {token_display}** "\
@@ -2960,22 +3016,25 @@ class Tips(commands.Cog):
                     pass
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 pass
-            if len(list_mentions) >= 1:
+            if 20 >= len(list_mentions) >= 1 and ping is True and mute_tip is False:
+                extra_msg = NOTIFICATION_OFF_CMD
+                if mute_tip is True:
+                    extra_msg = "*Guild owner mutes all mention.*"
                 for member in list_mentions:
                     # print(member.name) # you'll just print out Member objects your way.
-                    if ctx.author.id != member.id and member.id != self.bot.user.id and member.bot == False and str(
-                            member.id) not in notifying_list:
+                    if ping is True and ctx.author.id != member.id and member.id != self.bot.user.id and \
+                        member.bot == False and str(member.id) not in notifying_list:
                         try:
                             msg = f"{EMOJI_MONEYFACE}, you got a {tip_type_text} of {coin_emoji}**{amountDiv_str} {token_display}** "\
                                 f"{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in server "\
-                                f"`{ctx.guild.name}`\n{NOTIFICATION_OFF_CMD}"
+                                f"`{ctx.guild.name}`\n{extra_msg}"
                             await member.send(msg)
                         except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                             pass
 
     # Multiple tip
     async def multiple_tip_talker(
-        self, ctx, amount: str, coin: str, coin_dict, list_talker, if_guild: bool = False
+        self, ctx, amount: str, coin: str, coin_dict, list_talker, if_guild: bool = False, ping: bool = True
     ):
         guild_or_tip = 'GUILDTIP' if if_guild else 'TIPS'
         guild_name = '**{}**'.format(ctx.guild.name) if if_guild else ''
@@ -3235,7 +3294,7 @@ class Tips(commands.Cog):
             pass
 
         if tiptalk:
-            # tipper shall always get DM. Ignore notifying_list
+            # tipper shall always get DM. Ignore notifying list
             try:
                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {coin_emoji}**{num_format_coin(total_amount, coin_name, coin_decimal, False)}"\
                     f" {token_display}** {total_equivalent_usd} was sent to ({len(list_receivers)}) members in "\
@@ -3258,6 +3317,11 @@ class Tips(commands.Cog):
             list_user_mention = []
             list_user_not_mention = []
             random.shuffle(list_receivers)
+
+            extra_msg = NOTIFICATION_OFF_CMD
+            if ping is False:
+                extra_msg = "*PING is disable within command or mention is disable by Guild.*"
+
             for member_id in list_receivers:
                 member = self.bot.get_user(int(member_id))
                 if not member:
@@ -3267,7 +3331,7 @@ class Tips(commands.Cog):
                     total_found += 1
                 else:
                     if ctx.author.id != member.id and member.id != self.bot.user.id:
-                        if str(member.id) not in notifying_list:
+                        if ping is True and str(member.id) not in notifying_list:
                             list_user_mention.append("{}".format(member.mention))
                         else:
                             list_user_not_mention.append("{}#{}".format(member.name, member.discriminator))
@@ -3287,7 +3351,7 @@ class Tips(commands.Cog):
                                 msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
                                     f"you got a {tip_type_text} of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)}"\
                                     f" {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
-                                    f"\n{NOTIFICATION_OFF_CMD}"
+                                    f"\n{extra_msg}"
                                 await ctx.followup.send(msg)
                                 send_tipped_ping += 1
                         except Exception:
@@ -3309,7 +3373,7 @@ class Tips(commands.Cog):
                         remaining_str = " and other {} members".format(total_found - numb_mention)
                     msg = f"{EMOJI_MONEYFACE} {mention_users}{remaining_str}, "\
                         f"you got a {tip_type_text} of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** "\
-                        f"{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}\n{NOTIFICATION_OFF_CMD}"
+                        f"{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}\n{extra_msg}"
                     await ctx.followup.send(msg)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -3324,12 +3388,26 @@ class Tips(commands.Cog):
     async def cmd_message_tip(self, ctx, amount: str, ticker: str, *, users):
         try:
             coin_name = ticker.upper()
+            mute_tip = False
             if not hasattr(self.bot.coin_list, coin_name):
                 msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
                 await ctx.reply(content=msg)
                 return
 
             async with ctx.typing():
+                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
+                    'tiponly'].split(","):
+                    allowed_coins = serverinfo['tiponly']
+                    msg = f"{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. "\
+                        f"You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`"
+                    await ctx.reply(content=msg)
+                    return
+                extra_msg = NOTIFICATION_OFF_CMD
+                if serverinfo and serverinfo['mute_tip'] == "YES":
+                    mute_tip = True
+                    extra_msg = "*Guild owner mutes all mention.*"
+
                 coin_emoji = ""
                 try:
                     if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
@@ -3631,7 +3709,7 @@ class Tips(commands.Cog):
                                 msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
                                     f"you got a tip of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)}"\
                                     f" {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
-                                    f"\n{NOTIFICATION_OFF_CMD}"
+                                    f"\n{extra_msg}"
                                 await ctx.reply(msg)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -3656,7 +3734,9 @@ class Tips(commands.Cog):
                                     total_found += 1
                                 else:
                                     if ctx.author.id != member.id and member.id != self.bot.user.id:
-                                        if str(member.id) not in notifying_list:
+                                        if mute_tip is True:
+                                            list_user_not_mention.append("{}#{}".format(member.name, member.discriminator))
+                                        elif str(member.id) not in notifying_list:
                                             list_user_mention.append("{}".format(member.mention))
                                         else:
                                             list_user_not_mention.append("{}#{}".format(member.name, member.discriminator))
@@ -3676,7 +3756,7 @@ class Tips(commands.Cog):
                                                 msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
                                                     f"you got a tip of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)}"\
                                                     f" {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
-                                                    f"\n{NOTIFICATION_OFF_CMD}"
+                                                    f"\n{extra_msg}"
                                                 await ctx.reply(msg)
                                                 send_tipped_ping += 1
                                         except Exception:
@@ -3698,7 +3778,7 @@ class Tips(commands.Cog):
                                         remaining_str = " and other {} members".format(total_found - numb_mention)
                                     msg = f"{EMOJI_MONEYFACE} {mention_users}{remaining_str}, "\
                                         f"you got a tip of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**"\
-                                        f" {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}\n{NOTIFICATION_OFF_CMD}"
+                                        f" {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}\n{extra_msg}"
                                     await ctx.reply(msg)
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)

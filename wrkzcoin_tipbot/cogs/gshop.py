@@ -808,7 +808,7 @@ class GShop(commands.Cog):
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        item_id = role_name.name + "/" + token + "/" + duration + "/" + str(stocks)
+        item_id = role_name.name + "/" + token + "/" + duration + "/" + str(amount) + "-" + coin_name
         item_id = item_id.lower()
         check_exist = await self.check_exist_role_item_id(item_id, str(ctx.guild.id))
         if check_exist is True:

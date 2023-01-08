@@ -28,7 +28,7 @@ class BotBalance(commands.Cog):
 
     async def bot_bal(self, ctx, member, token: str):
         if member.bot is False:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Only for bot!!"
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Only for bot! Use `/balance ticker` or `/balance` to check yours."
             await ctx.response.send_message(msg)
             return
 

@@ -100,8 +100,29 @@ class Coininfo(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         response_text += "```"
-        await ctx.edit_original_message(content=response_text)
 
+        other_links = []
+        if getattr(getattr(self.bot.coin_list, coin_name), "explorer_link") and \
+            len(getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")) > 0:
+            other_links.append(
+                "[{}]({})".format("Explorer Link", "<" + getattr(getattr(self.bot.coin_list, coin_name), "explorer_link") + ">")
+            )
+        if getattr(getattr(self.bot.coin_list, coin_name), "id_cmc"):
+            other_links.append(
+                "[{}]({})".format("CoinMarketCap", "<https://coinmarketcap.com/currencies/" + getattr(getattr(self.bot.coin_list, coin_name), "id_cmc") + ">")
+            )
+        if getattr(getattr(self.bot.coin_list, coin_name), "id_gecko"):
+            other_links.append(
+                "[{}]({})".format("CoinGecko", "<https://www.coingecko.com/en/coins/" + getattr(getattr(self.bot.coin_list, coin_name), "id_gecko") + ">")
+            )
+        if getattr(getattr(self.bot.coin_list, coin_name), "id_paprika"):
+            other_links.append(
+                "[{}]({})".format("Coinpaprika", "<https://coinpaprika.com/coin/" + getattr(getattr(self.bot.coin_list, coin_name), "id_paprika") + ">")
+            )
+
+        if len(other_links) > 0:
+            response_text += "{}".format(" | ".join(other_links))
+        await ctx.edit_original_message(content=response_text)
 
     @commands.slash_command(
         usage="coininfo <coin>",

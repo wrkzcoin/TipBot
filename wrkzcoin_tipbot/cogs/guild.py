@@ -1532,17 +1532,20 @@ class Guild(commands.Cog):
                                     await ctx.edit_original_message(content=msg)
                                     return
 
-                                await self.raffle_insert_new_entry(
+                                inserting = await self.raffle_insert_new_entry(
                                     get_raffle['id'], str(ctx.guild.id), get_raffle['amount'], get_raffle['decimal'],
                                     get_raffle['coin_name'], str(ctx.author.id),
                                     '{}#{}'.format(ctx.author.name, ctx.author.discriminator), SERVER_BOT
                                 )
-                                note_entry = num_format_coin(
-                                    get_raffle['amount'], get_raffle['coin_name'], get_raffle['decimal'], False) \
-                                        + " " + get_raffle['coin_name'] + " is deducted from your balance."
-                                msg = f"{ctx.author.mention}, successfully registered your Entry for raffle "\
-                                    f"#**{raffle_id}** in {ctx.guild.name}! {note_entry}"
-                                await ctx.edit_original_message(content=msg)
+                                if inserting is True:
+                                    note_entry = num_format_coin(
+                                        get_raffle['amount'], get_raffle['coin_name'], get_raffle['decimal'], False) \
+                                            + " " + get_raffle['coin_name'] + " is deducted from your balance."
+                                    msg = f"{ctx.author.mention}, successfully registered your Entry for raffle "\
+                                        f"#**{raffle_id}** in {ctx.guild.name}! {note_entry}"
+                                    await ctx.edit_original_message(content=msg)
+                                else:
+                                    await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, internal error. Please report!")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             ## remove QUEUE: reply

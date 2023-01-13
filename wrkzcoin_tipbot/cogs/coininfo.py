@@ -119,6 +119,10 @@ class Coininfo(commands.Cog):
             other_links.append(
                 "[{}]({})".format("Coinpaprika", "<https://coinpaprika.com/coin/" + getattr(getattr(self.bot.coin_list, coin_name), "id_paprika") + ">")
             )
+        if getattr(getattr(self.bot.coin_list, coin_name), "repo_link"):
+            other_links.append(
+                "[{}]({})".format("Repo", "<" + getattr(getattr(self.bot.coin_list, coin_name), "repo_link") + ">")
+            )
 
         if len(other_links) > 0:
             response_text += "{}".format(" | ".join(other_links))

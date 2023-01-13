@@ -81,6 +81,8 @@ from thor_requests.connect import Connect as thor_connect
 from thor_requests.wallet import Wallet as thor_wallet
 from thor_requests.contract import Contract as thor_contract
 
+from cosmospy import Transaction as Cosmos_Transaction
+
 import cn_addressvalidation
 
 import store
@@ -122,6 +124,8 @@ async def address_pre_validation_check(
             traceback.print_exc(file=sys.stdout)
     elif type_coin == "XLM":
         pass
+    elif type_coin == "COSMOS":
+        pass
     elif type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
         pass
     elif type_coin == "BTC":
@@ -151,6 +155,48 @@ async def address_pre_validation_check(
     elif type_coin == "VITE":
         pass
     return False
+
+async def cosmos_get_height(url: str, timeout: int=16):
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                headers={'Content-Type': 'application/json'},
+                timeout=timeout
+            ) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data is not None:
+                        return int(decoded_data['result']['block']['header']['height'])
+    except asyncio.TimeoutError:
+        print('TIMEOUT: cosmos_get_height {} for {}s'.format(url, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def cosmos_get_seq(url: str, address: str, timeout: int=16):
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url + address,
+                headers={'Content-Type': 'application/json'},
+                timeout=timeout
+            ) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data is not None:
+                        return decoded_data
+    except asyncio.TimeoutError:
+        print('TIMEOUT: get_cosmos_seq {} for {}s'.format(url, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
 
 async def near_get_status(url: str, timeout: int=16):
     try:
@@ -1468,6 +1514,33 @@ class WalletAPI(commands.Cog):
                             AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                             """
                             query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                    elif coin_family == "COSMOS":
+                        sql += """
+                        - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
+                        FROM `cosmos_external_tx` 
+                        WHERE `user_id`=%s AND `coin_name`=%s 
+                        AND `user_server`=%s AND `crediting`=%s AND `is_failed`=0), 0))
+                        """
+                        query_param += [user_id, token_name, user_server, "YES"]
+                        
+                        address_memo = address.split()
+                        if top_block is None:
+                            sql += """
+                            + (SELECT IFNULL((SELECT SUM(amount)  
+                                      FROM `cosmos_get_transfers` 
+                                      WHERE `address`=%s AND `memo`=%s 
+                                      AND `coin_name`=%s AND `amount`>0 
+                                      AND `time_insert`< %s AND `user_server`=%s), 0))
+                            """
+                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
+                        else:
+                            sql += """
+                            + (SELECT IFNULL((SELECT SUM(amount)  
+                            FROM `cosmos_get_transfers` 
+                            WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
+                            AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
+                            """
+                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
                     elif coin_family == "ADA":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -1769,6 +1842,15 @@ class WalletAPI(commands.Cog):
                 balance_address['balance_wallet_address'] = "{} MEMO: {}".format(main_address, memo)
                 balance_address['address'] = main_address
                 balance_address['memo'] = memo
+            elif type_coin.upper() == "COSMOS":
+                # generate random memo
+                from string import ascii_uppercase
+                main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+                memo = ''.join(random.choice(ascii_uppercase) for i in range(8))
+                balance_address = {}
+                balance_address['balance_wallet_address'] = "{} MEMO: {}".format(main_address, memo)
+                balance_address['address'] = main_address
+                balance_address['memo'] = memo
             elif type_coin.upper() == "ADA":
                 # get address pool
                 address_pools = await store.ada_get_address_pools(50)
@@ -1956,6 +2038,17 @@ class WalletAPI(commands.Cog):
                             return balance_address
                         elif type_coin.upper() == "XLM":
                             sql = """ INSERT INTO `xlm_user` (`coin_name`, `user_id`, `main_address`, 
+                                `balance_wallet_address`, `memo`, `address_ts`, `user_server`, `chat_id`, `is_discord_guild`) 
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                """
+                            await cur.execute(sql, (
+                                coin_name, str(user_id), main_address, balance_address['balance_wallet_address'], memo,
+                                int(time.time()), user_server, chat_id, is_discord_guild
+                            ))
+                            await conn.commit()
+                            return balance_address
+                        elif type_coin.upper() == "COSMOS":
+                            sql = """ INSERT INTO `cosmos_user` (`coin_name`, `user_id`, `main_address`, 
                                 `balance_wallet_address`, `memo`, `address_ts`, `user_server`, `chat_id`, `is_discord_guild`) 
                                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                                 """
@@ -2166,6 +2259,14 @@ class WalletAPI(commands.Cog):
                             AND `user_server`=%s LIMIT 1
                             """
                         await cur.execute(sql, (str(user_id), user_server))
+                        result = await cur.fetchone()
+                        if result:
+                            return result
+                    elif type_coin.upper() == "COSMOS":
+                        sql = """ SELECT * FROM `cosmos_user` WHERE `user_id`=%s 
+                            AND `user_server`=%s AND `coin_name`=%s LIMIT 1
+                            """
+                        await cur.execute(sql, (str(user_id), user_server, coin_name))
                         result = await cur.fetchone()
                         if result:
                             return result
@@ -3140,6 +3241,95 @@ class WalletAPI(commands.Cog):
             except Exception:
                 await logchanbot("wallet send_external_xlm " + str(traceback.format_exc()))
                 traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def cosmos_get_coin_by_denom(
+        self, denom: str
+    ):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `coin_settings`
+                    WHERE `contract`=%s AND `enable`=1 LIMIT 1
+                    """
+                    await cur.execute(sql, denom)
+                    result = await cur.fetchone()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def cosmos_send_tx(
+        self, rpc_url: str, chain_id: str, coin_name: str, account_num: int, sequence: int, priv_key: str,
+        amount: float, coin_decimal: int, user_id: str, to_address: str, user_server: str,
+        withdraw_fee: float, fee: int=1000, gas: int=120000, memo: str ="", timeout: int=20, hrp: str="cosmos",
+        denom: str="uatom"
+    ):
+        fee_denom: str = denom
+        if hrp == "osmo":
+            fee_denom = "uosmo"
+        try:
+            tx = Cosmos_Transaction(
+                privkey=bytes.fromhex(priv_key),
+                hrp=hrp,
+                fee_denom=fee_denom,
+                account_num=account_num,
+                sequence=sequence,
+                fee=fee,
+                gas=gas,
+                memo=memo,
+                chain_id=chain_id,
+            )
+            tx.add_transfer(
+                recipient=to_address, amount=int(amount * 10**coin_decimal), denom=denom
+            )
+            data = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "broadcast_tx_sync", # Available methods: broadcast_tx_sync, broadcast_tx_async, broadcast_tx_commit
+                "params": {
+                    "tx": tx.get_tx_bytes()
+                }
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    rpc_url, json=data,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=timeout
+                ) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data is not None:
+                            try:
+                                await self.openConnection()
+                                async with self.pool.acquire() as conn:
+                                    async with conn.cursor() as cur:
+                                        sql = """ INSERT INTO `cosmos_external_tx` 
+                                        (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
+                                        `decimal`, `to_address`, `date`, `tx_hash`, `tx_dump`, `user_server`) 
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                        """
+                                        await cur.execute(sql, (
+                                            coin_name, user_id, amount, None, withdraw_fee, coin_decimal,
+                                            to_address, int(time.time()), decoded_data['result']['hash'],
+                                            json.dumps(decoded_data), user_server
+                                        ))
+                                        await conn.commit()
+                                        return decoded_data['result']['hash']
+                            except Exception:
+                                await logchanbot("wallet cosmos_send_tx " + str(traceback.format_exc()))
+                                traceback.print_exc(file=sys.stdout)
+                            return decoded_data
+        except asyncio.TimeoutError:
+            print('TIMEOUT: cosmos_send_tx {} for {}s'.format(rpc_url, timeout))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
         return None
 
     async def send_external_ada(
@@ -6364,6 +6554,346 @@ class Wallet(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=60.0)
+    async def notify_new_confirmed_cosmos(self):
+        time_lap = 20  # seconds
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "notify_new_confirmed_cosmos"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `cosmos_get_transfers` 
+                        WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s
+                        """
+                    await cur.execute(sql, ("NO", "NO", SERVER_BOT))
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        for eachTx in result:
+                            if eachTx['user_id']:
+                                if not eachTx['user_id'].isdigit():
+                                    continue
+                                try:
+                                    key = "notify_new_tx_{}_{}_{}".format(
+                                        eachTx['coin_name'], eachTx['user_id'], eachTx['txid']
+                                    )
+                                    if self.ttlcache[key] == key:
+                                        continue
+                                    else:
+                                        self.ttlcache[key] = key
+                                except Exception:
+                                    pass
+                                member = self.bot.get_user(int(eachTx['user_id']))
+                                if member is not None:
+                                    coin_decimal = getattr(getattr(self.bot.coin_list, eachTx['coin_name']), "decimal")
+                                    msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
+                                        "Coin: {}\nTx: {}\nAmount: {}".format(
+                                            eachTx['coin_name'], eachTx['txid'],
+                                            num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
+                                        ) + "```"
+                                    try:
+                                        await member.send(msg)
+                                        sql = """ UPDATE `cosmos_get_transfers` 
+                                            SET `notified_confirmation`=%s, `time_notified`=%s
+                                            WHERE `txid`=%s LIMIT 1
+                                            """
+                                        await cur.execute(sql, ("YES", int(time.time()), eachTx['txid']))
+                                        await conn.commit()
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                        sql = """ UPDATE `cosmos_get_transfers` 
+                                            SET `notified_confirmation`=%s, `failed_notification`=%s
+                                            WHERE `txid`=%s LIMIT 1
+                                            """
+                                        await cur.execute(sql, ("NO", "YES", eachTx['txid']))
+                                        await conn.commit()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=120.0)
+    async def update_balance_osmo(self):
+        time_lap = 20  # seconds
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_osmo"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        timeout = 30
+        # Get status
+        coin_name = "OSMO"
+        coin_family = "COSMOS"
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        # Update height
+        rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
+        net_height = await cosmos_get_height(rpchost + "block", 32)
+        if net_height is None:
+            return
+        else:
+            try:
+                self.utils.set_cache_kv(
+                    "block",
+                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                    net_height
+                )
+                # if there are other asset, set them all here
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+            if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 0 and getattr(
+                    getattr(self.bot.coin_list, coin_name), "enable_deposit") == 1:
+                try:
+                    async def get_osmo_transactions(endpoint: str, account_addr: str):
+                        try:
+                            headers = {
+                                'Content-Type': 'application/json',
+                                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+                            }
+                            async with aiohttp.ClientSession() as session:
+                                async with session.get(endpoint + account_addr + "?limit=50&decode=true", headers=headers, timeout=32) as response:
+                                    if response.status == 200:
+                                        res_data = await response.read()
+                                        res_data = res_data.decode('utf-8')
+                                        decoded_data = json.loads(res_data)
+                                        if len(decoded_data) > 0:
+                                            return decoded_data
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        return []
+
+                    async def get_tx_incoming(coin_name: str):
+                        try:
+                            await self.openConnection()
+                            async with self.pool.acquire() as conn:
+                                async with conn.cursor() as cur:
+                                    sql = """ SELECT * FROM `cosmos_get_transfers` """
+                                    await cur.execute(sql,)
+                                    result = await cur.fetchall()
+                                    if result:
+                                        return result
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        return []
+
+                    url = getattr(getattr(self.bot.coin_list, coin_name), "http_address")
+                    main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+                    get_transactions = await get_osmo_transactions(url, main_address)
+                    if len(get_transactions) > 0:
+                        get_incoming_tx = await get_tx_incoming(coin_name)
+                        list_existing_tx = []
+                        if len(get_incoming_tx) > 0:
+                            list_existing_tx = [each['txid'] for each in get_incoming_tx]
+                        for each_tx in get_transactions:
+                            if each_tx['tx_response']['code'] != 0:
+                                # skip
+                                continue
+                            try:
+                                amount = 0.0
+                                tx_hash = each_tx['tx_response']['txhash']
+                                height = each_tx['height']
+                                if tx_hash in list_existing_tx:
+                                    # Skip
+                                    continue
+
+                                user_id = None
+                                user_memo = each_tx['tx_response']['tx']['body']['memo']
+                                get_user_memo = None
+                                if len(each_tx['tx_response']['tx']['body']['messages']) > 0:
+                                    for each_from_to in each_tx['tx_response']['tx']['body']['messages']:
+                                        from_addr = each_from_to['from_address']
+                                        to_addr = each_from_to['to_address']
+                                        if len(each_from_to['amount']) > 0:
+                                            for each_amount in each_from_to['amount']:
+                                                get_denom = await self.wallet_api.cosmos_get_coin_by_denom(each_amount['denom'])
+                                                if get_denom is None:
+                                                    continue
+                                                coin_name = get_denom['coin_name']
+                                                try:
+                                                    self.utils.set_cache_kv(
+                                                        "block",
+                                                        f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                                                        net_height
+                                                    )
+                                                    # if there are other asset, set them all here
+                                                except Exception:
+                                                    traceback.print_exc(file=sys.stdout)
+                                                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                                amount = int(each_amount['amount']) / 10**coin_decimal
+                                                if main_address == to_addr:
+                                                    if user_memo and len(user_memo) > 0:
+                                                        get_user_memo = await store.sql_get_userwallet_by_paymentid(
+                                                            "{} MEMO: {}".format(main_address, user_memo),
+                                                            coin_name, coin_family
+                                                        )
+                                                        if get_user_memo is not None and get_user_memo['user_id'] is not None:
+                                                            user_id = get_user_memo['user_id']
+
+                                                    if amount > 0:
+                                                        await self.openConnection()
+                                                        async with self.pool.acquire() as conn:
+                                                            async with conn.cursor() as cur:
+                                                                sql = """ INSERT INTO `cosmos_get_transfers` 
+                                                                    (`coin_name`, `user_id`, `txid`, `height`, `amount`, 
+                                                                    `decimal`, `address`, `memo`, `time_insert`, `user_server`) 
+                                                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                                                    """
+                                                                await cur.execute(sql, (
+                                                                    coin_name, user_id, tx_hash, height, amount,
+                                                                    coin_decimal, main_address,
+                                                                    user_memo if user_memo else None,
+                                                                    int(time.time()),
+                                                                    get_user_memo['user_server'] if get_user_memo else None
+                                                                ))
+                                                                await conn.commit()
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=120.0)
+    async def update_balance_cosmos(self):
+        time_lap = 20  # seconds
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_cosmos"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        timeout = 30
+        # Get status
+        coin_name = "ATOM"
+        coin_family = "COSMOS"
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        # Update height
+        rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
+        height = await cosmos_get_height(rpchost + "block", 32)
+        if height is None:
+            return
+        else:
+            try:
+                self.utils.set_cache_kv(
+                    "block",
+                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                    height
+                )
+                # if there are other asset, set them all here
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+            if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 0 and getattr(
+                    getattr(self.bot.coin_list, coin_name), "enable_deposit") == 1:
+                try:
+                    async def get_cosmos_transactions(endpoint: str, account_addr: str):
+                        try:
+                            headers = {
+                                'Content-Type': 'application/json',
+                                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+                            }
+                            async with aiohttp.ClientSession() as session:
+                                async with session.get(endpoint + account_addr + "?limit=50&from=0", headers=headers, timeout=32) as response:
+                                    if response.status == 200:
+                                        res_data = await response.read()
+                                        res_data = res_data.decode('utf-8')
+                                        decoded_data = json.loads(res_data)
+                                        if len(decoded_data) > 0:
+                                            return decoded_data
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        return []
+
+                    async def get_tx_incoming(coin_name: str):
+                        try:
+                            await self.openConnection()
+                            async with self.pool.acquire() as conn:
+                                async with conn.cursor() as cur:
+                                    sql = """ SELECT * FROM `cosmos_get_transfers` WHERE `coin_name`=%s """
+                                    await cur.execute(sql, coin_name)
+                                    result = await cur.fetchall()
+                                    if result:
+                                        return result
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        return []
+
+                    url = getattr(getattr(self.bot.coin_list, coin_name), "http_address")
+                    main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    get_transactions = await get_cosmos_transactions(url, main_address)
+                    if len(get_transactions) > 0:
+                        get_incoming_tx = await get_tx_incoming(coin_name)
+                        list_existing_tx = []
+                        if len(get_incoming_tx) > 0:
+                            list_existing_tx = [each['txid'] for each in get_incoming_tx]
+                        for each_tx in get_transactions:
+                            if each_tx['data']['code'] != 0:
+                                # skip
+                                continue
+                            try:
+                                amount = 0.0
+                                tx_hash = each_tx['data']['txhash']
+                                height = int(each_tx['data']['height'])
+                                if tx_hash in list_existing_tx:
+                                    # Skip
+                                    continue
+
+                                user_id = None
+                                user_memo = each_tx['data']['tx']['body']['memo']
+                                get_user_memo = None
+                                if len(each_tx['data']['tx']['body']['messages']) > 0:
+                                    for each_from_to in each_tx['data']['tx']['body']['messages']:
+                                        from_addr = each_from_to['from_address']
+                                        to_addr = each_from_to['to_address']
+                                        if len(each_from_to['amount']) > 0:
+                                            for each_amount in each_from_to['amount']:
+                                                if each_amount['denom'] == "uatom":
+                                                    amount = int(each_amount['amount']) / 10**coin_decimal
+                                                    if main_address == to_addr:
+                                                        if user_memo and len(user_memo) > 0:
+                                                            get_user_memo = await store.sql_get_userwallet_by_paymentid(
+                                                                "{} MEMO: {}".format(main_address, user_memo),
+                                                                coin_name, coin_family
+                                                            )
+                                                            if get_user_memo is not None and get_user_memo['user_id'] is not None:
+                                                                user_id = get_user_memo['user_id']
+
+                                                        if amount > 0:
+                                                            await self.openConnection()
+                                                            async with self.pool.acquire() as conn:
+                                                                async with conn.cursor() as cur:
+                                                                    sql = """ INSERT INTO `cosmos_get_transfers` 
+                                                                        (`coin_name`, `user_id`, `txid`, `height`, `amount`, 
+                                                                        `decimal`, `address`, `memo`, `time_insert`, `user_server`) 
+                                                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                                                        """
+                                                                    await cur.execute(sql, (
+                                                                        coin_name, user_id, tx_hash, height, amount,
+                                                                        coin_decimal, main_address,
+                                                                        user_memo if user_memo else None,
+                                                                        int(time.time()),
+                                                                        get_user_memo['user_server'] if get_user_memo else None
+                                                                    ))
+                                                                    await conn.commit()
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
@@ -10362,7 +10892,7 @@ class Wallet(commands.Cog):
             if coin_name == "HNT":
                 address_memo = wallet_address.split()
                 qr_address = '{"type":"payment","address":"' + address_memo[0] + '","memo":"' + address_memo[2] + '"}'
-            elif type_coin in ["XLM", "VITE"]:
+            elif type_coin in ["XLM", "VITE", "COSMOS"]:
                 address_memo = wallet_address.split()
                 qr_address = address_memo[0]
             try:
@@ -10377,7 +10907,7 @@ class Wallet(commands.Cog):
                 ctx.author.name, ctx.author.discriminator, coin_name, coin_emoji
             )
 
-            if type_coin in ["HNT", "XLM", "VITE"]:
+            if type_coin in ["HNT", "XLM", "VITE", "COSMOS"]:
                 plain_address = address_memo[0]
                 plain_address += f"\n📝 MEMO (mandatory!): `{address_memo[2]}`"
                 pointer_message += " and do not forget to include MEMO."
@@ -10437,7 +10967,7 @@ class Wallet(commands.Cog):
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-            elif type_coin in ["XLM", "VITE"]:
+            elif type_coin in ["XLM", "VITE", "COSMOS"]:
                 try:
                     address_memo = wallet_address.split()
                     embed.add_field(name="📝 MEMO", value="```{}```".format(address_memo[2]), inline=False)
@@ -10550,6 +11080,16 @@ class Wallet(commands.Cog):
                     height, deposit_confirm_depth, SERVER_BOT
                 )
                 total_balance = userdata_balance['adjust']
+                if total_balance == 0:
+                    # Delete if has key
+                    key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                    try:
+                        if key in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key]
+                    except Exception:
+                        pass
+                    # End of del key
+
                 equivalent_usd = ""
                 if usd_equivalent_enable == 1:
                     native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
@@ -11453,6 +11993,80 @@ class Wallet(commands.Cog):
                             amount, address, coin_decimal, SERVER_BOT,
                             coin_name, NetFee, asset_ticker, asset_issuer,
                             90, extra_option
+                        )
+                        if send_tx:
+                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name
+                            )
+                            await log_to_channel(
+                                "withdraw",
+                                f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{token_display}{equivalent_usd}."
+                            )
+                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
+                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                            if extra_option is not None:
+                                msg += "\nWith memo: `{}`".format(extra_option)
+                            await ctx.edit_original_message(content=msg)
+                        else:
+                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
+                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{token_display}{equivalent_usd} to `{address}`."
+                            await ctx.edit_original_message(content=msg)
+                            await log_to_channel(
+                                "withdraw",
+                                f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{token_display}{equivalent_usd}."
+                            )
+                    else:
+                        # reject and tell to wait
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    try:
+                        del self.bot.tx_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
+                elif type_coin == "COSMOS":
+                    url = getattr(getattr(self.bot.coin_list, coin_name), "http_address")
+                    main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+                    if address == main_address:
+                        # can not send
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`."
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
+                        wallet_host = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
+                        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                        withdraw_keypair = decrypt_string(getattr(getattr(self.bot.coin_list, coin_name), "walletkey"))
+                        rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
+                        chain_id = getattr(getattr(self.bot.coin_list, coin_name), "chain_id")
+                        key = decrypt_string(getattr(getattr(self.bot.coin_list, coin_name), "walletkey"))
+                        hrp = getattr(getattr(self.bot.coin_list, coin_name), "header")
+                        denom = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+
+                        get_wallet_seq = await cosmos_get_seq(wallet_host, main_address, 8)
+                        if get_wallet_seq is None:
+                            await log_to_channel(
+                                "withdraw",
+                                f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"failed to withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{token_display}{equivalent_usd}.\n" \
+                                "ERROR: cosmos_get_seq is None."
+                            )
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error during withdraw, please try again later!"
+                            await ctx.edit_original_message(content=msg)
+                            del self.bot.tx_in_progress[str(ctx.author.id)]
+                            return
+                        send_tx = await self.wallet_api.cosmos_send_tx(
+                            rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),
+                            int(get_wallet_seq['account']['sequence']), key,
+                            amount, coin_decimal, str(ctx.author.id), address, SERVER_BOT,
+                            NetFee, fee=1000,gas=120000, memo="", timeout=32, hrp=hrp, denom=denom
                         )
                         if send_tx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
@@ -13467,6 +14081,9 @@ class Wallet(commands.Cog):
                     elif coin_family == "XLM":
                         tx = each['tx_hash']
                         amount = each['amount']
+                    elif coin_family == "COSMOS":
+                        tx = each['tx_hash']
+                        amount = each['amount']
                     elif coin_family == "ADA":
                         tx = each['hash_id']
                         amount = each['real_amount']
@@ -13731,6 +14348,14 @@ class Wallet(commands.Cog):
             if not self.notify_new_confirmed_xlm.is_running():
                 self.notify_new_confirmed_xlm.start()
 
+            # COSMOS
+            if not self.update_balance_cosmos.is_running():
+                self.update_balance_cosmos.start()
+            if not self.update_balance_osmo.is_running():
+                self.update_balance_osmo.start()
+            if not self.notify_new_confirmed_cosmos.is_running():
+                self.notify_new_confirmed_cosmos.start()
+
             # VITE
             if not self.update_balance_vite.is_running():
                 self.update_balance_vite.start()
@@ -13863,6 +14488,14 @@ class Wallet(commands.Cog):
             if not self.notify_new_confirmed_xlm.is_running():
                 self.notify_new_confirmed_xlm.start()
 
+            # COSMOS
+            if not self.update_balance_cosmos.is_running():
+                self.update_balance_cosmos.start()
+            if not self.update_balance_osmo.is_running():
+                self.update_balance_osmo.start()
+            if not self.notify_new_confirmed_cosmos.is_running():
+                self.notify_new_confirmed_cosmos.start()
+
             # VITE
             if not self.update_balance_vite.is_running():
                 self.update_balance_vite.start()
@@ -13973,6 +14606,11 @@ class Wallet(commands.Cog):
         # XLM
         self.update_balance_xlm.cancel()
         self.notify_new_confirmed_xlm.cancel()
+
+        # COSMOS
+        self.update_balance_cosmos.cancel()
+        self.update_balance_osmo.cancel()
+        self.notify_new_confirmed_cosmos.cancel()
 
         # VITE
         self.update_balance_vite.cancel()

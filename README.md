@@ -50,6 +50,7 @@ This TipBot's code is not ready for deployment. We keep it here for easier bug t
 | Zilliqa                                                                            	| ✅           	| ✅      	|
 | VeChain                                                                            	| ✅           	| ✅      	|
 | Vite Protocol                                                                      	| ✅           	| ✅      	|
+| OSMOSIS (& COSMOS)                                                                 	| ✅           	| ✅      	|
 
 Refer to <https://coininfo.bot.tips> for the entire list.
 

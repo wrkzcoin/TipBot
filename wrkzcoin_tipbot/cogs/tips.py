@@ -1784,11 +1784,14 @@ class Tips(commands.Cog):
     # End of TipAll
 
     # Tip Normal
-    async def async_tip(self, ctx, amount: str, token: str, args, ping: str):
+    async def async_tip(self, ctx, amount: str, token: str, args, split: str, ping: str):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tip command...'
         await ctx.response.send_message(msg)
         mention_all = True if ping == "YES" else False
         mute_tip = False
+        split_amount = False
+        if split == "SPLIT":
+            split_amount = True
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -1854,7 +1857,7 @@ class Tips(commands.Cog):
             list_member_ids = list(set(list_member_ids))
             if len(list_member_ids) > 0:
                 try:
-                    await self.multiple_tip(ctx, amount, coin_name, list_member_ids, False, mention_all)
+                    await self.multiple_tip(ctx, amount, coin_name, list_member_ids, False, mention_all, split_amount)
                 except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                     pass
                 except Exception:
@@ -1906,7 +1909,8 @@ class Tips(commands.Cog):
                                         await self.multiple_tip_talker(
                                             ctx, amount, coin_name,
                                             getattr(self.bot.coin_list, coin_name),
-                                            message_talker, False, mention_all
+                                            message_talker, False, mention_all,
+                                            split_amount
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -1943,7 +1947,8 @@ class Tips(commands.Cog):
                                     try:
                                         await self.multiple_tip_talker(
                                             ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name),
-                                            message_talker, False, mention_all
+                                            message_talker, False, mention_all,
+                                            split_amount
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -1953,7 +1958,8 @@ class Tips(commands.Cog):
                                     try:
                                         await self.multiple_tip_talker(
                                             ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name),
-                                            message_talker, False, mention_all
+                                            message_talker, False, mention_all,
+                                            split_amount
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -2012,7 +2018,8 @@ class Tips(commands.Cog):
                                     try:
                                         await self.multiple_tip_talker(
                                             ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name), 
-                                            message_talker, False, mention_all
+                                            message_talker, False, mention_all,
+                                            split_amount
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -2045,6 +2052,10 @@ class Tips(commands.Cog):
                 OptionType.string,
                 required=True
             ),
+            Option('split', 'split or each', OptionType.string, required=False, choices=[
+                OptionChoice("SPLIT", "SPLIT"),
+                OptionChoice("EACH", "EACH")
+            ]),
             Option('ping', 'mention or no mention', OptionType.string, required=False, choices=[
                 OptionChoice("YES", "YES"),
                 OptionChoice("NO", "NO")
@@ -2058,10 +2069,11 @@ class Tips(commands.Cog):
         amount: str,
         token: str,
         args: str,
+        split: str = "EACH",
         ping: str = "YES"
     ):
         try:
-            await self.async_tip(ctx, amount, token, args, ping)
+            await self.async_tip(ctx, amount, token, args, split, ping)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -2070,10 +2082,14 @@ class Tips(commands.Cog):
         string = string.lower()
         return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
-    async def async_gtip(self, ctx, amount: str, token: str, args):
+    async def async_gtip(self, ctx, amount: str, token: str, args, split: str):
         coin_name = token.upper()
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing guild tip command...'
         await ctx.response.send_message(msg)
+
+        split_amount = False
+        if split == "SPLIT":
+            split_amount = True
 
         mute_tip = False
         mention_all = True
@@ -2141,7 +2157,7 @@ class Tips(commands.Cog):
             list_member_ids = list(set(list_member_ids))
             if len(list_member_ids) > 0:
                 try:
-                    await self.multiple_tip(ctx, amount, coin_name, list_member_ids, True)
+                    await self.multiple_tip(ctx, amount, coin_name, list_member_ids, True, False, split_amount)
                 except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                     pass
                 except Exception:
@@ -2192,7 +2208,7 @@ class Tips(commands.Cog):
                                     try:
                                         await self.multiple_tip_talker(
                                             ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name),
-                                            message_talker, True, mention_all
+                                            message_talker, True, mention_all, split_amount
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -2231,7 +2247,7 @@ class Tips(commands.Cog):
                                     try:
                                         await self.multiple_tip_talker(
                                             ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name),
-                                            message_talker, True, mention_all
+                                            message_talker, True, mention_all, split_amount
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -2241,7 +2257,7 @@ class Tips(commands.Cog):
                                     try:
                                         await self.multiple_tip_talker(
                                             ctx, amount, coin_name, getattr(self.bot.coin_list, coin_name),
-                                            message_talker, True, mention_all
+                                            message_talker, True, mention_all, split_amount
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -2299,7 +2315,7 @@ class Tips(commands.Cog):
                                         await self.multiple_tip_talker(
                                             ctx, amount, coin_name,
                                             getattr(self.bot.coin_list, coin_name),
-                                            message_talker, True, mention_all
+                                            message_talker, True, mention_all, split_amount
                                         )
                                     except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                                         pass
@@ -2327,7 +2343,11 @@ class Tips(commands.Cog):
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
             Option('token', 'token', OptionType.string, required=True),
-            Option('args', '<@mention1> <@mention2> ... | <@role> ... ', OptionType.string, required=True)
+            Option('args', '<@mention1> <@mention2> ... | <@role> ... ', OptionType.string, required=True),
+            Option('split', 'split or each', OptionType.string, required=False, choices=[
+                OptionChoice("SPLIT", "SPLIT"),
+                OptionChoice("EACH", "EACH")
+            ])
         ],
         description="Tip other people using your guild's balance."
     )
@@ -2336,10 +2356,11 @@ class Tips(commands.Cog):
         ctx,
         amount: str,
         token: str,
-        args: str
+        args: str,
+        split: str = "EACH"
     ):
         try:
-            await self.async_gtip(ctx, amount, token.strip(), args.strip())
+            await self.async_gtip(ctx, amount, token.strip(), args.strip(), split)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -2758,7 +2779,7 @@ class Tips(commands.Cog):
             )
 
     # Multiple tip
-    async def multiple_tip(self, ctx, amount, coin: str, listMembers, if_guild: bool = False, ping: bool = True):
+    async def multiple_tip(self, ctx, amount, coin: str, listMembers, if_guild: bool = False, ping: bool = True, split_amount: bool = False):
         coin_name = coin.upper()
         guild_name = '**{}**'.format(ctx.guild.name) if if_guild else ''
         tip_type_text = 'guild tip' if if_guild else 'tip'
@@ -2884,12 +2905,16 @@ class Tips(commands.Cog):
             if ctx.author.id != member.id and member in ctx.guild.members:
                 memids.append(str(member.id))
                 list_mentions.append(member)
-        total_amount = amount * len(memids)
 
         if len(memids) == 0:
             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, no users...'
             await ctx.edit_original_message(content=msg)
             return
+
+        total_amount = amount * len(memids)
+        if split_amount is True:
+            amount = amount / len(memids)
+            total_amount = amount * len(memids)
 
         if total_amount > max_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be bigger than "\
@@ -3034,7 +3059,7 @@ class Tips(commands.Cog):
 
     # Multiple tip
     async def multiple_tip_talker(
-        self, ctx, amount: str, coin: str, coin_dict, list_talker, if_guild: bool = False, ping: bool = True
+        self, ctx, amount: str, coin: str, coin_dict, list_talker, if_guild: bool = False, ping: bool = True, split_amount: bool = False
     ):
         guild_or_tip = 'GUILDTIP' if if_guild else 'TIPS'
         guild_name = '**{}**'.format(ctx.guild.name) if if_guild else ''
@@ -3132,30 +3157,6 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        notifying_list = await store.sql_get_tipnotify()
-        userdata_balance = await store.sql_user_balance_single(
-            id_tipper, coin_name, wallet_address, type_coin, height,
-            deposit_confirm_depth, SERVER_BOT
-        )
-        actual_balance = float(userdata_balance['adjust'])
-
-        if amount <= 0 or actual_balance <= 0:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
-            await ctx.edit_original_message(content=msg)
-            return
-
-        if amount > max_tip or amount < min_tip:
-            nsg = f"{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be bigger than "\
-                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
-                f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
-            await ctx.edit_original_message(content=msg)
-            return
-        elif amount > actual_balance:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send "\
-                f"{tip_type_text} of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
-            await ctx.edit_original_message(content=msg)
-            return
-
         list_receivers = []
         for member_id in list_talker:
             try:
@@ -3177,6 +3178,38 @@ class Tips(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("tips " +str(traceback.format_exc()))
+    
+        if len(list_receivers) == 0:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, no users or can not find any user to tip..."
+            await ctx.edit_original_message(content=msg)
+            return
+    
+        if split_amount is True:
+            amount = amount / len(list_receivers)
+
+        notifying_list = await store.sql_get_tipnotify()
+        userdata_balance = await store.sql_user_balance_single(
+            id_tipper, coin_name, wallet_address, type_coin, height,
+            deposit_confirm_depth, SERVER_BOT
+        )
+        actual_balance = float(userdata_balance['adjust'])
+
+        if amount <= 0 or actual_balance <= 0:
+            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+            await ctx.edit_original_message(content=msg)
+            return
+
+        if amount > max_tip or amount < min_tip:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be bigger than "\
+                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
+                f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+            await ctx.edit_original_message(content=msg)
+            return
+        elif amount > actual_balance:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send "\
+                f"{tip_type_text} of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+            await ctx.edit_original_message(content=msg)
+            return
 
         max_allowed = 400
         try:
@@ -3199,11 +3232,6 @@ class Tips(commands.Cog):
                     )
         except Exception:
             traceback.print_exc(file=sys.stdout)
-
-        if len(list_receivers) == 0:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, no users or can not find any user to tip..."
-            await ctx.edit_original_message(content=msg)
-            return
 
         total_amount = amount * len(list_receivers)
 

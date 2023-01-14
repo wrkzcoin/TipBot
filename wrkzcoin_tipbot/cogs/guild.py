@@ -2751,9 +2751,9 @@ class Guild(commands.Cog):
                 msg = f'{ctx.author.mention} internal error or nothing updated.'
                 await ctx.edit_original_message(content=msg)
 
-    async def async_guild_info(self, ctx):
+    async def async_guild_info(self, ctx, private: bool):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
-        await ctx.response.send_message(msg)
+        await ctx.response.send_message(msg, ephemeral=private)
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -2823,9 +2823,36 @@ class Guild(commands.Cog):
                 value=serverinfo['mute_tip'],
                 inline=True
             )
-        if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_coin'] and serverinfo['vote_reward_channel']:
+        if private is True:
+            # show some permission
+            permission_list = []
+            if ctx.channel.permissions_for(ctx.channel.guild.me).send_messages:
+                permission_list.append("✅ send_messages")
+            else:
+                permission_list.append("❌ send_messages")
+            if ctx.channel.permissions_for(ctx.channel.guild.me).external_emojis:
+                permission_list.append("✅ external_emojis")
+            else:
+                permission_list.append("❌ external_emojis")
+            if ctx.channel.permissions_for(ctx.channel.guild.me).embed_links:
+                permission_list.append("✅ embed_links")
+            else:
+                permission_list.append("❌ embed_links")
+            if ctx.channel.permissions_for(ctx.channel.guild.me).manage_roles:
+                permission_list.append("✅ manage_roles")
+            else:
+                permission_list.append("❌ manage_roles")
             embed.add_field(
-                name="Vote Reward {} {}".format(serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin']),
+                name="Permission TipBot",
+                value="```{}```".format("\n".join(permission_list)),
+                inline=False
+            )
+        if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_coin'] and serverinfo['vote_reward_channel']:
+            coin_decimal = getattr(getattr(self.bot.coin_list, serverinfo['vote_reward_coin']), "decimal")
+            embed.add_field(
+                name="Vote Reward {} {}".format(
+                    num_format_coin(serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin'], coin_decimal, False), serverinfo['vote_reward_coin']
+                ),
                 value="<#{}> | https://top.gg/servers/{}/vote".format(serverinfo['vote_reward_channel'], ctx.guild.id),
                 inline=False
             )
@@ -2858,12 +2885,12 @@ class Guild(commands.Cog):
         self,
         ctx
     ):
-        await self.async_guild_info(ctx)
+        await self.async_guild_info(ctx, private=False)
 
     @commands.guild_only()
     @commands.user_command(name="GuildInfo")  # optional
     async def guild_info(self, ctx: disnake.ApplicationCommandInteraction):
-        await self.async_guild_info(ctx)
+        await self.async_guild_info(ctx, private=True)
 
 
     @commands.bot_has_permissions(send_messages=True)

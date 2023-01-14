@@ -197,6 +197,12 @@ class PartyDrop(commands.Cog):
                                     party = await store.sql_user_balance_mv_multiple(str(self.bot.user.id), all_name_list, get_message['guild_id'], get_message['channel_id'], indiv_amount, coin_name, "PARTYDROP", coin_decimal, SERVER_BOT, get_message['contract'], float(amount_in_usd), None)
                                     if party is True:
                                         await store.update_party_id(each_party['message_id'], "COMPLETED" if len(attend_list) > 0 else "NOCOLLECT")
+                            except disnake.errors.NotFound:
+                                    await logchanbot("[PARTYDROP]: can not find message ID: {} of channel {} in guild: {}. Set that to FAILED.".format(
+                                        each_party['message_id'], each_party['channel_id'], each_party['guild_id']
+                                    ))
+                                    await store.update_party_failed(each_party['message_id'], True)
+                                    await asyncio.sleep(1.0)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                         else:

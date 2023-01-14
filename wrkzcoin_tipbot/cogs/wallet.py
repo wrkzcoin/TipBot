@@ -12883,8 +12883,8 @@ class Wallet(commands.Cog):
                 inline=False
             )
             embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+            embed.set_thumbnail(url=ctx.author.display_avatar)
             try:
-
                 if get_user_coin is not None:
                     embed.set_footer(
                         text="Requested by: {}#{} | preferred: {}".format(
@@ -14063,7 +14063,7 @@ class Wallet(commands.Cog):
         coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
         try:
-            get_recent = await store.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "withdraw", 10)
+            get_recent = await self.utils.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "withdraw", 10)
             if len(get_recent) == 0:
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, you do not have recent withdraw of {coin_name}.")
             else:
@@ -14167,7 +14167,7 @@ class Wallet(commands.Cog):
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
 
         try:
-            get_recent = await store.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "deposit", 10)
+            get_recent = await self.utils.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "deposit", 10)
             if len(get_recent) == 0:
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, you do not have recent deposit of {coin_name}.")
             else:
@@ -14220,6 +14220,9 @@ class Wallet(commands.Cog):
                     elif coin_family == "XLM":
                         tx = each['txid']
                         amount = each['amount']
+                    elif coin_family == "COSMOS":
+                        tx = each['txid']
+                        amount = each['amount']
                     elif coin_family == "ADA":
                         tx = each['hash_id']
                         amount = each['amount']
@@ -14264,7 +14267,7 @@ class Wallet(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
         try:
-            get_recent = await store.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "receive", 20)
+            get_recent = await self.utils.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "receive", 20)
             if len(get_recent) == 0:
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, you do not received any {coin_name}.")
             else:
@@ -14304,7 +14307,7 @@ class Wallet(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
         try:
-            get_recent = await store.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "expense", 20)
+            get_recent = await self.utils.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "expense", 20)
             if len(get_recent) == 0:
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, you do not received any {coin_name}.")
             else:

@@ -348,6 +348,371 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return []
 
+    # Recent Activity
+    async def recent_tips(
+        self, user_id: str, user_server: str, token_name: str, coin_family: str, what: str, limit: int
+    ):
+        global pool
+        coin_name = token_name.upper()
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    if what.lower() == "withdraw":
+                        if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                            sql = """ SELECT * FROM `cn_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "BTC":
+                            sql = """ SELECT * FROM `neo_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "NEO":
+                            sql = """ SELECT * FROM `doge_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "NEAR":
+                            sql = """ SELECT * FROM `near_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "NANO":
+                            sql = """ SELECT * FROM `nano_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "CHIA":
+                            sql = """ SELECT * FROM `xch_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "ERC-20":
+                            sql = """ SELECT * FROM `erc20_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "XTZ":
+                            sql = """ SELECT * FROM `tezos_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "ZIL":
+                            sql = """ SELECT * FROM `zil_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "VET":
+                            sql = """ SELECT * FROM `vet_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "VITE":
+                            sql = """ SELECT * FROM `vite_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "TRC-20":
+                            sql = """ SELECT * FROM `trc20_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "HNT":
+                            sql = """ SELECT * FROM `hnt_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "XRP":
+                            sql = """ SELECT * FROM `xrp_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "XLM":
+                            sql = """ SELECT * FROM `xlm_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "COSMOS":
+                            sql = """ SELECT * FROM `cosmos_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s AND `is_failed`=0
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "ADA":
+                            sql = """ SELECT * FROM `xlm_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "SOL" or coin_family == "SPL":
+                            sql = """ SELECT * FROM `sol_external_tx` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
+                            ORDER BY `date` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                    elif what.lower() == "deposit":
+                        if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                            sql = """
+                            SELECT a.*, b.*
+                            FROM cn_user_paymentid a
+                                INNER JOIN cn_get_transfers b
+                                    ON a.paymentid = b.payment_id
+                            WHERE a.user_id=%s AND a.user_server=%s and a.coin_name=%s
+                            ORDER BY b.time_insert DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "BTC":
+                            sql = """
+                            SELECT a.*, b.*
+                            FROM doge_user a
+                                INNER JOIN doge_get_transfers b
+                                    ON a.balance_wallet_address = b.address
+                            WHERE a.user_id=%s AND a.user_server=%s and a.coin_name=%s
+                            ORDER BY b.time_insert DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "NEO":
+                            sql = """
+                            SELECT a.*, b.*
+                            FROM neo_user a
+                                INNER JOIN neo_get_transfers b
+                                    ON a.balance_wallet_address = b.address
+                            WHERE a.user_id=%s AND a.user_server=%s and b.coin_name=%s
+                            ORDER BY b.time_insert DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "NEAR":
+                            sql = """
+                            SELECT * 
+                            FROM `near_move_deposit`
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s AND `status`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name, "CONFIRMED"))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "NANO":
+                            sql = """
+                            SELECT * 
+                            FROM `nano_move_deposit`
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "CHIA":
+                            sql = """
+                            SELECT a.*, b.*
+                            FROM xch_user a
+                                INNER JOIN xch_get_transfers b
+                                    ON a.balance_wallet_address = b.address
+                            WHERE a.user_id=%s AND a.user_server=%s and b.coin_name=%s
+                            ORDER BY b.time_insert DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "ERC-20":
+                            sql = """
+                            SELECT * 
+                            FROM `erc20_move_deposit` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s AND `status`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name, "CONFIRMED"))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "XTZ":
+                            sql = """
+                            SELECT * 
+                            FROM `tezos_move_deposit`
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s AND `status`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name, "CONFIRMED"))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "ZIL":
+                            sql = """
+                            SELECT * 
+                            FROM `zil_move_deposit` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "VET":
+                            sql = """
+                            SELECT * 
+                            FROM `vet_move_deposit`
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "VITE":
+                            sql = """
+                            SELECT * 
+                            FROM `vite_get_transfers`
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "TRC-20":
+                            sql = """
+                            SELECT * 
+                            FROM `trc20_move_deposit`
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s AND `status`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name, "CONFIRMED"))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "HNT":
+                            sql = """
+                            SELECT * 
+                            FROM `hnt_get_transfers`
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "XRP":
+                            sql = """
+                            SELECT * 
+                            FROM `xrp_get_transfers` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "XLM":
+                            sql = """
+                            SELECT * 
+                            FROM `xlm_get_transfers` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "COSMOS":
+                            sql = """
+                            SELECT * 
+                            FROM `cosmos_get_transfers` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "ADA":
+                            sql = """
+                            SELECT * 
+                            FROM `ada_get_transfers`
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                        elif coin_family == "SOL" or coin_family == "SPL":
+                            sql = """
+                            SELECT * 
+                            FROM `sol_move_deposit` 
+                            WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s AND `status`=%s
+                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                            await cur.execute(sql, (user_id, user_server, coin_name, "CONFIRMED"))
+                            result = await cur.fetchall()
+                            if result:
+                                return result
+                    elif what.lower() == "receive":
+                        sql = """ SELECT * FROM `user_balance_mv` 
+                        WHERE `to_userid`=%s AND `user_server`=%s AND `token_name`=%s 
+                        ORDER BY `date` DESC LIMIT """+ str(limit)
+                        await cur.execute(sql, (user_id, user_server, coin_name))
+                        result = await cur.fetchall()
+                        if result:
+                            return result
+                    elif what.lower() == "expense":
+                        sql = """ SELECT * FROM `user_balance_mv` 
+                        WHERE `from_userid`=%s AND `user_server`=%s AND `token_name`=%s AND `to_userid`<>%s
+                        ORDER BY `date` DESC LIMIT """+ str(limit)
+                        await cur.execute(sql, (user_id, user_server, coin_name, "TRADE"))
+                        result = await cur.fetchall()
+                        if result:
+                            return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
+    # End of recent activity
+
     def set_cache_kv(self, table: str, key: str, value):
         try:
             if table.lower() == "test":

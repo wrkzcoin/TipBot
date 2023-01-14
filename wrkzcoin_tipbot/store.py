@@ -4415,6 +4415,7 @@ async def update_talkdrop_failed(message_id: str, turn_off: bool=False):
 # End Talkdrop
 
 # Recent Activity
+# Same as utils.recent_tips
 async def recent_tips(
     user_id: str, user_server: str, token_name: str, coin_family: str, what: str, limit: int
 ):
@@ -4722,6 +4723,16 @@ async def recent_tips(
                         sql = """
                         SELECT * 
                         FROM `xlm_get_transfers` 
+                        WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
+                        ORDER BY `time_insert` DESC LIMIT """+ str(limit)
+                        await cur.execute(sql, (user_id, user_server, coin_name))
+                        result = await cur.fetchall()
+                        if result:
+                            return result
+                    elif coin_family == "COSMOS":
+                        sql = """
+                        SELECT * 
+                        FROM `cosmos_get_transfers` 
                         WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
                         ORDER BY `time_insert` DESC LIMIT """+ str(limit)
                         await cur.execute(sql, (user_id, user_server, coin_name))

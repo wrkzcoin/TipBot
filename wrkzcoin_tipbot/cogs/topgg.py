@@ -16,6 +16,7 @@ import store
 from Bot import SERVER_BOT, num_format_coin, log_to_channel
 from cogs.wallet import Faucet
 from cogs.wallet import WalletAPI
+from cogs.utils import Utils
 
 
 class TopGGVote(commands.Cog):
@@ -23,6 +24,7 @@ class TopGGVote(commands.Cog):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
         self.reward_channel = self.bot.config['bot_vote_link']['reward_channel']
+        self.utils = Utils(self.bot)
 
     async def guild_find_by_key(self, guild_id: str):
         try:

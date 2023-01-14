@@ -13129,6 +13129,22 @@ class Wallet(commands.Cog):
         claim_interval = self.bot.config['faucet']['interval']
         half_claim_interval = int(self.bot.config['faucet']['interval'] / 2)
 
+        advert_txt = ""
+        # if advert enable
+        if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+            try:
+                random.shuffle(self.bot.advert_list)
+                advert_txt = "\n__**Random Message:**__ [{}](<{}>)```{}```".format(
+                    self.bot.advert_list[0]['title'], self.bot.advert_list[0]['link'], self.bot.advert_list[0]['content']
+                )
+                await self.utils.advert_impress(
+                    self.bot.advert_list[0]['id'], str(ctx.author.id),
+                    str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                )
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+        # end advert
+
         serverinfo = None
         extra_take_text = ""
         try:
@@ -13137,7 +13153,7 @@ class Wallet(commands.Cog):
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!!!'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!{advert_txt}'
                     await ctx.edit_original_message(content=msg)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -13215,7 +13231,7 @@ class Wallet(commands.Cog):
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed on {last_claim_at}. "\
                             f"Waiting time {time_waiting} for next `/take`. Total user claims: **{total_claimed}** times. "\
                             f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. "\
-                            f"Use /claim to vote TipBot and get reward.{extra_take_text}"
+                            f"Use /claim to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                         await ctx.edit_original_message(content=msg)
                         return
         except Exception:
@@ -13234,7 +13250,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using /take. Alternatively, vote for TipBot to get reward `/claim`.{extra_take_text}"
+                    f"Wait a few days before using /take. Alternatively, vote for TipBot to get reward `/claim`.{extra_take_text}{advert_txt}"
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -13252,7 +13268,7 @@ class Wallet(commands.Cog):
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel "\
                             f"{penalty_at}. Waiting time {time_waiting} for next `/take` "\
                             f"and be sure to be the right channel set by the guild. Use /claim "\
-                            f"to vote TipBot and get reward.{extra_take_text}"
+                            f"to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                         await ctx.edit_original_message(content=msg)
                         return
             except Exception:
@@ -13318,7 +13334,7 @@ class Wallet(commands.Cog):
             return
 
         if amount > actual_balance and not info:
-            msg = f'{ctx.author.mention} Please try again later. Bot runs out of **{coin_name}**'
+            msg = f'{ctx.author.mention} Please try again later. Bot runs out of **{coin_name}**{advert_txt}'
             await ctx.edit_original_message(content=msg)
             return
 
@@ -13370,7 +13386,7 @@ class Wallet(commands.Cog):
                     )
                     msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random `/take` "\
                         f"{coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
-                        f"Use /claim to vote TipBot and get reward.{extra_take_text}"
+                        f"Use /claim to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(
                         f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
@@ -13383,7 +13399,8 @@ class Wallet(commands.Cog):
             else:
                 try:
                     msg = f"Simulated faucet {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
-                        f"This is a test only. Use without **ticker** to do real faucet claim. Use /claim to vote TipBot and get reward."
+                        f"This is a test only. Use without **ticker** to do real faucet claim. Use /claim "\
+                        f"to vote TipBot and get reward.{advert_txt}"
                     await ctx.edit_original_message(content=msg)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)

@@ -332,6 +332,24 @@ class Utils(commands.Cog):
                     await logchanbot("[bot_commanded] removed: " +str(each))
         self.adding_commands = False
 
+    async def advert_impress(self, ad_id: int, user_id: str, guild_id: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ INSERT INTO `bot_advert_list_impression` 
+                    (`ad_id`, `date`, `user_id`, `guild`)
+                    VALUES (%s, %s, %s, %s);
+                    UPDATE `bot_advert_list` SET `numb_impression`=`numb_impression`+1
+                    WHERE `id`=%s;
+                    """
+                    await cur.execute(sql, (ad_id, int(time.time()), user_id, guild_id, ad_id))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
     async def get_trade_channel_list(self):
         try:
             await store.openConnection()

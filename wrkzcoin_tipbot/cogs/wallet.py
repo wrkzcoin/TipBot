@@ -10980,6 +10980,22 @@ class Wallet(commands.Cog):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             embed.set_footer(text="Use: /deposit plain (for plain text)")
+            # if advert enable
+            if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                try:
+                    random.shuffle(self.bot.advert_list)
+                    embed.add_field(
+                        name="{}".format(self.bot.advert_list[0]['title']),
+                        value="```{}```👉 <{}>".format(self.bot.advert_list[0]['content'], self.bot.advert_list[0]['link']),
+                        inline=False
+                    )
+                    await self.utils.advert_impress(
+                        self.bot.advert_list[0]['id'], str(ctx.author.id),
+                        str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            # end advert
             try:
                 if plain and plain.lower() == 'plain':
                     await ctx.edit_original_message(content=plain_address)
@@ -11143,6 +11159,24 @@ class Wallet(commands.Cog):
                     other_links.append(
                         "[{}]({})".format("Coinpaprika", "https://coinpaprika.com/coin/" + getattr(getattr(self.bot.coin_list, coin_name), "id_paprika"))
                     )
+
+                # if advert enable
+                if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                    try:
+                        random.shuffle(self.bot.advert_list)
+                        embed.add_field(
+                            name="{}".format(self.bot.advert_list[0]['title']),
+                            value="```{}```👉 <{}>".format(self.bot.advert_list[0]['content'], self.bot.advert_list[0]['link']),
+                            inline=False
+                        )
+                        await self.utils.advert_impress(
+                            self.bot.advert_list[0]['id'], str(ctx.author.id),
+                            str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                        )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                # end advert
+
                 if len(other_links) > 0:
                     embed.add_field(name="Other links", value="{}".format(" | ".join(other_links)), inline=False)
 
@@ -12882,6 +12916,24 @@ class Wallet(commands.Cog):
                 value="```{}```".format(", ".join(reward_list_default)),
                 inline=False
             )
+
+            # if advert enable
+            if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                try:
+                    random.shuffle(self.bot.advert_list)
+                    embed.add_field(
+                        name="{}".format(self.bot.advert_list[0]['title']),
+                        value="```{}```👉 <{}>".format(self.bot.advert_list[0]['content'], self.bot.advert_list[0]['link']),
+                        inline=False
+                    )
+                    await self.utils.advert_impress(
+                        self.bot.advert_list[0]['id'], str(ctx.author.id),
+                        str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            # end advert
+
             embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             embed.set_thumbnail(url=ctx.author.display_avatar)
             try:

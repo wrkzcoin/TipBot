@@ -3,6 +3,7 @@ import traceback
 import psutil
 from datetime import datetime
 import time
+import random
 
 import disnake
 import store
@@ -41,7 +42,25 @@ class About(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
-            await ctx.edit_original_message(content=None, embed=await self.about_embed(), view=RowButtonRowCloseAnyMessage())
+            embed = await self.about_embed()
+            # if advert enable
+            if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                try:
+                    random.shuffle(self.bot.advert_list)
+                    embed.add_field(
+                        name="{}".format(self.bot.advert_list[0]['title']),
+                        value="```{}```👉 <{}>".format(self.bot.advert_list[0]['content'], self.bot.advert_list[0]['link']),
+                        inline=False
+                    )
+                    await self.utils.advert_impress(
+                        self.bot.advert_list[0]['id'], str(ctx.author.id),
+                        str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            # end advert
+
+            await ctx.edit_original_message(content=None, embed=embed, view=RowButtonRowCloseAnyMessage())
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

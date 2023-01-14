@@ -942,6 +942,22 @@ class Events(commands.Cog):
             await logchanbot("events " +str(traceback.format_exc()))
         return None
 
+    async def get_advert_list(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `bot_advert_list` WHERE `enable`=1 """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        self.bot.advert_list = result
+                        return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
     # coin_paprika_list
     async def get_coin_paprika_list(self):
         try:
@@ -1035,6 +1051,8 @@ class Events(commands.Cog):
             print("token_hints loaded...")
             await self.get_coin_alias_name()
             print("coin_alias_name loaded...")
+            await self.get_advert_list()
+            print("get_advert_list loaded...")
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

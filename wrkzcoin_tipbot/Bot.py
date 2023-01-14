@@ -165,6 +165,7 @@ bot.token_hints = None
 bot.token_hint_names = None
 bot.coin_name_list = None
 bot.faucet_coins = None
+bot.advert_list = []
 
 # messages
 bot.message_list = []

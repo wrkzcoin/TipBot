@@ -3,6 +3,7 @@ import time
 import re
 import sys
 import traceback
+import random
 
 import disnake
 from Bot import EMOJI_RED_NO, RowButtonRowCloseAnyMessage, text_to_num, EMOJI_HOURGLASS_NOT_DONE, SERVER_BOT
@@ -202,6 +203,23 @@ class Price(commands.Cog):
                     embed.set_footer(text=f"Credit: DEX from {self.bot.coin_price_dex_from[coin_name]}")
                 else:
                     embed.set_footer(text="Credit: https://api.coinpaprika.com/")
+
+                # if advert enable
+                if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                    try:
+                        random.shuffle(self.bot.advert_list)
+                        embed.add_field(
+                            name="{}".format(self.bot.advert_list[0]['title']),
+                            value="```{}```👉 <{}>".format(self.bot.advert_list[0]['content'], self.bot.advert_list[0]['link']),
+                            inline=False
+                        )
+                        await self.utils.advert_impress(
+                            self.bot.advert_list[0]['id'], str(ctx.author.id),
+                            str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                        )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                # end advert
                 await ctx.edit_original_message(content=None, embed=embed, view=RowButtonRowCloseAnyMessage())
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -267,6 +285,22 @@ class Price(commands.Cog):
                     value="```{}```".format(", ".join(invalid_token_list).strip()),
                     inline=False
                 )
+            # if advert enable
+            if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                try:
+                    random.shuffle(self.bot.advert_list)
+                    embed.add_field(
+                        name="{}".format(self.bot.advert_list[0]['title']),
+                        value="```{}```👉 <{}>".format(self.bot.advert_list[0]['content'], self.bot.advert_list[0]['link']),
+                        inline=False
+                    )
+                    await self.utils.advert_impress(
+                        self.bot.advert_list[0]['id'], str(ctx.author.id),
+                        str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            # end advert
             embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
             embed.set_footer(text="Credit: https://api.coinpaprika.com/")
             await ctx.edit_original_message(content=None, embed=embed, view=RowButtonRowCloseAnyMessage())

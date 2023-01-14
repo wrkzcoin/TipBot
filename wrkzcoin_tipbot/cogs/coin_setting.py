@@ -75,6 +75,22 @@ class CoinSetting(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
+    async def get_advert_list(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `bot_advert_list` WHERE `enable`=1 """
+                    await cur.execute(sql, ())
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        self.bot.advert_list = result
+                        return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+        return None
+
     async def get_coin_alias_name(self):
         try:
             await store.openConnection()
@@ -143,6 +159,10 @@ class CoinSetting(commands.Cog):
                 await self.get_token_hints()
                 await self.get_coin_alias_name()
                 await ctx.reply(f"{ctx.author.mention}, coin aliases reloaded...")
+                await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")
+            elif cmd.lower() == "advertlist":
+                await self.get_advert_list()
+                await ctx.reply(f"{ctx.author.mention}, advert list reloaded...")
                 await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")
             else:
                 await ctx.reply(f"{ctx.author.mention}, unknown command. Available for reload `coinlist`")

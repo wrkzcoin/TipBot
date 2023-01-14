@@ -285,7 +285,7 @@ class Admin(commands.Cog):
                     WHERE `payment_id`=%s AND `coin_name`=%s 
                     AND `amount`>0 AND `height`< %s AND `user_server`=%s), 0))
                     """
-                    query_param += [address, token_name, nos_block, user_server]
+                    query_param += [address, token_name, top_block, user_server]
             elif coin_family == "BTC":
                 sql += """
                     - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
@@ -401,7 +401,7 @@ class Admin(commands.Cog):
                     FROM `xch_get_transfers` 
                     WHERE `address`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s), 0))
                     """
-                    query_param += [address, token_name, nos_block]
+                    query_param += [address, token_name, top_block]
             elif coin_family == "ERC-20":
                 sql += """
                 - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -493,7 +493,7 @@ class Admin(commands.Cog):
                     WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                     AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                     """
-                    query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                    query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
             elif coin_family == "TRC-20":
                 sql += """
                 - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -535,7 +535,7 @@ class Admin(commands.Cog):
                     WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                     AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                     """
-                    query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                    query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
 
             elif coin_family == "XRP":
                 sql += """
@@ -560,7 +560,7 @@ class Admin(commands.Cog):
                     FROM `xrp_get_transfers` 
                     WHERE `destination_tag`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                     """
-                    query_param += [address, token_name, nos_block, user_server]
+                    query_param += [address, token_name, top_block, user_server]
             elif coin_family == "XLM":
                 sql += """
                 - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
@@ -587,7 +587,35 @@ class Admin(commands.Cog):
                     WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                     AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                     """
-                    query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                    query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
+
+            elif coin_family == "COSMOS":
+                sql += """
+                - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
+                FROM `cosmos_external_tx` 
+                WHERE `user_id`=%s AND `coin_name`=%s 
+                AND `user_server`=%s AND `crediting`=%s AND `is_failed`=0), 0))
+                """
+                query_param += [user_id, token_name, user_server, "YES"]
+                
+                address_memo = address.split()
+                if top_block is None:
+                    sql += """
+                    + (SELECT IFNULL((SELECT SUM(amount)  
+                                FROM `cosmos_get_transfers` 
+                                WHERE `address`=%s AND `memo`=%s 
+                                AND `coin_name`=%s AND `amount`>0 
+                                AND `time_insert`< %s AND `user_server`=%s), 0))
+                    """
+                    query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
+                else:
+                    sql += """
+                    + (SELECT IFNULL((SELECT SUM(amount)  
+                    FROM `cosmos_get_transfers` 
+                    WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
+                    AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
+                    """
+                    query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
             elif coin_family == "ADA":
                 sql += """
                 - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -610,7 +638,7 @@ class Admin(commands.Cog):
                     WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
                     AND `amount`>0 AND `inserted_at_height`<%s AND `user_server`=%s), 0))
                     """
-                    query_param += [address, "incoming", token_name, nos_block, user_server]
+                    query_param += [address, "incoming", token_name, top_block, user_server]
             elif coin_family == "SOL" or coin_family == "SPL":
                 sql += """
                 - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -731,7 +759,7 @@ class Admin(commands.Cog):
                             WHERE `payment_id`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `height`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address, token_name, nos_block, user_server]
+                            query_param += [address, token_name, top_block, user_server]
                     elif coin_family == "BTC":
                         sql += """
                             - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
@@ -847,7 +875,7 @@ class Admin(commands.Cog):
                             FROM `xch_get_transfers` 
                             WHERE `address`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s), 0))
                             """
-                            query_param += [address, token_name, nos_block]
+                            query_param += [address, token_name, top_block]
                     elif coin_family == "ERC-20":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -939,7 +967,7 @@ class Admin(commands.Cog):
                             WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
                     elif coin_family == "TRC-20":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -981,7 +1009,7 @@ class Admin(commands.Cog):
                             WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
 
                     elif coin_family == "XRP":
                         sql += """
@@ -1006,7 +1034,7 @@ class Admin(commands.Cog):
                             FROM `xrp_get_transfers` 
                             WHERE `destination_tag`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                             """
-                            query_param += [address, token_name, nos_block, user_server]
+                            query_param += [address, token_name, top_block, user_server]
                     elif coin_family == "XLM":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
@@ -1033,7 +1061,34 @@ class Admin(commands.Cog):
                             WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
+                    elif coin_family == "COSMOS":
+                        sql += """
+                        - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
+                        FROM `cosmos_external_tx` 
+                        WHERE `user_id`=%s AND `coin_name`=%s 
+                        AND `user_server`=%s AND `crediting`=%s AND `is_failed`=0), 0))
+                        """
+                        query_param += [user_id, token_name, user_server, "YES"]
+                        
+                        address_memo = address.split()
+                        if top_block is None:
+                            sql += """
+                            + (SELECT IFNULL((SELECT SUM(amount)  
+                                      FROM `cosmos_get_transfers` 
+                                      WHERE `address`=%s AND `memo`=%s 
+                                      AND `coin_name`=%s AND `amount`>0 
+                                      AND `time_insert`< %s AND `user_server`=%s), 0))
+                            """
+                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
+                        else:
+                            sql += """
+                            + (SELECT IFNULL((SELECT SUM(amount)  
+                            FROM `cosmos_get_transfers` 
+                            WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
+                            AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
+                            """
+                            query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
                     elif coin_family == "ADA":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -1056,7 +1111,7 @@ class Admin(commands.Cog):
                             WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `inserted_at_height`<%s AND `user_server`=%s), 0))
                             """
-                            query_param += [address, "incoming", token_name, nos_block, user_server]
+                            query_param += [address, "incoming", token_name, top_block, user_server]
                     elif coin_family == "SOL" or coin_family == "SPL":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -1273,6 +1328,49 @@ class Admin(commands.Cog):
     async def admin(self, ctx):
         if ctx.invoked_subcommand is None: await ctx.reply(f"{ctx.author.mention}, invalid admin command")
         return
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='admin updatebalance <coin>', description='Force update a balance of a coin/token')
+    async def updatebalance(self, ctx, coin: str):
+        coin_name = coin.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
+            await ctx.reply(msg)
+            return
+        else:
+            msg = await ctx.reply(f"{ctx.author.mention}, loading check for **{coin_name}**..")
+            try:
+                real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
+                real_deposit_fee = getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee")
+                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                min_move_deposit = getattr(getattr(self.bot.coin_list, coin_name), "min_move_deposit")
+                min_gas_tx = getattr(getattr(self.bot.coin_list, coin_name), "min_gas_tx")
+                gas_ticker = getattr(getattr(self.bot.coin_list, coin_name), "gas_ticker")
+                move_gas_amount = getattr(getattr(self.bot.coin_list, coin_name), "move_gas_amount")
+                erc20_approve_spend = getattr(getattr(self.bot.coin_list, coin_name), "erc20_approve_spend")
+                chain_id = getattr(getattr(self.bot.coin_list, coin_name), "chain_id")
+                start_time = time.time()
+                if type_coin == "ERC-20":
+                    await store.sql_check_minimum_deposit_erc20(
+                        self.bot.erc_node_list[net_name],
+                        net_name, coin_name,
+                        contract, coin_decimal,
+                        min_move_deposit, min_gas_tx,
+                        gas_ticker, move_gas_amount,
+                        chain_id, real_deposit_fee,
+                        erc20_approve_spend, 7200
+                    )
+                    await ctx.reply("{}, processing {} update. Time token {}s".format(ctx.author.mention, coin_name, time.time()-start_time))
+                else:
+                    await ctx.reply("{}, not support yet for this method for {}.".format(ctx.author.mention, coin_name))
+                await msg.delete()
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
     @admin.command(hidden=True, usage='admin status <text>', description='set bot\'s status.')
@@ -2429,6 +2527,12 @@ class Admin(commands.Cog):
         code
     ):
         if self.bot.config['discord']['enable_eval'] != 1:
+            return
+
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying eval! ```{}```".format(
+                ctx.author.name, ctx.author.discriminator, ctx.author.mention, code)
+            )
             return
 
         str_obj = io.StringIO()  # Retrieves a stream of data

@@ -1211,7 +1211,7 @@ class WalletAPI(commands.Cog):
                             WHERE `payment_id`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `height`< %s AND `user_server`=%s), 0))
                             """
-                            query_param += [address, token_name, nos_block, user_server]
+                            query_param += [address, token_name, top_block, user_server]
                     elif coin_family == "BTC":
                         sql += """
                             - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
@@ -1327,7 +1327,7 @@ class WalletAPI(commands.Cog):
                             FROM `xch_get_transfers` 
                             WHERE `address`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s), 0))
                             """
-                            query_param += [address, token_name, nos_block]
+                            query_param += [address, token_name, top_block]
                     elif coin_family == "ERC-20":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -1419,7 +1419,7 @@ class WalletAPI(commands.Cog):
                             WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
                     elif coin_family == "TRC-20":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -1461,7 +1461,7 @@ class WalletAPI(commands.Cog):
                             WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
 
                     elif coin_family == "XRP":
                         sql += """
@@ -1486,7 +1486,7 @@ class WalletAPI(commands.Cog):
                             FROM `xrp_get_transfers` 
                             WHERE `destination_tag`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                             """
-                            query_param += [address, token_name, nos_block, user_server]
+                            query_param += [address, token_name, top_block, user_server]
                     elif coin_family == "XLM":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
@@ -1513,7 +1513,7 @@ class WalletAPI(commands.Cog):
                             WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
                     elif coin_family == "COSMOS":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
@@ -1540,7 +1540,7 @@ class WalletAPI(commands.Cog):
                             WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
                             """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
+                            query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
                     elif coin_family == "ADA":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -1563,7 +1563,7 @@ class WalletAPI(commands.Cog):
                             WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
                             AND `amount`>0 AND `inserted_at_height`<%s AND `user_server`=%s), 0))
                             """
-                            query_param += [address, "incoming", token_name, nos_block, user_server]
+                            query_param += [address, "incoming", token_name, top_block, user_server]
                     elif coin_family == "SOL" or coin_family == "SPL":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  

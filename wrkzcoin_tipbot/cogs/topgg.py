@@ -9,6 +9,7 @@ import json, time
 from decimal import Decimal
 import time
 from datetime import datetime
+import random
 
 import store
 
@@ -335,6 +336,22 @@ class TopGGVote(commands.Cog):
                                                                 value="https://top.gg/servers/{}".format(guild_id),
                                                                 inline=False
                                                             )
+                                                            # if advert enable
+                                                            if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                                                                try:
+                                                                    random.shuffle(self.bot.advert_list)
+                                                                    embed.add_field(
+                                                                        name="{}".format(self.bot.advert_list[0]['title']),
+                                                                        value="```{}```👉 <{}>".format(self.bot.advert_list[0]['content'], self.bot.advert_list[0]['link']),
+                                                                        inline=False
+                                                                    )
+                                                                    await self.utils.advert_impress(
+                                                                        self.bot.advert_list[0]['id'], user_vote,
+                                                                        "GUILD VOTE"
+                                                                    )
+                                                                except Exception:
+                                                                    traceback.print_exc(file=sys.stdout)
+                                                            # end advert
                                                             embed.set_author(
                                                                 name=self.bot.user.name,
                                                                 icon_url=self.bot.user.display_avatar

@@ -546,9 +546,24 @@ class TopGGVote(commands.Cog):
                                                                 contract, amount_in_usd, None
                                                             )
                                                             if member is not None:
+                                                                advert_txt = ""
+                                                                # if advert enable
+                                                                if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                                                                    try:
+                                                                        random.shuffle(self.bot.advert_list)
+                                                                        advert_txt = "\n__**Random Message:**__ {} 👉 <{}>```{}```".format(
+                                                                            self.bot.advert_list[0]['title'], self.bot.advert_list[0]['link'], self.bot.advert_list[0]['content']
+                                                                        )
+                                                                        await self.utils.advert_impress(
+                                                                            self.bot.advert_list[0]['id'], user_vote,
+                                                                            "TOPGG BOT VOTE"
+                                                                        )
+                                                                    except Exception:
+                                                                        traceback.print_exc(file=sys.stdout)
+                                                                # end advert
                                                                 msg = f"Thank you for voting for our TipBot at <{self.bot.config['bot_vote_link']['topgg']}>. "\
                                                                     f"You just got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
-                                                                    f"Check with `/claim` for voting list at other websites."
+                                                                    f"Check with `/claim` for voting list at other websites.{advert_txt}"
                                                                 try:
                                                                     await member.send(msg)
                                                                 except (

@@ -5,6 +5,7 @@ import time
 import traceback
 from datetime import datetime
 from decimal import Decimal
+import random
 
 import disnake
 import store
@@ -14,6 +15,7 @@ from cogs.wallet import Faucet
 from cogs.wallet import WalletAPI
 from discord_webhook import DiscordWebhook
 from disnake.ext import commands
+from cogs.utils import Utils
 
 
 class DiscordBotList(commands.Cog):
@@ -22,6 +24,7 @@ class DiscordBotList(commands.Cog):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
         self.reward_channel = self.bot.config['bot_vote_link']['reward_channel']
+        self.utils = Utils(self.bot)
 
     async def insert_bot_vote(
         self, user_id: str, directory: str, bot_id: str, type_vote: str, voter: str
@@ -209,10 +212,25 @@ class DiscordBotList(commands.Cog):
                                                         "VOTE", amount, coin_name, "BOTVOTE", coin_decimal, SERVER_BOT, contract,
                                                         amount_in_usd, None)
                                                     if member is not None:
+                                                        advert_txt = ""
+                                                        # if advert enable
+                                                        if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                                                            try:
+                                                                random.shuffle(self.bot.advert_list)
+                                                                advert_txt = "\n__**Random Message:**__ {} 👉 <{}>```{}```".format(
+                                                                    self.bot.advert_list[0]['title'], self.bot.advert_list[0]['link'], self.bot.advert_list[0]['content']
+                                                                )
+                                                                await self.utils.advert_impress(
+                                                                    self.bot.advert_list[0]['id'], user_vote,
+                                                                    "DISCORDBOTLIST BOT VOTE"
+                                                                )
+                                                            except Exception:
+                                                                traceback.print_exc(file=sys.stdout)
+                                                        # end advert
                                                         msg = f"Thank you for voting for our TipBot at "\
                                                             f"<{self.bot.config['bot_vote_link']['discordbotlist']}>. "\
                                                             f"You got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                                            f"{coin_name}. Check with `/claim` for voting list at other websites."
+                                                            f"{coin_name}. Check with `/claim` for voting list at other websites.{advert_txt}"
                                                         try:
                                                             await member.send(msg)
                                                         except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:

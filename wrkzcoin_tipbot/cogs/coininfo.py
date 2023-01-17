@@ -66,14 +66,18 @@ class Coininfo(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
                     response_text += "Height: N/A (*)" + "\n"
             response_text += "Confirmation: {} Blocks".format(confim_depth) + "\n"
-            tip_deposit_withdraw_stat = ["ON", "ON", "ON"]
+            tip_deposit_withdraw_stat = ["✅ON", "✅ON", "✅ON"]
             if  getattr(getattr(self.bot.coin_list, coin_name), "enable_tip") == 0:
-                tip_deposit_withdraw_stat[0] = "OFF"
+                tip_deposit_withdraw_stat[0] = "🔴OFF"
             if  getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
-                tip_deposit_withdraw_stat[1] = "OFF"
+                tip_deposit_withdraw_stat[1] = "🔴OFF"
             if  getattr(getattr(self.bot.coin_list, coin_name), "enable_withdraw") == 0:
-                tip_deposit_withdraw_stat[2] = "OFF"
-            response_text += "Tipping / Depositing / Withdraw:\n   {} / {} / {}\n".format(tip_deposit_withdraw_stat[0], tip_deposit_withdraw_stat[1], tip_deposit_withdraw_stat[2])
+                tip_deposit_withdraw_stat[2] = "🔴OFF"
+            response_text += "Tipping / Depositing / Withdraw:\n   {} / {} / {}\n".format(
+                tip_deposit_withdraw_stat[0], tip_deposit_withdraw_stat[1], tip_deposit_withdraw_stat[2]
+            )
+            if coin_name in self.bot.cexswap_coins:
+                response_text += "CEXSwap:\n   ✅ON\n"
             get_tip_min_max = "Tip Min/Max:\n   " + num_format_coin(Min_Tip, coin_name, coin_decimal, False) + " / " + num_format_coin(Max_Tip, coin_name, coin_decimal, False) + " " + coin_name
             response_text += get_tip_min_max + "\n"
             get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(Min_Tx, coin_name, coin_decimal, False) + " / " + num_format_coin(Max_Tx, coin_name, coin_decimal, False) + " " + coin_name

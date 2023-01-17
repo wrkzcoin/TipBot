@@ -88,7 +88,8 @@ async def cexswap_earning(user_id: str=None):
                 if user_id is not None:
                     sql = """
                     SELECT `got_ticker`, `distributed_user_id`, `distributed_user_server`, 
-                        SUM(`distributed_amount`) as collected_amount, COUNT(*) as total_swap
+                        SUM(`distributed_amount`) AS collected_amount, SUM(`got_total_amount`) AS got_total_amount,
+                        COUNT(*) as total_swap
                     FROM `cexswap_distributing_fee`
                     WHERE `distributed_user_id`=%s
                     GROUP BY `got_ticker`
@@ -100,7 +101,8 @@ async def cexswap_earning(user_id: str=None):
                 else:
                     sql = """
                     SELECT `got_ticker`, `distributed_user_id`, `distributed_user_server`, 
-                        SUM(`distributed_amount`) as collected_amount, COUNT(*) as total_swap
+                        SUM(`distributed_amount`) AS collected_amount, SUM(`got_total_amount`) AS got_total_amount,
+                        COUNT(*) as total_swap
                     FROM `cexswap_distributing_fee`
                     GROUP BY `got_ticker`
                     """
@@ -340,7 +342,6 @@ async def cexswap_sold(
                 `sell_user_id`, `user_server`, `time`)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 """
-                # TODO; real balance
                 data_rows = [
                     float(amount_sell), sell_ticker, pool_id, float(amount_sell), sell_ticker, pool_id, 
                     float(amount_get), got_ticker, pool_id, float(amount_get), got_ticker, pool_id,
@@ -504,7 +505,7 @@ async def cexswap_insert_new(
 # Define a simple View that gives us a confirmation menu
 class ConfirmSell(disnake.ui.View):
     def __init__(self, owner_id: int):
-        super().__init__(timeout=10.0)
+        super().__init__(timeout=20.0)
         self.value: Optional[bool] = None
         self.owner_id = owner_id
 
@@ -568,10 +569,9 @@ class add_liqudity(disnake.ui.Modal):
             testing = self.bot.config['cexswap']['testing_msg']
             embed = disnake.Embed(
                 title="Add Liquidity to TipBot's CEXSwap",
-                description=f"{interaction.author.mention}, {testing}Please click on add liqudity and confirm later.",
+                description=f"{interaction.author.mention}, {testing}Please click on add liquidity and confirm later.",
                 timestamp=datetime.now(),
             )
-
             amount_1 = interaction.text_values['cexswap_amount_coin_id_1'].strip()
             amount_1 = amount_1.replace(",", "")
             amount_1 = text_to_num(amount_1)
@@ -583,13 +583,80 @@ class add_liqudity(disnake.ui.Modal):
             coin_decimal_1 = getattr(getattr(self.bot.coin_list, self.ticker_1), "decimal")
             coin_decimal_2 = getattr(getattr(self.bot.coin_list, self.ticker_2), "decimal")
 
+            min_initialized_liq_1 = getattr(getattr(self.bot.coin_list, self.ticker_1), "cexswap_min_initialized_liq")
+            min_initialized_liq_2 = getattr(getattr(self.bot.coin_list, self.ticker_2), "cexswap_min_initialized_liq")
+
             accepted = False
             text_adjust_1 = ""
             text_adjust_2 = ""
+            error_msg = f"{EMOJI_RED_NO} {interaction.author.mention}, Please check amount!"
             if amount_1 and amount_2:
                 accepted = True
                 if amount_1 < 0 or amount_2 < 0:
                     accepted = False
+                    error_msg = "Amount can't be negative!"
+
+                # check user balance
+                # self.ticker_1
+                net_name = getattr(getattr(self.bot.coin_list, self.ticker_1), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, self.ticker_1), "type")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, self.ticker_1), "deposit_confirm_depth")
+                contract = getattr(getattr(self.bot.coin_list, self.ticker_1), "contract")
+                height = self.wallet_api.get_block_height(type_coin, self.ticker_1, net_name)
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    str(interaction.author.id), self.ticker_1, net_name, type_coin, SERVER_BOT, 0
+                )
+                if get_deposit is None:
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        str(interaction.author.id), self.ticker_1, net_name, type_coin, SERVER_BOT, 0, 0
+                    )
+
+                wallet_address = get_deposit['balance_wallet_address']
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    wallet_address = get_deposit['paymentid']
+                elif type_coin in ["XRP"]:
+                    wallet_address = get_deposit['destination_tag']
+
+                height = self.wallet_api.get_block_height(type_coin, self.ticker_1, net_name)
+                userdata_balance = await store.sql_user_balance_single(
+                    str(interaction.author.id), self.ticker_1, wallet_address, 
+                    type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
+                actual_balance = float(userdata_balance['adjust'])
+                if actual_balance < 0 or actual_balance < amount_1:
+                    accepted = False
+                    error_msg = f"{EMOJI_RED_NO}, You don't have sufficient balance!"
+
+                # self.ticker_2
+                net_name = getattr(getattr(self.bot.coin_list, self.ticker_2), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, self.ticker_2), "type")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, self.ticker_2), "deposit_confirm_depth")
+                contract = getattr(getattr(self.bot.coin_list, self.ticker_2), "contract")
+                height = self.wallet_api.get_block_height(type_coin, self.ticker_2, net_name)
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    str(interaction.author.id), self.ticker_2, net_name, type_coin, SERVER_BOT, 0
+                )
+                if get_deposit is None:
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        str(interaction.author.id), self.ticker_2, net_name, type_coin, SERVER_BOT, 0, 0
+                    )
+
+                wallet_address = get_deposit['balance_wallet_address']
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    wallet_address = get_deposit['paymentid']
+                elif type_coin in ["XRP"]:
+                    wallet_address = get_deposit['destination_tag']
+
+                height = self.wallet_api.get_block_height(type_coin, self.ticker_2, net_name)
+                userdata_balance = await store.sql_user_balance_single(
+                    str(interaction.author.id), self.ticker_2, wallet_address, 
+                    type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
+                actual_balance = float(userdata_balance['adjust'])
+                if actual_balance < 0 or actual_balance < amount_2:
+                    accepted = False
+                    error_msg = f"{EMOJI_RED_NO}, You don't have sufficient balance!"
+                # end of check user balance
 
                 if liq_pair is None:
                     embed.add_field(
@@ -597,6 +664,13 @@ class add_liqudity(disnake.ui.Modal):
                         value="This is a new pair and a start price will be based on yours.",
                         inline=False
                     )
+
+                    if amount_1 < min_initialized_liq_1:
+                        accepted = False
+                        error_msg = f"{EMOJI_INFORMATION} New pool requires minimum amount to initialize!"
+                    elif amount_2 < min_initialized_liq_2:
+                        accepted = False
+                        error_msg = f"{EMOJI_INFORMATION} New pool requires minimum amount to initialize!"
                 else:
                     # if existing pool, check rate and set it to which one lower.
                     new_amount_1 = amount_2 * liq_pair['pool']['amount_ticker_1']/liq_pair['pool']['amount_ticker_2']
@@ -676,13 +750,13 @@ class add_liqudity(disnake.ui.Modal):
                     )
                     embed.add_field(
                         name="Error",
-                        value=f'{EMOJI_RED_NO} {interaction.author.mention}, invalid given amount.',
+                        value=error_msg,
                         inline=False
                     )
             else:
                 embed.add_field(
                     name="Error",
-                    value=f'{EMOJI_RED_NO} {interaction.author.mention}, invalid given amount.',
+                    value=error_msg,
                     inline=False
                 )
     
@@ -693,7 +767,7 @@ class add_liqudity(disnake.ui.Modal):
                 amount_1, amount_2)
             )
 
-            await interaction.edit_original_message("Update! Please accept or cancel.")
+            await interaction.edit_original_message(f"{interaction.author.mention}, Update! Please accept or cancel.")
         except Exception:
             traceback.print_exc(file=sys.stdout)
             return
@@ -704,9 +778,11 @@ class add_liquidity_btn(disnake.ui.View):
         self, ctx, bot, owner_id: str, pool_name: str, accepted: bool=False,
         amount_1: float=None, amount_2: float=None,
     ):
-        super().__init__(timeout=60.0)
+        super().__init__(timeout=20.0)
         self.ctx = ctx
         self.bot = bot
+        self.utils = Utils(self.bot)
+        self.wallet_api = WalletAPI(self.bot)
         self.owner_id = owner_id
         self.pool_name = pool_name
         self.accepted = accepted
@@ -755,6 +831,71 @@ class add_liquidity_btn(disnake.ui.View):
                 await inter.message.edit(view=None)
                 return
         # end of re-check rate
+
+        # re-check balance
+        # ticker[0]
+        coin_name = ticker[0]
+        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
+        if get_deposit is None:
+            get_deposit = await self.wallet_api.sql_register_user(
+                str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+            )
+        wallet_address = get_deposit['balance_wallet_address']
+        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+            wallet_address = get_deposit['paymentid']
+        elif type_coin in ["XRP"]:
+            wallet_address = get_deposit['destination_tag']
+
+        userdata_balance = await store.sql_user_balance_single(
+            str(inter.author.id), coin_name, wallet_address, 
+            type_coin, height, deposit_confirm_depth, SERVER_BOT
+        )
+        actual_balance = float(userdata_balance['adjust'])
+        if actual_balance <= self.amount_1:
+            msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Please get more {coin_name}."
+            await inter.edit_original_message(content=msg)
+            return
+
+        # ticker[1]
+        coin_name = ticker[1]
+        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+
+        get_deposit = await self.wallet_api.sql_get_userwallet(
+            str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+        )
+        if get_deposit is None:
+            get_deposit = await self.wallet_api.sql_register_user(
+                str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+            )
+        wallet_address = get_deposit['balance_wallet_address']
+        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+            wallet_address = get_deposit['paymentid']
+        elif type_coin in ["XRP"]:
+            wallet_address = get_deposit['destination_tag']
+
+        userdata_balance = await store.sql_user_balance_single(
+            str(inter.author.id), coin_name, wallet_address, 
+            type_coin, height, deposit_confirm_depth, SERVER_BOT
+        )
+        actual_balance = float(userdata_balance['adjust'])
+        if actual_balance <= self.amount_2:
+            msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Please get more {coin_name}."
+            await inter.edit_original_message(content=msg)
+            return
+        # end of re-check balance
+
         add_liq = await cexswap_insert_new(
             self.pool_name, self.amount_1, ticker[0], self.amount_2, ticker[1],
             str(inter.author.id), SERVER_BOT
@@ -784,6 +925,18 @@ class add_liquidity_btn(disnake.ui.View):
                 f"[ADD LIQUIDITY]: User {inter.author.mention} add new liquidity to pool `{self.pool_name}`! {add_msg}",
                 self.bot.config['discord']['cexswap']
             )
+            # Find guild where there is trade channel assign
+            get_guilds = await self.utils.get_trade_channel_list()
+            if len(get_guilds) > 0:
+                for item in get_guilds:
+                    try:
+                        get_guild = self.bot.get_guild(int(item['serverid']))
+                        if get_guild:
+                            channel = self.bot.get_channel(int(item['trade_channel']))
+                            if hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel and channel.id != inter.channel.id:
+                                await channel.send(f"[CEXSWAP]: A user added to liquidity to pool `{self.pool_name}`! {add_msg}")
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
         else:
             msg = f'{EMOJI_INFORMATION} {inter.author.mention}, internal error.'
             await inter.edit_original_message(content=msg)
@@ -1005,6 +1158,7 @@ class Cexswap(commands.Cog):
             if len(get_user_earning) > 0:
                 testing = self.bot.config['cexswap']['testing_msg']
                 list_earning = []
+                list_volume = []
                 for each in get_user_earning:
                     coin_emoji = ""
                     try:
@@ -1021,11 +1175,20 @@ class Cexswap(commands.Cog):
                     earning_amount = num_format_coin(
                         each['collected_amount'], each['got_ticker'], coin_decimal, False
                     )
+                    traded_amount = num_format_coin(
+                        each['got_total_amount'], each['got_ticker'], coin_decimal, False
+                    )
                     list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
+                    list_volume.append("{}{} {}".format(coin_emoji, traded_amount, each['got_ticker']))
 
                 embed.add_field(
                     name="Fee to liquidator(s) - {} coin(s)".format(len(get_user_earning)),
                     value="{}".format("\n".join(list_earning)),
+                    inline=False
+                )
+                embed.add_field(
+                    name="Total volume",
+                    value="{}".format("\n".join(list_volume)),
                     inline=False
                 )
             embed.add_field(
@@ -1337,6 +1500,7 @@ class Cexswap(commands.Cog):
                             )
                             return
                         # end of re-check rate
+
                         # re-check balance
                         height = self.wallet_api.get_block_height(type_coin, sell_token, net_name)
                         userdata_balance = await store.sql_user_balance_single(
@@ -1389,6 +1553,19 @@ class Cexswap(commands.Cog):
                                 f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}. Ref: `{ref_log}`",
                                 self.bot.config['discord']['cexswap']
                             )
+                            get_guilds = await self.utils.get_trade_channel_list()
+                            if len(get_guilds) > 0:
+                                for item in get_guilds:
+                                    try:
+                                        get_guild = self.bot.get_guild(int(item['serverid']))
+                                        if get_guild:
+                                            channel = self.bot.get_channel(int(item['trade_channel']))
+                                            if (hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id) or not \
+                                                not hasattr(ctx, "guild"):
+                                                await channel.send(f"[CEXSWAP]: A user sold {user_amount_sell} {sell_token} for {user_amount_get} {for_token}.")
+
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                         else:
                             await ctx.edit_original_message(
                                 content=f"{EMOJI_INFORMATION} {ctx.author.mention}, internal error!", view=None
@@ -1439,10 +1616,10 @@ class Cexswap(commands.Cog):
             testing = self.bot.config['cexswap']['testing_msg']
             embed = disnake.Embed(
                 title="Add Liquidity to TipBot's CEXSwap",
-                description=f"{ctx.author.mention}, {testing}Please click on add liqudity and confirm later.",
+                description=f"{ctx.author.mention}, {testing}Please click on add liquidity and confirm later.",
                 timestamp=datetime.now(),
             )
-            tickers = pool_name.split("/")
+            tickers = pool_name.upper().split("/")
             coin_emoji_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "coin_emoji_discord")
             coin_emoji_1 = coin_emoji_1 + " " if coin_emoji_1 else ""
             coin_emoji_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "coin_emoji_discord")
@@ -1591,7 +1768,7 @@ class Cexswap(commands.Cog):
 
             liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], None)
             if liq_pair is None:
-                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liqudity for that pool `{pool_name}`. "
+                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity for that pool `{pool_name}`. "
                 await ctx.edit_original_message(content=msg)
                 return
             else:
@@ -1719,7 +1896,7 @@ class Cexswap(commands.Cog):
             try:
                 liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], str(ctx.author.id))
                 if liq_pair is None:
-                    msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liqudity for that pool `{pool_name}`. "
+                    msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity for that pool `{pool_name}`. "
                     await ctx.edit_original_message(content=msg)
                     return
                 elif liq_pair and liq_pair['pool_share'] is None:
@@ -1737,6 +1914,18 @@ class Cexswap(commands.Cog):
                         complete_remove = True
                         amount_remove_1 = liq_pair['pool_share']['amount_ticker_1']
                         amount_remove_2 = liq_pair['pool_share']['amount_ticker_2']
+                    else:
+                        # if the liquidity is too low
+                        try:
+                            cexswap_min_add_liq_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "cexswap_min")
+                            cexswap_min_add_liq_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "cexswap_min")
+                            if float(amount_remove_1) < float(cexswap_min_add_liq_1) or float(amount_remove_2) < float(cexswap_min_add_liq_2):
+                                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your current LP is too low. "\
+                                    "Please consider to remove 100%."
+                                await ctx.edit_original_message(content=msg)
+                                return
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
                     # if you own all pair and amout remove is all.
                     if truncate(float(amount_remove_1), 8) == \
                         truncate(float(liq_pair['pool']['amount_ticker_1']), 8):
@@ -1773,6 +1962,21 @@ class Cexswap(commands.Cog):
                             f"{amount_1_str} {ticker_1} and {amount_2_str} {ticker_2}",
                             self.bot.config['discord']['cexswap']
                         )
+                        get_guilds = await self.utils.get_trade_channel_list()
+                        if len(get_guilds) > 0:
+                            for item in get_guilds:
+                                try:
+                                    get_guild = self.bot.get_guild(int(item['serverid']))
+                                    if get_guild:
+                                        channel = self.bot.get_channel(int(item['trade_channel']))
+                                        if (hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id) or not \
+                                                not hasattr(ctx, "guild"):
+                                            await channel.send(
+                                                f"[CEXSWAP]: A user removed liquidity from `{pool_name}`. "\
+                                                f"{amount_1_str} {ticker_1} and {amount_2_str} {ticker_2}"
+                                            )
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
                     else:
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, internal error."
                         await ctx.edit_original_message(content=msg)

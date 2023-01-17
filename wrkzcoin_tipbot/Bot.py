@@ -168,6 +168,11 @@ bot.token_hint_names = None
 bot.coin_name_list = None
 bot.faucet_coins = None
 bot.advert_list = []
+bot.cexswap_pairs = []
+bot.cexswap_coins = []
+
+# in case for other data
+bot.other_data = {}
 
 # messages
 bot.message_list = []

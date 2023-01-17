@@ -17,7 +17,7 @@ from terminaltables import AsciiTable
 import store
 from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, \
     EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, RowButtonRowCloseAnyMessage, human_format, \
-    text_to_num, truncate, seconds_str, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION
+    text_to_num, truncate, seconds_str, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION, log_to_channel
 
 from cogs.utils import MenuPage
 from cogs.wallet import WalletAPI
@@ -152,6 +152,7 @@ async def cexswap_admin_remove_pool(
                     """ * int(len(liq_users)/5) # because the list is exploded and 5 elements to insert
                     sql += add_sql
                     data_rows += liq_users
+
                 await cur.execute(sql, tuple(data_rows))
                 await conn.commit()
                 return True
@@ -262,7 +263,8 @@ async def cexswap_sold(
     user_id: str, user_server: str,
     guild_id: str,
     got_fee_dev: float, got_fee_liquidators: float,
-    got_fee_guild: float, liquidators
+    got_fee_guild: float, liquidators, contract: str, coin_decimal: int,
+    channel_id: str
 ):
     try:
         await store.openConnection()
@@ -386,6 +388,28 @@ async def cexswap_sold(
                     liq_rows.append((
                         sell_id, pool_id, got_ticker, float(amount_get),
                         each[0], each[1], each[2], int(time.time())
+                    ))
+                await cur.executemany(sql, liq_rows)
+
+                # add to mv_data
+                sql = """
+                    INSERT INTO `a_test_user_balance_mv`
+                    (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`,
+                    `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`, `extra_message`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                liq_rows = []
+                for each in liquidators:
+                    liq_rows.append((
+                        got_ticker, contract, "SYSTEM", each[1], guild_id, channel_id,
+                        each[0], 0.0, coin_decimal, "CEXSWAPLP", int(time.time()), each[2],
+                        ref_log
+                    ))
+                if guild_id != "DM":
+                    liq_rows.append((
+                        got_ticker, contract, "SYSTEM", guild_id, guild_id, channel_id,
+                        float(got_fee_guild), 0.0, coin_decimal, "CEXSWAPLP", int(time.time()), each[2],
+                        ref_log
                     ))
                 await cur.executemany(sql, liq_rows)
                 await conn.commit()
@@ -694,8 +718,19 @@ class add_liquidity_btn(disnake.ui.View):
             str(inter.author.id), SERVER_BOT
         )
         if add_liq is True:
-            msg = f'{EMOJI_INFORMATION} {inter.author.mention}, successfully added.'
+            coin_decimal_1 = getattr(getattr(self.bot.coin_list, ticker[0]), "decimal")
+            coin_decimal_2 = getattr(getattr(self.bot.coin_list, ticker[1]), "decimal")
+            add_msg = "{} {} and {} {}".format(
+                num_format_coin(self.amount_1, ticker[0], coin_decimal_1, False), ticker[0],
+                num_format_coin(self.amount_2, ticker[1], coin_decimal_2, False), ticker[1]
+            )
+            msg = f'{EMOJI_INFORMATION} {inter.author.mention}, successfully added.```{add_msg}```'
             await inter.edit_original_message(content=msg)
+            await log_to_channel(
+                "cexswap",
+                f"[ADD LIQUIDITY]: User {inter.author.mention} add new liquidity to pool `{self.pool_name}`! {add_msg}",
+                self.bot.config['discord']['cexswap']
+            )
         else:
             msg = f'{EMOJI_INFORMATION} {inter.author.mention}, internal error.'
             await inter.edit_original_message(content=msg)
@@ -985,11 +1020,25 @@ class Cexswap(commands.Cog):
             for each_p in get_pools[0:20]:
                 coin_decimal_1 = getattr(getattr(self.bot.coin_list, each_p['ticker_1_name']), "decimal")
                 coin_decimal_2 = getattr(getattr(self.bot.coin_list, each_p['ticker_2_name']), "decimal")
+
+                rate_1 = num_format_coin(
+                    each_p['amount_ticker_2']/each_p['amount_ticker_1'],
+                    each_p['ticker_2_name'], coin_decimal_2, False
+                )
+                rate_2 = num_format_coin(
+                    each_p['amount_ticker_1']/each_p['amount_ticker_2'],
+                    each_p['ticker_1_name'], coin_decimal_1, False
+                )
+                rate_coin_12 = "{} {} = {} {}\n{} {} = {} {}".format(
+                    1, each_p['ticker_1_name'], rate_1, each_p['ticker_2_name'], 1, each_p['ticker_2_name'], rate_2, each_p['ticker_1_name']
+                )
+
                 embed.add_field(
                     name="Active LP {}".format(each_p['pairs']),
-                    value="```{} {}\n{} {}```".format(
+                    value="```{} {}\n{} {}\n{}```".format(
                         num_format_coin(each_p['amount_ticker_1'], each_p['ticker_1_name'], coin_decimal_1, False), each_p['ticker_1_name'],
-                        num_format_coin(each_p['amount_ticker_2'], each_p['ticker_2_name'], coin_decimal_2, False), each_p['ticker_2_name']
+                        num_format_coin(each_p['amount_ticker_2'], each_p['ticker_2_name'], coin_decimal_2, False), each_p['ticker_2_name'],
+                        rate_coin_12
                     ),
                     inline=False
                 )
@@ -1127,19 +1176,20 @@ class Cexswap(commands.Cog):
                         for each_s in liq_pair['pool_share']:
                             distributed_amount = None
                             if for_token == each_s['ticker_1_name']:
-                                print("{} / {} = {}".format(each_s['amount_ticker_1'], float(liq_pair['pool']['amount_ticker_1']), float(each_s['amount_ticker_1']) / float(liq_pair['pool']['amount_ticker_1'])))
                                 distributed_amount = float(each_s['amount_ticker_1']) / float(liq_pair['pool']['amount_ticker_1']) * float(truncate(got_fee_liquidators, 12))
                             elif for_token == each_s['ticker_2_name']:
-                                print("{} / {} = {}".format(each_s['amount_ticker_2'], float(liq_pair['pool']['amount_ticker_2']), float(each_s['amount_ticker_2']) / float(liq_pair['pool']['amount_ticker_2'])))
                                 distributed_amount = float(each_s['amount_ticker_2']) / float(liq_pair['pool']['amount_ticker_2']) * float(truncate(got_fee_liquidators, 12))
                             if distributed_amount is not None:
                                 liq_users.append([distributed_amount, each_s['user_id'], each_s['user_server']])
+                    contract = getattr(getattr(self.bot.coin_list, for_token), "contract")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, for_token), "decimal")
+                    channel_id = "DM" if guild_id == "DM" else str(ctx.channel.id)
                     selling = await cexswap_sold(
                         ref_log, liq_pair['pool']['pool_id'], percentage_inc, Decimal(truncate(amount, 12)), sell_token, 
                         Decimal(truncate(amount_get, 12)), for_token, str(ctx.author.id), SERVER_BOT,
                         guild_id,
                         truncate(got_fee_dev, 12), truncate(got_fee_liquidators, 12), truncate(got_fee_guild, 12),
-                        liq_users
+                        liq_users, contract, coin_decimal, channel_id
                     )
                     if selling is True:
                         fee = Decimal(truncate(got_fee_dev, 12)) + Decimal(truncate(got_fee_liquidators, 12)) + Decimal(truncate(got_fee_guild, 12))
@@ -1153,6 +1203,12 @@ class Cexswap(commands.Cog):
                             f"```Get {user_amount_get} {for_token}\n"\
                             f"From selling {user_amount_sell} {sell_token}```Ref: `{ref_log}`"
                         await ctx.edit_original_message(content=msg)
+                        await log_to_channel(
+                            "cexswap",
+                            f"[SOLD]: User {ctx.author.mention} Sold: " \
+                            f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}\nRef: `{ref_log}`",
+                            self.bot.config['discord']['cexswap']
+                        )
                     else:
                         await ctx.edit_original_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, internal error!")
             except Exception:
@@ -1326,7 +1382,11 @@ class Cexswap(commands.Cog):
 
         if ctx.author.id != self.bot.config['discord']['owner']:
             await ctx.edit_original_message(content=f"{ctx.auhtor.mention}, you don't have permission!")
-            # TODO: logchan
+            await log_to_channel(
+                "cexswap",
+                f"[REMOVEPOOL]: User {ctx.author.mention} tried /cexswap removepools. Permission denied!",
+                self.bot.config['discord']['cexswap']
+            )
             return
 
         try:
@@ -1346,10 +1406,9 @@ class Cexswap(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
             else:
-                # TODO: logchan
+                liq_users = []
+                notifying_u = []
                 if len(liq_pair['pool_share']) > 0:
-                    liq_users = []
-                    notifying_u = []
                     balance_user = {}
                     coin_decimal_1 = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_1_name']), "decimal")
                     coin_decimal_2 = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_2_name']), "decimal")
@@ -1400,6 +1459,11 @@ class Cexswap(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
                     msg += "And notified {} user(s).".format(num_notifying)
                     await ctx.edit_original_message(content=msg)
+                    await log_to_channel(
+                        "cexswap",
+                        f"[REMOVEPOOL]: User {ctx.author.mention} removed pools `{pool_name}`!",
+                        self.bot.config['discord']['cexswap']
+                    )
                 else:
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, internal error."
                     await ctx.edit_original_message(content=msg)
@@ -1471,8 +1535,11 @@ class Cexswap(commands.Cog):
                         amount_remove_1 = liq_pair['pool_share']['amount_ticker_1']
                         amount_remove_2 = liq_pair['pool_share']['amount_ticker_2']
                     # if you own all pair and amout remove is all.
-                    if truncate(float(amount_remove_1), 12) == \
-                        truncate(float(liq_pair['pool']['amount_ticker_1']), 12):
+                    if truncate(float(amount_remove_1), 8) == \
+                        truncate(float(liq_pair['pool']['amount_ticker_1']), 8):
+                        delete_pool = True
+                    if truncate(float(amount_remove_2), 8) == \
+                        truncate(float(liq_pair['pool']['amount_ticker_2']), 8):
                         delete_pool = True
                     removing = await cexswap_remove_pool_share(
                         liq_pair['pool']['pool_id'], amount_remove_1, ticker_1, amount_remove_2, ticker_2,
@@ -1486,6 +1553,12 @@ class Cexswap(commands.Cog):
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully remove liqudity:" \
                             f"```{amount_1_str} {ticker_1}\n{amount_2_str} {ticker_2}```"
                         await ctx.edit_original_message(content=msg)
+                        await log_to_channel(
+                            "cexswap",
+                            f"[REMOVING LIQUIDITY]: User {ctx.author.mention} removed liquidity from `{pool_name}`!" \
+                            f"{amount_1_str} {ticker_1} and {amount_2_str} {ticker_2}",
+                            self.bot.config['discord']['cexswap']
+                        )
                     else:
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, internal error."
                         await ctx.edit_original_message(content=msg)
@@ -1507,7 +1580,7 @@ class Cexswap(commands.Cog):
         ctx
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading..."
-        await ctx.response.send_message(msg)
+        await ctx.response.send_message(msg, ephemeral=True)
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -1552,6 +1625,11 @@ class Cexswap(commands.Cog):
                 embed.add_field(
                     name="Earning from {} coin(s)".format(len(get_user_earning)),
                     value="{}".format("\n".join(list_earning)),
+                    inline=False
+                )
+                embed.add_field(
+                    name="NOTE",
+                    value="These earnings always credit to your balance for every trade. You can remove your LP anytime.",
                     inline=False
                 )
                 await ctx.edit_original_message(content=None, embed=embed)

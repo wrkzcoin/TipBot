@@ -2,6 +2,7 @@ import sys, traceback
 
 import disnake
 from disnake.ext import commands
+from typing import Optional
 from disnake import TextInputStyle
 from decimal import Decimal
 from datetime import datetime
@@ -264,7 +265,7 @@ async def cexswap_sold(
     guild_id: str,
     got_fee_dev: float, got_fee_liquidators: float,
     got_fee_guild: float, liquidators, contract: str, coin_decimal: int,
-    channel_id: str
+    channel_id: str, per_unit_sell: float, per_unit_get: float
 ):
     try:
         await store.openConnection()
@@ -333,11 +334,11 @@ async def cexswap_sold(
                     `update_date`=VALUES(`update_date`);
 
                 INSERT INTO `a_test_cexswap_sell_logs`
-                (`pool_id`, `pairs`, `ref_log`, `sold_ticker`, `total_sold_amount`,
-                `guild_id`, `got_total_amount`,
+                (`pool_id`, `pairs`, `ref_log`, `sold_ticker`, `total_sold_amount`, `total_sold_amount_usd`,
+                `guild_id`, `got_total_amount`, `got_total_amount_usd`,
                 `got_fee_dev`, `got_fee_liquidators`, `got_fee_guild`, `got_ticker`,
                 `sell_user_id`, `user_server`, `time`)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 """
                 # TODO; real balance
                 data_rows = [
@@ -360,8 +361,9 @@ async def cexswap_sold(
 
                 data_rows += [
                     pool_id, "{}->{}".format(sell_ticker, got_ticker), ref_log, sell_ticker, float(amount_sell),
-                    guild_id, float(amount_get),
-                    float(got_fee_dev), float(got_fee_liquidators), float(got_fee_guild), got_ticker, user_id, user_server, int(time.time())
+                    float(amount_sell)*float(per_unit_sell), guild_id, float(amount_get),float(amount_get)*float(per_unit_get),
+                    float(got_fee_dev), float(got_fee_liquidators), float(got_fee_guild), got_ticker, user_id,
+                    user_server, int(time.time())
                 ]
                 await cur.execute(sql, tuple(data_rows))
                 await conn.commit()
@@ -380,14 +382,14 @@ async def cexswap_sold(
                 sql = """
                     INSERT INTO `a_test_cexswap_distributing_fee`
                     (`sell_log_id`, `pool_id`, `got_ticker`, `got_total_amount`, 
-                    `distributed_amount`, `distributed_user_id`, `distributed_user_server`, `date`)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    `distributed_amount`, `distributed_amount_usd`, `distributed_user_id`, `distributed_user_server`, `date`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 liq_rows = []
                 for each in liquidators:
                     liq_rows.append((
                         sell_id, pool_id, got_ticker, float(amount_get),
-                        each[0], each[1], each[2], int(time.time())
+                        each[0], float(each[0])*float(per_unit_get), each[1], each[2], int(time.time())
                     ))
                 await cur.executemany(sql, liq_rows)
 
@@ -402,13 +404,13 @@ async def cexswap_sold(
                 for each in liquidators:
                     liq_rows.append((
                         got_ticker, contract, "SYSTEM", each[1], guild_id, channel_id,
-                        each[0], 0.0, coin_decimal, "CEXSWAPLP", int(time.time()), each[2],
+                        each[0], each[0]*float(per_unit_get), coin_decimal, "CEXSWAPLP", int(time.time()), each[2],
                         ref_log
                     ))
                 if guild_id != "DM":
                     liq_rows.append((
                         got_ticker, contract, "SYSTEM", guild_id, guild_id, channel_id,
-                        float(got_fee_guild), 0.0, coin_decimal, "CEXSWAPLP", int(time.time()), each[2],
+                        float(got_fee_guild), float(got_fee_guild)*float(per_unit_get), coin_decimal, "CEXSWAPLP", int(time.time()), each[2],
                         ref_log
                     ))
                 await cur.executemany(sql, liq_rows)
@@ -499,6 +501,36 @@ async def cexswap_insert_new(
     except Exception:
         traceback.print_exc(file=sys.stdout)
     return False
+
+# Define a simple View that gives us a confirmation menu
+class ConfirmSell(disnake.ui.View):
+    def __init__(self, owner_id: int):
+        super().__init__(timeout=10.0)
+        self.value: Optional[bool] = None
+        self.owner_id = owner_id
+
+    # When the confirm button is pressed, set the inner value to `True` and
+    # stop the View from listening to more input.
+    # We also send the user an ephemeral message that we're confirming their choice.
+    @disnake.ui.button(label="Confirm", style=disnake.ButtonStyle.green)
+    async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, confirming...", delete_after=3.0)
+            self.value = True
+            self.stop()
+
+    # This one is similar to the confirmation button except sets the inner value to `False`.
+    @disnake.ui.button(label="Cancel", style=disnake.ButtonStyle.grey)
+    async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, cancelling...", delete_after=3.0)
+            self.value = False
+            self.stop()
+
 
 class add_liqudity(disnake.ui.Modal):
     def __init__(self, ctx, bot, ticker_1: str, ticker_2: str, owner_userid: str) -> None:
@@ -713,6 +745,18 @@ class add_liquidity_btn(disnake.ui.View):
         # add liquidity
         # TODO: re-check rate. If change. Reject the insert
         ticker = self.pool_name.split("/")
+        # re-check rate
+        liq_pair = await cexswap_get_pool_details(ticker[0], ticker[1], self.owner_id)
+        if liq_pair is not None:
+            rate_1 = liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1']
+            if truncate(float(rate_1), 8) != truncate(float(self.amount_2 / self.amount_1), 8):
+                msg = f"{EMOJI_INFORMATION} {inter.author.mention}, ⚠️⚠️ Price changed! Try again!"
+                await inter.edit_original_message(content=msg)
+                self.accept_click.disabled = True
+                self.add_click.disabled = True
+                await inter.message.edit(view=None)
+                return
+        # end of re-check rate
         add_liq = await cexswap_insert_new(
             self.pool_name, self.amount_1, ticker[0], self.amount_2, ticker[1],
             str(inter.author.id), SERVER_BOT
@@ -1184,33 +1228,102 @@ class Cexswap(commands.Cog):
                     contract = getattr(getattr(self.bot.coin_list, for_token), "contract")
                     coin_decimal = getattr(getattr(self.bot.coin_list, for_token), "decimal")
                     channel_id = "DM" if guild_id == "DM" else str(ctx.channel.id)
-                    selling = await cexswap_sold(
-                        ref_log, liq_pair['pool']['pool_id'], percentage_inc, Decimal(truncate(amount, 12)), sell_token, 
-                        Decimal(truncate(amount_get, 12)), for_token, str(ctx.author.id), SERVER_BOT,
-                        guild_id,
-                        truncate(got_fee_dev, 12), truncate(got_fee_liquidators, 12), truncate(got_fee_guild, 12),
-                        liq_users, contract, coin_decimal, channel_id
-                    )
-                    if selling is True:
-                        fee = Decimal(truncate(got_fee_dev, 12)) + Decimal(truncate(got_fee_liquidators, 12)) + Decimal(truncate(got_fee_guild, 12))
-                        coin_decimal_get = getattr(getattr(self.bot.coin_list, for_token), "decimal")
-                        coin_decimal_sell = getattr(getattr(self.bot.coin_list, sell_token), "decimal")
-                        user_amount_get = num_format_coin(truncate(amount_get - fee, 12), for_token, coin_decimal_get, False)
-                        user_amount_sell = num_format_coin(amount, sell_token, coin_decimal_sell, False)
-                        # fee_str = num_format_coin(fee, for_token, coin_decimal_get, False)
-                        # . Fee {fee_str} {for_token}\n
-                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully /cexswap!\n"\
-                            f"```Get {user_amount_get} {for_token}\n"\
-                            f"From selling {user_amount_sell} {sell_token}```Ref: `{ref_log}`"
-                        await ctx.edit_original_message(content=msg)
-                        await log_to_channel(
-                            "cexswap",
-                            f"[SOLD]: User {ctx.author.mention} Sold: " \
-                            f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}\nRef: `{ref_log}`",
-                            self.bot.config['discord']['cexswap']
+                    # get price per unit
+                    per_unit_sell = 0.0
+                    if getattr(getattr(self.bot.coin_list, sell_token), "usd_equivalent_enable") == 1:
+                        native_token_name = getattr(getattr(self.bot.coin_list, sell_token), "native_token_name")
+                        coin_name_for_price = sell_token
+                        if native_token_name:
+                            coin_name_for_price = native_token_name
+                        if coin_name_for_price in self.bot.token_hints:
+                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                            per_unit_sell = self.bot.coin_paprika_id_list[id]['price_usd']
+                        else:
+                            per_unit_sell = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                        if per_unit_sell and per_unit_sell < 0.0000000001:
+                            per_unit_sell = 0.0
+
+                    per_unit_get = 0.0
+                    if getattr(getattr(self.bot.coin_list, for_token), "usd_equivalent_enable") == 1:
+                        native_token_name = getattr(getattr(self.bot.coin_list, for_token), "native_token_name")
+                        coin_name_for_price = for_token
+                        if native_token_name:
+                            coin_name_for_price = native_token_name
+                        if coin_name_for_price in self.bot.token_hints:
+                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                            per_unit_get = self.bot.coin_paprika_id_list[id]['price_usd']
+                        else:
+                            per_unit_get = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                        if per_unit_get and per_unit_get < 0.0000000001:
+                            per_unit_get = 0.0
+
+                    fee = Decimal(truncate(got_fee_dev, 12)) + Decimal(truncate(got_fee_liquidators, 12)) + Decimal(truncate(got_fee_guild, 12))
+                    coin_decimal_get = getattr(getattr(self.bot.coin_list, for_token), "decimal")
+                    coin_decimal_sell = getattr(getattr(self.bot.coin_list, sell_token), "decimal")
+                    user_amount_get = num_format_coin(truncate(amount_get - fee, 12), for_token, coin_decimal_get, False)
+                    user_amount_sell = num_format_coin(amount, sell_token, coin_decimal_sell, False)
+                    # add confirmation
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to trade?\n"\
+                        f"```Get {user_amount_get} {for_token}\n"\
+                        f"From selling {user_amount_sell} {sell_token}```Ref: `{ref_log}`"
+
+                    view = ConfirmSell(ctx.author.id)
+                    await ctx.edit_original_message(content=msg, view=view)
+                    # Wait for the View to stop listening for input...
+                    await view.wait()
+
+                    # Check the value to determine which button was pressed, if any.
+                    if view.value is None:
+                        await ctx.edit_original_message(
+                            content=msg + "\n**Timeout!**",
+                            view=None
                         )
+                        return
+                    elif view.value:
+                        # re-check rate
+                        new_liq_pair = await cexswap_get_pool_details(sell_token, for_token, None)
+                        new_amount_get = amount * new_liq_pair['pool']['amount_ticker_2'] / new_liq_pair['pool']['amount_ticker_1']
+                        if sell_token == new_liq_pair['pool']['ticker_2_name']:
+                            new_amount_get = amount * new_liq_pair['pool']['amount_ticker_1'] / new_liq_pair['pool']['amount_ticker_2']
+                        if truncate(float(new_amount_get), 8) != truncate(float(amount_get), 8):
+                            await ctx.edit_original_message(
+                                content=msg + "\n**⚠️⚠️ Price changed! Please try again!**",
+                                view=None
+                            )
+                            return
+                        # end of re-check rate
+                        # TODO: re-check balance
+                        selling = await cexswap_sold(
+                            ref_log, liq_pair['pool']['pool_id'], percentage_inc, Decimal(truncate(amount, 12)), sell_token, 
+                            Decimal(truncate(amount_get, 12)), for_token, str(ctx.author.id), SERVER_BOT,
+                            guild_id,
+                            truncate(got_fee_dev, 12), truncate(got_fee_liquidators, 12), truncate(got_fee_guild, 12),
+                            liq_users, contract, coin_decimal, channel_id, per_unit_sell, per_unit_get
+                        )
+                        if selling is True:
+                            # fee_str = num_format_coin(fee, for_token, coin_decimal_get, False)
+                            # . Fee {fee_str} {for_token}\n
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully traded!\n"\
+                                f"```Get {user_amount_get} {for_token}\n"\
+                                f"From selling {user_amount_sell} {sell_token}```✅ Ref: `{ref_log}`"
+                            await ctx.edit_original_message(content=msg, view=None)
+                            await log_to_channel(
+                                "cexswap",
+                                f"[SOLD]: User {ctx.author.mention} Sold: " \
+                                f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}\nRef: `{ref_log}`",
+                                self.bot.config['discord']['cexswap']
+                            )
+                        else:
+                            await ctx.edit_original_message(
+                                content=f"{EMOJI_INFORMATION} {ctx.author.mention}, internal error!", view=None
+                            )
+                            return
                     else:
-                        await ctx.edit_original_message(content=f"{EMOJI_INFORMATION} {ctx.author.mention}, internal error!")
+                        await ctx.edit_original_message(
+                            content=msg + "\n**🛑 Cancelled!**",
+                            view=None
+                        )
+                        return
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 

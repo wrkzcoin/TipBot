@@ -25,6 +25,28 @@ from cogs.wallet import WalletAPI
 from cogs.utils import Utils
 
 
+async def cexswap_get_pools(ticker: str=None):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                data_rows = []
+                sql = """ SELECT * 
+                FROM `cexswap_pools` 
+                """
+                if ticker is not None:
+                    sql += """
+                        WHERE `ticker_1_name`=%s OR `ticker_2_name`=%s
+                    """
+                    data_rows += [ticker]*2
+                await cur.execute(sql, tuple(data_rows))
+                result = await cur.fetchall()
+                if result:
+                    return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
 async def cexswap_get_pool_details(ticker_1: str, ticker_2: str, user_id: str=None):
     try:
         pool_detail = {}
@@ -502,16 +524,118 @@ async def cexswap_insert_new(
         traceback.print_exc(file=sys.stdout)
     return False
 
-# Define a simple View that gives us a confirmation menu
+
+class DropdownLP(disnake.ui.StringSelect):
+    def __init__(self, ctx, bot, list_coins, active_coin):
+        self.ctx = ctx
+        self.bot = bot
+        self.list_coins = list_coins
+        self.active_coin = active_coin
+
+        options = [
+            disnake.SelectOption(
+                label=each, description="Select {}".format(each), emoji=getattr(getattr(self.bot.coin_list, each), "coin_emoji_discord")
+            ) for each in self.list_coins
+        ]
+
+        super().__init__(
+            placeholder="Choose coin/token..." if self.active_coin is None else "You selected {}".format(self.active_coin),
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
+
+    async def callback(self, inter: disnake.MessageInteraction):
+        if inter.author.id != self.ctx.user.id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=5.0)
+            return
+        else:
+            testing = self.bot.config['cexswap']['testing_msg']
+            embed = disnake.Embed(
+                title="Liquidity Pool of TipBot's CEXSwap",
+                description=f"{self.ctx.author.mention}, {testing}Available Liquidity Pools.",
+                timestamp=datetime.now(),
+            )
+            embed.set_footer(text="Requested by: {}#{}".format(self.ctx.author.name, self.ctx.author.discriminator))
+            embed.set_thumbnail(url=self.bot.user.display_avatar)
+            # get LP by coin
+            get_pools = await cexswap_get_pools(self.values[0])
+            showing_num = 5
+            if len(get_pools) > 0:
+                embed.add_field(
+                    name="Selected Coin {}".format(self.values[0]),
+                    value="There {} LP with {}".format(
+                        "is {}".format(len(get_pools)) if len(get_pools) == 1 else "are {}".format(len(get_pools)), self.values[0]
+                    ),
+                    inline = False
+                )
+                for each_p in get_pools[0:showing_num]:
+                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, each_p['ticker_1_name']), "decimal")
+                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, each_p['ticker_2_name']), "decimal")
+
+                    rate_1 = num_format_coin(
+                        each_p['amount_ticker_2']/each_p['amount_ticker_1'],
+                        each_p['ticker_2_name'], coin_decimal_2, False
+                    )
+                    rate_2 = num_format_coin(
+                        each_p['amount_ticker_1']/each_p['amount_ticker_2'],
+                        each_p['ticker_1_name'], coin_decimal_1, False
+                    )
+                    rate_coin_12 = "{} {} = {} {}\n{} {} = {} {}".format(
+                        1, each_p['ticker_1_name'], rate_1, each_p['ticker_2_name'], 1, each_p['ticker_2_name'], rate_2, each_p['ticker_1_name']
+                    )
+
+                    embed.add_field(
+                        name="Active LP {}".format(each_p['pairs']),
+                        value="```{} {}\n{} {}\n{}```".format(
+                            num_format_coin(each_p['amount_ticker_1'], each_p['ticker_1_name'], coin_decimal_1, False), each_p['ticker_1_name'],
+                            num_format_coin(each_p['amount_ticker_2'], each_p['ticker_2_name'], coin_decimal_2, False), each_p['ticker_2_name'],
+                            rate_coin_12
+                        ),
+                        inline=False
+                    )
+                if len(get_pools) > showing_num:
+                    list_remaining = [i['ticker_1_name'] for i in get_pools[showing_num:]] + [i['ticker_2_name'] for i in get_pools[showing_num:]]
+                    list_remaining = list(set(list_remaining))
+                    if self.values[0] in list_remaining:
+                        list_remaining.remove(self.values[0])
+                    if len(list_remaining) > 0:
+                        embed.add_field(
+                            name="More with {} coin/token(s)".format(len(list_remaining)),
+                            value="{}".format(", ".join(list_remaining)),
+                            inline=False
+                        )
+            # Create the view containing our dropdown
+            view = DropdownViewLP(self.ctx, self.bot, self.list_coins, active_coin=self.values[0])
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=embed,
+                view=view
+            )
+            await inter.response.defer()
+
+
+class DropdownViewLP(disnake.ui.View):
+    def __init__(self, ctx, bot, list_coins, active_coin: str):
+        super().__init__(timeout=60.0)
+        self.ctx = ctx
+        self.bot = bot
+        self.list_coins = list_coins
+        self.active_coin = active_coin
+
+        self.add_item(DropdownLP(self.ctx, self.bot, self.list_coins, self.active_coin))
+
+    async def on_timeout(self):
+        original_message = await self.ctx.original_message()
+        await original_message.edit(view=None)
+
+
 class ConfirmSell(disnake.ui.View):
     def __init__(self, owner_id: int):
         super().__init__(timeout=20.0)
         self.value: Optional[bool] = None
         self.owner_id = owner_id
 
-    # When the confirm button is pressed, set the inner value to `True` and
-    # stop the View from listening to more input.
-    # We also send the user an ephemeral message that we're confirming their choice.
     @disnake.ui.button(label="Confirm", style=disnake.ButtonStyle.green)
     async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
@@ -521,7 +645,6 @@ class ConfirmSell(disnake.ui.View):
             self.value = True
             self.stop()
 
-    # This one is similar to the confirmation button except sets the inner value to `False`.
     @disnake.ui.button(label="Cancel", style=disnake.ButtonStyle.grey)
     async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
@@ -958,8 +1081,6 @@ class Cexswap(commands.Cog):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
-        self.cexswap_pairs = []
-        self.cexswap_coins = []
 
         self.botLogChan = None
         self.enable_logchan = True
@@ -999,31 +1120,16 @@ class Cexswap(commands.Cog):
                     result = await cur.fetchall()
                     if result:
                         list_coins = sorted([i['coin_name'] for i in result])
-                        self.cexswap_coins = list_coins
+                        self.bot.cexswap_coins = list_coins
                         for pair in itertools.combinations(list_coins, 2):
                             list_pairs.append("{}/{}".format(pair[0], pair[1]))
                         if len(list_pairs) > 0:
-                            self.cexswap_pairs = list_pairs
+                            self.bot.cexswap_pairs = list_pairs
                             return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return False
 
-    async def cexswap_get_pools(self):
-        try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    sql = """ SELECT * 
-                    FROM `cexswap_pools`
-                    """
-                    await cur.execute(sql,)
-                    result = await cur.fetchall()
-                    if result:
-                        return result
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-        return []
     # End of Cexswap
 
     @commands.slash_command(
@@ -1136,16 +1242,16 @@ class Cexswap(commands.Cog):
             # Available coin
             embed.add_field(
                 name="Coins with CEXSwap",
-                value="{}".format(", ".join(self.cexswap_coins)),
+                value="{}".format(", ".join(self.bot.cexswap_coins)),
                 inline=False
             )
             embed.add_field(
                 name="Pairs with CEXSwap",
-                value="{}".format(", ".join(self.cexswap_pairs)),
+                value="{}".format(", ".join(self.bot.cexswap_pairs)),
                 inline=False
             )  
             # LP available
-            get_pools = await self.cexswap_get_pools()
+            get_pools = await cexswap_get_pools()
             if len(get_pools) > 0:
                 list_pairs = [i['pairs'] for i in get_pools]
                 embed.add_field(
@@ -1220,45 +1326,58 @@ class Cexswap(commands.Cog):
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        get_pools = await self.cexswap_get_pools()
-        if len(get_pools) == 0:
-            msg = f"{ctx.author.mention}, thank you for checking. There is no pools yet. Try again later."
-            await ctx.edit_original_message(content=msg)
-        else:
-            testing = self.bot.config['cexswap']['testing_msg']
-            embed = disnake.Embed(
-                title="Liquidity Pool of TipBot's CEXSwap",
-                description=f"{ctx.author.mention}, {testing}Available Liquidity Pools.",
-                timestamp=datetime.now(),
-            )
-            embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
-            embed.set_thumbnail(url=self.bot.user.display_avatar)
-            for each_p in get_pools[0:20]:
-                coin_decimal_1 = getattr(getattr(self.bot.coin_list, each_p['ticker_1_name']), "decimal")
-                coin_decimal_2 = getattr(getattr(self.bot.coin_list, each_p['ticker_2_name']), "decimal")
+        try:
+            get_pools = await cexswap_get_pools()
+            if len(get_pools) == 0:
+                msg = f"{ctx.author.mention}, thank you for checking. There is no pools yet. Try again later."
+                await ctx.edit_original_message(content=msg)
+            else:
+                testing = self.bot.config['cexswap']['testing_msg']
+                embed = disnake.Embed(
+                    title="Liquidity Pool of TipBot's CEXSwap",
+                    description=f"{ctx.author.mention}, {testing}Available Liquidity Pools.",
+                    timestamp=datetime.now(),
+                )
+                embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+                embed.set_thumbnail(url=self.bot.user.display_avatar)
+                for each_p in get_pools[0:5]:
+                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, each_p['ticker_1_name']), "decimal")
+                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, each_p['ticker_2_name']), "decimal")
 
-                rate_1 = num_format_coin(
-                    each_p['amount_ticker_2']/each_p['amount_ticker_1'],
-                    each_p['ticker_2_name'], coin_decimal_2, False
-                )
-                rate_2 = num_format_coin(
-                    each_p['amount_ticker_1']/each_p['amount_ticker_2'],
-                    each_p['ticker_1_name'], coin_decimal_1, False
-                )
-                rate_coin_12 = "{} {} = {} {}\n{} {} = {} {}".format(
-                    1, each_p['ticker_1_name'], rate_1, each_p['ticker_2_name'], 1, each_p['ticker_2_name'], rate_2, each_p['ticker_1_name']
-                )
+                    rate_1 = num_format_coin(
+                        each_p['amount_ticker_2']/each_p['amount_ticker_1'],
+                        each_p['ticker_2_name'], coin_decimal_2, False
+                    )
+                    rate_2 = num_format_coin(
+                        each_p['amount_ticker_1']/each_p['amount_ticker_2'],
+                        each_p['ticker_1_name'], coin_decimal_1, False
+                    )
+                    rate_coin_12 = "{} {} = {} {}\n{} {} = {} {}".format(
+                        1, each_p['ticker_1_name'], rate_1, each_p['ticker_2_name'], 1, each_p['ticker_2_name'], rate_2, each_p['ticker_1_name']
+                    )
 
-                embed.add_field(
-                    name="Active LP {}".format(each_p['pairs']),
-                    value="```{} {}\n{} {}\n{}```".format(
-                        num_format_coin(each_p['amount_ticker_1'], each_p['ticker_1_name'], coin_decimal_1, False), each_p['ticker_1_name'],
-                        num_format_coin(each_p['amount_ticker_2'], each_p['ticker_2_name'], coin_decimal_2, False), each_p['ticker_2_name'],
-                        rate_coin_12
-                    ),
-                    inline=False
+                    embed.add_field(
+                        name="Active LP {}".format(each_p['pairs']),
+                        value="```{} {}\n{} {}\n{}```".format(
+                            num_format_coin(each_p['amount_ticker_1'], each_p['ticker_1_name'], coin_decimal_1, False), each_p['ticker_1_name'],
+                            num_format_coin(each_p['amount_ticker_2'], each_p['ticker_2_name'], coin_decimal_2, False), each_p['ticker_2_name'],
+                            rate_coin_12
+                        ),
+                        inline=False
+                    )
+
+                # filter uniq tokens
+                list_coins = list(set([i['ticker_1_name'] for i in get_pools] + [i['ticker_2_name'] for i in get_pools]))
+
+                # Create the view containing our dropdown
+                view = DropdownViewLP(ctx, self.bot, list_coins, active_coin=None)
+                await ctx.edit_original_message(
+                    content=None,
+                    embed=embed,
+                    view=view
                 )
-            await ctx.edit_original_message(content=None, embed=embed)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @cexswap.sub_command(
         name="sell",
@@ -1583,12 +1702,12 @@ class Cexswap(commands.Cog):
     @cexswap_sell.autocomplete("sell_token")
     async def cexswap_addliquidity_autocomp(self, inter: disnake.CommandInteraction, string: str):
         string = string.lower()
-        return [name for name in self.cexswap_coins if string in name.lower()][:12]
+        return [name for name in self.bot.cexswap_coins if string in name.lower()][:12]
 
     @cexswap_sell.autocomplete("for_token")
     async def cexswap_addliquidity_autocomp(self, inter: disnake.CommandInteraction, string: str):
         string = string.lower()
-        return [name for name in self.cexswap_coins if string in name.lower()][:12]
+        return [name for name in self.bot.cexswap_coins if string in name.lower()][:12]
 
     @cexswap.sub_command(
         name="addliquidity",
@@ -1728,7 +1847,7 @@ class Cexswap(commands.Cog):
     @cexswap_addliquidity.autocomplete("pool_name")
     async def cexswap_addliquidity_autocomp(self, inter: disnake.CommandInteraction, string: str):
         string = string.lower()
-        return [name for name in self.cexswap_pairs if string in name.lower()][:12]
+        return [name for name in self.bot.cexswap_pairs if string in name.lower()][:12]
 
     @cexswap.sub_command(
         name="removepools",
@@ -1853,7 +1972,7 @@ class Cexswap(commands.Cog):
     @cexswap_removepools.autocomplete("pool_name")
     async def cexswap_removepools_autocomp(self, inter: disnake.CommandInteraction, string: str):
         string = string.lower()
-        return [name for name in self.cexswap_pairs if string in name.lower()][:12]
+        return [name for name in self.bot.cexswap_pairs if string in name.lower()][:12]
 
     @cexswap.sub_command(
         name="removeliquidity",
@@ -1986,7 +2105,7 @@ class Cexswap(commands.Cog):
     @cexswap_removeliquidity.autocomplete("pool_name")
     async def cexswap_removeliquidity_autocomp(self, inter: disnake.CommandInteraction, string: str):
         string = string.lower()
-        return [name for name in self.cexswap_pairs if string in name.lower()][:12]
+        return [name for name in self.bot.cexswap_pairs if string in name.lower()][:12]
 
     @cexswap.sub_command(
         name="earning",
@@ -2057,10 +2176,12 @@ class Cexswap(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        await self.cexswap_get_list_enable_pairs()
+        if len(self.bot.cexswap_coins) == 0:
+            await self.cexswap_get_list_enable_pairs()
 
     async def cog_load(self):
-        await self.cexswap_get_list_enable_pairs()
+        if len(self.bot.cexswap_coins) == 0:
+            await self.cexswap_get_list_enable_pairs()
 
     def cog_unload(self):
         pass

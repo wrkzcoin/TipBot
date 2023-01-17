@@ -32,7 +32,7 @@ async def cexswap_get_pool_details(ticker_1: str, ticker_2: str, user_id: str=No
         async with store.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ SELECT * 
-                FROM `a_test_cexswap_pools` 
+                FROM `cexswap_pools` 
                 WHERE `enable`=1 
                 AND ((`ticker_1_name`=%s AND `ticker_2_name`=%s)
                     OR (`ticker_1_name`=%s AND `ticker_2_name`=%s)) """
@@ -45,7 +45,7 @@ async def cexswap_get_pool_details(ticker_1: str, ticker_2: str, user_id: str=No
                         detail_res = None
                         if user_id is None:
                             sql = """ SELECT * 
-                            FROM `a_test_cexswap_pools_share` 
+                            FROM `cexswap_pools_share` 
                             WHERE `pool_id`=%s """
                             await cur.execute(sql, (result['pool_id']))
                             detail_res = await cur.fetchall()
@@ -53,7 +53,7 @@ async def cexswap_get_pool_details(ticker_1: str, ticker_2: str, user_id: str=No
                                 pool_detail['pool_share'] = detail_res
                         else:
                             sql = """ SELECT * 
-                            FROM `a_test_cexswap_pools_share` 
+                            FROM `cexswap_pools_share` 
                             WHERE `pool_id`=%s AND `user_id`=%s """
                             await cur.execute(sql, (result['pool_id'], user_id))
                             detail_res = await cur.fetchone()
@@ -70,7 +70,7 @@ async def cexswap_get_poolshare(user_id: str, user_server: str):
         async with store.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ SELECT * 
-                FROM `a_test_cexswap_pools_share` 
+                FROM `cexswap_pools_share` 
                 WHERE `user_id`=%s AND `user_server`=%s """
                 await cur.execute(sql, (user_id, user_server))
                 result = await cur.fetchall()
@@ -89,7 +89,7 @@ async def cexswap_earning(user_id: str=None):
                     sql = """
                     SELECT `got_ticker`, `distributed_user_id`, `distributed_user_server`, 
                         SUM(`distributed_amount`) as collected_amount, COUNT(*) as total_swap
-                    FROM `a_test_cexswap_distributing_fee`
+                    FROM `cexswap_distributing_fee`
                     WHERE `distributed_user_id`=%s
                     GROUP BY `got_ticker`
                     """
@@ -101,7 +101,7 @@ async def cexswap_earning(user_id: str=None):
                     sql = """
                     SELECT `got_ticker`, `distributed_user_id`, `distributed_user_server`, 
                         SUM(`distributed_amount`) as collected_amount, COUNT(*) as total_swap
-                    FROM `a_test_cexswap_distributing_fee`
+                    FROM `cexswap_distributing_fee`
                     GROUP BY `got_ticker`
                     """
                     await cur.execute(sql,)
@@ -122,17 +122,17 @@ async def cexswap_admin_remove_pool(
         async with store.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """
-                DELETE FROM `a_test_cexswap_pools` 
+                DELETE FROM `cexswap_pools` 
                 WHERE `pool_id`=%s LIMIT 1;
                 """
                 data_rows = [pool_id]
 
                 sql += """
-                INSERT INTO `a_test_cexswap_add_remove_logs`
+                INSERT INTO `cexswap_add_remove_logs`
                 (`pool_id`, `user_id`, `user_server`, `action`, `date`, `amount`, `token_name`)
                 VALUES (%s, %s, %s, %s, %s, %s, %s);
 
-                INSERT INTO `a_test_cexswap_add_remove_logs`
+                INSERT INTO `cexswap_add_remove_logs`
                 (`pool_id`, `user_id`, `user_server`, `action`, `date`, `amount`, `token_name`)
                 VALUES (%s, %s, %s, %s, %s, %s, %s);
                 """
@@ -140,14 +140,14 @@ async def cexswap_admin_remove_pool(
                 data_rows += [pool_id, user_id, user_server, "removepool", int(time.time()), amount_2, ticker_2]
 
                 sql += """
-                DELETE FROM `a_test_cexswap_pools_share` 
+                DELETE FROM `cexswap_pools_share` 
                 WHERE `pool_id`=%s;
                 """
                 data_rows += [pool_id]
 
                 if len(liq_users) > 0:
                     add_sql = """
-                    UPDATE `a_test_user_balance_mv_data`
+                    UPDATE `user_balance_mv_data`
                     SET `balance`=`balance`+%s, `update_date`=%s
                     WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s LIMIT 1;
                     """ * int(len(liq_users)/5) # because the list is exploded and 5 elements to insert
@@ -171,35 +171,35 @@ async def cexswap_remove_pool_share(
             async with conn.cursor() as cur:
                 if delete_pool is True:
                     extra = """
-                    DELETE FROM `a_test_cexswap_pools` 
+                    DELETE FROM `cexswap_pools` 
                     WHERE `pool_id`=%s LIMIT 1;
                     """
                 else:
                     extra = """
-                    UPDATE `a_test_cexswap_pools`
+                    UPDATE `cexswap_pools`
                         SET `amount_ticker_1`=`amount_ticker_1`-%s,
                             `amount_ticker_2`=`amount_ticker_2`-%s
                         WHERE `pool_id`=%s AND `ticker_1_name`=%s AND `ticker_2_name`=%s;
                     """
                 if complete is True:
                     sql = extra + """
-                    DELETE FROM `a_test_cexswap_pools_share`
+                    DELETE FROM `cexswap_pools_share`
                     WHERE `pool_id`=%s AND `ticker_1_name`=%s AND `ticker_2_name`=%s 
                         AND `user_id`=%s AND `user_server`=%s LIMIT 1;
 
-                    UPDATE `a_test_user_balance_mv_data`
+                    UPDATE `user_balance_mv_data`
                     SET `balance`=`balance`+%s
                     WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
 
-                    UPDATE `a_test_user_balance_mv_data`
+                    UPDATE `user_balance_mv_data`
                     SET `balance`=`balance`+%s
                     WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
 
-                    INSERT INTO `a_test_cexswap_add_remove_logs`
+                    INSERT INTO `cexswap_add_remove_logs`
                     (`pool_id`, `user_id`, `user_server`, `action`, `date`, `amount`, `token_name`)
                     VALUES (%s, %s, %s, %s, %s, %s, %s);
 
-                    INSERT INTO `a_test_cexswap_add_remove_logs`
+                    INSERT INTO `cexswap_add_remove_logs`
                     (`pool_id`, `user_id`, `user_server`, `action`, `date`, `amount`, `token_name`)
                     VALUES (%s, %s, %s, %s, %s, %s, %s);
                     """
@@ -219,24 +219,24 @@ async def cexswap_remove_pool_share(
                     return True
                 else:
                     sql = extra + """
-                    UPDATE `a_test_cexswap_pools_share`
+                    UPDATE `cexswap_pools_share`
                         SET `amount_ticker_1`=`amount_ticker_1`-%s, `amount_ticker_2`=`amount_ticker_2`-%s
                     WHERE `pool_id`=%s AND `ticker_1_name`=%s AND `ticker_2_name`=%s AND `user_id`=%s 
                         AND `user_server`=%s LIMIT 1;
 
-                    UPDATE `a_test_user_balance_mv_data`
+                    UPDATE `user_balance_mv_data`
                     SET `balance`=`balance`+%s
                     WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
 
-                    UPDATE `a_test_user_balance_mv_data`
+                    UPDATE `user_balance_mv_data`
                     SET `balance`=`balance`+%s
                     WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
 
-                    INSERT INTO `a_test_cexswap_add_remove_logs`
+                    INSERT INTO `cexswap_add_remove_logs`
                     (`pool_id`, `user_id`, `user_server`, `action`, `date`, `amount`, `token_name`)
                     VALUES (%s, %s, %s, %s, %s, %s, %s);
 
-                    INSERT INTO `a_test_cexswap_add_remove_logs`
+                    INSERT INTO `cexswap_add_remove_logs`
                     (`pool_id`, `user_id`, `user_server`, `action`, `date`, `amount`, `token_name`)
                     VALUES (%s, %s, %s, %s, %s, %s, %s);
                     """
@@ -279,61 +279,61 @@ async def cexswap_sold(
                 # Distribute %
                 
                 sql = """
-                UPDATE `a_test_cexswap_pools`
+                UPDATE `cexswap_pools`
                 SET `amount_ticker_1`=`amount_ticker_1`+%s
                 WHERE `ticker_1_name`=%s AND `pool_id`=%s;
 
-                UPDATE `a_test_cexswap_pools`
+                UPDATE `cexswap_pools`
                 SET `amount_ticker_2`=`amount_ticker_2`+%s
                 WHERE `ticker_2_name`=%s AND `pool_id`=%s;
 
-                UPDATE `a_test_cexswap_pools`
+                UPDATE `cexswap_pools`
                 SET `amount_ticker_1`=`amount_ticker_1`-%s
                 WHERE `ticker_1_name`=%s AND `pool_id`=%s;
 
-                UPDATE `a_test_cexswap_pools`
+                UPDATE `cexswap_pools`
                 SET `amount_ticker_2`=`amount_ticker_2`-%s
                 WHERE `ticker_2_name`=%s AND `pool_id`=%s;
 
-                UPDATE `a_test_cexswap_pools_share`
+                UPDATE `cexswap_pools_share`
                 SET `amount_ticker_1`=`amount_ticker_1`*%s
                 WHERE `ticker_1_name`=%s AND `pool_id`=%s;
 
-                UPDATE `a_test_cexswap_pools_share`
+                UPDATE `cexswap_pools_share`
                 SET `amount_ticker_2`=`amount_ticker_2`*%s
                 WHERE `ticker_2_name`=%s AND `pool_id`=%s;
 
-                UPDATE `a_test_cexswap_pools_share`
+                UPDATE `cexswap_pools_share`
                 SET `amount_ticker_1`=`amount_ticker_1`*%s
                 WHERE `ticker_1_name`=%s AND `pool_id`=%s;
 
-                UPDATE `a_test_cexswap_pools_share`
+                UPDATE `cexswap_pools_share`
                 SET `amount_ticker_2`=`amount_ticker_2`*%s
                 WHERE `ticker_2_name`=%s AND `pool_id`=%s;
 
-                UPDATE `a_test_user_balance_mv_data`
+                UPDATE `user_balance_mv_data`
                 SET `balance`=`balance`-%s 
                 WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
 
-                UPDATE `a_test_user_balance_mv_data`
+                UPDATE `user_balance_mv_data`
                 SET `balance`=`balance`+%s
                 WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
 
-                INSERT INTO `a_test_user_balance_mv_data`
+                INSERT INTO `user_balance_mv_data`
                 (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
                 VALUES (%s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     `balance`=`balance`+VALUES(`balance`),
                     `update_date`=VALUES(`update_date`);
 
-                INSERT INTO `a_test_user_balance_mv_data`
+                INSERT INTO `user_balance_mv_data`
                 (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
                 VALUES (%s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     `balance`=`balance`+VALUES(`balance`),
                     `update_date`=VALUES(`update_date`);
 
-                INSERT INTO `a_test_cexswap_sell_logs`
+                INSERT INTO `cexswap_sell_logs`
                 (`pool_id`, `pairs`, `ref_log`, `sold_ticker`, `total_sold_amount`, `total_sold_amount_usd`,
                 `guild_id`, `got_total_amount`, `got_total_amount_usd`,
                 `got_fee_dev`, `got_fee_liquidators`, `got_fee_guild`, `got_ticker`,
@@ -369,7 +369,7 @@ async def cexswap_sold(
                 await conn.commit()
 
                 sql = """ SELECT * 
-                    FROM `a_test_cexswap_sell_logs` 
+                    FROM `cexswap_sell_logs` 
                     WHERE `ref_log`=%s LIMIT 1
                     """
                 sell_id = cur.lastrowid
@@ -380,7 +380,7 @@ async def cexswap_sold(
 
                 # add to distributed fee
                 sql = """
-                    INSERT INTO `a_test_cexswap_distributing_fee`
+                    INSERT INTO `cexswap_distributing_fee`
                     (`sell_log_id`, `pool_id`, `got_ticker`, `got_total_amount`, 
                     `distributed_amount`, `distributed_amount_usd`, `distributed_user_id`, `distributed_user_server`, `date`)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -395,7 +395,7 @@ async def cexswap_sold(
 
                 # add to mv_data
                 sql = """
-                    INSERT INTO `a_test_user_balance_mv`
+                    INSERT INTO `user_balance_mv`
                     (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`,
                     `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`, `extra_message`)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -431,7 +431,7 @@ async def cexswap_insert_new(
                 pool_id = None
                 existing_pool = False
                 sql = """ SELECT * 
-                    FROM `a_test_cexswap_pools` 
+                    FROM `cexswap_pools` 
                     WHERE `enable`=1 
                     AND ((`ticker_1_name`=%s AND `ticker_2_name`=%s)
                         OR (`ticker_1_name`=%s AND `ticker_2_name`=%s)) """
@@ -441,7 +441,7 @@ async def cexswap_insert_new(
                     pool_id = result['pool_id']
                     existing_pool = True
                 else:
-                    sql = """ INSERT INTO `a_test_cexswap_pools` 
+                    sql = """ INSERT INTO `cexswap_pools` 
                         (`pairs`, `amount_ticker_1`, `ticker_1_name`, `amount_ticker_2`,
                         `ticker_2_name`, `initialized_by`, `initialized_date`, `updated_date`)
                         VALUES 
@@ -455,7 +455,7 @@ async def cexswap_insert_new(
                 
                 if pool_id is not None:
                     sql = """
-                    INSERT INTO `a_test_cexswap_pools_share`
+                    INSERT INTO `cexswap_pools_share`
                     (`pool_id`, `pairs`, `amount_ticker_1`, `ticker_1_name`,
                     `amount_ticker_2`, `ticker_2_name`, `user_id`, `user_server`,
                     `updated_date`)
@@ -466,21 +466,20 @@ async def cexswap_insert_new(
                         `amount_ticker_2`=amount_ticker_2+VALUES(`amount_ticker_2`),
                         `updated_date`=VALUES(`updated_date`);
                     
-                    INSERT INTO `a_test_cexswap_add_remove_logs`
+                    INSERT INTO `cexswap_add_remove_logs`
                     (`pool_id`, `user_id`, `user_server`, `action`, `date`, `amount`, `token_name`)
                     VALUES (%s, %s, %s, %s, %s, %s, %s);
 
-                    INSERT INTO `a_test_cexswap_add_remove_logs`
+                    INSERT INTO `cexswap_add_remove_logs`
                     (`pool_id`, `user_id`, `user_server`, `action`, `date`, `amount`, `token_name`)
                     VALUES (%s, %s, %s, %s, %s, %s, %s);
 
-                    UPDATE `a_test_user_balance_mv_data`
+                    UPDATE `user_balance_mv_data`
                     SET `balance`=`balance`-%s WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
 
-                    UPDATE `a_test_user_balance_mv_data`
+                    UPDATE `user_balance_mv_data`
                     SET `balance`=`balance`-%s WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
                     """
-                    # TODO: change to real table data `a_test_user_balance_mv_data`
                     data_row = [pool_id, pairs, amount_ticker_1, ticker_1_name,
                         amount_ticker_2, ticker_2_name, user_id, user_server, int(time.time()),
                         pool_id, user_id, user_server, "add", int(time.time()), amount_ticker_1, ticker_1_name,
@@ -489,7 +488,7 @@ async def cexswap_insert_new(
                         amount_ticker_2, user_id, ticker_2_name
                     ]
                     if existing_pool is True:
-                        sql += """ UPDATE `a_test_cexswap_pools` 
+                        sql += """ UPDATE `cexswap_pools` 
                         SET `amount_ticker_1`=`amount_ticker_1`+%s,
                             `amount_ticker_2`=`amount_ticker_2`+%s,
                             `updated_date`=%s
@@ -743,7 +742,6 @@ class add_liquidity_btn(disnake.ui.View):
         else:
             await inter.response.send_message(f"{inter.author.mention}, checking liquidity.")
         # add liquidity
-        # TODO: re-check rate. If change. Reject the insert
         ticker = self.pool_name.split("/")
         # re-check rate
         liq_pair = await cexswap_get_pool_details(ticker[0], ticker[1], self.owner_id)
@@ -762,6 +760,17 @@ class add_liquidity_btn(disnake.ui.View):
             str(inter.author.id), SERVER_BOT
         )
         if add_liq is True:
+            # Delete if has key
+            try:
+                key = str(inter.author.id) + "_" + ticker[0] + "_" + SERVER_BOT
+                if key in self.bot.user_balance_cache:
+                    del self.bot.user_balance_cache[key]
+                key = str(inter.author.id) + "_" + ticker[1] + "_" + SERVER_BOT
+                if key in self.bot.user_balance_cache:
+                    del self.bot.user_balance_cache[key]
+            except Exception:
+                pass
+            # End of del key
             coin_decimal_1 = getattr(getattr(self.bot.coin_list, ticker[0]), "decimal")
             coin_decimal_2 = getattr(getattr(self.bot.coin_list, ticker[1]), "decimal")
             add_msg = "{} {} and {} {}".format(
@@ -814,7 +823,7 @@ class Cexswap(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * 
-                    FROM `a_test_user_balance_mv_data` 
+                    FROM `user_balance_mv_data` 
                     WHERE `user_id`=%s AND `user_server`=%s """
                     await cur.execute(sql, (user_id, user_server))
                     result = await cur.fetchall()
@@ -853,7 +862,7 @@ class Cexswap(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * 
-                    FROM `a_test_cexswap_pools`
+                    FROM `cexswap_pools`
                     """
                     await cur.execute(sql,)
                     result = await cur.fetchall()
@@ -1141,6 +1150,12 @@ class Cexswap(commands.Cog):
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, sell_token), "usd_equivalent_enable")
                 cexswap_max_swap_percent_sell = getattr(getattr(self.bot.coin_list, sell_token), "cexswap_max_swap_percent")
                 max_swap_sell_cap = cexswap_max_swap_percent_sell * float(amount_liq_sell)
+
+                net_name = getattr(getattr(self.bot.coin_list, sell_token), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, sell_token), "type")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, sell_token), "deposit_confirm_depth")
+                contract = getattr(getattr(self.bot.coin_list, sell_token), "contract")
+
                 if "$" in amount[-1] or "$" in amount[0]:  # last is $
                     # Check if conversion is allowed for this coin.
                     amount = amount.replace(",", "").replace("$", "")
@@ -1174,6 +1189,37 @@ class Cexswap(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
 
+
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    str(ctx.author.id), sell_token, net_name, type_coin, SERVER_BOT, 0
+                )
+                if get_deposit is None:
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        str(ctx.author.id), sell_token, net_name, type_coin, SERVER_BOT, 0, 0
+                    )
+
+                wallet_address = get_deposit['balance_wallet_address']
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    wallet_address = get_deposit['paymentid']
+                elif type_coin in ["XRP"]:
+                    wallet_address = get_deposit['destination_tag']
+
+                height = self.wallet_api.get_block_height(type_coin, sell_token, net_name)
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    str(ctx.author.id), sell_token, net_name, type_coin, SERVER_BOT, 0
+                )
+                if get_deposit is None:
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        str(ctx.author.id), sell_token, net_name, type_coin, SERVER_BOT, 0, 0
+                    )
+
+                height = self.wallet_api.get_block_height(type_coin, sell_token, net_name)
+                userdata_balance = await store.sql_user_balance_single(
+                    str(ctx.author.id), sell_token, wallet_address, 
+                    type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
+                actual_balance = float(userdata_balance['adjust'])
+
                 amount_get = amount * liq_pair['pool']['amount_ticker_2'] / liq_pair['pool']['amount_ticker_1']
 
                 if sell_token == liq_pair['pool']['ticker_1_name']:
@@ -1184,7 +1230,7 @@ class Cexswap(commands.Cog):
                 if sell_token == liq_pair['pool']['ticker_2_name']:
                     amount_get = amount * liq_pair['pool']['amount_ticker_1'] / liq_pair['pool']['amount_ticker_2']
 
-                if amount <= 0: # TODO: or actual_balance <= 0:
+                if amount <= 0 or actual_balance <= 0:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}."
                     await ctx.edit_original_message(content=msg)
                     return
@@ -1193,7 +1239,6 @@ class Cexswap(commands.Cog):
                         f" is below minimum `{num_format_coin(cexswap_min, sell_token, coin_decimal, False)} {token_display}`."
                     await ctx.edit_original_message(content=msg)
                     return
-                # TODO: compare with actual balance
 
                 # Check if amount is more than liquidity
                 elif amount > max_swap_sell_cap:
@@ -1215,8 +1260,8 @@ class Cexswap(commands.Cog):
 
                     ref_log = ''.join(random.choice(ascii_uppercase) for i in range(32))
 
+                    liq_users = []
                     if len(liq_pair['pool_share']) > 0:
-                        liq_users = []
                         for each_s in liq_pair['pool_share']:
                             distributed_amount = None
                             if for_token == each_s['ticker_1_name']:
@@ -1292,7 +1337,19 @@ class Cexswap(commands.Cog):
                             )
                             return
                         # end of re-check rate
-                        # TODO: re-check balance
+                        # re-check balance
+                        height = self.wallet_api.get_block_height(type_coin, sell_token, net_name)
+                        userdata_balance = await store.sql_user_balance_single(
+                            str(ctx.author.id), sell_token, wallet_address, 
+                            type_coin, height, deposit_confirm_depth, SERVER_BOT
+                        )
+                        actual_balance = float(userdata_balance['adjust'])
+                        if amount <= 0 or actual_balance <= 0:
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, ⚠️ Please get more {token_display}."
+                            await ctx.edit_original_message(content=msg)
+                            return
+
+                        # end: re-check balance
                         selling = await cexswap_sold(
                             ref_log, liq_pair['pool']['pool_id'], percentage_inc, Decimal(truncate(amount, 12)), sell_token, 
                             Decimal(truncate(amount_get, 12)), for_token, str(ctx.author.id), SERVER_BOT,
@@ -1301,6 +1358,25 @@ class Cexswap(commands.Cog):
                             liq_users, contract, coin_decimal, channel_id, per_unit_sell, per_unit_get
                         )
                         if selling is True:
+                            # Delete if has key
+                            try:
+                                key = str(ctx.author.id) + "_" + sell_token + "_" + SERVER_BOT
+                                if key in self.bot.user_balance_cache:
+                                    del self.bot.user_balance_cache[key]
+                                key = str(ctx.author.id) + "_" + for_token + "_" + SERVER_BOT
+                                if key in self.bot.user_balance_cache:
+                                    del self.bot.user_balance_cache[key]
+                                if len(liq_users) > 0:
+                                    for u in liq_users:
+                                        key = u[1] + "_" + sell_token + "_" + SERVER_BOT
+                                        if key in self.bot.user_balance_cache:
+                                            del self.bot.user_balance_cache[key]
+                                        key = u[1] + "_" + for_token + "_" + SERVER_BOT
+                                        if key in self.bot.user_balance_cache:
+                                            del self.bot.user_balance_cache[key]
+                            except Exception:
+                                pass
+                            # End of del key
                             # fee_str = num_format_coin(fee, for_token, coin_decimal_get, False)
                             # . Fee {fee_str} {for_token}\n
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully traded!\n"\
@@ -1310,7 +1386,7 @@ class Cexswap(commands.Cog):
                             await log_to_channel(
                                 "cexswap",
                                 f"[SOLD]: User {ctx.author.mention} Sold: " \
-                                f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}\nRef: `{ref_log}`",
+                                f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}. Ref: `{ref_log}`",
                                 self.bot.config['discord']['cexswap']
                             )
                         else:
@@ -1564,10 +1640,24 @@ class Cexswap(commands.Cog):
                         try:
                             member = self.bot.get_user(liq_u)
                             if member is not None:
-                                msg_sending = f"Admin removed pool `{pool_name}`. You pool shared return to your balance:"\
-                                    f"```{balance_user[str(liq_u)]}```"
-                                await member.send(msg_sending)
-                                num_notifying += 1
+                                try:
+                                    # Delete if has key
+                                    try:
+                                        key = str(liq_u) + "_" + liq_pair['pool']['ticker_1_name'] + "_" + SERVER_BOT
+                                        if key in self.bot.user_balance_cache:
+                                            del self.bot.user_balance_cache[key]
+                                        key = str(liq_u) + "_" + liq_pair['pool']['ticker_2_name'] + "_" + SERVER_BOT
+                                        if key in self.bot.user_balance_cache:
+                                            del self.bot.user_balance_cache[key]
+                                    except Exception:
+                                        pass
+                                    # End of del key
+                                    msg_sending = f"Admin removed pool `{pool_name}`. You pool shared return to your balance:"\
+                                        f"```{balance_user[str(liq_u)]}```"
+                                    await member.send(msg_sending)
+                                    num_notifying += 1
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                     msg += "And notified {} user(s).".format(num_notifying)
@@ -1663,6 +1753,17 @@ class Cexswap(commands.Cog):
                     amount_1_str = num_format_coin(amount_remove_1, ticker_1, coin_decimal_1, False)
                     amount_2_str = num_format_coin(amount_remove_2, ticker_2, coin_decimal_2, False)
                     if removing is True:
+                        # Delete if has key
+                        try:
+                            key = str(ctx.author.id) + "_" + ticker_1 + "_" + SERVER_BOT
+                            if key in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key]
+                            key = str(ctx.author.id) + "_" + ticker_2 + "_" + SERVER_BOT
+                            if key in self.bot.user_balance_cache:
+                                del self.bot.user_balance_cache[key]
+                        except Exception:
+                            pass
+                        # End of del key
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully remove liqudity:" \
                             f"```{amount_1_str} {ticker_1}\n{amount_2_str} {ticker_2}```"
                         await ctx.edit_original_message(content=msg)

@@ -76,10 +76,20 @@ class Coininfo(commands.Cog):
             response_text += "Tipping / Depositing / Withdraw:\n   {} / {} / {}\n".format(
                 tip_deposit_withdraw_stat[0], tip_deposit_withdraw_stat[1], tip_deposit_withdraw_stat[2]
             )
-            if coin_name in self.bot.cexswap_coins:
-                response_text += "CEXSwap:\n   ✅ON\n"
             get_tip_min_max = "Tip Min/Max:\n   " + num_format_coin(Min_Tip, coin_name, coin_decimal, False) + " / " + num_format_coin(Max_Tip, coin_name, coin_decimal, False) + " " + coin_name
             response_text += get_tip_min_max + "\n"
+            if coin_name in self.bot.cexswap_coins:
+                response_text += "\nCEXSwap:\n   ✅ON\n"
+                min_initialized_liq_1 = getattr(getattr(self.bot.coin_list, coin_name), "cexswap_min_initialized_liq")
+                min_add_liq = getattr(getattr(self.bot.coin_list, coin_name), "cexswap_min_add_liq")
+                cexswap_min = getattr(getattr(self.bot.coin_list, coin_name), "cexswap_min")
+                min_initialized_liq_1 = num_format_coin(min_initialized_liq_1, coin_name, coin_decimal, False)
+                min_add_liq = num_format_coin(min_add_liq, coin_name, coin_decimal, False)
+                cexswap_min = num_format_coin(cexswap_min, coin_name, coin_decimal, False)
+                response_text += "Mininimum:\n   " + f"Sell: {cexswap_min} {coin_name}\n" + f"   Add: {min_add_liq} {coin_name}\n" \
+                    + f"   Init. LP: {min_initialized_liq_1} {coin_name}\n\n"
+
+
             get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(Min_Tx, coin_name, coin_decimal, False) + " / " + num_format_coin(Max_Tx, coin_name, coin_decimal, False) + " " + coin_name
             response_text += get_tx_min_max + "\n"
 

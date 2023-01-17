@@ -1523,9 +1523,15 @@ class Cexswap(commands.Cog):
                     return
 
                 # Check if amount is more than liquidity
-                elif amount > max_swap_sell_cap:
+                elif truncate(float(amount), 8) > truncate(float(max_swap_sell_cap), 8):
+                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_1_name']), "decimal")
+                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_2_name']), "decimal")
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount `{sell_amount_old}`"\
-                        f" is more than allowable 10% of liquidity `{num_format_coin(max_swap_sell_cap, sell_token, coin_decimal, False)} {token_display}`."
+                        f" is more than allowable 10% of liquidity `{num_format_coin(max_swap_sell_cap, sell_token, coin_decimal, False)} {token_display}`." \
+                        f"```Current LP: {num_format_coin(liq_pair['pool']['amount_ticker_1'], liq_pair['pool']['ticker_1_name'], coin_decimal_1, False)} "\
+                        f"{liq_pair['pool']['ticker_1_name']} and "\
+                        f"{num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False)} "\
+                        f"{liq_pair['pool']['ticker_2_name']} for LP {liq_pair['pool']['ticker_1_name']}/{liq_pair['pool']['ticker_2_name']}.```"
                     await ctx.edit_original_message(content=msg)
                     return
                 else:

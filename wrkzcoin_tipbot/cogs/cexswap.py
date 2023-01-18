@@ -99,21 +99,48 @@ async def cexswap_get_poolshare(user_id: str, user_server: str):
         traceback.print_exc(file=sys.stdout)
     return []
 
-async def cexswap_earning(user_id: str=None):
+async def get_cexswap_earning(user_id: str=None, from_time: int=None, pool_id: int=None):
     try:
         await store.openConnection()
         async with store.pool.acquire() as conn:
             async with conn.cursor() as cur:
+                extra_sql = ""
+                pool_sql = ""
+                if user_id is None and from_time is not None:
+                    extra_sql = """
+                    WHERE `date`>%s
+                    """
+                elif from_time is not None:
+                    extra_sql = """
+                    AND `date`>%s
+                    """
+                if pool_id is not None:
+                    if len(extra_sql) == "":
+                        pool_sql = """
+                        WHERE `pool_id`=%s
+                        """
+                    else:
+                        pool_sql = """
+                        AND `pool_id`=%s
+                        """
+                
                 if user_id is not None:
                     sql = """
                     SELECT `got_ticker`, `distributed_user_id`, `distributed_user_server`, 
                         SUM(`distributed_amount`) AS collected_amount, SUM(`got_total_amount`) AS got_total_amount,
                         COUNT(*) as total_swap
                     FROM `cexswap_distributing_fee`
-                    WHERE `distributed_user_id`=%s
+                    WHERE `distributed_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
                     GROUP BY `got_ticker`
                     """
-                    await cur.execute(sql, user_id)
+                    print(sql)
+                    data_rows = [user_id]
+                    if len(extra_sql) > 0:
+                        data_rows += [from_time]
+                    if len(pool_sql) > 0:
+                        data_rows += [pool_id]
+
+                    await cur.execute(sql, tuple(data_rows))
                     result = await cur.fetchall()
                     if result:
                         return result
@@ -123,9 +150,16 @@ async def cexswap_earning(user_id: str=None):
                         SUM(`distributed_amount`) AS collected_amount, SUM(`got_total_amount`) AS got_total_amount,
                         COUNT(*) as total_swap
                     FROM `cexswap_distributing_fee`
+                     """ + extra_sql + """ """ + pool_sql + """
                     GROUP BY `got_ticker`
                     """
-                    await cur.execute(sql,)
+                    print(sql)
+                    data_rows = []
+                    if len(extra_sql) > 0:
+                        data_rows += [from_time]
+                    if len(pool_sql) > 0:
+                        data_rows += [pool_id]
+                    await cur.execute(sql, tuple(data_rows))
                     result = await cur.fetchall()
                     if result:
                         return result
@@ -623,7 +657,7 @@ class DropdownLP(disnake.ui.StringSelect):
             embed.set_thumbnail(url=self.bot.user.display_avatar)
             # get LP by coin
             get_pools = await cexswap_get_pools(self.values[0])
-            showing_num = 5
+            showing_num = 8
             if len(get_pools) > 0:
                 embed.add_field(
                     name="Selected Coin {}".format(self.values[0]),
@@ -930,13 +964,13 @@ class add_liqudity(disnake.ui.Modal):
                     coin_decimal_1 = getattr(getattr(self.bot.coin_list, self.ticker_1), "decimal")
                     coin_decimal_2 = getattr(getattr(self.bot.coin_list, self.ticker_2), "decimal")
 
-                    init_liq_text = "{} {} and {} {}".format(
+                    init_liq_text = "{} {}\n{} {}".format(
                         num_format_coin(min_initialized_liq_1, self.ticker_1, coin_decimal_1, False), self.ticker_1,
                         num_format_coin(min_initialized_liq_2, self.ticker_2, coin_decimal_2, False), self.ticker_2
                     )
                     embed.add_field(
                         name="Minimum adding",
-                        value=f"```{init_liq_text}```",
+                        value=f"{init_liq_text}",
                         inline=False
                     )
                     embed.add_field(
@@ -1348,43 +1382,46 @@ class Cexswap(commands.Cog):
                     inline=False
                 )  
             # List distributed fee
-            get_user_earning = await cexswap_earning(None)
-            if len(get_user_earning) > 0:
-                testing = self.bot.config['cexswap']['testing_msg']
-                list_earning = []
-                list_volume = []
-                for each in get_user_earning:
-                    coin_emoji = ""
-                    try:
-                        if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+            earning = {}
+            earning['7d'] = await get_cexswap_earning(user_id=None, from_time=int(time.time()-7*24*3600), pool_id=None)
+            earning['1d'] = await get_cexswap_earning(user_id=None, from_time=int(time.time()-1*24*3600), pool_id=None)
+            if len(earning) > 0:
+                for k, v in earning.items():
+                    list_earning = []
+                    list_volume = []
+                    for each in v:
+                        coin_emoji = ""
+                        try:
+                            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                                    coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
+                                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+                            else:
                                 coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
                                 coin_emoji = coin_emoji + " " if coin_emoji else ""
-                        else:
-                            coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
-                            coin_emoji = coin_emoji + " " if coin_emoji else ""
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                    coin_decimal = getattr(getattr(self.bot.coin_list, each['got_ticker']), "decimal")
-                    earning_amount = num_format_coin(
-                        each['collected_amount'], each['got_ticker'], coin_decimal, False
-                    )
-                    traded_amount = num_format_coin(
-                        each['got_total_amount'], each['got_ticker'], coin_decimal, False
-                    )
-                    list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
-                    list_volume.append("{}{} {}".format(coin_emoji, traded_amount, each['got_ticker']))
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        coin_decimal = getattr(getattr(self.bot.coin_list, each['got_ticker']), "decimal")
+                        earning_amount = num_format_coin(
+                            each['collected_amount'], each['got_ticker'], coin_decimal, False
+                        )
+                        traded_amount = num_format_coin(
+                            each['got_total_amount'], each['got_ticker'], coin_decimal, False
+                        )
+                        list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
+                        list_volume.append("{}{} {}".format(coin_emoji, traded_amount, each['got_ticker']))
 
-                embed.add_field(
-                    name="Fee to liquidator(s) - {} coin(s)".format(len(get_user_earning)),
-                    value="{}".format("\n".join(list_earning)),
-                    inline=False
-                )
-                embed.add_field(
-                    name="Total volume",
-                    value="{}".format("\n".join(list_volume)),
-                    inline=False
-                )
+                    if len(v) > 0:
+                        embed.add_field(
+                            name="Fee to liquidator(s) - {} coin(s) [{}]".format(len(v), k.upper()),
+                            value="{}".format("\n".join(list_earning)),
+                            inline=False
+                        )
+                        embed.add_field(
+                            name="Total volume [{}]".format(k.upper()),
+                            value="{}".format("\n".join(list_volume)),
+                            inline=False
+                        )
             embed.add_field(
                 name="Remark",
                 value="Please often check this summary. We will often have some updates.",
@@ -1864,6 +1901,157 @@ class Cexswap(commands.Cog):
         return [name for name in self.bot.cexswap_coins if string in name.lower()][:12]
 
     @cexswap.sub_command(
+        name="selectpool",
+        usage="cexswap selectpool",
+        options=[
+            Option("pool_name", "Choose pool's name", OptionType.string, required=True)
+        ],
+        description="Show a pool detail in cexswap."
+    )
+    async def cexswap_selectpool(
+        self,
+        ctx,
+        pool_name: str,
+    ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading..."
+        await ctx.response.send_message(msg)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/cexswap selectpool", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        try:
+            pool_name = pool_name.upper()
+            if pool_name not in self.bot.cexswap_pairs:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                    f"You could put the wrong order with this `{pool_name}`."
+                await ctx.edit_original_message(content=msg)
+                return
+
+            tickers = pool_name.upper().split("/")
+            coin_emoji_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "coin_emoji_discord")
+            coin_emoji_1 = coin_emoji_1 + " " if coin_emoji_1 else ""
+            coin_emoji_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "coin_emoji_discord")
+            coin_emoji_2 = coin_emoji_2 + " " if coin_emoji_2 else ""
+
+            min_initialized_liq_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "cexswap_min_initialized_liq")
+            min_initialized_liq_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "cexswap_min_initialized_liq")
+            coin_decimal_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "decimal")
+            coin_decimal_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "decimal")
+
+            testing = self.bot.config['cexswap']['testing_msg']
+            embed = disnake.Embed(
+                title="LP Pool {} - {}/{} TipBot's CEXSwap".format(pool_name, coin_emoji_1, coin_emoji_2),
+                description=f"{ctx.author.mention}, {testing}Summary.",
+                timestamp=datetime.now(),
+            )
+            init_liq_text = "{} {}\n{} {}".format(
+                num_format_coin(min_initialized_liq_1, tickers[0], coin_decimal_1, False), tickers[0],
+                num_format_coin(min_initialized_liq_2, tickers[1], coin_decimal_2, False), tickers[1]
+            )
+            embed.add_field(
+                name="Minimum adding (Init POOL)",
+                value=f"{init_liq_text}",
+                inline=False
+            )
+            min_liq_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "cexswap_min_add_liq")
+            min_liq_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "cexswap_min_add_liq")
+            add_liq_text = "{} {}\n{} {}".format(
+                num_format_coin(min_liq_1, tickers[0], coin_decimal_1, False), tickers[0],
+                num_format_coin(min_liq_2, tickers[1], coin_decimal_2, False), tickers[1]
+            )
+            embed.add_field(
+                name="Minimum adding (After POOL)",
+                value=f"{add_liq_text}",
+                inline=False
+            )
+            embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+            embed.set_thumbnail(url=ctx.author.display_avatar)
+            liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], str(ctx.author.id))
+            if liq_pair is not None:
+                rate_1 = num_format_coin(
+                    liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1'],
+                    tickers[1], coin_decimal_2, False
+                )
+                rate_2 = num_format_coin(
+                    liq_pair['pool']['amount_ticker_1']/liq_pair['pool']['amount_ticker_2'],
+                    tickers[0], coin_decimal_1, False
+                )
+                rate_coin_12 = "{} {} = {} {}\n{} {} = {} {}".format(
+                    1, tickers[0], rate_1, tickers[1], 1, tickers[1], rate_2, tickers[0]
+                )
+                
+                # show total liq
+                embed.add_field(
+                    name="Total liquidity",
+                    value="{} {}\n{} {}".format(
+                        num_format_coin(liq_pair['pool']['amount_ticker_1'], liq_pair['pool']['ticker_1_name'], coin_decimal_1, False), liq_pair['pool']['ticker_1_name'],
+                        num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False), liq_pair['pool']['ticker_2_name']
+                    ),
+                    inline=False
+                )
+                embed.add_field(
+                    name="Existing Pool | Rate",
+                    value="{}".format(rate_coin_12),
+                    inline=False
+                )
+                earning = {}
+                earning['7d'] = await get_cexswap_earning(user_id=None, from_time=int(time.time()-7*24*3600), pool_id=liq_pair['pool']['pool_id'])
+                earning['1d'] = await get_cexswap_earning(user_id=None, from_time=int(time.time()-1*24*3600), pool_id=liq_pair['pool']['pool_id'])
+                print(earning)
+                if len(earning) > 0:
+                    for k, v in earning.items():
+                        list_earning = []
+                        list_volume = []
+                        for each in v:
+                            coin_emoji = ""
+                            try:
+                                if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                                    if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                                        coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
+                                        coin_emoji = coin_emoji + " " if coin_emoji else ""
+                                else:
+                                    coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
+                                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            coin_decimal = getattr(getattr(self.bot.coin_list, each['got_ticker']), "decimal")
+                            earning_amount = num_format_coin(
+                                each['collected_amount'], each['got_ticker'], coin_decimal, False
+                            )
+                            traded_amount = num_format_coin(
+                                each['got_total_amount'], each['got_ticker'], coin_decimal, False
+                            )
+                            list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
+                            list_volume.append("{}{} {}".format(coin_emoji, traded_amount, each['got_ticker']))
+
+                        if len(v) > 0:
+                            embed.add_field(
+                                name="Total volume [{}]".format(k.upper()),
+                                value="{}".format("\n".join(list_volume)),
+                                inline=False
+                            )
+            else:
+                embed.add_field(
+                    name="NOTE",
+                    value="This pool LP doesn't exist yet!",
+                    inline=False
+                )
+            await ctx.edit_original_message(
+                content=None,
+                embed=embed
+            )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @cexswap_selectpool.autocomplete("pool_name")
+    async def cexswap_selectpool_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.cexswap_pairs if string in name.lower()][:12]
+
+    @cexswap.sub_command(
         name="addliquidity",
         usage="cexswap addliquidity",
         options=[
@@ -1894,7 +2082,8 @@ class Cexswap(commands.Cog):
             )
             pool_name = pool_name.upper()
             if pool_name not in self.bot.cexswap_pairs:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  You could put the wrong order with this `{pool_name}`."
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                    f"You could put the wrong order with this `{pool_name}`."
                 await ctx.edit_original_message(content=msg)
                 return
 
@@ -1969,13 +2158,13 @@ class Cexswap(commands.Cog):
 
                 min_liq_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "cexswap_min_add_liq")
                 min_liq_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "cexswap_min_add_liq")
-                init_liq_text = "{} {} and {} {}".format(
+                init_liq_text = "{} {}\n{} {}".format(
                     num_format_coin(min_liq_1, tickers[0], coin_decimal_1, False), tickers[0],
                     num_format_coin(min_liq_2, tickers[1], coin_decimal_2, False), tickers[1]
                 )
             embed.add_field(
                 name="Minimum adding",
-                value=f"```{init_liq_text}```",
+                value=f"{init_liq_text}",
                 inline=False
             )
 
@@ -2588,7 +2777,7 @@ class Cexswap(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
-            get_user_earning = await cexswap_earning(str(ctx.author.id))
+            get_user_earning = await get_cexswap_earning(user_id=str(ctx.author.id), from_time=None, pool_id=None)
             if len(get_user_earning) == 0:
                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you don't have any earning from LP yet."
                 await ctx.edit_original_message(content=msg)

@@ -169,6 +169,38 @@ async def cexswap_earning_guild(guild_id: str=None):
         traceback.print_exc(file=sys.stdout)
     return []
 
+async def cexswap_airdrop_lp_detail(
+    list_balance_updates, list_lp_receivers
+):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                # deduct from airdroper, plus receivers
+                sql = """
+                UPDATE `user_balance_mv_data`
+                SET
+                    `balance`=`balance`+%s,
+                    `update_date`=%s
+                WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
+                """
+                await cur.executemany(sql, list_balance_updates)
+                await conn.commit()
+
+                # airdrop table
+                sql = """
+                INSERT INTO `cexswap_airdrop_lp_detail`
+                (`pool_id`, `pairs`, `from_userid`, `to_userid`, `token_name`, 
+                `total_airdrop_amount`, `user_airdrop_amount`, `user_pool_percentage`, `date`)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+                """
+                await cur.executemany(sql, list_lp_receivers)
+                await conn.commit()
+                return True
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
 async def cexswap_admin_remove_pool(
     pool_id: int, user_id: str, user_server: str,
     amount_1: float, ticker_1: str, amount_2: float, ticker_2: str,
@@ -564,6 +596,7 @@ class DropdownLP(disnake.ui.StringSelect):
         self.bot = bot
         self.list_coins = list_coins
         self.active_coin = active_coin
+        self.utils = Utils(self.bot)
 
         options = [
             disnake.SelectOption(
@@ -619,7 +652,12 @@ class DropdownLP(disnake.ui.StringSelect):
                     )
 
                     embed.add_field(
-                        name="Active LP {}".format(each_p['pairs']),
+                        name="Active LP {}{}".format(
+                            each_p['pairs'], " {} / {}".format(
+                                self.utils.get_coin_emoji(each_p['ticker_1_name']),
+                                self.utils.get_coin_emoji(each_p['ticker_2_name'])
+                            )
+                        ),
                         value="```{} {}\n{} {}\n{}```".format(
                             num_format_coin(each_p['amount_ticker_1'], each_p['ticker_1_name'], coin_decimal_1, False), each_p['ticker_1_name'],
                             num_format_coin(each_p['amount_ticker_2'], each_p['ticker_2_name'], coin_decimal_2, False), each_p['ticker_2_name'],
@@ -1288,7 +1326,10 @@ class Cexswap(commands.Cog):
             random.shuffle(some_pairs)
             embed.add_field(
                 name="Pairs with CEXSwap: {}".format(len(self.bot.cexswap_pairs)),
-                value="{} and {} more..".format(", ".join(some_pairs[0:50]), len(some_pairs) - 50),
+                value="{} and {} more..".format(
+                    ", ".join(some_pairs[0:self.bot.config['cexswap_summary']['show_max_pair']]),
+                    len(some_pairs) - self.bot.config['cexswap_summary']['show_max_pair']
+                ),
                 inline=False
             )  
             # LP available
@@ -1297,8 +1338,13 @@ class Cexswap(commands.Cog):
                 list_pairs = [i['pairs'] for i in get_pools]
                 some_active_lp = list_pairs.copy()
                 random.shuffle(some_active_lp)
-                list_pair_msg = "{}".format(", ".join(some_active_lp)) if len(some_active_lp) < 50 else \
-                        "{} and {} more..".format(", ".join(some_active_lp[0:50]), len(some_active_lp) - 50)
+                list_pair_msg = "{}".format(
+                    ", ".join(some_active_lp)
+                ) if len(some_active_lp) < self.bot.config['cexswap_summary']['show_max_pair'] else \
+                    "{} and {} more..".format(
+                        ", ".join(some_active_lp[0:self.bot.config['cexswap_summary']['show_max_pair']]),
+                        len(some_active_lp) - self.bot.config['cexswap_summary']['show_max_pair']
+                    )
                 embed.add_field(
                     name="Active LP: {}".format(len(list_pairs)),
                     value=list_pair_msg,
@@ -1400,9 +1446,13 @@ class Cexswap(commands.Cog):
                     rate_coin_12 = "{} {} = {} {}\n{} {} = {} {}".format(
                         1, each_p['ticker_1_name'], rate_1, each_p['ticker_2_name'], 1, each_p['ticker_2_name'], rate_2, each_p['ticker_1_name']
                     )
-
+                    
                     embed.add_field(
-                        name="Active LP {}".format(each_p['pairs']),
+                        name="Active LP {}{}".format(each_p['pairs'], " {} / {}".format(
+                                self.utils.get_coin_emoji(each_p['ticker_1_name']),
+                                self.utils.get_coin_emoji(each_p['ticker_2_name'])
+                            )
+                        ),
                         value="```{} {}\n{} {}\n{}```".format(
                             num_format_coin(each_p['amount_ticker_1'], each_p['ticker_1_name'], coin_decimal_1, False), each_p['ticker_1_name'],
                             num_format_coin(each_p['amount_ticker_2'], each_p['ticker_2_name'], coin_decimal_2, False), each_p['ticker_2_name'],
@@ -2198,6 +2248,264 @@ class Cexswap(commands.Cog):
         return [name for name in self.bot.cexswap_pairs if string in name.lower()][:12]
 
     @cexswap.sub_command(
+        name="airdrop",
+        usage="cexswap airdrop",
+        options=[
+            Option("pool_name", "Choose pool's name", OptionType.string, required=True),
+            Option("amount", "Choose amount", OptionType.string, required=True),
+            Option("token", "Choose token/coin name", OptionType.string, required=True),
+            Option("max_alert", "Number of max notification", OptionType.integer, required=True),
+        ],
+        description="Admin to airdrop to all liquidators."
+    )
+    async def cexswap_airdrop(
+        self,
+        ctx,
+        pool_name: str,
+        amount: str,
+        token: str,
+        max_alert: int
+    ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading aidrop..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        if ctx.author.id != self.bot.config['discord']['owner']:
+            await ctx.edit_original_message(content=f"{ctx.auhtor.mention}, you don't have permission!")
+            await log_to_channel(
+                "cexswap",
+                f"[AIRDROP]: User {ctx.author.mention} tried /cexswap airdrop. Permission denied!",
+                self.bot.config['discord']['cexswap']
+            )
+            return
+        try:
+            pool_name = pool_name.upper()
+            if pool_name not in self.bot.cexswap_pairs:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                    f"You could put the wrong order with this `{pool_name}`."
+                await ctx.edit_original_message(content=msg)
+                return
+
+            if max_alert <= 0:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, `max_alert` must be bigger than 0."
+                await ctx.edit_original_message(content=msg)
+                return
+            elif max_alert > self.bot.config['cexswap']['max_airdrop_lp']:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, `max_alert` must be smaller than "\
+                    f"{self.bot.config['cexswap']['max_airdrop_lp']}."
+                await ctx.edit_original_message(content=msg)
+                return
+
+            tickers = pool_name.split("/")
+            liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], None)
+            if liq_pair is None:
+                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity of `{pool_name}` yet."
+                await ctx.edit_original_message(content=msg)
+                return
+
+            coin_name = token.upper()
+            if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                coin_name = self.bot.coin_alias_names[coin_name]
+            # Token name check
+            if not hasattr(self.bot.coin_list, coin_name):
+                msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+                await ctx.edit_original_message(content=msg)
+                return
+            else:
+                if getattr(getattr(self.bot.coin_list, coin_name), "enable_tip") != 1:
+                    msg = f'{ctx.author.mention}, **{coin_name}** tipping is disable.'
+                    await ctx.edit_original_message(content=msg)
+                    return
+            # End token name check
+
+            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+
+            if "$" in amount[-1] or "$" in amount[0]:  # last is $
+                # Check if conversion is allowed for this coin.
+                amount = amount.replace(",", "").replace("$", "")
+                if usd_equivalent_enable == 0:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                else:
+                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                    coin_name_for_price = coin_name
+                    if native_token_name:
+                        coin_name_for_price = native_token_name
+                    per_unit = None
+                    if coin_name_for_price in self.bot.token_hints:
+                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                    else:
+                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                    if per_unit and per_unit > 0:
+                        amount = float(Decimal(amount) / Decimal(per_unit))
+                    else:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\
+                            "Try with different method."
+                        await ctx.edit_original_message(content=msg)
+                        return
+            else:
+                amount = amount.replace(",", "")
+                amount = text_to_num(amount)
+                if amount is None:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount."
+                    await ctx.edit_original_message(content=msg)
+                    return
+            # end of check if amount is all
+            amount = float(amount)
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
+            if get_deposit is None:
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
+
+            wallet_address = get_deposit['balance_wallet_address']
+            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                wallet_address = get_deposit['paymentid']
+            elif type_coin in ["XRP"]:
+                wallet_address = get_deposit['destination_tag']
+
+            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin,
+                height, deposit_confirm_depth, SERVER_BOT
+            )
+            actual_balance = float(userdata_balance['adjust'])
+            if amount <= 0 or actual_balance <= 0:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+                await ctx.edit_original_message(content=msg)
+                return
+
+            if amount > max_tip or amount < min_tip:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than "\
+                    f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than "\
+                    f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                await ctx.edit_original_message(content=msg)
+                return
+            elif amount > actual_balance:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a airdrop LP of "\
+                    f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                await ctx.edit_original_message(content=msg)
+                return
+
+            liq_users = []
+            liq_user_percentages = {}
+            if len(liq_pair['pool_share']) > 0:
+                for each_s in liq_pair['pool_share']:
+                    distributed_amount = truncate(
+                            float(each_s['amount_ticker_1']) / float(liq_pair['pool']['amount_ticker_1']) * \
+                            float(truncate(amount, 12)), 8
+                    )
+                    if distributed_amount > 0:
+                        liq_users.append([float(distributed_amount), each_s['user_id'], each_s['user_server']])
+                        if float(each_s['amount_ticker_1']) / float(liq_pair['pool']['amount_ticker_1']) > 0.0001:
+                            liq_user_percentages[each_s['user_id']] = "{:,.2f} {}".format(
+                                float(each_s['amount_ticker_1']) / float(liq_pair['pool']['amount_ticker_1'])*100, "%"
+                            )
+            if len(liq_users) == 0:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention} internal error, found 0 liquidator."
+                await ctx.edit_original_message(content=msg)
+                return
+            else:
+                balance_rows = []
+                lp_details = []
+                lp_discord_users = []
+                # owner
+                balance_rows.append((
+                    -float(truncate(amount, 8)), int(time.time()), str(ctx.author.id), coin_name
+                ))
+                # lp users
+                balance_user = {}
+                for i in liq_users:
+                    try:
+                        if float(truncate(amount, 8)) > 0.0:
+                            balance_rows.append((
+                                float(truncate(i[0], 8)), int(time.time()), i[1], coin_name
+                            ))
+                            lp_details.append((
+                                liq_pair['pool']['pool_id'], pool_name, str(ctx.author.id), i[1], coin_name,
+                                float(truncate(amount, 8)), float(truncate(i[0], 8)),
+                                float(truncate(i[0], 8)) / float(truncate(amount, 8)),
+                                int(time.time())
+                            ))
+                            if i[2] == SERVER_BOT:
+                                lp_discord_users.append(i[1])
+                                balance_user[str(i[1])] = num_format_coin(i[0], coin_name, coin_decimal, False)
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                airdroping = await cexswap_airdrop_lp_detail(
+                    balance_rows, lp_details
+                )
+                num_notifying = 0
+                list_receivers_str = []
+                if airdroping is True and len(lp_discord_users) > 0:
+                    random.shuffle(lp_discord_users)
+                    lp_discord_users = lp_discord_users[0:max_alert]
+                    # Delete if has key
+                    try:
+                        key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                        if key in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key]
+                    except Exception:
+                        pass
+                    # End of del key
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully airdrop for pool: `{pool_name}`."
+                    for each_u in lp_discord_users:
+                        list_receivers_str.append("UserID {}: {} {}".format(each_u, balance_user[str(each_u)], coin_name))
+                        try:
+                            member = self.bot.get_user(int(each_u))
+                            if member is not None:
+                                try:
+                                    # Delete if has key
+                                    try:
+                                        key = str(each_u) + "_" + coin_name + "_" + SERVER_BOT
+                                        if key in self.bot.user_balance_cache:
+                                            del self.bot.user_balance_cache[key]
+                                    except Exception:
+                                        pass
+                                    # End of del key
+                                    msg_sending = f"Admin did an airdrop for pool `{pool_name}`. "\
+                                        f"You have **{liq_user_percentages[each_u]}** in that pool. "\
+                                        f"Airdrop shared delivers to your balance:"\
+                                        f"```{balance_user[str(each_u)]} {coin_name}```Thank you!"
+                                    print(msg_sending)
+                                    await member.send(msg_sending)
+                                    num_notifying += 1
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                msg += " And notified {} user(s).".format(num_notifying)
+                msg += "```" + "\n".join(list_receivers_str) + "```"
+                await ctx.edit_original_message(content=msg)
+                await log_to_channel(
+                    "cexswap",
+                    f"[AIRDROP LP]: User {ctx.author.mention} did airdrop LP for pools `{pool_name}`!",
+                    self.bot.config['discord']['cexswap']
+                )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @cexswap_airdrop.autocomplete("pool_name")
+    async def cexswap_airdrop_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.cexswap_pairs if string in name.lower()][:12]
+
+    @cexswap_airdrop.autocomplete("token")
+    async def cexswap_airdrop_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
+
+    @cexswap.sub_command(
         name="earning",
         usage="cexswap earning",
         options=[
@@ -2261,7 +2569,7 @@ class Cexswap(commands.Cog):
 
                 embed.add_field(
                     name="Your earning from {} coin(s)".format(len(get_user_earning)),
-                    value="{}\n\nYou can check your balance by `/balance or `/balances`. From every trade, you will always receive fee {} x amount liquidated pools.".format("\n".join(list_earning), "0.50%"),
+                    value="{}\n\nYou can check your balance by `/balance` or `/balances`. From every trade, you will always receive fee {} x amount liquidated pools.".format("\n".join(list_earning), "0.50%"),
                     inline=False
                 )
                 # check if command in guild

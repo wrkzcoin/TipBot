@@ -136,6 +136,39 @@ async def cexswap_earning(user_id: str=None):
         traceback.print_exc(file=sys.stdout)
     return []
 
+async def cexswap_earning_guild(guild_id: str=None):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                if guild_id is not None:
+                    sql = """
+                    SELECT *, SUM(`real_amount`) AS collected_amount, SUM(`real_amount_usd`) AS collected_amount_usd,
+                        COUNT(*) as total_swap
+                    FROM `user_balance_mv`
+                    WHERE `from_userid`=%s AND `to_userid`=%s AND `type`=%s
+                    GROUP BY `token_name`
+                    """
+                    await cur.execute(sql, ("SYSTEM", guild_id, "CEXSWAPLP"))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+                else:
+                    sql = """
+                    SELECT *, SUM(`real_amount`) AS collected_amount, SUM(`real_amount_usd`) AS collected_amount_usd,
+                        COUNT(*) as total_swap
+                    FROM `user_balance_mv`
+                    WHERE `type`=%s
+                    GROUP BY `token_name`
+                    """
+                    await cur.execute(sql, ("CEXSWAPLP"))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
 async def cexswap_admin_remove_pool(
     pool_id: int, user_id: str, user_server: str,
     amount_1: float, ticker_1: str, amount_2: float, ticker_2: str,
@@ -1241,22 +1274,28 @@ class Cexswap(commands.Cog):
             )
             # Available coin
             embed.add_field(
-                name="Coins with CEXSwap",
+                name="Coins with CEXSwap: {}".format(len(self.bot.cexswap_coins)),
                 value="{}".format(", ".join(self.bot.cexswap_coins)),
                 inline=False
             )
+            some_pairs = self.bot.cexswap_pairs.copy()
+            random.shuffle(some_pairs)
             embed.add_field(
-                name="Pairs with CEXSwap",
-                value="{}".format(", ".join(self.bot.cexswap_pairs)),
+                name="Pairs with CEXSwap: {}".format(len(self.bot.cexswap_pairs)),
+                value="{} and {} more..".format(", ".join(some_pairs[0:50]), len(some_pairs) - 50),
                 inline=False
             )  
             # LP available
             get_pools = await cexswap_get_pools()
             if len(get_pools) > 0:
                 list_pairs = [i['pairs'] for i in get_pools]
+                some_active_lp = list_pairs.copy()
+                random.shuffle(some_active_lp)
+                list_pair_msg = "{}".format(", ".join(some_active_lp)) if len(some_active_lp) < 50 else \
+                        "{} and {} more..".format(", ".join(some_active_lp[0:50]), len(some_active_lp) - 50)
                 embed.add_field(
-                    name="Active LP",
-                    value="{}".format(", ".join(list_pairs)),
+                    name="Active LP: {}".format(len(list_pairs)),
+                    value=list_pair_msg,
                     inline=False
                 )  
             # List distributed fee
@@ -1466,11 +1505,13 @@ class Cexswap(commands.Cog):
                 else:
                     amount = amount.replace(",", "")
                     amount = text_to_num(amount)
+                    amount = truncate(float(amount), 12)
                     if amount is None:
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
                         await ctx.edit_original_message(content=msg)
                         return
 
+                amount = float(amount)
 
                 get_deposit = await self.wallet_api.sql_get_userwallet(
                     str(ctx.author.id), sell_token, net_name, type_coin, SERVER_BOT, 0
@@ -1502,15 +1543,15 @@ class Cexswap(commands.Cog):
                 )
                 actual_balance = float(userdata_balance['adjust'])
 
-                amount_get = amount * liq_pair['pool']['amount_ticker_2'] / liq_pair['pool']['amount_ticker_1']
+                amount_get = amount * float(liq_pair['pool']['amount_ticker_2'] / liq_pair['pool']['amount_ticker_1'])
 
                 if sell_token == liq_pair['pool']['ticker_1_name']:
-                    percentage_inc = amount / liq_pair['pool']['amount_ticker_1']
+                    percentage_inc = amount / float(liq_pair['pool']['amount_ticker_1'])
                 else:
-                    percentage_inc = amount / liq_pair['pool']['amount_ticker_2']
+                    percentage_inc = amount / float(liq_pair['pool']['amount_ticker_2'])
 
                 if sell_token == liq_pair['pool']['ticker_2_name']:
-                    amount_get = amount * liq_pair['pool']['amount_ticker_1'] / liq_pair['pool']['amount_ticker_2']
+                    amount_get = amount * float(liq_pair['pool']['amount_ticker_1'] / liq_pair['pool']['amount_ticker_2'])
 
                 if amount <= 0 or actual_balance <= 0:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}."
@@ -1519,6 +1560,11 @@ class Cexswap(commands.Cog):
                 elif amount < cexswap_min:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount `{sell_amount_old}`"\
                         f" is below minimum `{num_format_coin(cexswap_min, sell_token, coin_decimal, False)} {token_display}`."
+                    await ctx.edit_original_message(content=msg)
+                    return
+
+                elif truncate(actual_balance, 8) < truncate(amount, 8):
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, ⚠️ Please re-check balance {token_display}."
                     await ctx.edit_original_message(content=msg)
                     return
 
@@ -1536,15 +1582,15 @@ class Cexswap(commands.Cog):
                     return
                 else:
                     # OK, sell..
-                    got_fee_dev = amount_get * Decimal(self.bot.config['cexswap']['dev_fee'] / 100)
-                    got_fee_liquidators = amount_get * Decimal(self.bot.config['cexswap']['liquidator_fee'] / 100)
+                    got_fee_dev = amount_get * self.bot.config['cexswap']['dev_fee'] / 100
+                    got_fee_liquidators = amount_get * self.bot.config['cexswap']['liquidator_fee'] / 100
                     got_fee_guild = 0.0
                     guild_id = "DM"
                     if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                        got_fee_guild = amount_get * Decimal(self.bot.config['cexswap']['guild_fee'] / 100)
+                        got_fee_guild = amount_get * self.bot.config['cexswap']['guild_fee'] / 100
                         guild_id = str(ctx.guild.id)
                     else:
-                        got_fee_dev += amount_get * Decimal(self.bot.config['cexswap']['guild_fee'] / 100)
+                        got_fee_dev += amount_get * self.bot.config['cexswap']['guild_fee'] / 100
 
                     ref_log = ''.join(random.choice(ascii_uppercase) for i in range(32))
 
@@ -1590,10 +1636,10 @@ class Cexswap(commands.Cog):
                         if per_unit_get and per_unit_get < 0.0000000001:
                             per_unit_get = 0.0
 
-                    fee = Decimal(truncate(got_fee_dev, 12)) + Decimal(truncate(got_fee_liquidators, 12)) + Decimal(truncate(got_fee_guild, 12))
+                    fee = truncate(got_fee_dev, 12) + truncate(got_fee_liquidators, 12) + truncate(got_fee_guild, 12)
                     coin_decimal_get = getattr(getattr(self.bot.coin_list, for_token), "decimal")
                     coin_decimal_sell = getattr(getattr(self.bot.coin_list, sell_token), "decimal")
-                    user_amount_get = num_format_coin(truncate(amount_get - fee, 12), for_token, coin_decimal_get, False)
+                    user_amount_get = num_format_coin(truncate(amount_get - float(fee), 12), for_token, coin_decimal_get, False)
                     user_amount_sell = num_format_coin(amount, sell_token, coin_decimal_sell, False)
                     # add confirmation
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to trade?\n"\
@@ -1615,9 +1661,9 @@ class Cexswap(commands.Cog):
                     elif view.value:
                         # re-check rate
                         new_liq_pair = await cexswap_get_pool_details(sell_token, for_token, None)
-                        new_amount_get = amount * new_liq_pair['pool']['amount_ticker_2'] / new_liq_pair['pool']['amount_ticker_1']
+                        new_amount_get = amount * float(new_liq_pair['pool']['amount_ticker_2'] / new_liq_pair['pool']['amount_ticker_1'])
                         if sell_token == new_liq_pair['pool']['ticker_2_name']:
-                            new_amount_get = amount * new_liq_pair['pool']['amount_ticker_1'] / new_liq_pair['pool']['amount_ticker_2']
+                            new_amount_get = amount * float(new_liq_pair['pool']['amount_ticker_1'] / new_liq_pair['pool']['amount_ticker_2'])
                         if truncate(float(new_amount_get), 8) != truncate(float(amount_get), 8):
                             await ctx.edit_original_message(
                                 content=msg + "\n**⚠️⚠️ Price changed! Please try again!**",
@@ -1638,10 +1684,15 @@ class Cexswap(commands.Cog):
                             await ctx.edit_original_message(content=msg)
                             return
 
+                        if truncate(actual_balance, 8) < truncate(amount, 8):
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, ⚠️ Please re-check balance {token_display}."
+                            await ctx.edit_original_message(content=msg)
+                            return
                         # end: re-check balance
+
                         selling = await cexswap_sold(
-                            ref_log, liq_pair['pool']['pool_id'], percentage_inc, Decimal(truncate(amount, 12)), sell_token, 
-                            Decimal(truncate(amount_get, 12)), for_token, str(ctx.author.id), SERVER_BOT,
+                            ref_log, liq_pair['pool']['pool_id'], percentage_inc, truncate(amount, 12), sell_token, 
+                            truncate(amount_get, 12), for_token, str(ctx.author.id), SERVER_BOT,
                             guild_id,
                             truncate(got_fee_dev, 12), truncate(got_fee_liquidators, 12), truncate(got_fee_guild, 12),
                             liq_users, contract, coin_decimal, channel_id, per_unit_sell, per_unit_get
@@ -2116,14 +2167,24 @@ class Cexswap(commands.Cog):
     @cexswap.sub_command(
         name="earning",
         usage="cexswap earning",
+        options=[
+            Option('option', 'option', OptionType.string, required=False, choices=[
+                OptionChoice("show public", "public"),
+                OptionChoice("show private", "private")
+            ])
+        ],
         description="Show some earning from cexswap."
     )
     async def cexswap_earning(
         self,
-        ctx
+        ctx,
+        option: str="private"
     ):
+        eph = True
+        if option.lower() == "public":
+            eph = False
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading..."
-        await ctx.response.send_message(msg, ephemeral=True)
+        await ctx.response.send_message(msg, ephemeral=eph)
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -2166,15 +2227,40 @@ class Cexswap(commands.Cog):
                     list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
 
                 embed.add_field(
-                    name="Earning from {} coin(s)".format(len(get_user_earning)),
-                    value="{}".format("\n".join(list_earning)),
+                    name="Your earning from {} coin(s)".format(len(get_user_earning)),
+                    value="{}\n\nYou can check your balance by `/balance or `/balances`. From every trade, you will always receive fee {} x amount liquidated pools.".format("\n".join(list_earning), "0.50%"),
                     inline=False
                 )
-                embed.add_field(
-                    name="NOTE",
-                    value="These earnings always credit to your balance for every trade. You can remove your LP anytime.",
-                    inline=False
-                )
+                # check if command in guild
+                if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                    try:
+                        get_guild_earning = await cexswap_earning_guild(str(ctx.guild.id))
+                        list_g_earning = []
+                        for each in get_guild_earning:
+                            coin_emoji = ""
+                            try:
+                                if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                                    if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                                        coin_emoji = getattr(getattr(self.bot.coin_list, each['token_name']), "coin_emoji_discord")
+                                        coin_emoji = coin_emoji + " " if coin_emoji else ""
+                                else:
+                                    coin_emoji = getattr(getattr(self.bot.coin_list, each['token_name']), "coin_emoji_discord")
+                                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            coin_decimal = getattr(getattr(self.bot.coin_list, each['token_name']), "decimal")
+                            earning_amount = num_format_coin(
+                                each['real_amount'], each['token_name'], coin_decimal, False
+                            )
+                            list_g_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['token_name'], each['total_swap']))
+
+                        embed.add_field(
+                            name="This Guild Earns from {} coin(s)".format(len(get_guild_earning)),
+                            value="{}\n\nYou can check guild balance by `/guild balance`. Every trade in public of your guild, your guild will receive fee 0.25%.".format("\n".join(list_g_earning)),
+                            inline=False
+                        )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
                 await ctx.edit_original_message(content=None, embed=embed)
         except Exception:
             traceback.print_exc(file=sys.stdout)

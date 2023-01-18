@@ -3795,7 +3795,7 @@ class Guild(commands.Cog):
         else:
             # change channel info
             update = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'trade_channel', str(ctx.channel.id))
-            msg = f"Trade game channel of guild {ctx.guild.name} has set to {ctx.channel.mention}."
+            msg = f"Trade channel of guild {ctx.guild.name} has set to {ctx.channel.mention}."
             if update is True:
                 # kv trade guild channel
                 try:

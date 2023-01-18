@@ -13,14 +13,11 @@ import random
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
-# ascii table
-from terminaltables import AsciiTable
 import store
 from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, \
     EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, RowButtonRowCloseAnyMessage, human_format, \
     text_to_num, truncate, seconds_str, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION, log_to_channel
 
-from cogs.utils import MenuPage
 from cogs.wallet import WalletAPI
 from cogs.utils import Utils
 
@@ -1509,6 +1506,7 @@ class Cexswap(commands.Cog):
             msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you can cexswap for the same token."
             await ctx.edit_original_message(content=msg)
             return
+
         # check liq
         liq_pair = await cexswap_get_pool_details(sell_token, for_token, None)
         if liq_pair is None:
@@ -1708,6 +1706,15 @@ class Cexswap(commands.Cog):
                     coin_decimal_sell = getattr(getattr(self.bot.coin_list, sell_token), "decimal")
                     user_amount_get = num_format_coin(truncate(amount_get - float(fee), 12), for_token, coin_decimal_get, False)
                     user_amount_sell = num_format_coin(amount, sell_token, coin_decimal_sell, False)
+
+                    # Check if tx in progress
+                    if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                        int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 20:
+                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    # end checking tx in progress
+
                     # add confirmation
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to trade?\n"\
                         f"```Get {user_amount_get} {for_token}\n"\
@@ -1715,6 +1722,9 @@ class Cexswap(commands.Cog):
 
                     view = ConfirmSell(ctx.author.id)
                     await ctx.edit_original_message(content=msg, view=view)
+
+                    if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                        self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                     # Wait for the View to stop listening for input...
                     await view.wait()
 
@@ -1724,6 +1734,10 @@ class Cexswap(commands.Cog):
                             content=msg + "\n**Timeout!**",
                             view=None
                         )
+                        try:
+                            del self.bot.tipping_in_progress[str(ctx.author.id)]
+                        except Exception:
+                            pass
                         return
                     elif view.value:
                         # re-check rate
@@ -1736,6 +1750,10 @@ class Cexswap(commands.Cog):
                                 content=msg + "\n**⚠️⚠️ Price changed! Please try again!**",
                                 view=None
                             )
+                            try:
+                                del self.bot.tipping_in_progress[str(ctx.author.id)]
+                            except Exception:
+                                pass
                             return
                         # end of re-check rate
 
@@ -1749,11 +1767,19 @@ class Cexswap(commands.Cog):
                         if amount <= 0 or actual_balance <= 0:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, ⚠️ Please get more {token_display}."
                             await ctx.edit_original_message(content=msg)
+                            try:
+                                del self.bot.tipping_in_progress[str(ctx.author.id)]
+                            except Exception:
+                                pass
                             return
 
                         if truncate(actual_balance, 8) < truncate(amount, 8):
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, ⚠️ Please re-check balance {token_display}."
                             await ctx.edit_original_message(content=msg)
+                            try:
+                                del self.bot.tipping_in_progress[str(ctx.author.id)]
+                            except Exception:
+                                pass
                             return
                         # end: re-check balance
 
@@ -1764,6 +1790,10 @@ class Cexswap(commands.Cog):
                             truncate(got_fee_dev, 12), truncate(got_fee_liquidators, 12), truncate(got_fee_guild, 12),
                             liq_users, contract, coin_decimal, channel_id, per_unit_sell, per_unit_get
                         )
+                        try:
+                            del self.bot.tipping_in_progress[str(ctx.author.id)]
+                        except Exception:
+                            pass
                         if selling is True:
                             # Delete if has key
                             try:
@@ -1959,6 +1989,14 @@ class Cexswap(commands.Cog):
                 value="```Amount: .. {}```".format(tickers[1]),
                 inline=False
             )
+
+            # Check if tx in progress
+            if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 20:
+                msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
+                await ctx.edit_original_message(content=msg)
+                return
+            # end checking tx in progress
 
             await ctx.edit_original_message(
                 content=None,
@@ -2192,6 +2230,17 @@ class Cexswap(commands.Cog):
                     if truncate(float(amount_remove_2), 8) == \
                         truncate(float(liq_pair['pool']['amount_ticker_2']), 8):
                         delete_pool = True
+
+                    # Check if tx in progress
+                    if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                        int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 20:
+                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                        self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
+                    # end checking tx in progress
+
                     removing = await cexswap_remove_pool_share(
                         liq_pair['pool']['pool_id'], amount_remove_1, ticker_1, amount_remove_2, ticker_2,
                         str(ctx.author.id), SERVER_BOT, complete_remove, delete_pool
@@ -2200,6 +2249,11 @@ class Cexswap(commands.Cog):
                     coin_decimal_2 = getattr(getattr(self.bot.coin_list, ticker_2), "decimal")
                     amount_1_str = num_format_coin(amount_remove_1, ticker_1, coin_decimal_1, False)
                     amount_2_str = num_format_coin(amount_remove_2, ticker_2, coin_decimal_2, False)
+
+                    try:
+                        del self.bot.tipping_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                     if removing is True:
                         # Delete if has key
                         try:

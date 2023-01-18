@@ -692,21 +692,21 @@ class add_liqudity(disnake.ui.Modal):
     def __init__(self, ctx, bot, ticker_1: str, ticker_2: str, owner_userid: str) -> None:
         self.ctx = ctx
         self.bot = bot
-        self.ticker_1 = ticker_1
-        self.ticker_2 = ticker_2
+        self.ticker_1 = ticker_1.upper()
+        self.ticker_2 = ticker_2.upper()
         self.wallet_api = WalletAPI(self.bot)
         self.owner_userid = owner_userid
 
         components = [
             disnake.ui.TextInput(
-                label="Amount Coin {}".format(ticker_1),
+                label="Amount Coin {}".format(ticker_1.upper()),
                 placeholder="10000",
                 custom_id="cexswap_amount_coin_id_1",
                 style=TextInputStyle.short,
                 max_length=16
             ),
             disnake.ui.TextInput(
-                label="Amount Coin {}".format(ticker_2),
+                label="Amount Coin {}".format(ticker_2.upper()),
                 placeholder="10000",
                 custom_id="cexswap_amount_coin_id_2",
                 style=TextInputStyle.short,
@@ -1089,8 +1089,9 @@ class add_liquidity_btn(disnake.ui.View):
                         get_guild = self.bot.get_guild(int(item['serverid']))
                         if get_guild:
                             channel = self.bot.get_channel(int(item['trade_channel']))
-                            if hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel and channel.id != inter.channel.id:
-                                await channel.send(f"[CEXSWAP]: A user added to liquidity to pool `{self.pool_name}`! {add_msg}")
+                            if (hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel.id != inter.channel.id) or not \
+                                    hasattr(inter, "guild"):
+                                await channel.send(f"[CEXSWAP]: A user added more liquidity pool `{self.pool_name}`! {add_msg}")
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
         else:
@@ -1795,6 +1796,12 @@ class Cexswap(commands.Cog):
                 description=f"{ctx.author.mention}, {testing}Please click on add liquidity and confirm later.",
                 timestamp=datetime.now(),
             )
+            pool_name = pool_name.upper()
+            if pool_name not in self.bot.cexswap_pairs:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  You could put the wrong order with this `{pool_name}`."
+                await ctx.edit_original_message(content=msg)
+                return
+
             tickers = pool_name.upper().split("/")
             coin_emoji_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "coin_emoji_discord")
             coin_emoji_1 = coin_emoji_1 + " " if coin_emoji_1 else ""
@@ -1942,6 +1949,11 @@ class Cexswap(commands.Cog):
             pool_name = pool_name.upper()
             tickers = pool_name.split("/")
 
+            if pool_name not in self.bot.cexswap_pairs:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list! You could put the wrong order with this `{pool_name}`."
+                await ctx.edit_original_message(content=msg)
+                return
+
             liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], None)
             if liq_pair is None:
                 msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity for that pool `{pool_name}`. "
@@ -2069,6 +2081,11 @@ class Cexswap(commands.Cog):
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, sorry! You don't have any liquidity in any pools."
             await ctx.edit_original_message(content=msg)
         else:
+            pool_name = pool_name.upper()
+            if pool_name not in self.bot.cexswap_pairs:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list! You could put the wrong order with this `{pool_name}`."
+                await ctx.edit_original_message(content=msg)
+                return
             try:
                 liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], str(ctx.author.id))
                 if liq_pair is None:

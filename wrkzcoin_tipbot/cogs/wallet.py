@@ -11506,6 +11506,19 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # check lock
+        try:
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                await ctx.edit_original_message(
+                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    "Please contact bot dev by /about link."
+                )
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # end check lock
+
         if str(ctx.author.id) in self.bot.tx_in_progress and \
             int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
@@ -12811,6 +12824,19 @@ class Wallet(commands.Cog):
         token: str
     ):
         type_coin = getattr(getattr(self.bot.coin_list, token.upper()), "type")
+
+        # check lock
+        try:
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    "Please contact bot dev by /about link."
+                )
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # end check lock
+
         # Waits until the user submits the modal.
         try:
             await ctx.response.send_modal(

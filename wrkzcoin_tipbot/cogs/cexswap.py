@@ -1196,6 +1196,11 @@ class Cexswap(commands.Cog):
                     if channel is not None:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, cexswap/trade channel was assigned to {channel.mention}."
                         await ctx.response.send_message(msg)
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. Please contact bot dev by /about link."
+                await ctx.response.send_message(msg)
+                return
         except Exception:
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 return
@@ -1461,6 +1466,17 @@ class Cexswap(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
         else:
+            # check if coin sell is enable
+            is_sellable = getattr(getattr(self.bot.coin_list, sell_token), "cexswap_sell_enable")
+            if is_sellable != 1:
+                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, coin/token `{sell_token}` is currently disable for cexswap."
+                await ctx.edit_original_message(content=msg)
+                return
+            is_sellable = getattr(getattr(self.bot.coin_list, for_token), "cexswap_sell_enable")
+            if is_sellable != 1:
+                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, coin/token `{for_token}` is currently disable for cexswap."
+                await ctx.edit_original_message(content=msg)
+                return
             try:
                 # check amount
                 amount_liq_sell = liq_pair['pool']['amount_ticker_1']

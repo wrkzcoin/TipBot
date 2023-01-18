@@ -370,6 +370,18 @@ class Trade(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # check lock
+        try:
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    "Please contact bot dev by /about link."
+                )
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # end check lock
+
         await self.bot_log()
         await self.make_open_order(ctx, sell_amount, sell_ticker, buy_amount, buy_ticker)
 
@@ -652,6 +664,18 @@ class Trade(commands.Cog):
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+        # check lock
+        try:
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    "Please contact bot dev by /about link."
+                )
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # end check lock
 
         await self.bot_log()
         # check if the argument is ref or ticker by length

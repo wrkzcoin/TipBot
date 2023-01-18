@@ -221,6 +221,7 @@ class Utils(commands.Cog):
         self.cache_kv_db_paprika = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="paprika", autocommit=True)
         self.cache_kv_db_faucet = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="faucet", autocommit=True)
         self.cache_kv_db_market_guild = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="market_guild", autocommit=True)
+        self.cache_kv_db_user_disable = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="user_disable", autocommit=True)
 
     async def get_bot_settings(self):
         try:
@@ -731,6 +732,19 @@ class Utils(commands.Cog):
         return []
     # End of recent activity
 
+    # Check if a user lock
+    def is_locked_user(self, user_id: str, user_server: str="DISCORD"):
+        try:
+            get_member = self.get_cache_kv(
+                "user_disable",
+                f"{user_id}_{user_server}"
+            )
+            if get_member is not None:
+                return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
     def set_cache_kv(self, table: str, key: str, value):
         try:
             if table.lower() == "test":
@@ -754,6 +768,9 @@ class Utils(commands.Cog):
             elif table.lower() == "market_guild":
                 self.cache_kv_db_market_guild[key.upper()] = value
                 return True
+            elif table.lower() == "user_disable":
+                self.cache_kv_db_user_disable[key.upper()] = value
+                return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return False
@@ -774,6 +791,8 @@ class Utils(commands.Cog):
                 return self.cache_kv_db_faucet[key.upper()]
             elif table.lower() == "market_guild":
                 return self.cache_kv_db_market_guild[key.upper()]
+            elif table.lower() == "user_disable":
+                return self.cache_kv_db_user_disable[key.upper()]
         except KeyError:
             pass
         return None
@@ -801,6 +820,9 @@ class Utils(commands.Cog):
             elif table.lower() == "market_guild":
                 del self.cache_kv_db_market_guild[key.upper()]
                 return True
+            elif table.lower() == "user_disable":
+                del self.cache_kv_db_user_disable[key.upper()]
+                return True
         except KeyError:
             pass
         return False
@@ -821,6 +843,8 @@ class Utils(commands.Cog):
                 return self.cache_kv_db_faucet
             elif table.lower() == "market_guild":
                 return self.cache_kv_db_market_guild
+            elif table.lower() == "user_disable":
+                return self.cache_kv_db_user_disable
         except KeyError:
             pass
         return None
@@ -841,6 +865,8 @@ class Utils(commands.Cog):
             self.cache_kv_db_faucet = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="faucet", autocommit=True)
         if self.cache_kv_db_market_guild is None:
             self.cache_kv_db_market_guild = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="market_guild", autocommit=True)
+        if self.cache_kv_db_user_disable is None:
+            self.cache_kv_db_user_disable = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="user_disable", autocommit=True)
 
     def cog_unload(self):
         self.cache_kv_db_test.close()
@@ -850,6 +876,7 @@ class Utils(commands.Cog):
         self.cache_kv_db_paprika.close()
         self.cache_kv_db_faucet.close()
         self.cache_kv_db_market_guild.close()
+        self.cache_kv_db_user_disable.close()
 
 def setup(bot):
     bot.add_cog(Utils(bot))

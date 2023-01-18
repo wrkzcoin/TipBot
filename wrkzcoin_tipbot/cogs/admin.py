@@ -1327,7 +1327,100 @@ class Admin(commands.Cog):
     )
     async def admin(self, ctx):
         if ctx.invoked_subcommand is None: await ctx.reply(f"{ctx.author.mention}, invalid admin command")
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await ctx.reply(f"{ctx.author.mention}, permission denied!")
         return
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='admin enableuser <user id> <user_server>', description="Disable a user from using command.")
+    async def enableuser(self, ctx, user_id: str, user_server: str="DISCORD"):
+        try:
+            if user_server.upper() not in ["DISCORD", "TELEGRAM"]:
+                msg = f"{ctx.author.mention}, invalid user_server `{user_server}`."
+                await ctx.reply(msg)
+                return
+
+            if user_server.upper() == "DISCORD":
+                member = self.bot.get_user(int(user_id))
+                if member is None:
+                    msg = f"{ctx.author.mention}, can't find user with ID `{user_id}@{user_server}`."
+                    await ctx.reply(msg)
+                    return
+
+            # Check in table
+            get_member = self.utils.get_cache_kv(
+                "user_disable",
+                f"{user_id}_{user_server}"
+            )
+            if get_member is not None:
+                # exist, then remove
+                self.utils.del_cache_kv(
+                    "user_disable",
+                    f"{user_id}_{user_server}"
+                )
+                msg = f"{ctx.author.mention}, ✅ user `{user_id}@{user_server}` removed from lock!"
+                await ctx.reply(msg)
+                return
+            else:
+                msg = f"{ctx.author.mention}, 🔴 user `{user_id}@{user_server}` is not locked."
+                await ctx.reply(msg)
+                return
+
+        except ValueError:
+            msg = f"{ctx.author.mention}, invalid given user ID."
+            await ctx.reply(msg)
+            return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='admin disableuser <user id> <user_server> <reasons>', description="Disable a user from using command.")
+    async def disableuser(self, ctx, user_id: str, user_server: str="DISCORD", *, reasons: str=None):
+        try:
+            if reasons is None:
+                msg = f"{ctx.author.mention}, please have reasons!"
+                await ctx.reply(msg)
+                return
+            if user_server.upper() not in ["DISCORD", "TELEGRAM"]:
+                msg = f"{ctx.author.mention}, invalid user_server `{user_server}`."
+                await ctx.reply(msg)
+                return
+
+            if user_server.upper() == "DISCORD":
+                member = self.bot.get_user(int(user_id))
+                if member is None:
+                    msg = f"{ctx.author.mention}, can't find user with ID `{user_id}@{user_server}`."
+                    await ctx.reply(msg)
+                    return
+
+            # Check in table
+            get_member = self.utils.get_cache_kv(
+                "user_disable",
+                f"{user_id}_{user_server}"
+            )
+            if get_member is not None:
+                # exist, then tell.
+                reason = get_member['reason']
+                locked_time = get_member['time']
+                msg = f"{ctx.author.mention}, ✅ user `{user_id}@{user_server}` already locked on <t:{locked_time}:f> reasons ```{reason}```"
+                await ctx.reply(msg)
+                return
+            else:
+                self.utils.set_cache_kv(
+                    "user_disable",
+                    f"{user_id}_{user_server}",
+                    {'time': int(time.time()), 'reason': reasons if reasons else "N/A"}
+                )
+                msg = f"{ctx.author.mention}, ✅ successfully locked `{user_id}@{user_server}` with reasons ```{reasons if reasons else 'N/A'}```"
+                await ctx.reply(msg)
+                return
+
+        except ValueError:
+            msg = f"{ctx.author.mention}, invalid given user ID."
+            await ctx.reply(msg)
+            return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
     @admin.command(hidden=True, usage='admin updatebalance <coin>', description='Force update a balance of a coin/token')

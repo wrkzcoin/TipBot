@@ -21,7 +21,7 @@ from disnake.enums import OptionType
 
 import store
 from Bot import num_format_coin, SERVER_BOT, logchanbot, encrypt_string, decrypt_string, \
-    RowButtonRowCloseAnyMessage, EMOJI_INFORMATION, EMOJI_RED_NO
+    RowButtonRowCloseAnyMessage, EMOJI_INFORMATION, EMOJI_RED_NO, truncate
 from aiomysql.cursors import DictCursor
 from attrdict import AttrDict
 from cogs.wallet import WalletAPI
@@ -1155,6 +1155,86 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("admin " +str(traceback.format_exc()))
 
+    async def audit_lp_db(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    pool = {}
+                    # cexswap_pools
+                    sql = """
+                    SELECT SUM(`amount_ticker_1`) as amount_ticker_1, 
+                    SUM(`amount_ticker_2`) AS amount_ticker_2, `ticker_1_name`, `ticker_2_name`
+                    FROM `cexswap_pools`
+                    GROUP BY `ticker_1_name`, `ticker_2_name`
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool['cexswap_pools'] = result
+
+                    # cexswap_pools_share
+                    sql = """
+                    SELECT SUM(`amount_ticker_1`) as amount_ticker_1, 
+                    SUM(`amount_ticker_2`) AS amount_ticker_2, `ticker_1_name`, `ticker_2_name`, `pairs`
+                    FROM `cexswap_pools_share`
+                    GROUP BY  `ticker_1_name`, `ticker_2_name`
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool['cexswap_pools_share'] = result
+
+                    # cexswap_add_remove_logs
+                    sql = """
+                    SELECT SUM(`amount`) AS amount, `token_name`, `action`
+                    FROM `cexswap_add_remove_logs`
+                    GROUP BY `token_name`, `action`;
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool['cexswap_add_remove_logs'] = result
+
+                    # cexswap_sell_logs
+                    sql = """
+                    SELECT SUM(`got_total_amount`) AS amount, `got_ticker`
+                    FROM `cexswap_sell_logs`
+                    GROUP BY `got_ticker`;
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool['cexswap_sell_logs'] = result
+
+                    # cexswap_distributing_fee
+                    sql = """
+                    SELECT SUM(`distributed_amount`) AS amount, `got_ticker`
+                    FROM `cexswap_distributing_fee`
+                    GROUP BY `got_ticker`;
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool['cexswap_distributing_fee'] = result
+
+                    # user_balance_mv cexswaplp
+                    sql = """
+                    SELECT SUM(`real_amount`) AS amount, `token_name`
+                    FROM `user_balance_mv`
+                    WHERE `type`=%s AND `from_userid`=%s
+                    GROUP BY `token_name`;
+                    """
+                    await cur.execute(sql, ("CEXSWAPLP", "SYSTEM"))
+                    result = await cur.fetchall()
+                    if result:
+                        pool['cexswaplp'] = result
+                    return pool
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot("admin " +str(traceback.format_exc()))
+        return None
+
     async def cog_check(self, ctx):
         return commands.is_owner()
 
@@ -1832,8 +1912,174 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
+    @admin.command(hidden=True, usage='auditlp', description='Audit LP of CEXSwap')
+    async def auditlp(self, ctx):
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying auditlp!".format(
+                ctx.author.name, ctx.author.discriminator, ctx.author.mention)
+            )
+            return
+        try:
+            get_lp = await self.audit_lp_db()
+            cexswap_pools = {}
+            cexswap_pools_share = {}
+            cexswap_add = {}
+            cexswap_remove = {}
+            cexswap_sell_logs = {}
+            cexswap_distributing_fee = {}
+            cexswaplp = {}
+            final_amount = {}
+            coin_list = []
+            if get_lp is not None:
+                # cexswap_pools
+                if len(get_lp['cexswap_pools']) > 0:
+                    for each in get_lp['cexswap_pools']:
+                        if each['ticker_1_name'] not in coin_list:
+                            coin_list.append(each['ticker_1_name'])
+                        if each['ticker_2_name'] not in coin_list:
+                            coin_list.append(each['ticker_2_name'])
+                        # ticker_1
+                        if each['ticker_1_name'] not in cexswap_pools:
+                            cexswap_pools[each['ticker_1_name']] = each['amount_ticker_1']
+                        else:
+                            cexswap_pools[each['ticker_1_name']] += each['amount_ticker_1']
+                        # ticker_2
+                        if each['ticker_2_name'] not in cexswap_pools:
+                            cexswap_pools[each['ticker_2_name']] = each['amount_ticker_2']
+                        else:
+                            cexswap_pools[each['ticker_2_name']] += each['amount_ticker_2']
+
+                # cexswap_pools_share
+                if len(get_lp['cexswap_pools_share']) > 0:
+                    for each in get_lp['cexswap_pools_share']:
+                        if each['ticker_1_name'] not in coin_list:
+                            coin_list.append(each['ticker_1_name'])
+                        if each['ticker_2_name'] not in coin_list:
+                            coin_list.append(each['ticker_2_name'])
+                        # ticker_1
+                        if each['ticker_1_name'] not in cexswap_pools_share:
+                            cexswap_pools_share[each['ticker_1_name']] = each['amount_ticker_1']
+                        else:
+                            cexswap_pools_share[each['ticker_1_name']] += each['amount_ticker_1']
+                        # ticker_2
+                        if each['ticker_2_name'] not in cexswap_pools_share:
+                            cexswap_pools_share[each['ticker_2_name']] = each['amount_ticker_2']
+                        else:
+                            cexswap_pools_share[each['ticker_2_name']] += each['amount_ticker_2']
+
+                # cexswap_add_remove_logs
+                if len(get_lp['cexswap_add_remove_logs']) > 0:
+                    for each in get_lp['cexswap_add_remove_logs']:
+                        if each['token_name'] not in coin_list:
+                            coin_list.append(each['token_name'])
+
+                        if each['action'] == "add":
+                            if each['token_name'] not in cexswap_add:
+                                cexswap_add[each['token_name']] = each['amount']
+                            else:
+                                cexswap_add[each['token_name']] += each['amount']
+                        else:
+                            if each['token_name'] not in cexswap_remove:
+                                cexswap_remove[each['token_name']] = each['amount']
+                            else:
+                                cexswap_remove[each['token_name']] += each['amount']
+
+                # cexswap_sell_logs
+                if len(get_lp['cexswap_sell_logs']) > 0:
+                    for each in get_lp['cexswap_sell_logs']:
+                        if each['got_ticker'] not in coin_list:
+                            coin_list.append(each['got_ticker'])
+
+                        if each['got_ticker'] not in cexswap_sell_logs:
+                            cexswap_sell_logs[each['got_ticker']] = each['amount']
+                        else:
+                            cexswap_sell_logs[each['got_ticker']] += each['amount']
+
+                # cexswap_distributing_fee
+                if len(get_lp['cexswap_distributing_fee']) > 0:
+                    for each in get_lp['cexswap_distributing_fee']:
+                        if each['got_ticker'] not in coin_list:
+                            coin_list.append(each['got_ticker'])
+
+                        if each['got_ticker'] not in cexswap_distributing_fee:
+                            cexswap_distributing_fee[each['got_ticker']] = each['amount']
+                        else:
+                            cexswap_distributing_fee[each['got_ticker']] += each['amount']
+                
+                # cexswaplp
+                if len(get_lp['cexswaplp']) > 0:
+                    for each in get_lp['cexswaplp']:
+                        if each['token_name'] not in coin_list:
+                            coin_list.append(each['token_name'])
+
+                        if each['token_name'] not in cexswaplp:
+                            cexswaplp[each['token_name']] = each['amount']
+                        else:
+                            cexswaplp[each['token_name']] += each['amount']
+
+                # Final pool vs share
+                msg = ""
+                result = []
+                for each in coin_list:
+                    final_amount[each] = 0.0
+                    if each in cexswap_pools:
+                        final_amount[each] += float(cexswap_pools[each])
+                    if each in cexswap_pools_share:
+                        final_amount[each] -= float(cexswap_pools_share[each])
+                    result.append("POOL vs SHARE FOR {}\n   {} - {} = {} {}".format(
+                        each, float(truncate(cexswap_pools[each], 4)),
+                        float(truncate(cexswap_pools_share[each], 4)),
+                        "✅" if truncate(final_amount[each], 6) == 0 else "🔴",
+                        truncate(final_amount[each], 6)
+                    ))
+                msg += "\n".join(result)
+                msg += "\n\n"
+                result = []
+                for each in coin_list:
+                    add_remove = 0.0
+                    pool_amount = 0.0
+                    if cexswap_pools.get(each):
+                        pool_amount += float(cexswap_pools.get(each))
+
+                    if cexswap_add.get(each):
+                        add_remove += float(cexswap_add.get(each))
+                    if cexswap_remove.get(each):
+                        add_remove -= float(cexswap_remove.get(each))
+                    if cexswap_sell_logs.get(each):
+                        add_remove -= float(cexswap_sell_logs.get(each))
+                    if cexswap_distributing_fee.get(each):
+                        add_remove -= float(cexswap_distributing_fee.get(each))
+                    if cexswaplp.get(each):
+                        add_remove -= float(cexswaplp.get(each))
+
+                    result.append("DETAIL {}:\n   POOL: {}\n   -(ADD: {} - REMOVE: {} - SOLD {} - FEE {} - FEE LP {})\n   = {} ({:,.2f}{}) GOT: {} {}\n".format(
+                        each, pool_amount, 
+                        truncate(float(cexswap_add.get(each)), 5) if cexswap_add.get(each) else 0, 
+                        truncate(float(cexswap_remove.get(each)), 5) if cexswap_remove.get(each) else 0,
+                        truncate(float(cexswap_sell_logs.get(each)), 5) if cexswap_sell_logs.get(each) else 0,
+                        truncate(float(cexswap_distributing_fee.get(each)), 4) if cexswap_distributing_fee.get(each) else 0,
+                        truncate(float(cexswaplp.get(each)), 5) if cexswaplp.get(each) else 0,
+                        truncate(add_remove, 4), add_remove/float(cexswap_pools.get(each))*100, "%",
+                        truncate(float(cexswap_pools.get(each)) - add_remove, 5),
+                        "✅" if truncate(float(cexswap_pools.get(each)) - add_remove, 5) > 0 else "🔴"
+                    ))
+                msg += "\n".join(result)
+                msg = f"{ctx.author.mention}, ```{msg}```"
+                await ctx.reply(msg)
+            else:
+                msg = f"{ctx.author.mention}, I can not get result."
+                await ctx.reply(msg)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.is_owner()
     @admin.command(hidden=True, usage='auditcoin <coin name>', description='Audit coin\'s balance')
     async def auditcoin(self, ctx, coin: str):
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying auditcoin!".format(
+                ctx.author.name, ctx.author.discriminator, ctx.author.mention)
+            )
+            return
         coin_name = coin.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
@@ -2039,6 +2285,11 @@ class Admin(commands.Cog):
     )
     async def credit(self, ctx, member_id: str, amount: str, coin: str, user_server: str = "DISCORD"):
         user_server = user_server.upper()
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying auditlp!".format(
+                ctx.author.name, ctx.author.discriminator, ctx.author.mention)
+            )
+            return
         if user_server not in ["DISCORD", "TWITTER", "TELEGRAM", "REDDIT"]:
             await ctx.reply(f"{ctx.author.mention}, invalid server.")
             return

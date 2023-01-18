@@ -2434,7 +2434,7 @@ class Cexswap(commands.Cog):
                             lp_details.append((
                                 liq_pair['pool']['pool_id'], pool_name, str(ctx.author.id), i[1], coin_name,
                                 float(truncate(amount, 8)), float(truncate(i[0], 8)),
-                                float(truncate(i[0], 8)) / float(truncate(amount, 8)),
+                                float(truncate(i[0], 8)) / float(truncate(amount, 8)) * 100,
                                 int(time.time())
                             ))
                             if i[2] == SERVER_BOT:

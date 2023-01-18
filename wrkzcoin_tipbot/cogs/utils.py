@@ -745,6 +745,17 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
+    # get coin emoji
+    def get_coin_emoji(self, coin_name: str):
+        coin_emoji = ""
+        try:
+            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+            if coin_emoji is None:
+                coin_emoji = ""
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return coin_emoji
+
     def set_cache_kv(self, table: str, key: str, value):
         try:
             if table.lower() == "test":

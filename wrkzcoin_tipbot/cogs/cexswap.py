@@ -755,7 +755,7 @@ class DropdownLP(disnake.ui.StringSelect):
                                 self.utils.get_coin_emoji(each_p['ticker_2_name'])
                             )
                         ),
-                        value="```{} {}\n{} {}\n{}```".format(
+                        value="{} {}\n{} {}\n{}".format(
                             num_format_coin(each_p['amount_ticker_1'], each_p['ticker_1_name'], coin_decimal_1, False), each_p['ticker_1_name'],
                             num_format_coin(each_p['amount_ticker_2'], each_p['ticker_2_name'], coin_decimal_2, False), each_p['ticker_2_name'],
                             rate_coin_12
@@ -985,7 +985,7 @@ class add_liqudity(disnake.ui.Modal):
                     )
                     embed.add_field(
                         name="Total liquidity",
-                        value="```{} {}\n{} {}```".format(
+                        value="{} {}\n{} {}".format(
                             num_format_coin(liq_pair['pool']['amount_ticker_1'], liq_pair['pool']['ticker_1_name'], coin_decimal_1, False), liq_pair['pool']['ticker_1_name'],
                             num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False), liq_pair['pool']['ticker_2_name']
                         ),
@@ -993,7 +993,7 @@ class add_liqudity(disnake.ui.Modal):
                     )
                     embed.add_field(
                         name="Existing Pool | Rate",
-                        value="```{}```".format(rate_coin_12),
+                        value="{}".format(rate_coin_12),
                         inline=False
                     )
                     # If a user has already some liq
@@ -1007,7 +1007,7 @@ class add_liqudity(disnake.ui.Modal):
                     if liq_pair['pool_share'] is not None:
                         embed.add_field(
                             name="Your existing liquidity",
-                            value="```{} {}{}\n{} {}{}```".format(
+                            value="{} {}{}\n{} {}{}".format(
                                 num_format_coin(liq_pair['pool_share']['amount_ticker_1'], liq_pair['pool_share']['ticker_1_name'], coin_decimal_1, False), liq_pair['pool_share']['ticker_1_name'], percent_1, 
                                 num_format_coin(liq_pair['pool_share']['amount_ticker_2'], liq_pair['pool_share']['ticker_2_name'], coin_decimal_1, False), liq_pair['pool_share']['ticker_2_name'], percent_2
                             ),
@@ -1016,12 +1016,12 @@ class add_liqudity(disnake.ui.Modal):
                 if accepted is True:
                     embed.add_field(
                         name="Adding Ticker {}".format(self.ticker_1),
-                        value="```Amount: {} {}{}```".format(num_format_coin(amount_1, self.ticker_1, coin_decimal_1, False), self.ticker_1, text_adjust_1),
+                        value="Amount: {} {}{}".format(num_format_coin(amount_1, self.ticker_1, coin_decimal_1, False), self.ticker_1, text_adjust_1),
                         inline=False
                     )
                     embed.add_field(
                         name="Adding Ticker {}".format(self.ticker_2),
-                        value="```Amount: {} {}{}```".format(num_format_coin(amount_2, self.ticker_1, coin_decimal_1, False), self.ticker_2, text_adjust_2),
+                        value="Amount: {} {}{}".format(num_format_coin(amount_2, self.ticker_1, coin_decimal_1, False), self.ticker_2, text_adjust_2),
                         inline=False
                     )
                 else:
@@ -1553,7 +1553,7 @@ class Cexswap(commands.Cog):
                                 self.utils.get_coin_emoji(each_p['ticker_2_name'])
                             )
                         ),
-                        value="```{} {}\n{} {}\n{}```".format(
+                        value="{} {}\n{} {}\n{}".format(
                             num_format_coin(each_p['amount_ticker_1'], each_p['ticker_1_name'], coin_decimal_1, False), each_p['ticker_1_name'],
                             num_format_coin(each_p['amount_ticker_2'], each_p['ticker_2_name'], coin_decimal_2, False), each_p['ticker_2_name'],
                             rate_coin_12
@@ -1991,10 +1991,22 @@ class Cexswap(commands.Cog):
         try:
             pool_name = pool_name.upper()
             if pool_name not in self.bot.cexswap_pairs:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                    f"You could put the wrong order with this `{pool_name}`."
-                await ctx.edit_original_message(content=msg)
-                return
+                # check if wrong order
+                try:
+                    tickers = pool_name.upper().split("/")
+                    if len(tickers) == 2:
+                        pool_name = "{}/{}".format(tickers[1], tickers[0])
+                        if pool_name not in self.bot.cexswap_pairs:
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                                f"Invalid given `{pool_name}`."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                except Exception:
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                        f"Invalid given `{pool_name}`."
+                    await ctx.edit_original_message(content=msg)
+                    traceback.print_exc(file=sys.stdout)
+                # End checking wrong order
 
             tickers = pool_name.upper().split("/")
             coin_emoji_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "coin_emoji_discord")
@@ -2029,8 +2041,8 @@ class Cexswap(commands.Cog):
                 inline=False
             )
             embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
-            embed.set_thumbnail(url=ctx.author.display_avatar)
-            liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], str(ctx.author.id))
+            embed.set_thumbnail(url=self.bot.user.display_avatar)
+            liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], None)
             if liq_pair is not None:
                 rate_1 = num_format_coin(
                     liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1'],
@@ -2046,7 +2058,7 @@ class Cexswap(commands.Cog):
                 
                 # show total liq
                 embed.add_field(
-                    name="Total liquidity",
+                    name="Total liquidity (from {} user(s))".format(len(liq_pair['pool_share'])),
                     value="{} {}\n{} {}".format(
                         num_format_coin(liq_pair['pool']['amount_ticker_1'], liq_pair['pool']['ticker_1_name'], coin_decimal_1, False), liq_pair['pool']['ticker_1_name'],
                         num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False), liq_pair['pool']['ticker_2_name']
@@ -2065,7 +2077,6 @@ class Cexswap(commands.Cog):
                     for k, v in volume.items():
                         list_volume = []
                         each = v[0]
-                        print(each)
                         # sold
                         coin_emoji = ""
                         try:
@@ -2150,10 +2161,23 @@ class Cexswap(commands.Cog):
             )
             pool_name = pool_name.upper()
             if pool_name not in self.bot.cexswap_pairs:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                    f"You could put the wrong order with this `{pool_name}`."
-                await ctx.edit_original_message(content=msg)
-                return
+                # check if wrong order
+                try:
+                    tickers = pool_name.upper().split("/")
+                    if len(tickers) == 2:
+                        pool_name = "{}/{}".format(tickers[1], tickers[0])
+                        if pool_name not in self.bot.cexswap_pairs:
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                                f"Invalid given `{pool_name}`."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                        f"Invalid given `{pool_name}`."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                # End checking wrong order
 
             tickers = pool_name.upper().split("/")
             coin_emoji_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "coin_emoji_discord")
@@ -2194,7 +2218,7 @@ class Cexswap(commands.Cog):
                 # show total liq
                 embed.add_field(
                     name="Total liquidity",
-                    value="```{} {}\n{} {}```".format(
+                    value="{} {}\n{} {}".format(
                         num_format_coin(liq_pair['pool']['amount_ticker_1'], liq_pair['pool']['ticker_1_name'], coin_decimal_1, False), liq_pair['pool']['ticker_1_name'],
                         num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False), liq_pair['pool']['ticker_2_name']
                     ),
@@ -2202,7 +2226,7 @@ class Cexswap(commands.Cog):
                 )
                 embed.add_field(
                     name="Existing Pool | Rate",
-                    value="```{}```".format(rate_coin_12),
+                    value="{}".format(rate_coin_12),
                     inline=False
                 )
                 # If a user has already some liq
@@ -2217,7 +2241,7 @@ class Cexswap(commands.Cog):
                 if liq_pair['pool_share'] is not None:
                     embed.add_field(
                         name="Your existing liquidity",
-                        value="```{} {}{}\n{} {}{}```".format(
+                        value="{} {}{}\n{} {}{}".format(
                             num_format_coin(liq_pair['pool_share']['amount_ticker_1'], liq_pair['pool_share']['ticker_1_name'], coin_decimal_1, False), liq_pair['pool_share']['ticker_1_name'], percent_1, 
                             num_format_coin(liq_pair['pool_share']['amount_ticker_2'], liq_pair['pool_share']['ticker_2_name'], coin_decimal_1, False), liq_pair['pool_share']['ticker_2_name'], percent_2
                         ),
@@ -2238,12 +2262,12 @@ class Cexswap(commands.Cog):
 
             embed.add_field(
                 name="Adding Ticker {}{}".format(coin_emoji_1, tickers[0]),
-                value="```Amount: .. {}```".format(tickers[0]),
+                value="Amount: .. {}".format(tickers[0]),
                 inline=False
             )
             embed.add_field(
                 name="Adding Ticker {}{}".format(coin_emoji_2, tickers[1]),
-                value="```Amount: .. {}```".format(tickers[1]),
+                value="Amount: .. {}".format(tickers[1]),
                 inline=False
             )
 
@@ -2308,12 +2332,25 @@ class Cexswap(commands.Cog):
 
         try:
             pool_name = pool_name.upper()
-            tickers = pool_name.split("/")
-
             if pool_name not in self.bot.cexswap_pairs:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list! You could put the wrong order with this `{pool_name}`."
-                await ctx.edit_original_message(content=msg)
-                return
+                # check if wrong order
+                try:
+                    tickers = pool_name.upper().split("/")
+                    if len(tickers) == 2:
+                        pool_name = "{}/{}".format(tickers[1], tickers[0])
+                        if pool_name not in self.bot.cexswap_pairs:
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                                f"Invalid given `{pool_name}`."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                        f"Invalid given `{pool_name}`."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                # End checking wrong order
+            tickers = pool_name.split("/")
 
             liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], None)
             if liq_pair is None:
@@ -2436,7 +2473,6 @@ class Cexswap(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         pool_name = pool_name.upper()
-        tickers = pool_name.split("/")
         get_poolshare = await cexswap_get_poolshare(str(ctx.author.id), SERVER_BOT)
         if len(get_poolshare) == 0:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, sorry! You don't have any liquidity in any pools."
@@ -2444,9 +2480,24 @@ class Cexswap(commands.Cog):
         else:
             pool_name = pool_name.upper()
             if pool_name not in self.bot.cexswap_pairs:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list! You could put the wrong order with this `{pool_name}`."
-                await ctx.edit_original_message(content=msg)
-                return
+                # check if wrong order
+                try:
+                    tickers = pool_name.upper().split("/")
+                    if len(tickers) == 2:
+                        pool_name = "{}/{}".format(tickers[1], tickers[0])
+                        tickers = pool_name.split("/")
+                        if pool_name not in self.bot.cexswap_pairs:
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                                f"Invalid given `{pool_name}`."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                        f"Invalid given `{pool_name}`."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                # End checking wrong order
             try:
                 liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], str(ctx.author.id))
                 if liq_pair is None:
@@ -2591,10 +2642,23 @@ class Cexswap(commands.Cog):
         try:
             pool_name = pool_name.upper()
             if pool_name not in self.bot.cexswap_pairs:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                    f"You could put the wrong order with this `{pool_name}`."
-                await ctx.edit_original_message(content=msg)
-                return
+                # check if wrong order
+                try:
+                    tickers = pool_name.upper().split("/")
+                    if len(tickers) == 2:
+                        pool_name = "{}/{}".format(tickers[1], tickers[0])
+                        if pool_name not in self.bot.cexswap_pairs:
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                                f"Invalid given `{pool_name}`."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                        f"Invalid given `{pool_name}`."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                # End checking wrong order
 
             if max_alert <= 0:
                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, `max_alert` must be bigger than 0."
@@ -2788,7 +2852,6 @@ class Cexswap(commands.Cog):
                                         f"You have **{liq_user_percentages[each_u]}** in that pool. "\
                                         f"Airdrop shared delivers to your balance:"\
                                         f"```{balance_user[str(each_u)]} {coin_name}```Thank you!"
-                                    print(msg_sending)
                                     await member.send(msg_sending)
                                     num_notifying += 1
                                 except Exception:

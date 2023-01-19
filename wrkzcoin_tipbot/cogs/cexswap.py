@@ -99,6 +99,74 @@ async def cexswap_get_poolshare(user_id: str, user_server: str):
         traceback.print_exc(file=sys.stdout)
     return []
 
+async def get_cexswap_get_sell_logs(user_id: str=None, from_time: int=None, pool_id: int=None):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                extra_sql = ""
+                pool_sql = ""
+                if user_id is None and from_time is not None:
+                    extra_sql = """
+                    WHERE `time`>%s
+                    """
+                elif from_time is not None:
+                    extra_sql = """
+                    AND `time`>%s
+                    """
+                if pool_id is not None:
+                    if len(extra_sql) == "":
+                        pool_sql = """
+                        WHERE `pool_id`=%s
+                        """
+                    else:
+                        pool_sql = """
+                        AND `pool_id`=%s
+                        """
+                
+                if user_id is not None:
+                    sql = """
+                    SELECT SUM(`total_sold_amount`) AS sold, SUM(`total_sold_amount_usd`) AS sold_usd,
+                    SUM(`got_total_amount`) AS got, SUM(`got_total_amount_usd`) AS got_used,
+                    `sold_ticker`, `got_ticker`,
+                    COUNT(*) AS total_swap
+                    FROM `cexswap_sell_logs`
+                    GROUP BY `sold_ticker`, `got_ticker`
+                    WHERE `distributed_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
+                    """
+                    data_rows = [user_id]
+                    if len(extra_sql) > 0:
+                        data_rows += [from_time]
+                    if len(pool_sql) > 0:
+                        data_rows += [pool_id]
+
+                    await cur.execute(sql, tuple(data_rows))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+                else:
+                    sql = """
+                    SELECT SUM(`total_sold_amount`) AS sold, SUM(`total_sold_amount_usd`) AS sold_usd,
+                    SUM(`got_total_amount`) AS got, SUM(`got_total_amount_usd`) AS got_usd,
+                    `sold_ticker`, `got_ticker`,
+                    COUNT(*) AS total_swap
+                    FROM `cexswap_sell_logs`
+                     """ + extra_sql + """ """ + pool_sql + """
+                    GROUP BY `sold_ticker`, `got_ticker`
+                    """
+                    data_rows = []
+                    if len(extra_sql) > 0:
+                        data_rows += [from_time]
+                    if len(pool_sql) > 0:
+                        data_rows += [pool_id]
+                    await cur.execute(sql, tuple(data_rows))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
 async def get_cexswap_earning(user_id: str=None, from_time: int=None, pool_id: int=None):
     try:
         await store.openConnection()
@@ -133,7 +201,6 @@ async def get_cexswap_earning(user_id: str=None, from_time: int=None, pool_id: i
                     WHERE `distributed_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
                     GROUP BY `got_ticker`
                     """
-                    print(sql)
                     data_rows = [user_id]
                     if len(extra_sql) > 0:
                         data_rows += [from_time]
@@ -153,7 +220,6 @@ async def get_cexswap_earning(user_id: str=None, from_time: int=None, pool_id: i
                      """ + extra_sql + """ """ + pool_sql + """
                     GROUP BY `got_ticker`
                     """
-                    print(sql)
                     data_rows = []
                     if len(extra_sql) > 0:
                         data_rows += [from_time]
@@ -1951,11 +2017,6 @@ class Cexswap(commands.Cog):
                 num_format_coin(min_initialized_liq_1, tickers[0], coin_decimal_1, False), tickers[0],
                 num_format_coin(min_initialized_liq_2, tickers[1], coin_decimal_2, False), tickers[1]
             )
-            embed.add_field(
-                name="Minimum adding (Init POOL)",
-                value=f"{init_liq_text}",
-                inline=False
-            )
             min_liq_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "cexswap_min_add_liq")
             min_liq_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "cexswap_min_add_liq")
             add_liq_text = "{} {}\n{} {}".format(
@@ -1997,43 +2058,50 @@ class Cexswap(commands.Cog):
                     value="{}".format(rate_coin_12),
                     inline=False
                 )
-                earning = {}
-                earning['7d'] = await get_cexswap_earning(user_id=None, from_time=int(time.time()-7*24*3600), pool_id=liq_pair['pool']['pool_id'])
-                earning['1d'] = await get_cexswap_earning(user_id=None, from_time=int(time.time()-1*24*3600), pool_id=liq_pair['pool']['pool_id'])
-                print(earning)
-                if len(earning) > 0:
-                    for k, v in earning.items():
-                        list_earning = []
+                volume = {}
+                volume['7d'] = await get_cexswap_get_sell_logs(user_id=None, from_time=int(time.time()-7*24*3600), pool_id=liq_pair['pool']['pool_id'])
+                volume['1d'] = await get_cexswap_get_sell_logs(user_id=None, from_time=int(time.time()-1*24*3600), pool_id=liq_pair['pool']['pool_id'])
+                if len(volume) > 0:
+                    for k, v in volume.items():
                         list_volume = []
-                        for each in v:
-                            coin_emoji = ""
-                            try:
-                                if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                                    if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
-                                        coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
-                                        coin_emoji = coin_emoji + " " if coin_emoji else ""
-                                else:
-                                    coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
-                                    coin_emoji = coin_emoji + " " if coin_emoji else ""
-                            except Exception:
-                                traceback.print_exc(file=sys.stdout)
-                            coin_decimal = getattr(getattr(self.bot.coin_list, each['got_ticker']), "decimal")
-                            earning_amount = num_format_coin(
-                                each['collected_amount'], each['got_ticker'], coin_decimal, False
-                            )
-                            traded_amount = num_format_coin(
-                                each['got_total_amount'], each['got_ticker'], coin_decimal, False
-                            )
-                            list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
-                            list_volume.append("{}{} {}".format(coin_emoji, traded_amount, each['got_ticker']))
+                        each = v[0]
+                        print(each)
+                        # sold
+                        coin_emoji = ""
+                        try:
+                            coin_emoji = getattr(getattr(self.bot.coin_list, each['sold_ticker']), "coin_emoji_discord")
+                            coin_emoji = coin_emoji + " " if coin_emoji else ""
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        coin_decimal = getattr(getattr(self.bot.coin_list, each['sold_ticker']), "decimal")
+                        sold_amount = num_format_coin(
+                            each['sold'], each['sold_ticker'], coin_decimal, False
+                        )
+                        list_volume.append("{}{} {}".format(coin_emoji, sold_amount, each['sold_ticker']))
 
-                        if len(v) > 0:
-                            embed.add_field(
-                                name="Total volume [{}]".format(k.upper()),
-                                value="{}".format("\n".join(list_volume)),
-                                inline=False
-                            )
+                        # trade with
+                        coin_emoji = ""
+                        try:
+                            coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
+                            coin_emoji = coin_emoji + " " if coin_emoji else ""
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        coin_decimal = getattr(getattr(self.bot.coin_list, each['got_ticker']), "decimal")
+                        traded_amount = num_format_coin(
+                            each['got'], each['got_ticker'], coin_decimal, False
+                        )
+                        list_volume.append("{}{} {}".format(coin_emoji, traded_amount, each['got_ticker']))
+                        embed.add_field(
+                            name="Volume [{}]".format(k.upper()),
+                            value="{}".format("\n".join(list_volume)),
+                            inline=False
+                        )
             else:
+                embed.add_field(
+                    name="Minimum adding (Init POOL)",
+                    value=f"{init_liq_text}",
+                    inline=False
+                )
                 embed.add_field(
                     name="NOTE",
                     value="This pool LP doesn't exist yet!",

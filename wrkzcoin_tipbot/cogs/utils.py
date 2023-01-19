@@ -727,6 +727,17 @@ class Utils(commands.Cog):
                         result = await cur.fetchall()
                         if result:
                             return result
+                    elif what.lower() == "cexswaplp":
+                        sql = """
+                        SELECT `cexswap_distributing_fee`.*, `cexswap_pools`.`pairs`, `cexswap_pools`.`pool_id` FROM `cexswap_distributing_fee`
+                        INNER JOIN `cexswap_pools` ON `cexswap_distributing_fee`.`pool_id`=`cexswap_pools`.`pool_id`
+                        WHERE `cexswap_distributing_fee`.`distributed_user_id`=%s AND `cexswap_distributing_fee`.`got_ticker`=%s 
+                            AND `cexswap_distributing_fee`.`distributed_user_server`=%s 
+                        ORDER BY `cexswap_distributing_fee`.`date` DESC LIMIT """+ str(limit)
+                        await cur.execute(sql, (user_id, coin_name, user_server))
+                        result = await cur.fetchall()
+                        if result:
+                            return result
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return []

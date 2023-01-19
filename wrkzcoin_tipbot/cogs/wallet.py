@@ -14231,6 +14231,51 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @recent.sub_command(
+        name="cexswaplp",
+        usage="recent cexswaplp <token/coin>", 
+        description="Get list recent reward from CEXSwap LP"
+    )
+    async def recent_cexswap_lp(
+        self, 
+        ctx,
+        token: str
+    ):
+        coin_name = token.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            await ctx.response.send_message(msg)
+            return
+
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE}, checking recent CEXSwapLP..", ephemeral=True)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/recent deposit", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        try:
+            get_recent = await self.utils.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "cexswaplp", 20)
+            if len(get_recent) == 0:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, you do not CEXSwap reward for {coin_name}.")
+            else:
+                list_tx = []
+                for each in get_recent:
+                    list_tx.append("From `{}` {}, amount {} {}".format(
+                        each['pairs'],
+                        disnake.utils.format_dt(each['date'], style='R'),
+                        num_format_coin(each['distributed_amount'], each['got_ticker'], coin_decimal, False), each['got_ticker']
+                        )
+                    )
+                list_tx_str = "\n".join(list_tx)
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, last receive of {coin_name}:\n{list_tx_str}")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @recent.sub_command(
         name="deposit",
@@ -14369,7 +14414,7 @@ class Wallet(commands.Cog):
                 list_tx = []
                 for each in get_recent:
                     list_tx.append("From `{}` {}, amount {} {} - {}".format(each['from_userid'], disnake.utils.format_dt(each['date'], style='R'), num_format_coin(each['real_amount'], each['token_name'], each['token_decimal'], False), each['token_name'], each['type']))
-                list_tx_str = "\n\n".join(list_tx)
+                list_tx_str = "\n".join(list_tx)
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, last receive of {coin_name}:\n{list_tx_str}")
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -14409,7 +14454,7 @@ class Wallet(commands.Cog):
                 list_tx = []
                 for each in get_recent:
                     list_tx.append("To `{}` {}, amount {} {} - {}".format(each['to_userid'], disnake.utils.format_dt(each['date'], style='R'), num_format_coin(each['real_amount'], each['token_name'], each['token_decimal'], False), each['token_name'], each['type']))
-                list_tx_str = "\n\n".join(list_tx)
+                list_tx_str = "\n".join(list_tx)
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, last expense of {coin_name}:\n{list_tx_str}")
         except Exception:
             traceback.print_exc(file=sys.stdout)

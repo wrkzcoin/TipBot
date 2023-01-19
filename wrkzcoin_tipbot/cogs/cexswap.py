@@ -761,7 +761,88 @@ async def cexswap_insert_new(
         traceback.print_exc(file=sys.stdout)
     return False
 
+# DropdownSummary Viewer
+class DropdownSummaryLP(disnake.ui.StringSelect):
+    def __init__(self, ctx, bot, embed, list_fields, selected_menu):
+        self.ctx = ctx
+        self.bot = bot
+        self.embed = embed
+        self.list_fields = list_fields
+        self.selected_menu = selected_menu
+        self.utils = Utils(self.bot)
 
+        options = [
+            disnake.SelectOption(
+                label=each, description="Show {}".format(each.lower())
+            ) for each in ["VOLUME", "FEE TO LIQUIDATORS"]
+        ]
+
+        super().__init__(
+            placeholder="Choose menu..." if self.selected_menu is None else self.selected_menu,
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
+
+    async def callback(self, inter: disnake.MessageInteraction):
+        if inter.author.id != self.ctx.user.id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            try:
+                if self.values[0] == "VOLUME":
+                    self.embed.set_field_at(
+                        index=2,
+                        name=self.list_fields['1d']['volume_title'],
+                        value=self.list_fields['1d']['volume_value'],
+                        inline=False
+                    )
+                    self.embed.set_field_at(
+                        index=3,
+                        name=self.list_fields['7d']['volume_title'],
+                        value=self.list_fields['7d']['volume_value'],
+                        inline=False
+                    )
+                elif self.values[0] == "FEE TO LIQUIDATORS":
+                    self.embed.set_field_at(
+                        index=2,
+                        name=self.list_fields['1d']['fee_title'],
+                        value=self.list_fields['1d']['fee_value'],
+                        inline=False
+                    )
+                    self.embed.set_field_at(
+                        index=3,
+                        name=self.list_fields['7d']['fee_title'],
+                        value=self.list_fields['7d']['fee_value'],
+                        inline=False
+                    )
+                # Create the view containing our dropdown
+                view = DropdownViewSummary(self.ctx, self.bot, self.embed, self.list_fields, selected_menu=self.values[0])
+                await self.ctx.edit_original_message(
+                    content=None,
+                    embed=self.embed,
+                    view=view
+                )
+                await inter.response.defer()
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+class DropdownViewSummary(disnake.ui.View):
+    def __init__(self, ctx, bot, embed, list_fields, selected_menu: str):
+        super().__init__(timeout=60.0)
+        self.ctx = ctx
+        self.bot = bot
+        self.embed = embed
+        self.list_fields = list_fields
+        self.selected_menu = selected_menu
+
+        self.add_item(DropdownSummaryLP(self.ctx, self.bot, self.embed, self.list_fields, self.selected_menu))
+
+    async def on_timeout(self):
+        original_message = await self.ctx.original_message()
+        await original_message.edit(view=None)
+
+# DropdownLP Viewer
 class DropdownLP(disnake.ui.StringSelect):
     def __init__(self, ctx, bot, list_coins, active_coin):
         self.ctx = ctx
@@ -856,7 +937,6 @@ class DropdownLP(disnake.ui.StringSelect):
                 view=view
             )
             await inter.response.defer()
-
 
 class DropdownViewLP(disnake.ui.View):
     def __init__(self, ctx, bot, list_coins, active_coin: str):
@@ -989,7 +1069,7 @@ class add_liqudity(disnake.ui.Modal):
                     type_coin, height, deposit_confirm_depth, SERVER_BOT
                 )
                 actual_balance = float(userdata_balance['adjust'])
-                if actual_balance < 0 or actual_balance < amount_1:
+                if actual_balance < 0 or truncate(actual_balance, 8) < truncate(amount_1, 8):
                     accepted = False
                     error_msg = f"{EMOJI_RED_NO}, You don't have sufficient balance!"
 
@@ -1019,7 +1099,7 @@ class add_liqudity(disnake.ui.Modal):
                     type_coin, height, deposit_confirm_depth, SERVER_BOT
                 )
                 actual_balance = float(userdata_balance['adjust'])
-                if actual_balance < 0 or actual_balance < amount_2:
+                if actual_balance < 0 or truncate(actual_balance, 8) < truncate(amount_2, 8):
                     accepted = False
                     error_msg = f"{EMOJI_RED_NO}, You don't have sufficient balance!"
                 # end of check user balance
@@ -1031,10 +1111,10 @@ class add_liqudity(disnake.ui.Modal):
                         inline=False
                     )
 
-                    if amount_1 < min_initialized_liq_1:
+                    if amount_1 < min_initialized_liq_1 and interaction.author.id != self.bot.config['discord']['owner_id']:
                         accepted = False
                         error_msg = f"{EMOJI_INFORMATION} New pool requires minimum amount to initialize!"
-                    elif amount_2 < min_initialized_liq_2:
+                    elif amount_2 < min_initialized_liq_2 and interaction.author.id != self.bot.config['discord']['owner_id']:
                         accepted = False
                         error_msg = f"{EMOJI_INFORMATION} New pool requires minimum amount to initialize!"
                 else:
@@ -1498,16 +1578,6 @@ class Cexswap(commands.Cog):
                 value="{}".format(", ".join(self.bot.cexswap_coins)),
                 inline=False
             )
-            some_pairs = self.bot.cexswap_pairs.copy()
-            random.shuffle(some_pairs)
-            embed.add_field(
-                name="Pairs with CEXSwap: {}".format(len(self.bot.cexswap_pairs)),
-                value="{} and {} more..".format(
-                    ", ".join(some_pairs[0:self.bot.config['cexswap_summary']['show_max_pair']]),
-                    len(some_pairs) - self.bot.config['cexswap_summary']['show_max_pair']
-                ),
-                inline=False
-            )  
             # LP available
             get_pools = await cexswap_get_pools()
             if len(get_pools) > 0:
@@ -1530,6 +1600,7 @@ class Cexswap(commands.Cog):
             earning = {}
             earning['7d'] = await get_cexswap_earning(user_id=None, from_time=int(time.time()-7*24*3600), pool_id=None)
             earning['1d'] = await get_cexswap_earning(user_id=None, from_time=int(time.time()-1*24*3600), pool_id=None)
+            list_fields = {}
             if len(earning) > 0:
                 for k, v in earning.items():
                     list_earning = []
@@ -1557,16 +1628,16 @@ class Cexswap(commands.Cog):
                         list_volume.append("{}{} {}".format(coin_emoji, traded_amount, each['got_ticker']))
 
                     if len(v) > 0:
-                        embed.add_field(
-                            name="Fee to liquidator(s) - {} coin(s) [{}]".format(len(v), k.upper()),
-                            value="{}".format("\n".join(list_earning)),
-                            inline=False
-                        )
-                        embed.add_field(
-                            name="Total volume [{}]".format(k.upper()),
-                            value="{}".format("\n".join(list_volume)),
-                            inline=False
-                        )
+                        list_fields[k] = {}
+                        list_fields[k]['fee_title'] = "Fee to liquidator(s) - {} coin(s) [{}]".format(len(v), k.upper())
+                        list_fields[k]['fee_value'] = "{}".format("\n".join(list_earning))
+                        list_fields[k]['volume_title'] = "Total volume [{}]".format(k.upper())
+                        list_fields[k]['volume_value'] = "{}".format("\n".join(list_volume))
+            embed.add_field(
+                name="Select Menu",
+                value="Please select from dropdown",
+                inline=False
+            )  
             embed.add_field(
                 name="Remark",
                 value="Please often check this summary. We will often have some updates.",
@@ -1574,7 +1645,13 @@ class Cexswap(commands.Cog):
             )  
             embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             embed.set_thumbnail(url=self.bot.user.display_avatar)
-            await ctx.edit_original_message(content=None, embed=embed)
+            # Create the view containing our dropdown
+            view = DropdownViewSummary(ctx, self.bot, embed, list_fields, selected_menu=None)
+            await ctx.edit_original_message(
+                content=None,
+                embed=embed,
+                view=view
+            )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1804,7 +1881,7 @@ class Cexswap(commands.Cog):
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}."
                     await ctx.edit_original_message(content=msg)
                     return
-                elif amount < cexswap_min:
+                elif truncate(amount, 8) < truncate(cexswap_min, 8):
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount `{sell_amount_old}`"\
                         f" is below minimum `{num_format_coin(cexswap_min, sell_token, coin_decimal, False)} {token_display}`."
                     await ctx.edit_original_message(content=msg)
@@ -1904,7 +1981,7 @@ class Cexswap(commands.Cog):
                                 sell_token, for_token, amount, amount_get - float(fee)
                             )
                             if len(get_netter_price) > 0:
-                                suggestion_msg = "\n```You may get a better price with: {}\n```⚠️ Price can be from every trade! ⚠️".format(
+                                suggestion_msg = "\n```You may get a better price with: {}\n```⚠️ Price can changed be from every trade! ⚠️".format(
                                     "\n".join(get_netter_price)
                                 )
                         except Exception:
@@ -2291,6 +2368,7 @@ class Cexswap(commands.Cog):
                 # End checking wrong order
 
             tickers = pool_name.upper().split("/")
+
             coin_emoji_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "coin_emoji_discord")
             coin_emoji_1 = coin_emoji_1 + " " if coin_emoji_1 else ""
             coin_emoji_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "coin_emoji_discord")
@@ -2308,6 +2386,27 @@ class Cexswap(commands.Cog):
 
             liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], str(ctx.author.id))
             if liq_pair is None:
+                # check number of pools with these two tokens
+                can_init_lp = True
+                cant_init_reason = ""
+                get_pools = await cexswap_get_pools(tickers[0])
+                if len(get_pools) >= self.bot.config['cexswap']['max_pair_with']:
+                    can_init_lp = False
+                    cant_init_reason = "{} already reached max. number with {} pairs.".format(tickers[0], len(get_pools))
+                get_pools = await cexswap_get_pools(tickers[1])
+                if len(get_pools) >= self.bot.config['cexswap']['max_pair_with']:
+                    can_init_lp = False
+                    cant_init_reason = "{} already reached max. number with {} pairs.".format(tickers[1], len(get_pools))
+                if can_init_lp is False:
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, {cant_init_reason}"
+                    await ctx.edit_original_message(content=msg)
+                    await log_to_channel(
+                        "cexswap",
+                        f"[REJECT ADDING LIQUIDITY]: User {ctx.author.mention} try to add LP to pool `{pool_name}`!"\
+                        f" but rejected with reason: {cant_init_reason}",
+                        self.bot.config['discord']['cexswap']
+                    )
+                    return
                 embed.add_field(
                     name="New Pool",
                     value="This is a new pair and a start price will be based on yours.",

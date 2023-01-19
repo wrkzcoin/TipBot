@@ -444,6 +444,81 @@ async def cexswap_remove_pool_share(
         traceback.print_exc(file=sys.stdout)
     return False
 
+async def cexswap_find_possible_trade(
+    from_coin: str, to_coin: str, from_amount: float,
+    old_amount_get: float
+):
+    try:
+        # Select all pair where there is from_coin
+        # Need A->B, Find A->C, C->B .. A->D, D->B, so on
+        possible_profits = []
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                from_coin_pairs = []
+                to_coin_pairs = []
+                sql = """
+                SELECT * FROM `cexswap_pools`
+                WHERE (`ticker_1_name`=%s AND `amount_ticker_1`>%s AND `ticker_2_name`<>%s)
+                    OR (`ticker_2_name`=%s AND `amount_ticker_2`>%s AND `ticker_1_name`<>%s)
+                """
+                # FROM
+                await cur.execute(sql, (
+                    from_coin, from_amount, to_coin, from_coin, from_amount, to_coin
+                ))
+                result = await cur.fetchall()
+                if result:
+                    from_coin_pairs = result
+
+                # TO
+                sql = """
+                SELECT * FROM `cexswap_pools`
+                WHERE (`ticker_1_name`=%s AND `ticker_2_name`<>%s)
+                    OR (`ticker_2_name`=%s AND `ticker_1_name`<>%s)
+                """
+                await cur.execute(sql, (to_coin, from_coin, to_coin, from_coin))
+                result = await cur.fetchall()
+                if result:
+                    to_coin_pairs = result
+                if len(from_coin_pairs) == 0 or len(to_coin_pairs) ==0:
+                    return possible_profits
+                else:
+                    # check if a coin in from_coin_pairs exist in to_coin_pairs
+                    for each in from_coin_pairs:
+                        coin = each['ticker_1_name']
+                        middle_coin = each['ticker_2_name']
+                        middle_amount = each['amount_ticker_2'] / each['amount_ticker_1'] * Decimal(from_amount) * Decimal(0.99)
+                        if coin != from_coin:
+                            coin = each['ticker_2_name']
+                            middle_coin = each['ticker_1_name']
+                            middle_amount = each['amount_ticker_1'] / each['amount_ticker_2'] * Decimal(from_amount) * Decimal(0.99)
+                        for target in to_coin_pairs:
+                            target_coin = target['ticker_1_name']
+                            middle_coin_check = target['ticker_2_name']
+                            midle_rate = target['amount_ticker_2'] / target['amount_ticker_1']
+                            if target_coin != to_coin:
+                                target_coin = target['ticker_2_name']
+                                middle_coin_check = target['ticker_1_name']
+                                middle_coin_rate = target['amount_ticker_1'] / target['amount_ticker_2']
+                                if middle_coin != middle_coin_check:
+                                    continue
+                                else:
+                                    got_amount = middle_amount / middle_coin_rate * Decimal(0.99)
+                                    msg = "{}/{} = {} {} => {}/{} got: {} {}".format(
+                                        from_coin, middle_coin, middle_amount, middle_coin,
+                                        middle_coin, to_coin, got_amount, to_coin)
+                                    if old_amount_get < got_amount:
+                                        print("PROFIT=>{}".format(msg))
+                                        possible_profits.append("{}=>{}, {}=>{}".format(
+                                            from_coin, middle_coin, middle_coin, to_coin
+                                        ))
+                                    else:
+                                        print("NO PROFIT=>{}".format(msg))
+                    return possible_profits
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return possible_profits
+
 async def cexswap_sold(
     ref_log: str, pool_id: int, percentage_inc: float, amount_sell: float, sell_ticker: str,
     amount_get: float, got_ticker: str,
@@ -999,12 +1074,12 @@ class add_liqudity(disnake.ui.Modal):
                     # If a user has already some liq
                     percent_1 = ""
                     percent_2 = ""
-                    try:
-                        percent_1 = " - {:,.2f} {}".format(liq_pair['pool_share']['amount_ticker_1']/ liq_pair['pool']['amount_ticker_1']*100, "%")
-                        percent_2 = " - {:,.2f} {}".format(liq_pair['pool_share']['amount_ticker_1']/ liq_pair['pool']['amount_ticker_1']*100, "%")
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
                     if liq_pair['pool_share'] is not None:
+                        try:
+                            percent_1 = " - {:,.2f} {}".format(liq_pair['pool_share']['amount_ticker_1']/ liq_pair['pool']['amount_ticker_1']*100, "%")
+                            percent_2 = " - {:,.2f} {}".format(liq_pair['pool_share']['amount_ticker_1']/ liq_pair['pool']['amount_ticker_1']*100, "%")
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
                         embed.add_field(
                             name="Your existing liquidity",
                             value="{} {}{}\n{} {}{}".format(
@@ -1334,6 +1409,10 @@ class Cexswap(commands.Cog):
             is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
             if is_user_locked is True:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. Please contact bot dev by /about link."
+                await ctx.response.send_message(msg)
+                return
+            if self.bot.config['cexswap']['disable'] == 1:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, CEXSwap is currently on maintenance. Be back soon!"
                 await ctx.response.send_message(msg)
                 return
         except Exception:
@@ -1818,13 +1897,29 @@ class Cexswap(commands.Cog):
                         return
                     # end checking tx in progress
 
+                    suggestion_msg = ""
+                    if self.bot.config['cexswap']['enable_better_price'] == 1:
+                        try:
+                            get_netter_price = await cexswap_find_possible_trade(
+                                sell_token, for_token, amount, amount_get - float(fee)
+                            )
+                            if len(get_netter_price) > 0:
+                                suggestion_msg = "\n```You may get a better price with: {}\n```⚠️ Price can be from every trade! ⚠️".format(
+                                    "\n".join(get_netter_price)
+                                )
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
                     # add confirmation
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to trade?\n"\
                         f"```Get {user_amount_get} {for_token}\n"\
-                        f"From selling {user_amount_sell} {sell_token}```Ref: `{ref_log}`"
+                        f"From selling {user_amount_sell} {sell_token}```Ref: `{ref_log}`{suggestion_msg}"
 
                     view = ConfirmSell(ctx.author.id)
                     await ctx.edit_original_message(content=msg, view=view)
+
+                    await cexswap_find_possible_trade(
+                        sell_token, for_token, amount, amount_get
+                    )
 
                     if str(ctx.author.id) not in self.bot.tipping_in_progress:
                         self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
@@ -1921,7 +2016,7 @@ class Cexswap(commands.Cog):
                             # . Fee {fee_str} {for_token}\n
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully traded!\n"\
                                 f"```Get {user_amount_get} {for_token}\n"\
-                                f"From selling {user_amount_sell} {sell_token}```✅ Ref: `{ref_log}`"
+                                f"From selling {user_amount_sell} {sell_token}```✅ Ref: `{ref_log}`{suggestion_msg}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "cexswap",
@@ -1952,6 +2047,10 @@ class Cexswap(commands.Cog):
                             content=msg + "\n**🛑 Cancelled!**",
                             view=None
                         )
+                        try:
+                            del self.bot.tipping_in_progress[str(ctx.author.id)]
+                        except Exception:
+                            pass
                         return
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -2001,6 +2100,11 @@ class Cexswap(commands.Cog):
                                 f"Invalid given `{pool_name}`."
                             await ctx.edit_original_message(content=msg)
                             return
+                    else:
+                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                            f"Invalid given `{pool_name}`."
+                        await ctx.edit_original_message(content=msg)
+                        return
                 except Exception:
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
                         f"Invalid given `{pool_name}`."
@@ -2075,6 +2179,8 @@ class Cexswap(commands.Cog):
                 volume['1d'] = await get_cexswap_get_sell_logs(user_id=None, from_time=int(time.time()-1*24*3600), pool_id=liq_pair['pool']['pool_id'])
                 if len(volume) > 0:
                     for k, v in volume.items():
+                        if len(v) == 0:
+                            continue
                         list_volume = []
                         each = v[0]
                         # sold
@@ -2171,6 +2277,11 @@ class Cexswap(commands.Cog):
                                 f"Invalid given `{pool_name}`."
                             await ctx.edit_original_message(content=msg)
                             return
+                    else:
+                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                            f"Invalid given `{pool_name}`."
+                        await ctx.edit_original_message(content=msg)
+                        return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
@@ -2343,6 +2454,11 @@ class Cexswap(commands.Cog):
                                 f"Invalid given `{pool_name}`."
                             await ctx.edit_original_message(content=msg)
                             return
+                    else:
+                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                            f"Invalid given `{pool_name}`."
+                        await ctx.edit_original_message(content=msg)
+                        return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
@@ -2479,18 +2595,22 @@ class Cexswap(commands.Cog):
             await ctx.edit_original_message(content=msg)
         else:
             pool_name = pool_name.upper()
+            tickers = pool_name.upper().split("/")
             if pool_name not in self.bot.cexswap_pairs:
                 # check if wrong order
                 try:
-                    tickers = pool_name.upper().split("/")
                     if len(tickers) == 2:
                         pool_name = "{}/{}".format(tickers[1], tickers[0])
-                        tickers = pool_name.split("/")
                         if pool_name not in self.bot.cexswap_pairs:
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
                                 f"Invalid given `{pool_name}`."
                             await ctx.edit_original_message(content=msg)
                             return
+                    else:
+                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                            f"Invalid given `{pool_name}`."
+                        await ctx.edit_original_message(content=msg)
+                        return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
@@ -2499,6 +2619,7 @@ class Cexswap(commands.Cog):
                     return
                 # End checking wrong order
             try:
+                tickers = pool_name.split("/")
                 liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], str(ctx.author.id))
                 if liq_pair is None:
                     msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity for that pool `{pool_name}`. "
@@ -2652,6 +2773,11 @@ class Cexswap(commands.Cog):
                                 f"Invalid given `{pool_name}`."
                             await ctx.edit_original_message(content=msg)
                             return
+                    else:
+                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                            f"Invalid given `{pool_name}`."
+                        await ctx.edit_original_message(content=msg)
+                        return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\

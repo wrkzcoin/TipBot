@@ -2026,10 +2026,10 @@ class Admin(commands.Cog):
                         final_amount[each] += float(cexswap_pools[each])
                     if each in cexswap_pools_share:
                         final_amount[each] -= float(cexswap_pools_share[each])
-                    result.append("POOL vs SHARE FOR {}\n   {} - {} = {} {}".format(
+                    result.append("\nPOOL vs SHARE FOR {}\n   {} - {} = {} {}".format(
                         each, float(truncate(cexswap_pools[each], 4)),
                         float(truncate(cexswap_pools_share[each], 4)),
-                        "✅" if truncate(final_amount[each], 6) == 0 else "🔴",
+                        "✅" if truncate(final_amount[each], 8) == 0 else "🔴",
                         truncate(final_amount[each], 6)
                     ))
                 msg += "\n".join(result)
@@ -2061,10 +2061,16 @@ class Admin(commands.Cog):
                         truncate(float(cexswaplp.get(each)), 5) if cexswaplp.get(each) else 0,
                         truncate(add_remove, 4), add_remove/float(cexswap_pools.get(each))*100, "%",
                         truncate(float(cexswap_pools.get(each)) - add_remove, 5),
-                        "✅" if truncate(float(cexswap_pools.get(each)) - add_remove, 5) > 0 else "🔴"
+                        "✅" if truncate(float(cexswap_pools.get(each)) - add_remove, 5) >= 0 else "🔴"
                     ))
                 msg += "\n".join(result)
-                msg = f"{ctx.author.mention}, ```{msg}```"
+                msg = f"```{msg}```"
+                if len(msg) >= 2000:
+                    data_file = disnake.File(
+                        BytesIO(msg.encode()),
+                        filename=f"auditLP_{str(int(time.time()))}.txt"
+                    )
+                    reply_msg = await ctx.reply(file=data_file)
                 await ctx.reply(msg)
             else:
                 msg = f"{ctx.author.mention}, I can not get result."

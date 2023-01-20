@@ -44,6 +44,26 @@ async def cexswap_get_pools(ticker: str=None):
         traceback.print_exc(file=sys.stdout)
     return []
 
+async def cexswap_get_all_lp_pools():
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                data_rows = []
+                sql = """
+                SELECT SUM(`amount_ticker_1`) as amount_ticker_1, SUM(`amount_ticker_2`) 
+                    AS amount_ticker_2, `ticker_1_name`, `ticker_2_name`
+                FROM `cexswap_pools`
+                GROUP BY `pairs`;
+                """
+                await cur.execute(sql,)
+                result = await cur.fetchall()
+                if result:
+                    return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
 async def cexswap_get_pool_details(ticker_1: str, ticker_2: str, user_id: str=None):
     try:
         pool_detail = {}
@@ -818,18 +838,19 @@ async def cexswap_insert_new(
 
 # DropdownSummary Viewer
 class DropdownSummaryLP(disnake.ui.StringSelect):
-    def __init__(self, ctx, bot, embed, list_fields, selected_menu):
+    def __init__(self, ctx, bot, embed, list_fields, lp_list_coins, selected_menu):
         self.ctx = ctx
         self.bot = bot
         self.embed = embed
         self.list_fields = list_fields
+        self.lp_list_coins = lp_list_coins
         self.selected_menu = selected_menu
         self.utils = Utils(self.bot)
 
         options = [
             disnake.SelectOption(
                 label=each, description="Show {}".format(each.lower())
-            ) for each in ["VOLUME", "FEE TO LIQUIDATORS"]
+            ) for each in ["LIQUIDITY", "VOLUME", "FEE TO LIQUIDATORS"]
         ]
 
         super().__init__(
@@ -845,7 +866,26 @@ class DropdownSummaryLP(disnake.ui.StringSelect):
             return
         else:
             try:
-                if self.values[0] == "VOLUME":
+                if self.values[0] == "LIQUIDITY":
+                    list_lp = []
+                    for k, v in self.lp_list_coins.items():
+                        coin_emoji = getattr(getattr(self.bot.coin_list, k), "coin_emoji_discord")
+                        coin_decimal = getattr(getattr(self.bot.coin_list, k), "decimal")
+                        amount_str = num_format_coin(v, k, coin_decimal, False)
+                        list_lp.append("{} {} {}".format(coin_emoji, amount_str, k))
+                    self.embed.set_field_at(
+                        index=2,
+                        name=self.values[0],
+                        value="{}".format("\n".join(list_lp)),
+                        inline=False
+                    )
+                    self.embed.set_field_at(
+                        index=3,
+                        name="Remark",
+                        value="Please often check this summary. We will often have some updates.",
+                        inline=False
+                    )
+                elif self.values[0] == "VOLUME":
                     self.embed.set_field_at(
                         index=2,
                         name=self.list_fields['1d']['volume_title'],
@@ -872,7 +912,10 @@ class DropdownSummaryLP(disnake.ui.StringSelect):
                         inline=False
                     )
                 # Create the view containing our dropdown
-                view = DropdownViewSummary(self.ctx, self.bot, self.embed, self.list_fields, selected_menu=self.values[0])
+                view = DropdownViewSummary(
+                    self.ctx, self.bot, self.embed, self.list_fields,
+                    self.lp_list_coins, selected_menu=self.values[0]
+                )
                 await self.ctx.edit_original_message(
                     content=None,
                     embed=self.embed,
@@ -883,15 +926,19 @@ class DropdownSummaryLP(disnake.ui.StringSelect):
                 traceback.print_exc(file=sys.stdout)
 
 class DropdownViewSummary(disnake.ui.View):
-    def __init__(self, ctx, bot, embed, list_fields, selected_menu: str):
+    def __init__(self, ctx, bot, embed, list_fields, lp_list_coins, selected_menu: str):
         super().__init__(timeout=60.0)
         self.ctx = ctx
         self.bot = bot
         self.embed = embed
         self.list_fields = list_fields
+        self.lp_list_coins = lp_list_coins
         self.selected_menu = selected_menu
 
-        self.add_item(DropdownSummaryLP(self.ctx, self.bot, self.embed, self.list_fields, self.selected_menu))
+        self.add_item(DropdownSummaryLP(
+            self.ctx, self.bot, self.embed, self.list_fields,
+            self.lp_list_coins, self.selected_menu
+        ))
 
     async def on_timeout(self):
         original_message = await self.ctx.original_message()
@@ -908,7 +955,9 @@ class DropdownLP(disnake.ui.StringSelect):
 
         options = [
             disnake.SelectOption(
-                label=each, description="Select {}".format(each), emoji=getattr(getattr(self.bot.coin_list, each), "coin_emoji_discord")
+                label=each,
+                description="Select {}".format(each),
+                emoji=getattr(getattr(self.bot.coin_list, each), "coin_emoji_discord")
             ) for each in self.list_coins
         ]
 
@@ -1262,10 +1311,11 @@ class add_liqudity(disnake.ui.Modal):
                 )
     
             await interaction.message.edit(
-                content=None,
-                embed=embed,
-                view=add_liquidity_btn(self.ctx, self.bot, self.owner_userid, "{}/{}".format(self.ticker_1, self.ticker_2), accepted,
-                amount_1, amount_2)
+                content = None,
+                embed = embed,
+                view = add_liquidity_btn(self.ctx, self.bot, self.owner_userid, "{}/{}".format(
+                    self.ticker_1, self.ticker_2), accepted,  amount_1, amount_2
+                )
             )
 
             await interaction.edit_original_message(f"{interaction.author.mention}, Update! Please accept or cancel.")
@@ -1692,6 +1742,18 @@ class Cexswap(commands.Cog):
             earning['7d'] = await get_cexswap_earning(user_id=None, from_time=int(time.time()-7*24*3600), pool_id=None)
             earning['1d'] = await get_cexswap_earning(user_id=None, from_time=int(time.time()-1*24*3600), pool_id=None)
             list_fields = {}
+            get_pools = await cexswap_get_all_lp_pools()
+            lp_list_coins = {}
+            for each_lp in get_pools:
+                if each_lp['ticker_1_name'] not in lp_list_coins:
+                    lp_list_coins[each_lp['ticker_1_name']] = each_lp['amount_ticker_1']
+                else:
+                    lp_list_coins[each_lp['ticker_1_name']] += each_lp['amount_ticker_1']
+                if each_lp['ticker_2_name'] not in lp_list_coins:
+                    lp_list_coins[each_lp['ticker_2_name']] = each_lp['amount_ticker_2']
+                else:
+                    lp_list_coins[each_lp['ticker_2_name']] += each_lp['amount_ticker_2']
+
             if len(earning) > 0:
                 for k, v in earning.items():
                     list_earning = []
@@ -1737,7 +1799,7 @@ class Cexswap(commands.Cog):
             embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             embed.set_thumbnail(url=self.bot.user.display_avatar)
             # Create the view containing our dropdown
-            view = DropdownViewSummary(ctx, self.bot, embed, list_fields, selected_menu=None)
+            view = DropdownViewSummary(ctx, self.bot, embed, list_fields, lp_list_coins, selected_menu=None)
             await ctx.edit_original_message(
                 content=None,
                 embed=embed,

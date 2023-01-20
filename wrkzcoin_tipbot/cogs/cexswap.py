@@ -444,6 +444,61 @@ async def cexswap_remove_pool_share(
         traceback.print_exc(file=sys.stdout)
     return False
 
+async def cexswap_route_trade(
+    from_coin: str, to_coin: str
+):
+    try:
+        # Select all pair where there is from_coin
+        # Need A->B, Find A->C, C->B .. A->D, D->B, so on
+        possible_trade = []
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                from_coin_pairs = []
+                to_coin_pairs = []
+                sql = """
+                SELECT * FROM `cexswap_pools`
+                WHERE (`ticker_1_name`=%s AND `ticker_2_name`<>%s)
+                    OR (`ticker_2_name`=%s AND `ticker_1_name`<>%s)
+                """
+                # FROM
+                await cur.execute(sql, (
+                    from_coin, to_coin, from_coin, to_coin
+                ))
+                result = await cur.fetchall()
+
+                if result:
+                    from_coin_pairs = result
+
+                # TO
+                sql = """
+                SELECT * FROM `cexswap_pools`
+                WHERE (`ticker_1_name`=%s AND `ticker_2_name`<>%s)
+                    OR (`ticker_2_name`=%s AND `ticker_1_name`<>%s)
+                """
+                await cur.execute(sql, (to_coin, from_coin, to_coin, from_coin))
+                result = await cur.fetchall()
+
+                if result:
+                    to_coin_pairs = result
+                if len(from_coin_pairs) == 0 or len(to_coin_pairs) == 0:
+                    return possible_trade
+                else:
+                    # check if a coin in from_coin_pairs exist in to_coin_pairs
+                    for each in from_coin_pairs:
+                        middle_coin = each['ticker_2_name']
+                        if from_coin == each['ticker_2_name']:
+                            middle_coin = each['ticker_1_name']
+
+                        for target in to_coin_pairs:
+                            if target['ticker_1_name'] == middle_coin or target['ticker_2_name'] == middle_coin :
+                                possible_trade.append(middle_coin)
+
+                    return list(set(possible_trade))
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return possible_trade
+
 async def cexswap_find_possible_trade(
     from_coin: str, to_coin: str, from_amount: float,
     old_amount_get: float
@@ -509,7 +564,7 @@ async def cexswap_find_possible_trade(
                                         middle_coin, to_coin, got_amount, to_coin)
                                     if old_amount_get < got_amount:
                                         print("PROFIT=>{}".format(msg))
-                                        possible_profits.append("{}=>{}, {}=>{}".format(
+                                        possible_profits.append("  ⚆ {}=>{}, {}=>{}".format(
                                             from_coin, middle_coin, middle_coin, to_coin
                                         ))
                                     else:
@@ -1224,7 +1279,7 @@ class add_liquidity_btn(disnake.ui.View):
         self, ctx, bot, owner_id: str, pool_name: str, accepted: bool=False,
         amount_1: float=None, amount_2: float=None,
     ):
-        super().__init__(timeout=20.0)
+        super().__init__(timeout=30.0)
         self.ctx = ctx
         self.bot = bot
         self.utils = Utils(self.bot)
@@ -1244,6 +1299,10 @@ class add_liquidity_btn(disnake.ui.View):
     async def on_timeout(self):
         original_message = await self.ctx.original_message()
         await original_message.edit(view=None)
+        try:
+            del self.bot.tipping_in_progress[str(self.ctx.author.id)]
+        except Exception:
+            pass
 
     @disnake.ui.button(label="Add", style=disnake.ButtonStyle.red, custom_id="cexswap_addliquidity_btn")
     async def add_click(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
@@ -1264,6 +1323,17 @@ class add_liquidity_btn(disnake.ui.View):
         else:
             await inter.response.send_message(f"{inter.author.mention}, checking liquidity.")
         # add liquidity
+
+        # Check if tx in progress
+        if str(inter.author.id) in self.bot.tipping_in_progress and \
+            int(time.time()) - self.bot.tipping_in_progress[str(inter.author.id)] < 20:
+            msg = f"{EMOJI_ERROR} {inter.author.mention}, you have another transaction in progress."
+            await inter.edit_original_message(content=msg)
+            return
+        else:
+            self.bot.tipping_in_progress[str(inter.author.id)] = int(time.time())
+        # end checking tx in progress
+
         ticker = self.pool_name.split("/")
         # re-check rate
         liq_pair = await cexswap_get_pool_details(ticker[0], ticker[1], self.owner_id)
@@ -1275,6 +1345,10 @@ class add_liquidity_btn(disnake.ui.View):
                 self.accept_click.disabled = True
                 self.add_click.disabled = True
                 await inter.message.edit(view=None)
+                try:
+                    del self.bot.tipping_in_progress[str(inter.author.id)]
+                except Exception:
+                    pass
                 return
         # end of re-check rate
 
@@ -1308,6 +1382,10 @@ class add_liquidity_btn(disnake.ui.View):
         if actual_balance <= self.amount_1:
             msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Please get more {coin_name}."
             await inter.edit_original_message(content=msg)
+            try:
+                del self.bot.tipping_in_progress[str(inter.author.id)]
+            except Exception:
+                pass
             return
 
         # ticker[1]
@@ -1339,6 +1417,10 @@ class add_liquidity_btn(disnake.ui.View):
         if actual_balance <= self.amount_2:
             msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Please get more {coin_name}."
             await inter.edit_original_message(content=msg)
+            try:
+                del self.bot.tipping_in_progress[str(inter.author.id)]
+            except Exception:
+                pass
             return
         # end of re-check balance
 
@@ -1347,6 +1429,10 @@ class add_liquidity_btn(disnake.ui.View):
             str(inter.author.id), SERVER_BOT
         )
         if add_liq is True:
+            try:
+                del self.bot.tipping_in_progress[str(inter.author.id)]
+            except Exception:
+                pass
             # Delete if has key
             try:
                 key = str(inter.author.id) + "_" + ticker[0] + "_" + SERVER_BOT
@@ -1391,12 +1477,17 @@ class add_liquidity_btn(disnake.ui.View):
         self.add_click.disabled = True
         await inter.message.edit(view=None)
 
+
     @disnake.ui.button(label="Cancel", style=disnake.ButtonStyle.gray, custom_id="cexswap_cancelliquidity_btn")
     async def cancel_click(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.ctx.author.id:
             await inter.response.send_message(f"{inter.author.mention}, that's not your menu!", ephemeral=True)
             return
         else:
+            try:
+                del self.bot.tipping_in_progress[str(inter.author.id)]
+            except Exception:
+                pass
             await inter.message.delete()
 
 class Cexswap(commands.Cog):
@@ -1769,9 +1860,35 @@ class Cexswap(commands.Cog):
         # check liq
         liq_pair = await cexswap_get_pool_details(sell_token, for_token, None)
         if liq_pair is None:
-            msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity of `{sell_token}/{for_token}` yet."
-            await ctx.edit_original_message(content=msg)
-            return
+            # Check if there is other path to trade
+            find_route = await cexswap_route_trade(sell_token, for_token)
+
+            additional_msg = ""
+            find_other_lp = await cexswap_get_pools(sell_token)
+            if len(find_other_lp) > 0:
+                items =[i['pairs'] for i in find_other_lp]
+                additional_msg = "\n__**More {} LP**__:\n   {}.".format(sell_token, ", ".join(items))
+            find_other_lp = await cexswap_get_pools(for_token)
+            if len(find_other_lp) > 0:
+                items =[i['pairs'] for i in find_other_lp]
+                additional_msg += "\n__**More {} LP**__:\n   {}.".format(for_token, ", ".join(items))
+            if len(find_route) > 0:
+                list_paths = []
+                for i in find_route:
+                    list_paths.append("  ⚆ {} {} ➡️ {} {} ➡️ {} {}".format(
+                        self.utils.get_coin_emoji(sell_token), sell_token,
+                        self.utils.get_coin_emoji(i), i,
+                        self.utils.get_coin_emoji(for_token), for_token
+                    ))
+                path_trades = "\n".join(list_paths)
+                msg = f"{EMOJI_INFORMATION}, {ctx.author.mention}, there is no liquidity of `{sell_token}/{for_token}` yet." \
+                    f"\n__**Possible trade:**__\n{path_trades}{additional_msg}"
+                await ctx.edit_original_message(content=msg)
+                return
+            else:
+                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity of `{sell_token}/{for_token}` yet.{additional_msg}"
+                await ctx.edit_original_message(content=msg)
+                return
         else:
             # check if coin sell is enable
             is_sellable = getattr(getattr(self.bot.coin_list, sell_token), "cexswap_sell_enable")
@@ -1981,7 +2098,7 @@ class Cexswap(commands.Cog):
                                 sell_token, for_token, amount, amount_get - float(fee)
                             )
                             if len(get_netter_price) > 0:
-                                suggestion_msg = "\n```You may get a better price with: {}\n```⚠️ Price can changed be from every trade! ⚠️".format(
+                                suggestion_msg = "\n```You may get a better price with:\n{}\n```⚠️ Price can changed be from every trade! ⚠️".format(
                                     "\n".join(get_netter_price)
                                 )
                         except Exception:
@@ -2390,13 +2507,20 @@ class Cexswap(commands.Cog):
                 can_init_lp = True
                 cant_init_reason = ""
                 get_pools = await cexswap_get_pools(tickers[0])
-                if len(get_pools) >= self.bot.config['cexswap']['max_pair_with']:
+                get_max_pair_allow = getattr(getattr(self.bot.coin_list, tickers[0]), "cexswap_max_pairs")
+                max_lp = min(len(get_pools), get_max_pair_allow)
+                if len(get_pools) >= get_max_pair_allow or len(get_pools) >= self.bot.config['cexswap']['max_pair_with']:
                     can_init_lp = False
-                    cant_init_reason = "{} already reached max. number with {} pairs.".format(tickers[0], len(get_pools))
+                    cant_init_reason = "{} already reached max. number of LP: **{}**. Contact Bot dev if you would like more.".format(tickers[0], max_lp)
+
                 get_pools = await cexswap_get_pools(tickers[1])
-                if len(get_pools) >= self.bot.config['cexswap']['max_pair_with']:
-                    can_init_lp = False
-                    cant_init_reason = "{} already reached max. number with {} pairs.".format(tickers[1], len(get_pools))
+                get_max_pair_allow = getattr(getattr(self.bot.coin_list, tickers[1]), "cexswap_max_pairs")
+                max_lp = min(len(get_pools), get_max_pair_allow)
+                if len(get_pools) >= get_max_pair_allow or len(get_pools) >= self.bot.config['cexswap']['max_pair_with']:
+                    if can_init_lp is True:
+                        can_init_lp = False
+                        cant_init_reason = "{} already reached max. number of LP: **{}**. Contact Bot dev if you would like more.".format(tickers[1], max_lp)
+
                 if can_init_lp is False:
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, {cant_init_reason}"
                     await ctx.edit_original_message(content=msg)

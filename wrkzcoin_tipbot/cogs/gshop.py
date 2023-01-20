@@ -593,7 +593,7 @@ class GShop(commands.Cog):
                                 else:
                                     per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                                 if per_unit and per_unit > 0:
-                                    real_amount_usd = float(Decimal(amount) / Decimal(per_unit))
+                                    real_amount_usd = float(Decimal(amount) * Decimal(per_unit))
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
 

@@ -49,7 +49,6 @@ async def cexswap_get_all_lp_pools():
         await store.openConnection()
         async with store.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                data_rows = []
                 sql = """
                 SELECT SUM(`amount_ticker_1`) as amount_ticker_1, SUM(`amount_ticker_2`) 
                     AS amount_ticker_2, `ticker_1_name`, `ticker_2_name`
@@ -593,15 +592,16 @@ async def cexswap_find_possible_trade(
     except Exception:
         traceback.print_exc(file=sys.stdout)
     return possible_profits
-
+    
 async def cexswap_sold(
-    ref_log: str, pool_id: int, percentage_inc: float, amount_sell: float, sell_ticker: str,
+    ref_log: str, pool_id: int, amount_sell: float, sell_ticker: str,
     amount_get: float, got_ticker: str,
     user_id: str, user_server: str,
     guild_id: str,
     got_fee_dev: float, got_fee_liquidators: float,
     got_fee_guild: float, liquidators, contract: str, coin_decimal: int,
-    channel_id: str, per_unit_sell: float, per_unit_get: float
+    channel_id: str, per_unit_sell: float, per_unit_get: float,
+    pool_amount_sell: float, pool_amount_get: float
 ):
     try:
         await store.openConnection()
@@ -613,7 +613,6 @@ async def cexswap_sold(
                 # Add got coin to user
                 # Remove sell coin from user
                 # Distribute %
-                
                 sql = """
                 UPDATE `cexswap_pools`
                 SET `amount_ticker_1`=`amount_ticker_1`+%s
@@ -630,31 +629,64 @@ async def cexswap_sold(
                 UPDATE `cexswap_pools`
                 SET `amount_ticker_2`=`amount_ticker_2`-%s
                 WHERE `ticker_2_name`=%s AND `pool_id`=%s;
+                """
+                data_rows = [
+                    float(amount_sell), sell_ticker, pool_id, float(amount_sell), sell_ticker, pool_id, 
+                    float(amount_get), got_ticker, pool_id, float(amount_get), got_ticker, pool_id
+                ]
+                print(len(data_rows))
 
+                sql += """
                 UPDATE `cexswap_pools_share`
-                SET `amount_ticker_1`=`amount_ticker_1`*%s
+                SET `amount_ticker_1`=`amount_ticker_1`+%s*`amount_ticker_1`
                 WHERE `ticker_1_name`=%s AND `pool_id`=%s;
 
                 UPDATE `cexswap_pools_share`
-                SET `amount_ticker_2`=`amount_ticker_2`*%s
+                SET `amount_ticker_2`=`amount_ticker_2`+%s*`amount_ticker_2`
                 WHERE `ticker_2_name`=%s AND `pool_id`=%s;
-
+                """
+                data_rows += [
+                    float(amount_sell)/float(pool_amount_sell), sell_ticker, pool_id,
+                    float(amount_sell)/float(pool_amount_sell), sell_ticker, pool_id
+                ]
+                print(len(data_rows))
+                sql += """
                 UPDATE `cexswap_pools_share`
-                SET `amount_ticker_1`=`amount_ticker_1`*%s
+                SET `amount_ticker_1`=`amount_ticker_1`-%s*`amount_ticker_1`
                 WHERE `ticker_1_name`=%s AND `pool_id`=%s;
 
                 UPDATE `cexswap_pools_share`
-                SET `amount_ticker_2`=`amount_ticker_2`*%s
+                SET `amount_ticker_2`=`amount_ticker_2`-%s*`amount_ticker_2`
                 WHERE `ticker_2_name`=%s AND `pool_id`=%s;
+                """
+                data_rows += [
+                    float(amount_get)/float(pool_amount_get), got_ticker, pool_id,
+                    float(amount_get)/float(pool_amount_get), got_ticker, pool_id
+                ]
+                print(len(data_rows))
 
-                UPDATE `user_balance_mv_data`
-                SET `balance`=`balance`-%s 
-                WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
+                sql += """
+                INSERT INTO `user_balance_mv_data`
+                (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    `balance`=`balance`-VALUES(`balance`),
+                    `update_date`=VALUES(`update_date`);
 
-                UPDATE `user_balance_mv_data`
-                SET `balance`=`balance`+%s
-                WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
+                INSERT INTO `user_balance_mv_data`
+                (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    `balance`=`balance`+VALUES(`balance`),
+                    `update_date`=VALUES(`update_date`);
+                """
+                data_rows += [
+                    user_id, sell_ticker, SERVER_BOT, float(amount_sell), int(time.time()),
+                    user_id, got_ticker, SERVER_BOT,  float(amount_get)-float(got_fee_dev)-float(got_fee_liquidators)-float(got_fee_guild), int(time.time())                            
+                ]
+                print(len(data_rows))
 
+                sql += """
                 INSERT INTO `user_balance_mv_data`
                 (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
                 VALUES (%s, %s, %s, %s, %s)
@@ -669,6 +701,14 @@ async def cexswap_sold(
                     `balance`=`balance`+VALUES(`balance`),
                     `update_date`=VALUES(`update_date`);
 
+                """
+                data_rows += [
+                    "SYSTEM", got_ticker, SERVER_BOT, float(got_fee_dev), int(time.time()),
+                    guild_id, got_ticker, SERVER_BOT, float(got_fee_guild), int(time.time())
+                ]
+                print(len(data_rows))
+
+                sql += """
                 INSERT INTO `cexswap_sell_logs`
                 (`pool_id`, `pairs`, `ref_log`, `sold_ticker`, `total_sold_amount`, `total_sold_amount_usd`,
                 `guild_id`, `got_total_amount`, `got_total_amount_usd`,
@@ -676,30 +716,13 @@ async def cexswap_sold(
                 `sell_user_id`, `user_server`, `time`)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 """
-                data_rows = [
-                    float(amount_sell), sell_ticker, pool_id, float(amount_sell), sell_ticker, pool_id, 
-                    float(amount_get), got_ticker, pool_id, float(amount_get), got_ticker, pool_id,
-                    1+float(percentage_inc), sell_ticker, pool_id,
-                    1+float(percentage_inc), sell_ticker, pool_id,
-                    1-float(percentage_inc), got_ticker, pool_id,
-                    1-float(percentage_inc), got_ticker, pool_id
-                ]
-    
-                data_rows += [
-                    float(amount_sell), user_id, sell_ticker,
-                    float(amount_get)-float(got_fee_dev)-float(got_fee_liquidators)-float(got_fee_guild), user_id, got_ticker
-                ]
-                data_rows += [
-                    "SYSTEM", got_ticker, SERVER_BOT, float(got_fee_dev), int(time.time()),
-                    guild_id, got_ticker, SERVER_BOT, float(got_fee_guild), int(time.time())
-                ]
-
                 data_rows += [
                     pool_id, "{}->{}".format(sell_ticker, got_ticker), ref_log, sell_ticker, float(amount_sell),
                     float(amount_sell)*float(per_unit_sell), guild_id, float(amount_get),float(amount_get)*float(per_unit_get),
                     float(got_fee_dev), float(got_fee_liquidators), float(got_fee_guild), got_ticker, user_id,
                     user_server, int(time.time())
                 ]
+                print(len(data_rows))
                 await cur.execute(sql, tuple(data_rows))
                 await conn.commit()
 
@@ -1612,8 +1635,8 @@ class Cexswap(commands.Cog):
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, cexswap/market function is not ENABLE yet in this guild. "\
-                        "Please request Guild owner to enable by `/SETTING TRADE`'
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, cexswap/market function is not ENABLE yet in this guild. "\
+                        "Please request Guild owner to enable by `/SETTING TRADE`"
                     await ctx.response.send_message(msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(
@@ -1632,7 +1655,7 @@ class Cexswap(commands.Cog):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. Please contact bot dev by /about link."
                 await ctx.response.send_message(msg)
                 return
-            if self.bot.config['cexswap']['disable'] == 1:
+            if self.bot.config['cexswap']['disable'] == 1 and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, CEXSwap is currently on maintenance. Be back soon!"
                 await ctx.response.send_message(msg)
                 return
@@ -2046,15 +2069,32 @@ class Cexswap(commands.Cog):
                 )
                 actual_balance = float(userdata_balance['adjust'])
 
-                amount_get = amount * float(liq_pair['pool']['amount_ticker_2'] / liq_pair['pool']['amount_ticker_1'])
+                # Check if amount is more than liquidity
+                if truncate(float(amount), 8) > truncate(float(max_swap_sell_cap), 8):
+                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_1_name']), "decimal")
+                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_2_name']), "decimal")
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount `{sell_amount_old}`"\
+                        f" is more than allowable 10% of liquidity `{num_format_coin(max_swap_sell_cap, sell_token, coin_decimal, False)} {token_display}`." \
+                        f"```Current LP: {num_format_coin(liq_pair['pool']['amount_ticker_1'], liq_pair['pool']['ticker_1_name'], coin_decimal_1, False)} "\
+                        f"{liq_pair['pool']['ticker_1_name']} and "\
+                        f"{num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False)} "\
+                        f"{liq_pair['pool']['ticker_2_name']} for LP {liq_pair['pool']['ticker_1_name']}/{liq_pair['pool']['ticker_2_name']}.```"
+                    await ctx.edit_original_message(content=msg)
+                    return
 
-                if sell_token == liq_pair['pool']['ticker_1_name']:
-                    percentage_inc = amount / float(liq_pair['pool']['amount_ticker_1'])
-                else:
-                    percentage_inc = amount / float(liq_pair['pool']['amount_ticker_2'])
+                # check slippage first
+                slippage = 1.0 - amount / float(liq_pair['pool']['amount_ticker_1']) - self.bot.config['cexswap_slipage']['reserve']
+                amount_get = amount * float(liq_pair['pool']['amount_ticker_2'] / liq_pair['pool']['amount_ticker_1'])
 
                 if sell_token == liq_pair['pool']['ticker_2_name']:
                     amount_get = amount * float(liq_pair['pool']['amount_ticker_1'] / liq_pair['pool']['amount_ticker_2'])
+                    slippage = 1.0 - amount / float(liq_pair['pool']['amount_ticker_2']) - self.bot.config['cexswap_slipage']['reserve']
+                # adjust slippage
+                amount_get = slippage * amount_get
+                if slippage > 1 or slippage < 0.88:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error with slippage. Try again later!"
+                    await ctx.edit_original_message(content=msg)
+                    return
 
                 if amount <= 0 or actual_balance <= 0:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}."
@@ -2068,19 +2108,6 @@ class Cexswap(commands.Cog):
 
                 elif truncate(actual_balance, 8) < truncate(amount, 8):
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, ⚠️ Please re-check balance {token_display}."
-                    await ctx.edit_original_message(content=msg)
-                    return
-
-                # Check if amount is more than liquidity
-                elif truncate(float(amount), 8) > truncate(float(max_swap_sell_cap), 8):
-                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_1_name']), "decimal")
-                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_2_name']), "decimal")
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount `{sell_amount_old}`"\
-                        f" is more than allowable 10% of liquidity `{num_format_coin(max_swap_sell_cap, sell_token, coin_decimal, False)} {token_display}`." \
-                        f"```Current LP: {num_format_coin(liq_pair['pool']['amount_ticker_1'], liq_pair['pool']['ticker_1_name'], coin_decimal_1, False)} "\
-                        f"{liq_pair['pool']['ticker_1_name']} and "\
-                        f"{num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False)} "\
-                        f"{liq_pair['pool']['ticker_2_name']} for LP {liq_pair['pool']['ticker_1_name']}/{liq_pair['pool']['ticker_2_name']}.```"
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -2156,12 +2183,12 @@ class Cexswap(commands.Cog):
                     suggestion_msg = ""
                     if self.bot.config['cexswap']['enable_better_price'] == 1:
                         try:
-                            get_netter_price = await cexswap_find_possible_trade(
-                                sell_token, for_token, amount, amount_get - float(fee)
+                            get_better_price = await cexswap_find_possible_trade(
+                                sell_token, for_token, amount * slippage, amount_get - float(fee)
                             )
-                            if len(get_netter_price) > 0:
+                            if len(get_better_price) > 0:
                                 suggestion_msg = "\n```You may get a better price with:\n{}\n```⚠️ Price can changed be from every trade! ⚠️".format(
-                                    "\n".join(get_netter_price)
+                                    "\n".join(get_better_price)
                                 )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -2174,7 +2201,7 @@ class Cexswap(commands.Cog):
                     await ctx.edit_original_message(content=msg, view=view)
 
                     await cexswap_find_possible_trade(
-                        sell_token, for_token, amount, amount_get
+                        sell_token, for_token, amount * slippage, amount_get
                     )
 
                     if str(ctx.author.id) not in self.bot.tipping_in_progress:
@@ -2195,10 +2222,25 @@ class Cexswap(commands.Cog):
                         return
                     elif view.value:
                         # re-check rate
+                        slippage = 1.0 - amount / float(liq_pair['pool']['amount_ticker_1']) - self.bot.config['cexswap_slipage']['reserve']
+                        if sell_token == liq_pair['pool']['ticker_2_name']:
+                            slippage = 1.0 - amount / float(liq_pair['pool']['amount_ticker_2']) - self.bot.config['cexswap_slipage']['reserve']
+                        # adjust slippage
+                        if slippage > 1 or slippage < 0.88:
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error with slippage. Try again later!"
+                            await ctx.edit_original_message(content=msg)
+                            return
+
                         new_liq_pair = await cexswap_get_pool_details(sell_token, for_token, None)
                         new_amount_get = amount * float(new_liq_pair['pool']['amount_ticker_2'] / new_liq_pair['pool']['amount_ticker_1'])
+                        new_amount_get = slippage * new_amount_get
+                        pool_amount_get = new_liq_pair['pool']['amount_ticker_2']
+                        pool_amount_sell = new_liq_pair['pool']['amount_ticker_1']
                         if sell_token == new_liq_pair['pool']['ticker_2_name']:
                             new_amount_get = amount * float(new_liq_pair['pool']['amount_ticker_1'] / new_liq_pair['pool']['amount_ticker_2'])
+                            new_amount_get = slippage * new_amount_get
+                            pool_amount_get = new_liq_pair['pool']['amount_ticker_1']
+                            pool_amount_sell = new_liq_pair['pool']['amount_ticker_2']
                         if truncate(float(new_amount_get), 8) != truncate(float(amount_get), 8):
                             await ctx.edit_original_message(
                                 content=msg + "\n**⚠️⚠️ Price changed! Please try again!**",
@@ -2236,13 +2278,17 @@ class Cexswap(commands.Cog):
                                 pass
                             return
                         # end: re-check balance
-
+                        try:
+                            del self.bot.tipping_in_progress[str(ctx.author.id)]
+                        except Exception:
+                            pass
                         selling = await cexswap_sold(
-                            ref_log, liq_pair['pool']['pool_id'], percentage_inc, truncate(amount, 12), sell_token, 
+                            ref_log, liq_pair['pool']['pool_id'], truncate(amount, 12), sell_token, 
                             truncate(amount_get, 12), for_token, str(ctx.author.id), SERVER_BOT,
                             guild_id,
                             truncate(got_fee_dev, 12), truncate(got_fee_liquidators, 12), truncate(got_fee_guild, 12),
-                            liq_users, contract, coin_decimal, channel_id, per_unit_sell, per_unit_get
+                            liq_users, contract, coin_decimal, channel_id, per_unit_sell, per_unit_get,
+                            pool_amount_sell, pool_amount_get
                         )
                         try:
                             del self.bot.tipping_in_progress[str(ctx.author.id)]
@@ -2289,8 +2335,13 @@ class Cexswap(commands.Cog):
                                             channel = self.bot.get_channel(int(item['trade_channel']))
                                             if (hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id) or not \
                                                 not hasattr(ctx, "guild"):
-                                                await channel.send(f"[CEXSWAP]: A user sold {user_amount_sell} {sell_token} for {user_amount_get} {for_token}.")
-
+                                                await channel.send(f"[CEXSWAP]: A user sold {user_amount_sell} {sell_token} for "\
+                                                    f"{user_amount_get} {for_token}."
+                                                )
+                                    except disnake.errors.Forbidden:
+                                        await self.botLogChan.send(
+                                            f"[CEXSwap] failed to message to guild {get_guild.name} / {get_guild.id}."
+                                        )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                         else:
@@ -2686,13 +2737,13 @@ class Cexswap(commands.Cog):
                 # If a user has already some liq
                 percent_1 = ""
                 percent_2 = ""
-                try:
-                    percent_1 = " - {:,.2f} {}".format(liq_pair['pool_share']['amount_ticker_1']/ liq_pair['pool']['amount_ticker_1']*100, "%")
-                    percent_2 = " - {:,.2f} {}".format(liq_pair['pool_share']['amount_ticker_1']/ liq_pair['pool']['amount_ticker_1']*100, "%")
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
 
                 if liq_pair['pool_share'] is not None:
+                    try:
+                        percent_1 = " - {:,.2f} {}".format(liq_pair['pool_share']['amount_ticker_1']/ liq_pair['pool']['amount_ticker_1']*100, "%")
+                        percent_2 = " - {:,.2f} {}".format(liq_pair['pool_share']['amount_ticker_1']/ liq_pair['pool']['amount_ticker_1']*100, "%")
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
                     embed.add_field(
                         name="Your existing liquidity",
                         value="{} {}{}\n{} {}{}".format(

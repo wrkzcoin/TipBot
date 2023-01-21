@@ -634,7 +634,6 @@ async def cexswap_sold(
                     float(amount_sell), sell_ticker, pool_id, float(amount_sell), sell_ticker, pool_id, 
                     float(amount_get), got_ticker, pool_id, float(amount_get), got_ticker, pool_id
                 ]
-                print(len(data_rows))
 
                 sql += """
                 UPDATE `cexswap_pools_share`
@@ -649,7 +648,7 @@ async def cexswap_sold(
                     float(amount_sell)/float(pool_amount_sell), sell_ticker, pool_id,
                     float(amount_sell)/float(pool_amount_sell), sell_ticker, pool_id
                 ]
-                print(len(data_rows))
+
                 sql += """
                 UPDATE `cexswap_pools_share`
                 SET `amount_ticker_1`=`amount_ticker_1`-%s*`amount_ticker_1`
@@ -663,7 +662,6 @@ async def cexswap_sold(
                     float(amount_get)/float(pool_amount_get), got_ticker, pool_id,
                     float(amount_get)/float(pool_amount_get), got_ticker, pool_id
                 ]
-                print(len(data_rows))
 
                 sql += """
                 INSERT INTO `user_balance_mv_data`
@@ -684,7 +682,6 @@ async def cexswap_sold(
                     user_id, sell_ticker, SERVER_BOT, float(amount_sell), int(time.time()),
                     user_id, got_ticker, SERVER_BOT,  float(amount_get)-float(got_fee_dev)-float(got_fee_liquidators)-float(got_fee_guild), int(time.time())                            
                 ]
-                print(len(data_rows))
 
                 sql += """
                 INSERT INTO `user_balance_mv_data`
@@ -706,7 +703,6 @@ async def cexswap_sold(
                     "SYSTEM", got_ticker, SERVER_BOT, float(got_fee_dev), int(time.time()),
                     guild_id, got_ticker, SERVER_BOT, float(got_fee_guild), int(time.time())
                 ]
-                print(len(data_rows))
 
                 sql += """
                 INSERT INTO `cexswap_sell_logs`
@@ -722,7 +718,6 @@ async def cexswap_sold(
                     float(got_fee_dev), float(got_fee_liquidators), float(got_fee_guild), got_ticker, user_id,
                     user_server, int(time.time())
                 ]
-                print(len(data_rows))
                 await cur.execute(sql, tuple(data_rows))
                 await conn.commit()
 
@@ -1081,9 +1076,10 @@ class DropdownViewLP(disnake.ui.View):
 
 
 class ConfirmSell(disnake.ui.View):
-    def __init__(self, owner_id: int):
-        super().__init__(timeout=20.0)
+    def __init__(self, bot, owner_id: int):
+        super().__init__(timeout=30.0)
         self.value: Optional[bool] = None
+        self.bot = bot
         self.owner_id = owner_id
 
     @disnake.ui.button(label="Confirm", style=disnake.ButtonStyle.green)
@@ -1091,6 +1087,13 @@ class ConfirmSell(disnake.ui.View):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
         else:
+            if str(inter.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(inter.author.id)] < 30:
+                msg = f"{EMOJI_ERROR} {inter.author.mention}, you have another transaction in progress."
+                await inter.response.send_message(content=msg, ephemeral=True)
+                return
+            else:
+                self.bot.tipping_in_progress[str(inter.author.id)] = int(time.time())
             await inter.response.send_message(f"{inter.author.mention}, confirming...", delete_after=3.0)
             self.value = True
             self.stop()
@@ -1352,7 +1355,7 @@ class add_liquidity_btn(disnake.ui.View):
         self, ctx, bot, owner_id: str, pool_name: str, accepted: bool=False,
         amount_1: float=None, amount_2: float=None,
     ):
-        super().__init__(timeout=30.0)
+        super().__init__(timeout=42.0)
         self.ctx = ctx
         self.bot = bot
         self.utils = Utils(self.bot)
@@ -1399,7 +1402,7 @@ class add_liquidity_btn(disnake.ui.View):
 
         # Check if tx in progress
         if str(inter.author.id) in self.bot.tipping_in_progress and \
-            int(time.time()) - self.bot.tipping_in_progress[str(inter.author.id)] < 20:
+            int(time.time()) - self.bot.tipping_in_progress[str(inter.author.id)] < 42:
             msg = f"{EMOJI_ERROR} {inter.author.mention}, you have another transaction in progress."
             await inter.edit_original_message(content=msg)
             return
@@ -1407,149 +1410,151 @@ class add_liquidity_btn(disnake.ui.View):
             self.bot.tipping_in_progress[str(inter.author.id)] = int(time.time())
         # end checking tx in progress
 
-        ticker = self.pool_name.split("/")
-        # re-check rate
-        liq_pair = await cexswap_get_pool_details(ticker[0], ticker[1], self.owner_id)
-        if liq_pair is not None:
-            rate_1 = liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1']
-            if truncate(float(rate_1), 8) != truncate(float(self.amount_2 / self.amount_1), 8):
-                msg = f"{EMOJI_INFORMATION} {inter.author.mention}, ⚠️⚠️ Price changed! Try again!"
+        try:
+            ticker = self.pool_name.split("/")
+            # re-check rate
+            liq_pair = await cexswap_get_pool_details(ticker[0], ticker[1], self.owner_id)
+            if liq_pair is not None:
+                rate_1 = liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1']
+                if truncate(float(rate_1), 8) != truncate(float(self.amount_2 / self.amount_1), 8):
+                    msg = f"{EMOJI_INFORMATION} {inter.author.mention}, ⚠️⚠️ Price changed! Try again!"
+                    await inter.edit_original_message(content=msg)
+                    self.accept_click.disabled = True
+                    self.add_click.disabled = True
+                    await inter.message.edit(view=None)
+                    try:
+                        del self.bot.tipping_in_progress[str(inter.author.id)]
+                    except Exception:
+                        pass
+                    return
+            # end of re-check rate
+
+            # re-check balance
+            # ticker[0]
+            coin_name = ticker[0]
+            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
+            if get_deposit is None:
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
+            wallet_address = get_deposit['balance_wallet_address']
+            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                wallet_address = get_deposit['paymentid']
+            elif type_coin in ["XRP"]:
+                wallet_address = get_deposit['destination_tag']
+
+            userdata_balance = await store.sql_user_balance_single(
+                str(inter.author.id), coin_name, wallet_address, 
+                type_coin, height, deposit_confirm_depth, SERVER_BOT
+            )
+            actual_balance = float(userdata_balance['adjust'])
+            if actual_balance <= self.amount_1:
+                msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Please get more {coin_name}."
                 await inter.edit_original_message(content=msg)
-                self.accept_click.disabled = True
-                self.add_click.disabled = True
-                await inter.message.edit(view=None)
                 try:
                     del self.bot.tipping_in_progress[str(inter.author.id)]
                 except Exception:
                     pass
                 return
-        # end of re-check rate
 
-        # re-check balance
-        # ticker[0]
-        coin_name = ticker[0]
-        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            # ticker[1]
+            coin_name = ticker[1]
+            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
 
-        get_deposit = await self.wallet_api.sql_get_userwallet(
-            str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
-        )
-        if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(
-                str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
-        wallet_address = get_deposit['balance_wallet_address']
-        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-            wallet_address = get_deposit['paymentid']
-        elif type_coin in ["XRP"]:
-            wallet_address = get_deposit['destination_tag']
+            if get_deposit is None:
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
+            wallet_address = get_deposit['balance_wallet_address']
+            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                wallet_address = get_deposit['paymentid']
+            elif type_coin in ["XRP"]:
+                wallet_address = get_deposit['destination_tag']
 
-        userdata_balance = await store.sql_user_balance_single(
-            str(inter.author.id), coin_name, wallet_address, 
-            type_coin, height, deposit_confirm_depth, SERVER_BOT
-        )
-        actual_balance = float(userdata_balance['adjust'])
-        if actual_balance <= self.amount_1:
-            msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Please get more {coin_name}."
-            await inter.edit_original_message(content=msg)
-            try:
-                del self.bot.tipping_in_progress[str(inter.author.id)]
-            except Exception:
-                pass
-            return
-
-        # ticker[1]
-        coin_name = ticker[1]
-        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-
-        get_deposit = await self.wallet_api.sql_get_userwallet(
-            str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
-        )
-        if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(
-                str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+            userdata_balance = await store.sql_user_balance_single(
+                str(inter.author.id), coin_name, wallet_address, 
+                type_coin, height, deposit_confirm_depth, SERVER_BOT
             )
-        wallet_address = get_deposit['balance_wallet_address']
-        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-            wallet_address = get_deposit['paymentid']
-        elif type_coin in ["XRP"]:
-            wallet_address = get_deposit['destination_tag']
+            actual_balance = float(userdata_balance['adjust'])
+            if actual_balance <= self.amount_2:
+                msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Please get more {coin_name}."
+                await inter.edit_original_message(content=msg)
+                try:
+                    del self.bot.tipping_in_progress[str(inter.author.id)]
+                except Exception:
+                    pass
+                return
+            # end of re-check balance
 
-        userdata_balance = await store.sql_user_balance_single(
-            str(inter.author.id), coin_name, wallet_address, 
-            type_coin, height, deposit_confirm_depth, SERVER_BOT
-        )
-        actual_balance = float(userdata_balance['adjust'])
-        if actual_balance <= self.amount_2:
-            msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Please get more {coin_name}."
-            await inter.edit_original_message(content=msg)
-            try:
-                del self.bot.tipping_in_progress[str(inter.author.id)]
-            except Exception:
-                pass
-            return
-        # end of re-check balance
-
-        add_liq = await cexswap_insert_new(
-            self.pool_name, self.amount_1, ticker[0], self.amount_2, ticker[1],
-            str(inter.author.id), SERVER_BOT
-        )
-        if add_liq is True:
-            try:
-                del self.bot.tipping_in_progress[str(inter.author.id)]
-            except Exception:
-                pass
-            # Delete if has key
-            try:
-                key = str(inter.author.id) + "_" + ticker[0] + "_" + SERVER_BOT
-                if key in self.bot.user_balance_cache:
-                    del self.bot.user_balance_cache[key]
-                key = str(inter.author.id) + "_" + ticker[1] + "_" + SERVER_BOT
-                if key in self.bot.user_balance_cache:
-                    del self.bot.user_balance_cache[key]
-            except Exception:
-                pass
-            # End of del key
-            coin_decimal_1 = getattr(getattr(self.bot.coin_list, ticker[0]), "decimal")
-            coin_decimal_2 = getattr(getattr(self.bot.coin_list, ticker[1]), "decimal")
-            add_msg = "{} {} and {} {}".format(
-                num_format_coin(self.amount_1, ticker[0], coin_decimal_1, False), ticker[0],
-                num_format_coin(self.amount_2, ticker[1], coin_decimal_2, False), ticker[1]
+            add_liq = await cexswap_insert_new(
+                self.pool_name, self.amount_1, ticker[0], self.amount_2, ticker[1],
+                str(inter.author.id), SERVER_BOT
             )
-            msg = f'{EMOJI_INFORMATION} {inter.author.mention}, successfully added.```{add_msg}```'
-            await inter.edit_original_message(content=msg)
-            await log_to_channel(
-                "cexswap",
-                f"[ADD LIQUIDITY]: User {inter.author.mention} add new liquidity to pool `{self.pool_name}`! {add_msg}",
-                self.bot.config['discord']['cexswap']
-            )
-            # Find guild where there is trade channel assign
-            get_guilds = await self.utils.get_trade_channel_list()
-            if len(get_guilds) > 0:
-                for item in get_guilds:
-                    try:
-                        get_guild = self.bot.get_guild(int(item['serverid']))
-                        if get_guild:
-                            channel = self.bot.get_channel(int(item['trade_channel']))
-                            if (hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel.id != inter.channel.id) or not \
-                                    hasattr(inter, "guild"):
-                                await channel.send(f"[CEXSWAP]: A user added more liquidity pool `{self.pool_name}`! {add_msg}")
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-        else:
-            msg = f'{EMOJI_INFORMATION} {inter.author.mention}, internal error.'
-            await inter.edit_original_message(content=msg)
-        self.accept_click.disabled = True
-        self.add_click.disabled = True
-        await inter.message.edit(view=None)
-
+            if add_liq is True:
+                try:
+                    del self.bot.tipping_in_progress[str(inter.author.id)]
+                except Exception:
+                    pass
+                # Delete if has key
+                try:
+                    key = str(inter.author.id) + "_" + ticker[0] + "_" + SERVER_BOT
+                    if key in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key]
+                    key = str(inter.author.id) + "_" + ticker[1] + "_" + SERVER_BOT
+                    if key in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key]
+                except Exception:
+                    pass
+                # End of del key
+                coin_decimal_1 = getattr(getattr(self.bot.coin_list, ticker[0]), "decimal")
+                coin_decimal_2 = getattr(getattr(self.bot.coin_list, ticker[1]), "decimal")
+                add_msg = "{} {} and {} {}".format(
+                    num_format_coin(self.amount_1, ticker[0], coin_decimal_1, False), ticker[0],
+                    num_format_coin(self.amount_2, ticker[1], coin_decimal_2, False), ticker[1]
+                )
+                msg = f'{EMOJI_INFORMATION} {inter.author.mention}, successfully added.```{add_msg}```'
+                await inter.edit_original_message(content=msg)
+                await log_to_channel(
+                    "cexswap",
+                    f"[ADD LIQUIDITY]: User {inter.author.mention} add new liquidity to pool `{self.pool_name}`! {add_msg}",
+                    self.bot.config['discord']['cexswap']
+                )
+                # Find guild where there is trade channel assign
+                get_guilds = await self.utils.get_trade_channel_list()
+                if len(get_guilds) > 0:
+                    for item in get_guilds:
+                        try:
+                            get_guild = self.bot.get_guild(int(item['serverid']))
+                            if get_guild:
+                                channel = self.bot.get_channel(int(item['trade_channel']))
+                                if (hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel.id != inter.channel.id) or not \
+                                        hasattr(inter, "guild"):
+                                    await channel.send(f"[CEXSWAP]: A user added more liquidity pool `{self.pool_name}`! {add_msg}")
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+            else:
+                msg = f'{EMOJI_INFORMATION} {inter.author.mention}, internal error.'
+                await inter.edit_original_message(content=msg)
+            self.accept_click.disabled = True
+            self.add_click.disabled = True
+            await inter.message.edit(view=None)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @disnake.ui.button(label="Cancel", style=disnake.ButtonStyle.gray, custom_id="cexswap_cancelliquidity_btn")
     async def cancel_click(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
@@ -2122,7 +2127,7 @@ class Cexswap(commands.Cog):
                     else:
                         got_fee_dev += amount_get * self.bot.config['cexswap']['guild_fee'] / 100
 
-                    ref_log = ''.join(random.choice(ascii_uppercase) for i in range(32))
+                    ref_log = ''.join(random.choice(ascii_uppercase) for i in range(16))
 
                     liq_users = []
                     if len(liq_pair['pool_share']) > 0:
@@ -2172,14 +2177,6 @@ class Cexswap(commands.Cog):
                     user_amount_get = num_format_coin(truncate(amount_get - float(fee), 12), for_token, coin_decimal_get, False)
                     user_amount_sell = num_format_coin(amount, sell_token, coin_decimal_sell, False)
 
-                    # Check if tx in progress
-                    if str(ctx.author.id) in self.bot.tipping_in_progress and \
-                        int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 20:
-                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
-                        await ctx.edit_original_message(content=msg)
-                        return
-                    # end checking tx in progress
-
                     suggestion_msg = ""
                     if self.bot.config['cexswap']['enable_better_price'] == 1:
                         try:
@@ -2197,18 +2194,27 @@ class Cexswap(commands.Cog):
                         f"```Get {user_amount_get} {for_token}\n"\
                         f"From selling {user_amount_sell} {sell_token}```Ref: `{ref_log}`{suggestion_msg}"
 
-                    view = ConfirmSell(ctx.author.id)
+                    # If there is progress
+                    if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                        int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 30:
+                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
+                        await ctx.response.send_message(content=msg, ephemeral=True)
+                        return
+
+                    view = ConfirmSell(self.bot, ctx.author.id)
                     await ctx.edit_original_message(content=msg, view=view)
 
                     await cexswap_find_possible_trade(
                         sell_token, for_token, amount * slippage, amount_get
                     )
 
-                    if str(ctx.author.id) not in self.bot.tipping_in_progress:
-                        self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                     # Wait for the View to stop listening for input...
                     await view.wait()
 
+                    try:
+                        del self.bot.tipping_in_progress[str(ctx.author.id)]
+                    except Exception:
+                        pass
                     # Check the value to determine which button was pressed, if any.
                     if view.value is None:
                         await ctx.edit_original_message(
@@ -2243,7 +2249,7 @@ class Cexswap(commands.Cog):
                             pool_amount_sell = new_liq_pair['pool']['amount_ticker_2']
                         if truncate(float(new_amount_get), 8) != truncate(float(amount_get), 8):
                             await ctx.edit_original_message(
-                                content=msg + "\n**⚠️⚠️ Price changed! Please try again!**",
+                                content=msg.replace("Do you want to trade?", "🔴 CEXSwap rejected!") + "\n**⚠️ Price changed! Please try again!**",
                                 view=None
                             )
                             try:
@@ -2778,7 +2784,7 @@ class Cexswap(commands.Cog):
 
             # Check if tx in progress
             if str(ctx.author.id) in self.bot.tipping_in_progress and \
-                int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 20:
+                int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 42:
                 msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
                 await ctx.edit_original_message(content=msg)
                 return
@@ -3056,7 +3062,7 @@ class Cexswap(commands.Cog):
 
                     # Check if tx in progress
                     if str(ctx.author.id) in self.bot.tipping_in_progress and \
-                        int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 20:
+                        int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 42:
                         msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
                         await ctx.edit_original_message(content=msg)
                         return

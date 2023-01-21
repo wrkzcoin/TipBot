@@ -1411,13 +1411,30 @@ class add_liquidity_btn(disnake.ui.View):
         # end checking tx in progress
 
         try:
+            if self.amount_1 is None or self.amount_2 is None:
+                msg = f"{EMOJI_ERROR} {inter.author.mention}, invalid given amount(s) or too fast."
+                await inter.edit_original_message(content=msg)
+                try:
+                    del self.bot.tipping_in_progress[str(inter.author.id)]
+                except Exception:
+                    pass
+                return
+            # re-check negative
+            elif self.amount_1 < 0 or self.amount_2 < 0:
+                msg = f"{EMOJI_ERROR} {inter.author.mention}, invalid given amount(s). (Negative)"
+                await inter.edit_original_message(content=msg)
+                try:
+                    del self.bot.tipping_in_progress[str(inter.author.id)]
+                except Exception:
+                    pass
+                return
             ticker = self.pool_name.split("/")
             # re-check rate
             liq_pair = await cexswap_get_pool_details(ticker[0], ticker[1], self.owner_id)
             if liq_pair is not None:
                 rate_1 = liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1']
                 if truncate(float(rate_1), 8) != truncate(float(self.amount_2 / self.amount_1), 8):
-                    msg = f"{EMOJI_INFORMATION} {inter.author.mention}, ⚠️⚠️ Price changed! Try again!"
+                    msg = f"{EMOJI_INFORMATION} {inter.author.mention}, ⚠️ Price changed! Try again!"
                     await inter.edit_original_message(content=msg)
                     self.accept_click.disabled = True
                     self.add_click.disabled = True
@@ -1506,6 +1523,13 @@ class add_liquidity_btn(disnake.ui.View):
                 str(inter.author.id), SERVER_BOT
             )
             if add_liq is True:
+                # disable buttons first
+                try:
+                    self.accept_click.disabled = True
+                    self.add_click.disabled = True
+                    await inter.message.edit(view=None)
+                except Exception:
+                    pass
                 try:
                     del self.bot.tipping_in_progress[str(inter.author.id)]
                 except Exception:
@@ -1550,9 +1574,13 @@ class add_liquidity_btn(disnake.ui.View):
             else:
                 msg = f'{EMOJI_INFORMATION} {inter.author.mention}, internal error.'
                 await inter.edit_original_message(content=msg)
-            self.accept_click.disabled = True
-            self.add_click.disabled = True
-            await inter.message.edit(view=None)
+                self.accept_click.disabled = True
+                self.add_click.disabled = True
+                await inter.message.edit(view=None)
+                try:
+                    del self.bot.tipping_in_progress[str(inter.author.id)]
+                except Exception:
+                    pass
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

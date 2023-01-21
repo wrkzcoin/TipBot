@@ -21,6 +21,11 @@ from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH,
 from cogs.wallet import WalletAPI
 from cogs.utils import Utils
 
+# https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
 async def cexswap_get_pools(ticker: str=None):
     try:
@@ -1109,24 +1114,25 @@ class ConfirmSell(disnake.ui.View):
 
 
 class add_liqudity(disnake.ui.Modal):
-    def __init__(self, ctx, bot, ticker_1: str, ticker_2: str, owner_userid: str) -> None:
+    def __init__(self, ctx, bot, ticker_1: str, ticker_2: str, owner_userid: str, balances_str) -> None:
         self.ctx = ctx
         self.bot = bot
         self.ticker_1 = ticker_1.upper()
         self.ticker_2 = ticker_2.upper()
         self.wallet_api = WalletAPI(self.bot)
         self.owner_userid = owner_userid
+        self.balances_str = balances_str
 
         components = [
             disnake.ui.TextInput(
-                label="Amount Coin {}".format(ticker_1.upper()),
+                label="Amount Coin {} | You have: {}".format(ticker_1.upper(), self.balances_str[0]),
                 placeholder="10000",
                 custom_id="cexswap_amount_coin_id_1",
                 style=TextInputStyle.short,
                 max_length=16
             ),
             disnake.ui.TextInput(
-                label="Amount Coin {}".format(ticker_2.upper()),
+                label="Amount Coin {} | You have: {}".format(ticker_2.upper(), self.balances_str[1]),
                 placeholder="10000",
                 custom_id="cexswap_amount_coin_id_2",
                 style=TextInputStyle.short,
@@ -1340,7 +1346,7 @@ class add_liqudity(disnake.ui.Modal):
                 content = None,
                 embed = embed,
                 view = add_liquidity_btn(self.ctx, self.bot, self.owner_userid, "{}/{}".format(
-                    self.ticker_1, self.ticker_2), accepted,  amount_1, amount_2
+                    self.ticker_1, self.ticker_2), self.balances_str, accepted,  amount_1, amount_2
                 )
             )
 
@@ -1352,7 +1358,7 @@ class add_liqudity(disnake.ui.Modal):
 # Defines a simple view of row buttons.
 class add_liquidity_btn(disnake.ui.View):
     def __init__(
-        self, ctx, bot, owner_id: str, pool_name: str, accepted: bool=False,
+        self, ctx, bot, owner_id: str, pool_name: str, balances_str, accepted: bool=False,
         amount_1: float=None, amount_2: float=None,
     ):
         super().__init__(timeout=42.0)
@@ -1362,6 +1368,7 @@ class add_liquidity_btn(disnake.ui.View):
         self.wallet_api = WalletAPI(self.bot)
         self.owner_id = owner_id
         self.pool_name = pool_name
+        self.balances_str = balances_str
         self.accepted = accepted
         self.amount_1 = amount_1
         self.amount_2 = amount_2
@@ -1389,7 +1396,7 @@ class add_liquidity_btn(disnake.ui.View):
             return
         ticker = self.pool_name.split("/")
         await inter.response.send_modal(
-                modal=add_liqudity(inter, self.bot, ticker[0], ticker[1], self.owner_id))
+                modal=add_liqudity(inter, self.bot, ticker[0], ticker[1], self.owner_id, self.balances_str))
 
     @disnake.ui.button(label="Accept", style=disnake.ButtonStyle.green, custom_id="cexswap_acceptliquidity_btn")
     async def accept_click(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
@@ -1434,7 +1441,7 @@ class add_liquidity_btn(disnake.ui.View):
             if liq_pair is not None:
                 rate_1 = liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1']
                 if truncate(float(rate_1), 8) != truncate(float(self.amount_2 / self.amount_1), 8):
-                    msg = f"{EMOJI_INFORMATION} {inter.author.mention}, ⚠️ Price changed! Try again!"
+                    msg = f"{EMOJI_INFORMATION} {inter.author.mention}, ⚠️ Price updated! Try again!"
                     await inter.edit_original_message(content=msg)
                     self.accept_click.disabled = True
                     self.add_click.disabled = True
@@ -2115,6 +2122,18 @@ class Cexswap(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     return
 
+                # Check if too big rate gap
+                try:
+                    rate_ratio = liq_pair['pool']['amount_ticker_1'] / liq_pair['pool']['amount_ticker_2']
+                    if rate_ratio > 10**12 or rate_ratio < 1/10**12:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, rate ratio is out of range. Try with other pairs."
+                        await ctx.edit_original_message(content=msg)
+                        await self.botLogChan.send(
+                            f"{ctx.author.name} / {ctx.author.id} reject trade ratio out of range: `{sell_token}/{for_token}`"
+                        )
+                        return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
                 # check slippage first
                 slippage = 1.0 - amount / float(liq_pair['pool']['amount_ticker_1']) - self.bot.config['cexswap_slipage']['reserve']
                 amount_get = amount * float(liq_pair['pool']['amount_ticker_2'] / liq_pair['pool']['amount_ticker_1'])
@@ -2212,7 +2231,7 @@ class Cexswap(commands.Cog):
                                 sell_token, for_token, amount * slippage, amount_get - float(fee)
                             )
                             if len(get_better_price) > 0:
-                                suggestion_msg = "\n```You may get a better price with:\n{}\n```⚠️ Price can changed be from every trade! ⚠️".format(
+                                suggestion_msg = "\n```You may get a better price with:\n{}\n```⚠️ Price can be updated from every trade! ⚠️".format(
                                     "\n".join(get_better_price)
                                 )
                         except Exception:
@@ -2277,7 +2296,7 @@ class Cexswap(commands.Cog):
                             pool_amount_sell = new_liq_pair['pool']['amount_ticker_2']
                         if truncate(float(new_amount_get), 8) != truncate(float(amount_get), 8):
                             await ctx.edit_original_message(
-                                content=msg.replace("Do you want to trade?", "🔴 CEXSwap rejected!") + "\n**⚠️ Price changed! Please try again!**",
+                                content=msg.replace("Do you want to trade?", "🔴 CEXSwap rejected!") + "\n**⚠️ Price updated! Please try again!**",
                                 view=None
                             )
                             try:
@@ -2345,6 +2364,10 @@ class Cexswap(commands.Cog):
                                         key = u[1] + "_" + for_token + "_" + SERVER_BOT
                                         if key in self.bot.user_balance_cache:
                                             del self.bot.user_balance_cache[key]
+                                if guild_id != "DM":
+                                    key = guild_id + "_" + for_token + "_" + SERVER_BOT
+                                    if key in self.bot.user_balance_cache:
+                                        del self.bot.user_balance_cache[key]
                             except Exception:
                                 pass
                             # End of del key
@@ -2461,17 +2484,23 @@ class Cexswap(commands.Cog):
                             rate_1 = i['amount_ticker_2'] / i['amount_ticker_1']
                         coin_decimal_target = getattr(getattr(self.bot.coin_list, target_coin), "decimal")
                         coin_emoji_target = getattr(getattr(self.bot.coin_list, target_coin), "coin_emoji_discord")
-                        rate_list.append("{} {} {}".format(
-                            coin_emoji_target,
-                            num_format_coin(
-                                rate_1, target_coin, coin_decimal_target, False
-                            ), target_coin
-                        ))
-                    embed.add_field(
-                        name="RATE LIST {} (Active LP)".format(coin_name),
-                        value="{}".format("\n".join(rate_list)),
-                        inline=False
-                    )
+                        if truncate(rate_1, 10) > 0:
+                            rate_list.append("{} {} {}".format(
+                                coin_emoji_target,
+                                num_format_coin(
+                                    rate_1, target_coin, coin_decimal_target, False
+                                ), target_coin
+                            ))
+                    if len(rate_list) > 0:
+                        rate_list_chunks = list(chunks(rate_list, 12))
+                        j = 1
+                        for i in rate_list_chunks:
+                            embed.add_field(
+                                name="RATE LIST {} (Active LP / [{}/{}]".format(coin_name, j, len(rate_list_chunks)),
+                                value="{}".format("\n".join(i)),
+                                inline=False
+                            )
+                            j += 1
                     embed.add_field(
                         name="NOTE",
                         value="Please use the command and select LP from the list above for more detail!",
@@ -2818,17 +2847,60 @@ class Cexswap(commands.Cog):
                 return
             # end checking tx in progress
 
+            # Check user's balance for both,
+            # ticker 0
+            balances = []
+            balances_str = []
+            for coin_name in tickers:
+                net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
+                if get_deposit is None:
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                    )
+
+                wallet_address = get_deposit['balance_wallet_address']
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                    wallet_address = get_deposit['paymentid']
+                elif type_coin in ["XRP"]:
+                    wallet_address = get_deposit['destination_tag']
+
+                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                get_deposit = await self.wallet_api.sql_get_userwallet(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                )
+                if get_deposit is None:
+                    get_deposit = await self.wallet_api.sql_register_user(
+                        str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                    )
+
+                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                userdata_balance = await store.sql_user_balance_single(
+                    str(ctx.author.id), coin_name, wallet_address, 
+                    type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
+                if float(userdata_balance['adjust']) <= 0:
+                    msg = f"{EMOJI_ERROR} {ctx.author.mention}, please check your {coin_name}'s balance!"
+                    await ctx.edit_original_message(content=msg)
+                    return
+
+                balances.append(float(userdata_balance['adjust']))
+                balances_str.append(
+                    num_format_coin(float(userdata_balance['adjust']), coin_name, coin_decimal, False)
+                )
+            # ticker 1
             await ctx.edit_original_message(
                 content=None,
                 embed=embed,
-                view=add_liquidity_btn(ctx, self.bot, str(ctx.author.id), pool_name, accepted=False,
+                view=add_liquidity_btn(ctx, self.bot, str(ctx.author.id), pool_name, balances_str, accepted=False,
                 amount_1=None, amount_2=None)
             )
-
-            # ticker = pool_name.split("/")
-            # await ctx.response.send_modal(
-            #         modal=add_liqudity(ctx, self.bot, ticker[0], ticker[1], ctx.author.id))
-            # await ctx.response.defer()
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -3495,11 +3567,6 @@ class Cexswap(commands.Cog):
                     )
                     list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
 
-                # https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
-                def chunks(lst, n):
-                    """Yield successive n-sized chunks from lst."""
-                    for i in range(0, len(lst), n):
-                        yield lst[i:i + n]
                 list_earning_split = list(chunks(list_earning, 12))
                 j = 1
                 for i in list_earning_split:

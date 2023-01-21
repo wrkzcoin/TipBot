@@ -3495,9 +3495,24 @@ class Cexswap(commands.Cog):
                     )
                     list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
 
+                # https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
+                def chunks(lst, n):
+                    """Yield successive n-sized chunks from lst."""
+                    for i in range(0, len(lst), n):
+                        yield lst[i:i + n]
+                list_earning_split = list(chunks(list_earning, 12))
+                j = 1
+                for i in list_earning_split:
+                    embed.add_field(
+                        name="Your earning {} coin(s) / [{}/{}]".format(len(i), j, len(list_earning_split)),
+                        value="{}".format("\n".join(i)),
+                        inline=False
+                    )
+                    j += 1
                 embed.add_field(
-                    name="Your earning from {} coin(s)".format(len(get_user_earning)),
-                    value="{}\n\nYou can check your balance by `/balance` or `/balances`. From every trade, you will always receive fee {} x amount liquidated pools.".format("\n".join(list_earning), "0.50%"),
+                    name="NOTE",
+                    value="You can check your balance by `/balance` or `/balances`. "\
+                        "From every trade, you will always receive fee {} x amount liquidated pools.".format("0.50%"),
                     inline=False
                 )
                 # check if command in guild
@@ -3523,9 +3538,19 @@ class Cexswap(commands.Cog):
                             )
                             list_g_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['token_name'], each['total_swap']))
 
+                        list_g_earning_split = list(chunks(list_earning, 12))
+                        j = 1
+                        for i in list_g_earning_split:
+                            embed.add_field(
+                                name="This Guild Earns {} coin(s) / [{}/{}]".format(len(i), j, len(list_g_earning_split)),
+                                value="{}".format("\n".join(i)),
+                                inline=False
+                            )
+                            j += 1
                         embed.add_field(
-                            name="This Guild Earns from {} coin(s)".format(len(get_guild_earning)),
-                            value="{}\n\nYou can check guild balance by `/guild balance`. Every trade in public of your guild, your guild will receive fee 0.25%.".format("\n".join(list_g_earning)),
+                            name="GUILD NOTE",
+                            value="You can check guild balance by `/guild balance`. "\
+                                "Every trade in public of your guild, your guild will receive fee 0.25%.",
                             inline=False
                         )
                     except Exception:

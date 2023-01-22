@@ -4550,6 +4550,10 @@ class TransferExtra(disnake.ui.Modal):
             await interaction.edit_original_message(f"{interaction.author.mention}, address can't be empty!")
             return
 
+        if 'extra_option' not in interaction.text_values:
+            await interaction.edit_original_message(f"{interaction.author.mention}, without extra, please use `/withdraw` command!")
+            return
+
         extra_option = interaction.text_values['extra_option'].strip()
         if extra_option is None or len(extra_option) == 0:
             await interaction.edit_original_message(f"{interaction.author.mention}, without extra, please use `/withdraw` command!")

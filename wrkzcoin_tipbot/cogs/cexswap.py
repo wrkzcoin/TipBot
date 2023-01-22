@@ -151,12 +151,12 @@ async def get_cexswap_get_sell_logs(user_id: str=None, from_time: int=None, pool
                 if user_id is not None:
                     sql = """
                     SELECT SUM(`total_sold_amount`) AS sold, SUM(`total_sold_amount_usd`) AS sold_usd,
-                    SUM(`got_total_amount`) AS got, SUM(`got_total_amount_usd`) AS got_used,
+                    SUM(`got_total_amount`) AS got, SUM(`got_total_amount_usd`) AS got_usd,
                     `sold_ticker`, `got_ticker`,
                     COUNT(*) AS total_swap
                     FROM `cexswap_sell_logs`
                     GROUP BY `sold_ticker`, `got_ticker`
-                    WHERE `distributed_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
+                    WHERE `sell_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
                     """
                     data_rows = [user_id]
                     if len(extra_sql) > 0:
@@ -187,6 +187,51 @@ async def get_cexswap_get_sell_logs(user_id: str=None, from_time: int=None, pool
                     result = await cur.fetchall()
                     if result:
                         return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
+async def get_cexswap_get_coin_sell_logs(coin_name: str=None, user_id: str=None, from_time: int=None):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                extra_sql = ""
+                if from_time is not None:
+                    extra_sql = """
+                    AND `time`>%s
+                    """
+                if user_id is not None:
+                    extra_sql += """
+                    AND `sell_user_id`=%s
+                    """
+                coin_name_sql = ""
+                if coin_name is not None:
+                    coin_name_sql = "WHERE (`sold_ticker`=%s OR `got_ticker`=%s)"
+
+                sql = """
+                SELECT SUM(`total_sold_amount`) AS sold, SUM(`total_sold_amount_usd`) AS sold_usd,
+                SUM(`got_total_amount`) AS got, SUM(`got_total_amount_usd`) AS got_usd,
+                `sold_ticker`, `got_ticker`,
+                SUM(`got_fee_liquidators`) AS `fee_liquidators`,
+                COUNT(*) AS total_swap
+                FROM `cexswap_sell_logs`
+                """+ coin_name_sql + extra_sql + """
+                GROUP BY `sold_ticker`, `got_ticker`
+                """
+                if coin_name is None and (from_time is not None or user_id is not None) and "WHERE" not in sql:
+                    sql = sql.replace("AND", "WHERE", 1)
+                data_rows = []
+                if coin_name is not None:
+                    data_rows += [coin_name, coin_name]
+                if from_time is not None:
+                    data_rows += [from_time]
+                if user_id is not None:
+                    data_rows += [user_id]
+                await cur.execute(sql, tuple(data_rows))
+                result = await cur.fetchall()
+                if result:
+                    return result
     except Exception:
         traceback.print_exc(file=sys.stdout)
     return []
@@ -889,6 +934,12 @@ class DropdownSummaryLP(disnake.ui.StringSelect):
             return
         else:
             try:
+                self.embed.clear_fields()
+                self.embed.add_field(
+                    name="Coins with CEXSwap: {}".format(len(self.bot.cexswap_coins)),
+                    value="{}".format(", ".join(self.bot.cexswap_coins)),
+                    inline=False
+                )
                 if self.values[0] == "LIQUIDITY":
                     list_lp = []
                     for k, v in self.lp_list_coins.items():
@@ -896,44 +947,31 @@ class DropdownSummaryLP(disnake.ui.StringSelect):
                         coin_decimal = getattr(getattr(self.bot.coin_list, k), "decimal")
                         amount_str = num_format_coin(v, k, coin_decimal, False)
                         list_lp.append("{} {} {}".format(coin_emoji, amount_str, k))
-                    self.embed.set_field_at(
-                        index=2,
-                        name=self.values[0],
-                        value="{}".format("\n".join(list_lp)),
-                        inline=False
-                    )
-                    self.embed.set_field_at(
-                        index=3,
-                        name="Remark",
-                        value="Please often check this summary.",
-                        inline=False
-                    )
+                    list_lp_chunks = list(chunks(list_lp, 12))
+                    for i in list_lp_chunks:
+                        self.embed.add_field(
+                            name=self.values[0],
+                            value="{}".format("\n".join(i)),
+                            inline=False
+                        )
                 elif self.values[0] == "VOLUME":
-                    self.embed.set_field_at(
-                        index=2,
-                        name=self.list_fields['1d']['volume_title'],
-                        value=self.list_fields['1d']['volume_value'],
-                        inline=False
-                    )
-                    self.embed.set_field_at(
-                        index=3,
-                        name=self.list_fields['7d']['volume_title'],
-                        value=self.list_fields['7d']['volume_value'],
-                        inline=False
-                    )
+                    for key in ['1d', '7d']:
+                        list_vol = list(chunks(self.list_fields[key]['volume_value'], 12))
+                        for i in list_vol:
+                            self.embed.add_field(
+                                name=self.list_fields[key]['volume_title'],
+                                value="{}".format("\n".join(i)),
+                                inline=False
+                            )
                 elif self.values[0] == "FEE TO LIQUIDATORS":
-                    self.embed.set_field_at(
-                        index=2,
-                        name=self.list_fields['1d']['fee_title'],
-                        value=self.list_fields['1d']['fee_value'],
-                        inline=False
-                    )
-                    self.embed.set_field_at(
-                        index=3,
-                        name=self.list_fields['7d']['fee_title'],
-                        value=self.list_fields['7d']['fee_value'],
-                        inline=False
-                    )
+                    for key in ['1d', '7d']:
+                        list_fee = list(chunks(self.list_fields[key]['fee_value'], 12))
+                        for i in list_fee:
+                            self.embed.add_field(
+                                name=self.list_fields[key]['fee_title'],
+                                value="{}".format("\n".join(i)),
+                                inline=False
+                            )
                 # Create the view containing our dropdown
                 view = DropdownViewSummary(
                     self.ctx, self.bot, self.embed, self.list_fields,
@@ -1067,7 +1105,7 @@ class DropdownLP(disnake.ui.StringSelect):
 
 class DropdownViewLP(disnake.ui.View):
     def __init__(self, ctx, bot, list_coins, active_coin: str):
-        super().__init__(timeout=60.0)
+        super().__init__(timeout=120.0)
         self.ctx = ctx
         self.bot = bot
         self.list_coins = list_coins
@@ -1078,7 +1116,7 @@ class DropdownViewLP(disnake.ui.View):
     async def on_timeout(self):
         original_message = await self.ctx.original_message()
         await original_message.edit(view=None)
-
+# End of DropdownLP Viewer
 
 class ConfirmSell(disnake.ui.View):
     def __init__(self, bot, owner_id: int):
@@ -1802,8 +1840,8 @@ class Cexswap(commands.Cog):
                 )  
             # List distributed fee
             earning = {}
-            earning['7d'] = await get_cexswap_earning(user_id=None, from_time=int(time.time()-7*24*3600), pool_id=None)
-            earning['1d'] = await get_cexswap_earning(user_id=None, from_time=int(time.time()-1*24*3600), pool_id=None)
+            earning['7d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-1*24*3600)
+            earning['1d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-1*24*3600)
             list_fields = {}
             get_pools = await cexswap_get_all_lp_pools()
             lp_list_coins = {}
@@ -1818,37 +1856,42 @@ class Cexswap(commands.Cog):
                     lp_list_coins[each_lp['ticker_2_name']] += each_lp['amount_ticker_2']
 
             if len(earning) > 0:
+                list_coin_set = []
                 for k, v in earning.items():
-                    list_earning = []
-                    list_volume = []
+                    earning_list = []
+                    volume_list = []
+                    list_earning_dict = {}
+                    list_volume_dict = {}
                     for each in v:
-                        coin_emoji = ""
-                        try:
-                            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
-                                    coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
-                                    coin_emoji = coin_emoji + " " if coin_emoji else ""
-                            else:
-                                coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
-                                coin_emoji = coin_emoji + " " if coin_emoji else ""
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                        coin_decimal = getattr(getattr(self.bot.coin_list, each['got_ticker']), "decimal")
+                        if each['got_ticker'] not in list_earning_dict:
+                            list_earning_dict[each['got_ticker']] = each['got']
+                        else:
+                            list_earning_dict[each['got_ticker']] += each['got']
+                        if each['got_ticker'] not in list_volume_dict:
+                            list_volume_dict[each['got_ticker']] = each['got']
+                        else:
+                            list_volume_dict[each['got_ticker']] += each['got']
+                        if each['got_ticker'] not in list_coin_set:
+                            list_coin_set.append(each['got_ticker'])
+                    for i in list_coin_set:
+                        coin_emoji = getattr(getattr(self.bot.coin_list, i), "coin_emoji_discord")
+                        coin_emoji = coin_emoji + " " if coin_emoji else ""
+                        coin_decimal = getattr(getattr(self.bot.coin_list, i), "decimal")
                         earning_amount = num_format_coin(
-                            each['collected_amount'], each['got_ticker'], coin_decimal, False
+                            list_earning_dict[i], i, coin_decimal, False
                         )
                         traded_amount = num_format_coin(
-                            each['got_total_amount'], each['got_ticker'], coin_decimal, False
+                            list_volume_dict[i], i, coin_decimal, False
                         )
-                        list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
-                        list_volume.append("{}{} {}".format(coin_emoji, traded_amount, each['got_ticker']))
+                        earning_list.append("{}{} {}".format(coin_emoji, earning_amount, i))
+                        volume_list.append("{}{} {}".format(coin_emoji, traded_amount, i))
 
                     if len(v) > 0:
                         list_fields[k] = {}
-                        list_fields[k]['fee_title'] = "Fee to liquidator(s) - {} coin(s) [{}]".format(len(v), k.upper())
-                        list_fields[k]['fee_value'] = "{}".format("\n".join(list_earning))
+                        list_fields[k]['fee_title'] = "Fee to liquidator(s) [{}]".format(k.upper())
+                        list_fields[k]['fee_value'] = earning_list
                         list_fields[k]['volume_title'] = "Total volume [{}]".format(k.upper())
-                        list_fields[k]['volume_value'] = "{}".format("\n".join(list_volume))
+                        list_fields[k]['volume_value'] = volume_list
             embed.add_field(
                 name="Select Menu",
                 value="Please select from dropdown",
@@ -2457,6 +2500,7 @@ class Cexswap(commands.Cog):
             if pool_name in self.bot.cexswap_coins:
                 coin_name = pool_name
                 coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 testing = self.bot.config['cexswap']['testing_msg']
                 embed = disnake.Embed(
                     title="Coin/Token {} {} TipBot's CEXSwap".format(coin_emoji, coin_name),
@@ -2496,11 +2540,32 @@ class Cexswap(commands.Cog):
                         j = 1
                         for i in rate_list_chunks:
                             embed.add_field(
-                                name="RATE LIST {} (Active LP / [{}/{}]".format(coin_name, j, len(rate_list_chunks)),
+                                name="RATE LIST {} (Active LP / [{}/{}])".format(coin_name, j, len(rate_list_chunks)),
                                 value="{}".format("\n".join(i)),
                                 inline=False
                             )
                             j += 1
+                    # Check volume
+                    get_coin_vol = {}
+                    get_coin_vol['1D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-1*24*3600)
+                    get_coin_vol['7D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-7*24*3600)
+                    get_coin_vol['30D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-30*24*3600)
+                    if len(get_coin_vol) > 0:
+                        for k, v in get_coin_vol.items():
+                            if len(v) > 0:
+                                sum_amount = Decimal(0)
+                                for i in v:
+                                    if i['got_ticker'] == coin_name:
+                                        sum_amount += i['got']
+                                if sum_amount > 0:
+                                    embed.add_field(
+                                        name="Volume {} {}".format(k, coin_emoji),
+                                        value="{}\n".format(
+                                            num_format_coin(sum_amount, coin_name, coin_decimal, False)
+                                        ),
+                                        inline=True
+                                    )
+
                     embed.add_field(
                         name="NOTE",
                         value="Please use the command and select LP from the list above for more detail!",

@@ -887,6 +887,27 @@ class WalletAPI(commands.Cog):
                             balance = float(Decimal(json_resp['unlocked']) / Decimal(10 ** coin_decimal))
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+        elif type_coin == "BCN":
+            url = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
+            json_data = {
+                "jsonrpc": "2.0",
+                "id": "0",
+                "method": "getBalance"
+            }
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=json_data, headers=headers, timeout=60) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)
+                            json_resp = decoded_data
+                            balance = float(Decimal(json_resp['result']['availableBalance']) / Decimal(10 ** coin_decimal))
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
         elif type_coin == "TRTL-SERVICE":
             url = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
             json_data = {"jsonrpc": "2.0", "id": 1, "password": "passw0rd", "method": "getBalance", "params": {}}
@@ -11076,9 +11097,10 @@ class Wallet(commands.Cog):
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"] and getattr(
                     getattr(self.bot.coin_list, coin_name),
                     "split_main_paymentid") == 1:  # split main and integrated address
+                main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                 embed.add_field(
                     name="Main Address",
-                    value="`{}`".format(get_deposit['main_address']),
+                    value="```{}```".format(main_address),
                     inline=False
                 )
                 embed.add_field(

@@ -767,6 +767,18 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return coin_emoji
 
+    def get_explorer_link(self, coin_name: str, tx: str):
+        explorer_link = ""
+        try:
+            explorer_link = getattr(getattr(self.bot.coin_list, coin_name), "explorer_tx_prefix")
+            if explorer_link is None:
+                explorer_link = ""
+            else:
+                explorer_link = "\nLink: <" + explorer_link.replace("{tx_hash_here}", tx) + ">"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return explorer_link
+
     def set_cache_kv(self, table: str, key: str, value):
         try:
             if table.lower() == "test":

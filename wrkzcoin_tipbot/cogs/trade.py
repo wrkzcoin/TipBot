@@ -28,6 +28,7 @@ class Trade(commands.Cog):
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
         self.min_ratio = 0.0000000001
+        self.message_cexswap = "Try our TipBot's feature with /cexswap for more advanced trading!"
 
         self.botLogChan = None
         self.enable_logchan = True
@@ -269,6 +270,13 @@ class Trade(commands.Cog):
             fee_buy = round(self.bot.config['trade']['Trade_Margin'] * buy_amount, 8)
             if fee_sell == 0: fee_sell = 0.00000010
             if fee_buy == 0: fee_buy = 0.00000010
+            if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 30:
+                msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
+                await ctx.edit_original_message(content=msg)
+                return
+            else:
+                self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
             order_add = await store.sql_store_openorder(
                 sell_ticker, coin_decimal_sell, sell_amount,
                 sell_amount - fee_sell, str(ctx.author.id), buy_ticker,
@@ -285,19 +293,22 @@ class Trade(commands.Cog):
                         del self.bot.user_balance_cache[key_coin]
                 except Exception:
                     pass
-
+                try:
+                    del self.bot.tipping_in_progress[str(self.ctx.author.id)]
+                except Exception:
+                    pass
                 buy_msg = "You can buy with `/market buy ref_number:{}`.".format(order_add)
                 additional_message = " You will sell {} {} and you can get {} {}.".format(
                     num_format_coin(buy_amount, buy_ticker, coin_decimal_buy, False), buy_ticker,
                     num_format_coin(sell_amount-fee_sell, sell_ticker, coin_decimal_sell, False), sell_ticker,
                 )
-                get_message = "New p2p open order created: #**{}**```Selling: {} {}\nFor: {} {}\nFee: {} {}```".format(
+                get_message = "[P2P] New order created: #**{}**```Selling: {} {}\nFor: {} {}\nFee: {} {}```".format(
                     order_add,
                     num_format_coin(sell_amount, sell_ticker, coin_decimal_sell, False), sell_ticker,
                     num_format_coin(buy_amount, buy_ticker, coin_decimal_buy, False), buy_ticker,
                     num_format_coin(fee_sell, sell_ticker, coin_decimal_sell, False), sell_ticker
                 )
-                await ctx.edit_original_message(content=get_message)
+                await ctx.edit_original_message(content="{}{}".format(get_message, self.message_cexswap))
                 # Find guild where there is trade channel assign
                 get_guilds = await self.utils.get_trade_channel_list()
                 if len(get_guilds) > 0:
@@ -805,6 +816,13 @@ class Trade(commands.Cog):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
+                        if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 30:
+                            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                        else:
+                            self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                         # let's make order update
                         match_order = await store.sql_match_order_by_sellerid(
                             str(ctx.author.id), ref_number,
@@ -813,6 +831,10 @@ class Trade(commands.Cog):
                             get_order_num['userid_sell'], True
                         )
                         if match_order:
+                            try:
+                                del self.bot.tipping_in_progress[str(self.ctx.author.id)]
+                            except Exception:
+                                pass
                             try:
                                 got_amount = num_format_coin(
                                     get_order_num['amount_sell_after_fee'],
@@ -826,7 +848,7 @@ class Trade(commands.Cog):
                                     getattr(getattr(self.bot.coin_list, get_order_num['coin_get']), "decimal"),
                                     False
                                 )
-                                msg = '**{}** Order completed! ```Get: {}{}\nFrom selling: {}{}```'.format(
+                                msg = "[P2P] Order num.: **{}** completed! ```Get: {}{}\nFrom selling: {}{}```".format(
                                     ref_number,
                                     got_amount,
                                     get_order_num['coin_sell'],

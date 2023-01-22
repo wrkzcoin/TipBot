@@ -1605,12 +1605,12 @@ class add_liquidity_btn(disnake.ui.View):
                 )
                 # Find guild where there is trade channel assign
                 get_guilds = await self.utils.get_trade_channel_list()
-                if len(get_guilds) > 0:
+                if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0:
                     for item in get_guilds:
                         try:
                             get_guild = self.bot.get_guild(int(item['serverid']))
                             if get_guild:
-                                channel = self.bot.get_channel(int(item['trade_channel']))
+                                channel = get_guild.get_channel(int(item['trade_channel']))
                                 if (hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel.id != inter.channel.id) or not \
                                         hasattr(inter, "guild"):
                                     await channel.send(f"[CEXSWAP]: A user added more liquidity pool `{self.pool_name}`! {add_msg}")
@@ -2010,6 +2010,11 @@ class Cexswap(commands.Cog):
         await ctx.response.send_message(msg)
         sell_amount_old = amount
 
+        if self.bot.config['cexswap']['enable_sell'] != 1 and ctx.author.id != self.bot.config['discord']['owner_id']:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, CEXSwap sell is temporarily offline! Check again soon."
+            await ctx.response.send_message(msg)
+            return
+
         sell_token = sell_token.upper()
         for_token = for_token.upper()
 
@@ -2188,6 +2193,15 @@ class Cexswap(commands.Cog):
                 amount_get = slippage * amount_get
                 if slippage > 1 or slippage < 0.88:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error with slippage. Try again later!"
+                    await ctx.edit_original_message(content=msg)
+                    return
+                
+                # If the amount get is too small.
+                if amount_get < self.bot.config['cexswap']['minimum_receive_or_reject']:
+                    coin_decimal_get = getattr(getattr(self.bot.coin_list, for_token), "decimal")
+                    num_receive = num_format_coin(amount_get, for_token, coin_decimal_get, False)
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the received amount is too small "\
+                        f"{num_receive} {for_token}. Please increase your sell amount!"
                     await ctx.edit_original_message(content=msg)
                     return
 
@@ -2427,12 +2441,12 @@ class Cexswap(commands.Cog):
                                 self.bot.config['discord']['cexswap']
                             )
                             get_guilds = await self.utils.get_trade_channel_list()
-                            if len(get_guilds) > 0:
+                            if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0:
                                 for item in get_guilds:
                                     try:
                                         get_guild = self.bot.get_guild(int(item['serverid']))
                                         if get_guild:
-                                            channel = self.bot.get_channel(int(item['trade_channel']))
+                                            channel = get_guild.get_channel(int(item['trade_channel']))
                                             if (hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id) or not \
                                                 not hasattr(ctx, "guild"):
                                                 await channel.send(f"[CEXSWAP]: A user sold {user_amount_sell} {sell_token} for "\
@@ -2750,6 +2764,11 @@ class Cexswap(commands.Cog):
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+        if self.bot.config['cexswap']['enable_add_liq'] != 1 and ctx.author.id != self.bot.config['discord']['owner_id']:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, CEXSwap's adding liquidity is temporarily offline! Check again soon."
+            await ctx.response.send_message(msg)
+            return
 
         try:
             testing = self.bot.config['cexswap']['testing_msg']
@@ -3146,6 +3165,11 @@ class Cexswap(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading..."
         await ctx.response.send_message(msg)
 
+        if self.bot.config['cexswap']['enable_remove_liq'] != 1 and ctx.author.id != self.bot.config['discord']['owner_id']:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, CEXSwap's removing liquidity is temporarily offline! Check again soon."
+            await ctx.response.send_message(msg)
+            return
+
         percentage = int(percentage.replace("%", ""))
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -3270,12 +3294,12 @@ class Cexswap(commands.Cog):
                             self.bot.config['discord']['cexswap']
                         )
                         get_guilds = await self.utils.get_trade_channel_list()
-                        if len(get_guilds) > 0:
+                        if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0:
                             for item in get_guilds:
                                 try:
                                     get_guild = self.bot.get_guild(int(item['serverid']))
                                     if get_guild:
-                                        channel = self.bot.get_channel(int(item['trade_channel']))
+                                        channel = get_guild.get_channel(int(item['trade_channel']))
                                         if (hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id) or not \
                                                 not hasattr(ctx, "guild"):
                                             await channel.send(

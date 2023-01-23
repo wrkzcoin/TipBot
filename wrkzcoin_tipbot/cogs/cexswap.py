@@ -1163,14 +1163,14 @@ class add_liqudity(disnake.ui.Modal):
 
         components = [
             disnake.ui.TextInput(
-                label="Amount Coin {} | You have: {}".format(ticker_1.upper(), self.balances_str[0]),
+                label="{} | Having {}".format(ticker_1.upper(), self.balances_str[0]),
                 placeholder="10000",
                 custom_id="cexswap_amount_coin_id_1",
                 style=TextInputStyle.short,
                 max_length=16
             ),
             disnake.ui.TextInput(
-                label="Amount Coin {} | You have: {}".format(ticker_2.upper(), self.balances_str[1]),
+                label="{} | Having {}".format(ticker_2.upper(), self.balances_str[1]),
                 placeholder="10000",
                 custom_id="cexswap_amount_coin_id_2",
                 style=TextInputStyle.short,
@@ -1606,13 +1606,17 @@ class add_liquidity_btn(disnake.ui.View):
                 # Find guild where there is trade channel assign
                 get_guilds = await self.utils.get_trade_channel_list()
                 if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0:
+                    list_guild_ids = [i.id for i in self.bot.guilds]
                     for item in get_guilds:
+                        if int(item['serverid']) not in list_guild_ids:
+                            continue
                         try:
                             get_guild = self.bot.get_guild(int(item['serverid']))
                             if get_guild:
                                 channel = get_guild.get_channel(int(item['trade_channel']))
-                                if (hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel.id != inter.channel.id) or not \
-                                        hasattr(inter, "guild"):
+                                if hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel.id != inter.channel.id:
+                                    continue
+                                else:
                                     await channel.send(f"[CEXSWAP]: A user added more liquidity pool `{self.pool_name}`! {add_msg}")
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -1837,10 +1841,11 @@ class Cexswap(commands.Cog):
                     name="Active LP: {}".format(len(list_pairs)),
                     value=list_pair_msg,
                     inline=False
-                )  
+                )
+
             # List distributed fee
             earning = {}
-            earning['7d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-1*24*3600)
+            earning['7d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-7*24*3600)
             earning['1d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-1*24*3600)
             list_fields = {}
             get_pools = await cexswap_get_all_lp_pools()
@@ -1856,24 +1861,26 @@ class Cexswap(commands.Cog):
                     lp_list_coins[each_lp['ticker_2_name']] += each_lp['amount_ticker_2']
 
             if len(earning) > 0:
-                list_coin_set = []
                 for k, v in earning.items():
+                    list_coin_set = []
                     earning_list = []
                     volume_list = []
                     list_earning_dict = {}
                     list_volume_dict = {}
                     for each in v:
-                        if each['got_ticker'] not in list_earning_dict:
-                            list_earning_dict[each['got_ticker']] = each['got']
+                        if each['got_ticker'] not in list_earning_dict.keys():
+                            list_earning_dict[each['got_ticker']] = each['fee_liquidators']
                         else:
-                            list_earning_dict[each['got_ticker']] += each['got']
-                        if each['got_ticker'] not in list_volume_dict:
+                            list_earning_dict[each['got_ticker']] += each['fee_liquidators']
+                        if each['got_ticker'] not in list_volume_dict.keys():
                             list_volume_dict[each['got_ticker']] = each['got']
                         else:
                             list_volume_dict[each['got_ticker']] += each['got']
                         if each['got_ticker'] not in list_coin_set:
                             list_coin_set.append(each['got_ticker'])
                     for i in list_coin_set:
+                        if i not in list_volume_dict.keys():
+                            continue
                         coin_emoji = getattr(getattr(self.bot.coin_list, i), "coin_emoji_discord")
                         coin_emoji = coin_emoji + " " if coin_emoji else ""
                         coin_decimal = getattr(getattr(self.bot.coin_list, i), "decimal")
@@ -1977,7 +1984,7 @@ class Cexswap(commands.Cog):
                     )
 
                 # filter uniq tokens
-                list_coins = list(set([i['ticker_1_name'] for i in get_pools] + [i['ticker_2_name'] for i in get_pools]))
+                list_coins = list(set([i['ticker_1_name'] for i in get_pools] + [i['ticker_2_name'] for i in get_pools]))[:25]
 
                 # Create the view containing our dropdown
                 view = DropdownViewLP(ctx, self.bot, list_coins, active_coin=None)
@@ -2442,13 +2449,17 @@ class Cexswap(commands.Cog):
                             )
                             get_guilds = await self.utils.get_trade_channel_list()
                             if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0:
+                                list_guild_ids = [i.id for i in self.bot.guilds]
                                 for item in get_guilds:
+                                    if int(item['serverid']) not in list_guild_ids:
+                                        continue
                                     try:
                                         get_guild = self.bot.get_guild(int(item['serverid']))
                                         if get_guild:
                                             channel = get_guild.get_channel(int(item['trade_channel']))
-                                            if (hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id) or not \
-                                                not hasattr(ctx, "guild"):
+                                            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id:
+                                                continue
+                                            else:
                                                 await channel.send(f"[CEXSWAP]: A user sold {user_amount_sell} {sell_token} for "\
                                                     f"{user_amount_get} {for_token}."
                                                 )
@@ -2525,6 +2536,7 @@ class Cexswap(commands.Cog):
                 embed.set_thumbnail(url=self.bot.user.display_avatar)
                 # Find pool with
                 find_other_lp = await cexswap_get_pools(coin_name)
+                total_liq = Decimal(0)
                 if len(find_other_lp) > 0:
                     items =[i['pairs'] for i in find_other_lp]
                     embed.add_field(
@@ -2535,6 +2547,11 @@ class Cexswap(commands.Cog):
                     # get price of each LP
                     rate_list = []
                     for i in find_other_lp:
+                        # get L in LP
+                        if coin_name == i['ticker_1_name']:
+                            total_liq += i['amount_ticker_1']
+                        elif coin_name == i['ticker_2_name']:
+                            total_liq += i['amount_ticker_2']                            
                         target_coin = i['ticker_1_name']
                         rate_1 = i['amount_ticker_1'] / i['amount_ticker_2']
                         if coin_name == target_coin:
@@ -2559,6 +2576,11 @@ class Cexswap(commands.Cog):
                                 inline=False
                             )
                             j += 1
+                    embed.add_field(
+                        name="All liquidity {}".format(coin_name),
+                        value=num_format_coin(total_liq, coin_name, coin_decimal, False),
+                        inline=False
+                    )
                     # Check volume
                     get_coin_vol = {}
                     get_coin_vol['1D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-1*24*3600)
@@ -2913,13 +2935,13 @@ class Cexswap(commands.Cog):
             )
 
             embed.add_field(
-                name="Adding Ticker {}{}".format(coin_emoji_1, tickers[0]),
-                value="Amount: .. {}".format(tickers[0]),
+                name="Adding Ticker {}".format(tickers[0]),
+                value="Amount: .. {}{}".format(coin_emoji_1, tickers[0]),
                 inline=False
             )
             embed.add_field(
-                name="Adding Ticker {}{}".format(coin_emoji_2, tickers[1]),
-                value="Amount: .. {}".format(tickers[1]),
+                name="Adding Ticker {}".format(tickers[1]),
+                value="Amount: .. {}{}".format(coin_emoji_2, tickers[1]),
                 inline=False
             )
 
@@ -3295,13 +3317,17 @@ class Cexswap(commands.Cog):
                         )
                         get_guilds = await self.utils.get_trade_channel_list()
                         if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0:
+                            list_guild_ids = [i.id for i in self.bot.guilds]
                             for item in get_guilds:
+                                if int(item['serverid']) not in list_guild_ids:
+                                    continue
                                 try:
                                     get_guild = self.bot.get_guild(int(item['serverid']))
                                     if get_guild:
                                         channel = get_guild.get_channel(int(item['trade_channel']))
-                                        if (hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id) or not \
-                                                not hasattr(ctx, "guild"):
+                                        if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id:
+                                            continue
+                                        else:
                                             await channel.send(
                                                 f"[CEXSWAP]: A user removed liquidity from `{pool_name}`. "\
                                                 f"{amount_1_str} {ticker_1} and {amount_2_str} {ticker_2}"

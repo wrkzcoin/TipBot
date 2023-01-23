@@ -358,8 +358,9 @@ class Utils(commands.Cog):
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `discord_server`
                     WHERE `trade_channel` IS NOT NULL
+                        AND `enable_trade`=%s
                     """
-                    await cur.execute(sql,)
+                    await cur.execute(sql, "YES")
                     result = await cur.fetchall()
                     if result:
                         return result
@@ -757,12 +758,17 @@ class Utils(commands.Cog):
         return False
 
     # get coin emoji
-    def get_coin_emoji(self, coin_name: str):
+    def get_coin_emoji(self, coin_name: str, get_link: bool=False):
         coin_emoji = ""
         try:
             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
             if coin_emoji is None:
                 coin_emoji = ""
+            else:
+                if get_link is True:
+                    split_id = coin_emoji.split(":")[2]
+                    link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")) + '.gif'
+                    return link
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return coin_emoji

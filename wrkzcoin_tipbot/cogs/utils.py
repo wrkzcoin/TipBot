@@ -785,6 +785,27 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return explorer_link
 
+    def get_usd_paprika(self, coin_name: str):
+        usd_equivalent_enable = getattr(
+            getattr(self.bot.coin_list, coin_name),
+            "usd_equivalent_enable"
+        )
+        if usd_equivalent_enable == 1:
+            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+            coin_name_for_price = coin_name
+            if native_token_name:
+                coin_name_for_price = native_token_name
+            per_unit = None
+            if coin_name_for_price in self.bot.token_hints:
+                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+            else:
+                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+            if per_unit and per_unit > 0:
+                return per_unit
+        else:
+            return 0
+
     def set_cache_kv(self, table: str, key: str, value):
         try:
             if table.lower() == "test":

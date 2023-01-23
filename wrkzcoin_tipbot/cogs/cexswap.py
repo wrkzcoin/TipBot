@@ -56,7 +56,7 @@ async def cexswap_get_all_lp_pools():
             async with conn.cursor() as cur:
                 sql = """
                 SELECT SUM(`amount_ticker_1`) as amount_ticker_1, SUM(`amount_ticker_2`) 
-                    AS amount_ticker_2, `ticker_1_name`, `ticker_2_name`
+                    AS amount_ticker_2, `ticker_1_name`, `ticker_2_name`, `pairs`
                 FROM `cexswap_pools`
                 GROUP BY `pairs`;
                 """
@@ -906,19 +906,21 @@ async def cexswap_insert_new(
 
 # DropdownSummary Viewer
 class DropdownSummaryLP(disnake.ui.StringSelect):
-    def __init__(self, ctx, bot, embed, list_fields, lp_list_coins, selected_menu):
+    def __init__(self, ctx, bot, embed, list_fields, lp_list_coins, lp_in_usd, lp_sorted_key, selected_menu):
         self.ctx = ctx
         self.bot = bot
         self.embed = embed
         self.list_fields = list_fields
         self.lp_list_coins = lp_list_coins
+        self.lp_in_usd = lp_in_usd
+        self.lp_sorted_key = lp_sorted_key
         self.selected_menu = selected_menu
         self.utils = Utils(self.bot)
 
         options = [
             disnake.SelectOption(
                 label=each, description="Show {}".format(each.lower())
-            ) for each in ["LIQUIDITY", "VOLUME", "FEE TO LIQUIDATORS"]
+            ) for each in ["TOP POOLS", "LIQUIDITY", "VOLUME", "FEE TO LIQUIDATORS"]
         ]
 
         super().__init__(
@@ -940,7 +942,18 @@ class DropdownSummaryLP(disnake.ui.StringSelect):
                     value="{}".format(", ".join(self.bot.cexswap_coins)),
                     inline=False
                 )
-                if self.values[0] == "LIQUIDITY":
+                if self.values[0] == "TOP POOLS":
+                    for i in self.lp_sorted_key[:8]:
+                        self.embed.add_field(
+                            name=i,
+                            value="{} {}\n{} {}{}".format(
+                                self.lp_in_usd[i]['amount_ticker_1'], self.lp_in_usd[i]['ticker_1_name'],
+                                self.lp_in_usd[i]['amount_ticker_2'], self.lp_in_usd[i]['ticker_2_name'],
+                                "\n~{}{}".format(truncate(self.lp_in_usd[i]['value_usd'], 2), " USD") if self.lp_in_usd[i]['value_usd'] > 0 else ""
+                            ),
+                            inline=True
+                        )
+                elif self.values[0] == "LIQUIDITY":
                     list_lp = []
                     for k, v in self.lp_list_coins.items():
                         coin_emoji = getattr(getattr(self.bot.coin_list, k), "coin_emoji_discord")
@@ -975,7 +988,8 @@ class DropdownSummaryLP(disnake.ui.StringSelect):
                 # Create the view containing our dropdown
                 view = DropdownViewSummary(
                     self.ctx, self.bot, self.embed, self.list_fields,
-                    self.lp_list_coins, selected_menu=self.values[0]
+                    self.lp_list_coins, self.lp_in_usd, self.lp_sorted_key,
+                    selected_menu=self.values[0]
                 )
                 await self.ctx.edit_original_message(
                     content=None,
@@ -987,18 +1001,21 @@ class DropdownSummaryLP(disnake.ui.StringSelect):
                 traceback.print_exc(file=sys.stdout)
 
 class DropdownViewSummary(disnake.ui.View):
-    def __init__(self, ctx, bot, embed, list_fields, lp_list_coins, selected_menu: str):
-        super().__init__(timeout=60.0)
+    def __init__(self, ctx, bot, embed, list_fields, lp_list_coins, lp_in_usd, lp_sorted_key, selected_menu: str):
+        super().__init__(timeout=120.0)
         self.ctx = ctx
         self.bot = bot
         self.embed = embed
         self.list_fields = list_fields
         self.lp_list_coins = lp_list_coins
+        self.lp_in_usd = lp_in_usd
+        self.lp_sorted_key = lp_sorted_key
         self.selected_menu = selected_menu
 
         self.add_item(DropdownSummaryLP(
             self.ctx, self.bot, self.embed, self.list_fields,
-            self.lp_list_coins, self.selected_menu
+            self.lp_list_coins, self.lp_in_usd, self.lp_sorted_key,
+            self.selected_menu
         ))
 
     async def on_timeout(self):
@@ -1850,7 +1867,34 @@ class Cexswap(commands.Cog):
             list_fields = {}
             get_pools = await cexswap_get_all_lp_pools()
             lp_list_coins = {}
+            lp_in_usd = {}
             for each_lp in get_pools:
+                if each_lp['pairs'] not in lp_in_usd:
+                    sub_1 = 0.0
+                    sub_2 = 0.0
+                    single_pair_amount = 0.0
+                    pair_amount = 0.0
+                    per_unit = self.utils.get_usd_paprika(each_lp['ticker_1_name'])
+                    if per_unit > 0:
+                        sub_1 = float(Decimal(each_lp['amount_ticker_1']) * Decimal(per_unit))
+                    per_unit = self.utils.get_usd_paprika(each_lp['ticker_2_name'])
+                    if per_unit > 0:
+                        sub_2 = float(Decimal(each_lp['amount_ticker_2']) * Decimal(per_unit))
+                    # check max price
+                    if sub_1 >= 0.0 and sub_2 >= 0.0:
+                        single_pair_amount = max(sub_1, sub_2)
+                    if single_pair_amount > 0:
+                        pair_amount = 2 * single_pair_amount
+                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, each_lp['ticker_1_name']), "decimal")
+                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, each_lp['ticker_2_name']), "decimal")
+                    lp_in_usd[each_lp['pairs']] = {
+                        'ticker_1_name': each_lp['ticker_1_name'],
+                        'amount_ticker_1': num_format_coin(each_lp['amount_ticker_1'], each_lp['ticker_1_name'], coin_decimal_1, False),
+                        'ticker_2_name': each_lp['ticker_2_name'],
+                        'amount_ticker_2': num_format_coin(each_lp['amount_ticker_2'], each_lp['ticker_2_name'], coin_decimal_2, False),
+                        'value_usd': pair_amount
+                    }
+
                 if each_lp['ticker_1_name'] not in lp_list_coins:
                     lp_list_coins[each_lp['ticker_1_name']] = each_lp['amount_ticker_1']
                 else:
@@ -1859,6 +1903,11 @@ class Cexswap(commands.Cog):
                     lp_list_coins[each_lp['ticker_2_name']] = each_lp['amount_ticker_2']
                 else:
                     lp_list_coins[each_lp['ticker_2_name']] += each_lp['amount_ticker_2']
+
+            # sort LP
+            # https://stackoverflow.com/questions/16412563/python-sorting-dictionary-of-dictionaries
+            lp_sorted_key = lp_in_usd.copy()
+            lp_sorted_key = sorted(lp_sorted_key, key=lambda k: lp_sorted_key[k]['value_usd'], reverse=True)
 
             if len(earning) > 0:
                 for k, v in earning.items():
@@ -1912,7 +1961,7 @@ class Cexswap(commands.Cog):
             embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             embed.set_thumbnail(url=self.bot.user.display_avatar)
             # Create the view containing our dropdown
-            view = DropdownViewSummary(ctx, self.bot, embed, list_fields, lp_list_coins, selected_menu=None)
+            view = DropdownViewSummary(ctx, self.bot, embed, list_fields, lp_list_coins, lp_in_usd, lp_sorted_key, selected_menu=None)
             await ctx.edit_original_message(
                 content=None,
                 embed=embed,
@@ -2586,6 +2635,7 @@ class Cexswap(commands.Cog):
                     get_coin_vol['1D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-1*24*3600)
                     get_coin_vol['7D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-7*24*3600)
                     get_coin_vol['30D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-30*24*3600)
+                    per_unit = self.utils.get_usd_paprika(coin_name)
                     if len(get_coin_vol) > 0:
                         for k, v in get_coin_vol.items():
                             if len(v) > 0:
@@ -2594,10 +2644,15 @@ class Cexswap(commands.Cog):
                                     if i['got_ticker'] == coin_name:
                                         sum_amount += i['got']
                                 if sum_amount > 0:
+                                    equi_usd = ""
+                                    if per_unit > 0:
+                                        sub_total_in_usd = float(Decimal(sum_amount) * Decimal(per_unit))
+                                        if sub_total_in_usd > 0.01:
+                                            equi_usd = "\n~ {:,.2f}$".format(sub_total_in_usd)
                                     embed.add_field(
                                         name="Volume {} {}".format(k, coin_emoji),
-                                        value="{}\n".format(
-                                            num_format_coin(sum_amount, coin_name, coin_decimal, False)
+                                        value="{}{}".format(
+                                            num_format_coin(sum_amount, coin_name, coin_decimal, False), equi_usd
                                         ),
                                         inline=True
                                     )
@@ -2688,13 +2743,30 @@ class Cexswap(commands.Cog):
                     rate_coin_12 = "{} {} = {} {}\n{} {} = {} {}".format(
                         1, tickers[0], rate_1, tickers[1], 1, tickers[1], rate_2, tickers[0]
                     )
-                    
+
+                    sub_1 = 0.0
+                    sub_2 = 0.0
+                    single_pair_amount = 0.0
+                    pair_amount = 0.0
+                    per_unit = self.utils.get_usd_paprika(liq_pair['pool']['ticker_1_name'])
+                    if per_unit > 0:
+                        sub_1 = float(Decimal(liq_pair['pool']['amount_ticker_1']) * Decimal(per_unit))
+                    per_unit = self.utils.get_usd_paprika(liq_pair['pool']['ticker_2_name'])
+                    if per_unit > 0:
+                        sub_2 = float(Decimal(liq_pair['pool']['amount_ticker_2']) * Decimal(per_unit))
+                    # check max price
+                    if sub_1 >= 0.0 and sub_2 >= 0.0:
+                        single_pair_amount = max(sub_1, sub_2)
+                    if single_pair_amount > 0:
+                        pair_amount = 2 * single_pair_amount
+
                     # show total liq
                     embed.add_field(
                         name="Total liquidity (from {} user(s))".format(len(liq_pair['pool_share'])),
-                        value="{} {}\n{} {}".format(
+                        value="{} {}\n{} {}{}".format(
                             num_format_coin(liq_pair['pool']['amount_ticker_1'], liq_pair['pool']['ticker_1_name'], coin_decimal_1, False), liq_pair['pool']['ticker_1_name'],
-                            num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False), liq_pair['pool']['ticker_2_name']
+                            num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False), liq_pair['pool']['ticker_2_name'],
+                            "\n~{} {}".format(truncate(pair_amount, 2), "USD") if pair_amount > 0 else ""
                         ),
                         inline=False
                     )

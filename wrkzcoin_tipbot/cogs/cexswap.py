@@ -912,8 +912,8 @@ async def cexswap_insert_new(
                         `update_date`=VALUES(`update_date`);
                     """
                     data_row += [
-                        user_id, ticker_1_name, user_server, -amount_ticker_1, int(time.time),
-                        user_id, ticker_2_name, user_server, -amount_ticker_2, int(time.time)
+                        user_id, ticker_1_name, user_server, -amount_ticker_1, int(time.time()),
+                        user_id, ticker_2_name, user_server, -amount_ticker_2, int(time.time())
                     ]
                     if existing_pool is True:
                         sql += """ UPDATE `cexswap_pools` 
@@ -1614,10 +1614,6 @@ class add_liquidity_btn(disnake.ui.View):
                     await inter.message.edit(view=None)
                 except Exception:
                     pass
-                try:
-                    del self.bot.tipping_in_progress[str(inter.author.id)]
-                except Exception:
-                    pass
                 # Delete if has key
                 try:
                     key = str(inter.author.id) + "_" + ticker[0] + "_" + SERVER_BOT
@@ -1637,6 +1633,13 @@ class add_liquidity_btn(disnake.ui.View):
                 )
                 msg = f'{EMOJI_INFORMATION} {inter.author.mention}, successfully added.```{add_msg}```'
                 await inter.edit_original_message(content=msg)
+                self.accept_click.disabled = True
+                self.add_click.disabled = True
+                await inter.message.edit(view=None)
+                try:
+                    del self.bot.tipping_in_progress[str(inter.author.id)]
+                except Exception:
+                    pass
                 await log_to_channel(
                     "cexswap",
                     f"[ADD LIQUIDITY]: User {inter.author.mention} add new liquidity to pool `{self.pool_name}`! {add_msg}",

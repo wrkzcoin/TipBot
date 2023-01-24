@@ -344,11 +344,12 @@ async def cexswap_airdrop_lp_detail(
             async with conn.cursor() as cur:
                 # deduct from airdroper, plus receivers
                 sql = """
-                UPDATE `user_balance_mv_data`
-                SET
-                    `balance`=`balance`+%s,
-                    `update_date`=%s
-                WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
+                INSERT INTO `user_balance_mv_data`
+                (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    `balance`=`balance`+VALUES(`balance`),
+                    `update_date`=VALUES(`update_date`);
                 """
                 await cur.executemany(sql, list_balance_updates)
                 await conn.commit()
@@ -442,13 +443,19 @@ async def cexswap_remove_pool_share(
                     WHERE `pool_id`=%s AND `ticker_1_name`=%s AND `ticker_2_name`=%s 
                         AND `user_id`=%s AND `user_server`=%s LIMIT 1;
 
-                    UPDATE `user_balance_mv_data`
-                    SET `balance`=`balance`+%s
-                    WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
+                    INSERT INTO `user_balance_mv_data`
+                    (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        `balance`=`balance`+VALUES(`balance`),
+                        `update_date`=VALUES(`update_date`);
 
-                    UPDATE `user_balance_mv_data`
-                    SET `balance`=`balance`+%s
-                    WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
+                    INSERT INTO `user_balance_mv_data`
+                    (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        `balance`=`balance`+VALUES(`balance`),
+                        `update_date`=VALUES(`update_date`);
 
                     INSERT INTO `cexswap_add_remove_logs`
                     (`pool_id`, `user_id`, `user_server`, `action`, `date`, `amount`, `token_name`)
@@ -460,8 +467,8 @@ async def cexswap_remove_pool_share(
                     """
                     data_rows = [
                         pool_id, ticker_1, ticker_2, user_id, user_server,
-                        amount_1, user_id, ticker_1,
-                        amount_2, user_id, ticker_2,
+                        user_id, ticker_1, user_server, amount_1, int(time.time()),
+                        user_id, ticker_2, user_server, amount_2, int(time.time()),
                         pool_id, user_id, user_server, "remove", int(time.time()), amount_1, ticker_1,
                         pool_id, user_id, user_server, "remove", int(time.time()), amount_2, ticker_2,
                     ]
@@ -479,13 +486,19 @@ async def cexswap_remove_pool_share(
                     WHERE `pool_id`=%s AND `ticker_1_name`=%s AND `ticker_2_name`=%s AND `user_id`=%s 
                         AND `user_server`=%s LIMIT 1;
 
-                    UPDATE `user_balance_mv_data`
-                    SET `balance`=`balance`+%s
-                    WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
+                    INSERT INTO `user_balance_mv_data`
+                    (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        `balance`=`balance`+VALUES(`balance`),
+                        `update_date`=VALUES(`update_date`);
 
-                    UPDATE `user_balance_mv_data`
-                    SET `balance`=`balance`+%s
-                    WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
+                    INSERT INTO `user_balance_mv_data`
+                    (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        `balance`=`balance`+VALUES(`balance`),
+                        `update_date`=VALUES(`update_date`);
 
                     INSERT INTO `cexswap_add_remove_logs`
                     (`pool_id`, `user_id`, `user_server`, `action`, `date`, `amount`, `token_name`)
@@ -497,8 +510,8 @@ async def cexswap_remove_pool_share(
                     """
                     data_rows = [
                         amount_1, amount_2, pool_id, ticker_1, ticker_2, user_id, user_server,
-                        amount_1, user_id, ticker_1,
-                        amount_2, user_id, ticker_2,
+                        user_id, ticker_1, user_server, amount_1, int(time.time()),
+                        user_id, ticker_2, user_server, amount_2, int(time.time()),
                         pool_id, user_id, user_server, "remove", int(time.time()), amount_1, ticker_1,
                         pool_id, user_id, user_server, "remove", int(time.time()), amount_2, ticker_2
                     ]
@@ -718,7 +731,7 @@ async def cexswap_sold(
                 (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
                 VALUES (%s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
-                    `balance`=`balance`-VALUES(`balance`),
+                    `balance`=`balance`+VALUES(`balance`),
                     `update_date`=VALUES(`update_date`);
 
                 INSERT INTO `user_balance_mv_data`
@@ -729,7 +742,7 @@ async def cexswap_sold(
                     `update_date`=VALUES(`update_date`);
                 """
                 data_rows += [
-                    user_id, sell_ticker, SERVER_BOT, float(amount_sell), int(time.time()),
+                    user_id, sell_ticker, SERVER_BOT, -float(amount_sell), int(time.time()),
                     user_id, got_ticker, SERVER_BOT,  float(amount_get)-float(got_fee_dev)-float(got_fee_liquidators)-float(got_fee_guild), int(time.time())                            
                 ]
 
@@ -876,19 +889,31 @@ async def cexswap_insert_new(
                     INSERT INTO `cexswap_add_remove_logs`
                     (`pool_id`, `user_id`, `user_server`, `action`, `date`, `amount`, `token_name`)
                     VALUES (%s, %s, %s, %s, %s, %s, %s);
-
-                    UPDATE `user_balance_mv_data`
-                    SET `balance`=`balance`-%s WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
-
-                    UPDATE `user_balance_mv_data`
-                    SET `balance`=`balance`-%s WHERE `user_id`=%s AND `token_name`=%s LIMIT 1;
                     """
                     data_row = [pool_id, pairs, amount_ticker_1, ticker_1_name,
                         amount_ticker_2, ticker_2_name, user_id, user_server, int(time.time()),
                         pool_id, user_id, user_server, "add", int(time.time()), amount_ticker_1, ticker_1_name,
-                        pool_id, user_id, user_server, "add", int(time.time()), amount_ticker_2, ticker_2_name,
-                        amount_ticker_1, user_id, ticker_1_name,
-                        amount_ticker_2, user_id, ticker_2_name
+                        pool_id, user_id, user_server, "add", int(time.time()), amount_ticker_2, ticker_2_name
+                    ]
+                    # Insert new pool share
+                    sql += """
+                    INSERT INTO `user_balance_mv_data`
+                    (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        `balance`=`balance`+VALUES(`balance`),
+                        `update_date`=VALUES(`update_date`);
+
+                    INSERT INTO `user_balance_mv_data`
+                    (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        `balance`=`balance`+VALUES(`balance`),
+                        `update_date`=VALUES(`update_date`);
+                    """
+                    data_row += [
+                        user_id, ticker_1_name, user_server, -amount_ticker_1, int(time.time),
+                        user_id, ticker_2_name, user_server, -amount_ticker_2, int(time.time)
                     ]
                     if existing_pool is True:
                         sql += """ UPDATE `cexswap_pools` 
@@ -1167,7 +1192,6 @@ class ConfirmSell(disnake.ui.View):
             self.value = False
             self.stop()
 
-
 class add_liqudity(disnake.ui.Modal):
     def __init__(self, ctx, bot, ticker_1: str, ticker_2: str, owner_userid: str, balances_str) -> None:
         self.ctx = ctx
@@ -1197,7 +1221,6 @@ class add_liqudity(disnake.ui.Modal):
         super().__init__(title="Add a new liqudity", custom_id="modal_add_new_liqudity", components=components)
 
     async def callback(self, interaction: disnake.ModalInteraction) -> None:
-        # Check if type of question is bool or multipe
         try:
             # await interaction.response.defer()
             await interaction.response.send_message(content=f"{interaction.author.mention}, checking liquidity...", ephemeral=True)
@@ -1255,14 +1278,14 @@ class add_liqudity(disnake.ui.Modal):
                     wallet_address = get_deposit['destination_tag']
 
                 height = self.wallet_api.get_block_height(type_coin, self.ticker_1, net_name)
-                userdata_balance = await store.sql_user_balance_single(
+                userdata_balance = await self.wallet_api.user_balance(
                     str(interaction.author.id), self.ticker_1, wallet_address, 
                     type_coin, height, deposit_confirm_depth, SERVER_BOT
                 )
                 actual_balance = float(userdata_balance['adjust'])
                 if actual_balance < 0 or truncate(actual_balance, 8) < truncate(amount_1, 8):
                     accepted = False
-                    error_msg = f"{EMOJI_RED_NO}, You don't have sufficient balance!"
+                    error_msg = f"{EMOJI_RED_NO}, You don't have sufficient balance for {self.ticker_1}!"
 
                 # self.ticker_2
                 net_name = getattr(getattr(self.bot.coin_list, self.ticker_2), "net_name")
@@ -1285,14 +1308,14 @@ class add_liqudity(disnake.ui.Modal):
                     wallet_address = get_deposit['destination_tag']
 
                 height = self.wallet_api.get_block_height(type_coin, self.ticker_2, net_name)
-                userdata_balance = await store.sql_user_balance_single(
+                userdata_balance = await self.wallet_api.user_balance(
                     str(interaction.author.id), self.ticker_2, wallet_address, 
                     type_coin, height, deposit_confirm_depth, SERVER_BOT
                 )
                 actual_balance = float(userdata_balance['adjust'])
                 if actual_balance < 0 or truncate(actual_balance, 8) < truncate(amount_2, 8):
                     accepted = False
-                    error_msg = f"{EMOJI_RED_NO}, You don't have sufficient balance!"
+                    error_msg = f"{EMOJI_RED_NO}, You don't have sufficient balance for {self.ticker_2}!"
                 # end of check user balance
 
                 if liq_pair is None:
@@ -1371,14 +1394,13 @@ class add_liqudity(disnake.ui.Modal):
                         inline=False
                     )
                 else:
-                    min_initialized_liq_1 = getattr(getattr(self.bot.coin_list, self.ticker_1), "cexswap_min_initialized_liq")
-                    min_initialized_liq_2 = getattr(getattr(self.bot.coin_list, self.ticker_2), "cexswap_min_initialized_liq")
-                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, self.ticker_1), "decimal")
-                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, self.ticker_2), "decimal")
+                    if liq_pair is not None:
+                        cexswap_min_add_liq_1 = getattr(getattr(self.bot.coin_list, self.ticker_1), "cexswap_min_initialized_liq")
+                        cexswap_min_add_liq_2 = getattr(getattr(self.bot.coin_list, self.ticker_2), "cexswap_min_initialized_liq")
 
                     init_liq_text = "{} {}\n{} {}".format(
-                        num_format_coin(min_initialized_liq_1, self.ticker_1, coin_decimal_1, False), self.ticker_1,
-                        num_format_coin(min_initialized_liq_2, self.ticker_2, coin_decimal_2, False), self.ticker_2
+                        num_format_coin(cexswap_min_add_liq_1, self.ticker_1, coin_decimal_1, False), self.ticker_1,
+                        num_format_coin(cexswap_min_add_liq_2, self.ticker_2, coin_decimal_2, False), self.ticker_2
                     )
                     embed.add_field(
                         name="Minimum adding",
@@ -1530,7 +1552,7 @@ class add_liquidity_btn(disnake.ui.View):
             elif type_coin in ["XRP"]:
                 wallet_address = get_deposit['destination_tag']
 
-            userdata_balance = await store.sql_user_balance_single(
+            userdata_balance = await self.wallet_api.user_balance(
                 str(inter.author.id), coin_name, wallet_address, 
                 type_coin, height, deposit_confirm_depth, SERVER_BOT
             )
@@ -1565,7 +1587,7 @@ class add_liquidity_btn(disnake.ui.View):
             elif type_coin in ["XRP"]:
                 wallet_address = get_deposit['destination_tag']
 
-            userdata_balance = await store.sql_user_balance_single(
+            userdata_balance = await self.wallet_api.user_balance(
                 str(inter.author.id), coin_name, wallet_address, 
                 type_coin, height, deposit_confirm_depth, SERVER_BOT
             )
@@ -2207,7 +2229,7 @@ class Cexswap(commands.Cog):
                     )
 
                 height = self.wallet_api.get_block_height(type_coin, sell_token, net_name)
-                userdata_balance = await store.sql_user_balance_single(
+                userdata_balance = await self.wallet_api.user_balance(
                     str(ctx.author.id), sell_token, wallet_address, 
                     type_coin, height, deposit_confirm_depth, SERVER_BOT
                 )
@@ -2421,7 +2443,7 @@ class Cexswap(commands.Cog):
 
                         # re-check balance
                         height = self.wallet_api.get_block_height(type_coin, sell_token, net_name)
-                        userdata_balance = await store.sql_user_balance_single(
+                        userdata_balance = await self.wallet_api.user_balance(
                             str(ctx.author.id), sell_token, wallet_address, 
                             type_coin, height, deposit_confirm_depth, SERVER_BOT
                         )
@@ -3059,7 +3081,7 @@ class Cexswap(commands.Cog):
                     )
 
                 height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                userdata_balance = await store.sql_user_balance_single(
+                userdata_balance = await self.wallet_api.user_balance(
                     str(ctx.author.id), coin_name, wallet_address, 
                     type_coin, height, deposit_confirm_depth, SERVER_BOT
                 )
@@ -3563,7 +3585,7 @@ class Cexswap(commands.Cog):
                 wallet_address = get_deposit['destination_tag']
 
             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-            userdata_balance = await store.sql_user_balance_single(
+            userdata_balance = await self.wallet_api.user_balance(
                 str(ctx.author.id), coin_name, wallet_address, type_coin,
                 height, deposit_confirm_depth, SERVER_BOT
             )
@@ -3609,7 +3631,7 @@ class Cexswap(commands.Cog):
                 lp_discord_users = []
                 # owner
                 balance_rows.append((
-                    -float(truncate(amount, 8)), int(time.time()), str(ctx.author.id), coin_name
+                    str(ctx.author.id), coin_name, SERVER_BOT, -float(truncate(amount, 8)), int(time.time())
                 ))
                 # lp users
                 balance_user = {}
@@ -3617,7 +3639,7 @@ class Cexswap(commands.Cog):
                     try:
                         if float(truncate(amount, 8)) > 0.0:
                             balance_rows.append((
-                                float(truncate(i[0], 8)), int(time.time()), i[1], coin_name
+                                i[1], coin_name, SERVER_BOT, float(truncate(i[0], 8)), int(time.time())
                             ))
                             lp_details.append((
                                 liq_pair['pool']['pool_id'], pool_name, str(ctx.author.id), i[1], coin_name,
@@ -3721,18 +3743,50 @@ class Cexswap(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
+            testing = self.bot.config['cexswap']['testing_msg']
+            embed = disnake.Embed(
+                title="Your LP earning from TipBot's CEXSwap",
+                description=f"{ctx.author.mention}, {testing}List of distributed earning from Liquidity Pools.",
+                timestamp=datetime.now(),
+            )
+            # check current LP user has
+            get_poolshare = await cexswap_get_poolshare(str(ctx.author.id), SERVER_BOT)
+            if len(get_poolshare) > 0:
+                list_coin_lp_user = []
+                for p in get_poolshare:
+                    # coin_decimal = getattr(getattr(self.bot.coin_list, p['ticker_1_name']), "decimal")
+                    # amount_1 = num_format_coin(p['amount_ticker_1'], p['ticker_1_name'], coin_decimal, False)
+                    amount_1 = human_format(p['amount_ticker_1'])
+                    # coin_decimal = getattr(getattr(self.bot.coin_list, p['ticker_2_name']), "decimal")
+                    # amount_2 = num_format_coin(p['amount_ticker_2'], p['ticker_2_name'], coin_decimal, False)
+                    amount_2 = human_format(p['amount_ticker_2'])
+                    coin_1 = p['ticker_1_name'][:4] + ".." if len(p['ticker_1_name']) > 5 else p['ticker_1_name']
+                    coin_2 = p['ticker_2_name'][:4] + ".." if len(p['ticker_2_name']) > 5 else p['ticker_2_name']
+                    list_coin_lp_user.append("⚆ {}/{} :\n---{} {}\n---{} {}\n".format(
+                        coin_1, coin_2,
+                        amount_1, p['ticker_1_name'],
+                        amount_2, p['ticker_2_name']
+                    ))
+                list_coin_lp_user_chunks = list(chunks(list_coin_lp_user, 4))
+                j = 1
+                extra_text = ""
+                for i in list_coin_lp_user_chunks:
+                    if len(list_coin_lp_user_chunks) > 1:
+                        extra_text = " [{}/{}]".format(j, len(list_coin_lp_user_chunks))
+                    embed.add_field(
+                        name="Your LP{}".format(extra_text),
+                        value="{}".format("\n".join(i)),
+                        inline=True
+                    )
+                    j += 1
+
+            # check earning
             get_user_earning = await get_cexswap_earning(user_id=str(ctx.author.id), from_time=None, pool_id=None)
             if len(get_user_earning) == 0:
                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you don't have any earning from LP yet."
                 await ctx.edit_original_message(content=msg)
                 return
             else:
-                testing = self.bot.config['cexswap']['testing_msg']
-                embed = disnake.Embed(
-                    title="Your LP earning from TipBot's CEXSwap",
-                    description=f"{ctx.author.mention}, {testing}List of distributed earning from Liquidity Pools.",
-                    timestamp=datetime.now(),
-                )
                 embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
                 embed.set_thumbnail(url=ctx.author.display_avatar)
                 list_earning = []
@@ -3756,9 +3810,12 @@ class Cexswap(commands.Cog):
 
                 list_earning_split = list(chunks(list_earning, 12))
                 j = 1
+                extra_text = ""
                 for i in list_earning_split:
+                    if len(list_earning_split) > 1:
+                        extra_text = " [{}/{}]".format(j, len(list_earning_split))
                     embed.add_field(
-                        name="Your earning {} coin(s) / [{}/{}]".format(len(i), j, len(list_earning_split)),
+                        name="Your earning{}".format(extra_text),
                         value="{}".format("\n".join(i)),
                         inline=False
                     )
@@ -3769,46 +3826,6 @@ class Cexswap(commands.Cog):
                         "From every trade, you will always receive fee {} x amount liquidated pools.".format("0.50%"),
                     inline=False
                 )
-                # check if command in guild
-                if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                    try:
-                        get_guild_earning = await cexswap_earning_guild(str(ctx.guild.id))
-                        list_g_earning = []
-                        for each in get_guild_earning:
-                            coin_emoji = ""
-                            try:
-                                if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                                    if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
-                                        coin_emoji = getattr(getattr(self.bot.coin_list, each['token_name']), "coin_emoji_discord")
-                                        coin_emoji = coin_emoji + " " if coin_emoji else ""
-                                else:
-                                    coin_emoji = getattr(getattr(self.bot.coin_list, each['token_name']), "coin_emoji_discord")
-                                    coin_emoji = coin_emoji + " " if coin_emoji else ""
-                            except Exception:
-                                traceback.print_exc(file=sys.stdout)
-                            coin_decimal = getattr(getattr(self.bot.coin_list, each['token_name']), "decimal")
-                            earning_amount = num_format_coin(
-                                each['real_amount'], each['token_name'], coin_decimal, False
-                            )
-                            list_g_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['token_name'], each['total_swap']))
-
-                        list_g_earning_split = list(chunks(list_earning, 12))
-                        j = 1
-                        for i in list_g_earning_split:
-                            embed.add_field(
-                                name="This Guild Earns {} coin(s) / [{}/{}]".format(len(i), j, len(list_g_earning_split)),
-                                value="{}".format("\n".join(i)),
-                                inline=False
-                            )
-                            j += 1
-                        embed.add_field(
-                            name="GUILD NOTE",
-                            value="You can check guild balance by `/guild balance`. "\
-                                "Every trade in public of your guild, your guild will receive fee 0.25%.",
-                            inline=False
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
                 await ctx.edit_original_message(content=None, embed=embed)
         except Exception:
             traceback.print_exc(file=sys.stdout)

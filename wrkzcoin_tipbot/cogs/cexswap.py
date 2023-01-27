@@ -968,7 +968,7 @@ class DropdownSummaryLP(disnake.ui.StringSelect):
                     inline=False
                 )
                 if self.values[0] == "TOP POOLS":
-                    for i in self.lp_sorted_key[:8]:
+                    for i in self.lp_sorted_key[:self.bot.config['cexswap_summary']['top_pool']]:
                         self.embed.add_field(
                             name=i,
                             value="{} {}\n{} {}{}".format(
@@ -1658,7 +1658,7 @@ class add_liquidity_btn(disnake.ui.View):
                                 channel = get_guild.get_channel(int(item['trade_channel']))
                                 if hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel.id != inter.channel.id:
                                     continue
-                                else:
+                                elif channel is not None:
                                     await channel.send(f"[CEXSWAP]: A user added more liquidity pool `{self.pool_name}`! {add_msg}")
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -2267,15 +2267,30 @@ class Cexswap(commands.Cog):
                 slippage = 1.0 - amount / float(liq_pair['pool']['amount_ticker_1']) - self.bot.config['cexswap_slipage']['reserve']
                 amount_get = amount * float(liq_pair['pool']['amount_ticker_2'] / liq_pair['pool']['amount_ticker_1'])
 
+                amount_qty_1 = liq_pair['pool']['amount_ticker_2']
+                amount_qty_2 = liq_pair['pool']['amount_ticker_1']
+
                 if sell_token == liq_pair['pool']['ticker_2_name']:
                     amount_get = amount * float(liq_pair['pool']['amount_ticker_1'] / liq_pair['pool']['amount_ticker_2'])
                     slippage = 1.0 - amount / float(liq_pair['pool']['amount_ticker_2']) - self.bot.config['cexswap_slipage']['reserve']
+
+                    amount_qty_1 = liq_pair['pool']['amount_ticker_1']
+                    amount_qty_2 = liq_pair['pool']['amount_ticker_2']
+
                 # adjust slippage
                 amount_get = slippage * amount_get
                 if slippage > 1 or slippage < 0.88:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error with slippage. Try again later!"
                     await ctx.edit_original_message(content=msg)
                     return
+
+                # price impact = unit price now / unit price after sold
+                price_impact_text = ""
+                new_impact_ratio = (float(amount_qty_2) + amount) / (float(amount_qty_1) - amount_get)
+                old_impact_ratio = float(amount_qty_2) / float(amount_qty_1)
+                impact_ratio = abs(old_impact_ratio - new_impact_ratio) / max(old_impact_ratio, new_impact_ratio)
+                if 0.0001 < impact_ratio < 1:
+                    price_impact_text = "\nPrice impact: ~{:,.2f}{}".format(impact_ratio * 100, "%")
                 
                 # If the amount get is too small.
                 if amount_get < self.bot.config['cexswap']['minimum_receive_or_reject']:
@@ -2377,7 +2392,7 @@ class Cexswap(commands.Cog):
                     # add confirmation
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to trade?\n"\
                         f"```Get {user_amount_get} {for_token}\n"\
-                        f"From selling {user_amount_sell} {sell_token}```Ref: `{ref_log}`{suggestion_msg}"
+                        f"From selling {user_amount_sell} {sell_token}{price_impact_text}```Ref: `{ref_log}`{suggestion_msg}"
 
                     # If there is progress
                     if str(ctx.author.id) in self.bot.tipping_in_progress and \
@@ -2513,7 +2528,7 @@ class Cexswap(commands.Cog):
                             # . Fee {fee_str} {for_token}\n
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully traded!\n"\
                                 f"```Get {user_amount_get} {for_token}\n"\
-                                f"From selling {user_amount_sell} {sell_token}```✅ Ref: `{ref_log}`{suggestion_msg}"
+                                f"From selling {user_amount_sell} {sell_token}{price_impact_text}```✅ Ref: `{ref_log}`{suggestion_msg}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "cexswap",
@@ -2533,7 +2548,7 @@ class Cexswap(commands.Cog):
                                             channel = get_guild.get_channel(int(item['trade_channel']))
                                             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id:
                                                 continue
-                                            else:
+                                            elif channel is not None:
                                                 await channel.send(f"[CEXSWAP]: A user sold {user_amount_sell} {sell_token} for "\
                                                     f"{user_amount_get} {for_token}."
                                                 )
@@ -2643,11 +2658,14 @@ class Cexswap(commands.Cog):
                     if len(rate_list) > 0:
                         rate_list_chunks = list(chunks(rate_list, 12))
                         j = 1
+                        extra_text = ""
                         for i in rate_list_chunks:
+                            if len(rate_list_chunks) > 1:
+                                extra_text = " / [{}/{}]".format(j, len(rate_list_chunks))
                             embed.add_field(
-                                name="RATE LIST {} (Active LP / [{}/{}])".format(coin_name, j, len(rate_list_chunks)),
+                                name="RATE LIST {} (Active LP{})".format(coin_name, extra_text),
                                 value="{}".format("\n".join(i)),
-                                inline=False
+                                inline=True
                             )
                             j += 1
                     embed.add_field(
@@ -2682,6 +2700,31 @@ class Cexswap(commands.Cog):
                                         inline=True
                                     )
 
+                    # other links
+                    other_links = []
+                    if getattr(getattr(self.bot.coin_list, coin_name), "explorer_link") and \
+                        len(getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")) > 0:
+                        other_links.append(
+                            "[{}]({})".format("Explorer Link", getattr(getattr(self.bot.coin_list, coin_name), "explorer_link"))
+                        )
+                    if getattr(getattr(self.bot.coin_list, coin_name), "id_cmc"):
+                        other_links.append(
+                            "[{}]({})".format("CoinMarketCap", "https://coinmarketcap.com/currencies/" + getattr(getattr(self.bot.coin_list, coin_name), "id_cmc"))
+                        )
+                    if getattr(getattr(self.bot.coin_list, coin_name), "id_gecko"):
+                        other_links.append(
+                            "[{}]({})".format("CoinGecko", "https://www.coingecko.com/en/coins/" + getattr(getattr(self.bot.coin_list, coin_name), "id_gecko"))
+                        )
+                    if getattr(getattr(self.bot.coin_list, coin_name), "id_paprika"):
+                        other_links.append(
+                            "[{}]({})".format("Coinpaprika", "https://coinpaprika.com/coin/" + getattr(getattr(self.bot.coin_list, coin_name), "id_paprika"))
+                        )
+                    if len(other_links) > 0:
+                        embed.add_field(
+                            name="Other links",
+                            value="{}".format(" | ".join(other_links)),
+                            inline=False
+                        )
                     embed.add_field(
                         name="NOTE",
                         value="Please use the command and select LP from the list above for more detail!",

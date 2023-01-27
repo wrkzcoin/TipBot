@@ -10321,8 +10321,7 @@ class Wallet(commands.Cog):
                 for each_c in erc_contracts:
                     try:
                         type_name = each_c['type']
-                        check_min_deposit = functools.partial(
-                            store.trx_check_minimum_deposit,
+                        await store.trx_check_minimum_deposit(
                             self.bot.erc_node_list['TRX'],
                             each_c['coin_name'], type_name, each_c['contract'],
                             each_c['decimal'], each_c['min_move_deposit'],
@@ -10330,7 +10329,6 @@ class Wallet(commands.Cog):
                             each_c['gas_ticker'], each_c['move_gas_amount'],
                             each_c['chain_id'], each_c['real_deposit_fee'], 7200
                         )
-                        await self.bot.loop.run_in_executor(None, check_min_deposit)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
             main_tokens = await self.get_all_contracts("TRC-20", True)
@@ -10338,8 +10336,7 @@ class Wallet(commands.Cog):
                 for each_c in main_tokens:
                     try:
                         type_name = each_c['type']
-                        check_min_deposit = functools.partial(
-                            store.trx_check_minimum_deposit,
+                        await store.trx_check_minimum_deposit(
                             self.bot.erc_node_list['TRX'],
                             each_c['coin_name'], type_name, None, each_c['decimal'],
                             each_c['min_move_deposit'], each_c['min_gas_tx'],
@@ -10347,7 +10344,6 @@ class Wallet(commands.Cog):
                             each_c['move_gas_amount'], each_c['chain_id'],
                             each_c['real_deposit_fee'], 7200
                         )
-                        await self.bot.loop.run_in_executor(None, check_min_deposit)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
         except Exception:

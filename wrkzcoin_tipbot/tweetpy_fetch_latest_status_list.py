@@ -36,8 +36,9 @@ async def fetch_latest_status_list():
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     now = int(time.time())
-                    sql = """ SELECT DISTINCT (`tweet_link`), `guild_id`, `rt_by_uids`, `rt_counts`, `rt_updated_date`, `id`, `expired_date` FROM `twitter_rt_reward` 
-                              WHERE `expired_date`>%s """
+                    sql = """ SELECT DISTINCT (`tweet_link`), `guild_id`, `rt_by_uids`, 
+                    `rt_counts`, `rt_updated_date`, `id`, `expired_date` FROM `twitter_rt_reward` 
+                    WHERE `expired_date`>%s """
                     await cur.execute(sql, (now))
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -67,7 +68,7 @@ async def fetch_latest_status_list():
                             for each in given_ids:
                                 if int(each) not in ids_ins:
                                     data_rows.append((
-                                        guild_id, tweet_link, str(each), int(time.time()), expired_dat
+                                        guild_id, tweet_link, str(each), int(time.time()), expired_date
                                     ))
                     else:
                         for each in given_ids:
@@ -78,9 +79,10 @@ async def fetch_latest_status_list():
                               """
                     await cur.execute(sql, (rt_by_uids, rt_counts, int(time.time()), tweet_link, guild_id))
                     if len(data_rows) > 0:
-                        sql = """ INSERT INTO `twitter_rt_reward_logs` (`guild_id`, `tweet_link`, `twitter_id`, `rewarded_date`, `expired_date`)
-                                  VALUES (%s, %s, %s, %s, %s)
-                              """
+                        sql = """ INSERT INTO `twitter_rt_reward_logs` (`guild_id`, `tweet_link`, `twitter_id`, 
+                        `rewarded_date`, `expired_date`)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """
                         await cur.executemany(sql, data_rows)
                     await conn.commit()
                     return cur.rowcount

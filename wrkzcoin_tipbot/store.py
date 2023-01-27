@@ -2060,7 +2060,6 @@ async def trx_check_minimum_deposit(
                         if result is not None and 'failed' in result and result['failed'] >= num_failed_limit:
                             msg = "trx_check_minimum_deposit: skip address `{}`.. failed threshold.".format(
                                 each_address['balance_wallet_address'])
-                            print(msg)
                             await logchanbot(msg)
                             continue
             except Exception as e:

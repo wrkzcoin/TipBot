@@ -2526,7 +2526,7 @@ class WalletAPI(commands.Cog):
         return False
 
     async def call_doge(self, method_name: str, coin: str, payload: str = None) -> Dict:
-        timeout = 64
+        timeout = 150
         coin_name = coin.upper()
         headers = {
             'content-type': 'text/plain;',
@@ -8939,7 +8939,8 @@ class Wallet(commands.Cog):
             if len(erc_contracts) > 0:
                 tasks = []
                 for each_c in erc_contracts:
-                    tasks.append(store.sql_check_minimum_deposit_erc20(
+                    check_min_deposit = functools.partial(
+                        store.sql_check_minimum_deposit_erc20,
                         self.bot.erc_node_list[each_c['net_name']],
                         each_c['net_name'], each_c['coin_name'],
                         each_c['contract'], each_c['decimal'],
@@ -8947,7 +8948,9 @@ class Wallet(commands.Cog):
                         each_c['gas_ticker'], each_c['move_gas_amount'],
                         each_c['chain_id'], each_c['real_deposit_fee'],
                         each_c['erc20_approve_spend'], 7200
-                    ))
+                    )
+                    check_min_deposit_exec = await self.bot.loop.run_in_executor(None, check_min_deposit)
+                    tasks.append(check_min_deposit_exec)
                 completed = 0
                 for task in asyncio.as_completed(tasks):
                     fetch_updates = await task
@@ -8958,14 +8961,17 @@ class Wallet(commands.Cog):
             if len(main_tokens) > 0:
                 tasks = []
                 for each_c in main_tokens:
-                    tasks.append(store.sql_check_minimum_deposit_erc20(
+                    check_min_deposit = functools.partial(
+                        store.sql_check_minimum_deposit_erc20,
                         self.bot.erc_node_list[each_c['net_name']],
                         each_c['net_name'], each_c['coin_name'], None,
                         each_c['decimal'], each_c['min_move_deposit'],
                         each_c['min_gas_tx'], each_c['gas_ticker'],
                         each_c['move_gas_amount'], each_c['chain_id'],
                         each_c['real_deposit_fee'], 0, 7200
-                    ))
+                    )
+                    check_min_deposit_exec = await self.bot.loop.run_in_executor(None, check_min_deposit)
+                    tasks.append(check_min_deposit_exec)
                 completed = 0
                 for task in asyncio.as_completed(tasks):
                     fetch_updates = await task
@@ -10315,7 +10321,8 @@ class Wallet(commands.Cog):
                 for each_c in erc_contracts:
                     try:
                         type_name = each_c['type']
-                        await store.trx_check_minimum_deposit(
+                        check_min_deposit = functools.partial(
+                            store.trx_check_minimum_deposit,
                             self.bot.erc_node_list['TRX'],
                             each_c['coin_name'], type_name, each_c['contract'],
                             each_c['decimal'], each_c['min_move_deposit'],
@@ -10323,7 +10330,7 @@ class Wallet(commands.Cog):
                             each_c['gas_ticker'], each_c['move_gas_amount'],
                             each_c['chain_id'], each_c['real_deposit_fee'], 7200
                         )
-                        pass
+                        await self.bot.loop.run_in_executor(None, check_min_deposit)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
             main_tokens = await self.get_all_contracts("TRC-20", True)
@@ -10331,7 +10338,8 @@ class Wallet(commands.Cog):
                 for each_c in main_tokens:
                     try:
                         type_name = each_c['type']
-                        await store.trx_check_minimum_deposit(
+                        check_min_deposit = functools.partial(
+                            store.trx_check_minimum_deposit,
                             self.bot.erc_node_list['TRX'],
                             each_c['coin_name'], type_name, None, each_c['decimal'],
                             each_c['min_move_deposit'], each_c['min_gas_tx'],
@@ -10339,7 +10347,7 @@ class Wallet(commands.Cog):
                             each_c['move_gas_amount'], each_c['chain_id'],
                             each_c['real_deposit_fee'], 7200
                         )
-                        pass
+                        await self.bot.loop.run_in_executor(None, check_min_deposit)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
         except Exception:
@@ -11922,9 +11930,10 @@ class Wallet(commands.Cog):
                         fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
                             num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
                         try:
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -11979,9 +11988,10 @@ class Wallet(commands.Cog):
                             num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name
                         )
                         try:
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -12021,13 +12031,14 @@ class Wallet(commands.Cog):
                                     main_address, str(ctx.author.id), amount, address, coin_name, coin_decimal
                                 )
                                 if send_tx:
+                                    tx_hash = send_tx['block']
+                                    explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
                                     fee_txt = "\nWithdrew fee/node: `0.00 {}`.".format(coin_name)
-                                    SendTx_hash = send_tx['block']
                                     msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                         f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                        f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`{fee_txt}"
+                                        f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
                                     await ctx.edit_original_message(content=msg)
-                                    explorer_link = self.utils.get_explorer_link(coin_name, SendTx_hash)
+                                    explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
                                     await log_to_channel(
                                         "withdraw",
                                         f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
@@ -12079,7 +12090,7 @@ class Wallet(commands.Cog):
                             )
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
@@ -12353,7 +12364,7 @@ class Wallet(commands.Cog):
                                 )
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                     f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                    f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}"
+                                    f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
                                 if extra_option is not None:
                                     msg += "\nWith memo: `{}`".format(extra_option)
                                 await ctx.edit_original_message(content=msg)
@@ -14341,7 +14352,7 @@ class Wallet(commands.Cog):
     @recent.sub_command(
         name="withdraw",
         usage="recent withdraw <token/coin>", 
-        description="Get list recent withdraws"
+        description="Get list recent withdraw(s)"
     )
     async def recent_withdraw(
         self, 
@@ -14489,7 +14500,7 @@ class Wallet(commands.Cog):
     @recent.sub_command(
         name="deposit",
         usage="recent deposit <token/coin>", 
-        description="Get list recent withdraws"
+        description="Get list recent deposit(s)"
     )
     async def recent_deposit(
         self, 
@@ -14591,7 +14602,7 @@ class Wallet(commands.Cog):
     @recent.sub_command(
         name="receive",
         usage="recent receive <token/coin>", 
-        description="Get list recent withdraws"
+        description="Get list recent receipt(s)"
     )
     async def recent_receive(
         self, 
@@ -14631,7 +14642,7 @@ class Wallet(commands.Cog):
     @recent.sub_command(
         name="expense",
         usage="recent expense <token/coin>", 
-        description="Get list recent withdraws"
+        description="Get list recent expense"
     )
     async def recent_expense(
         self, 

@@ -1529,7 +1529,8 @@ class Admin(commands.Cog):
                 chain_id = getattr(getattr(self.bot.coin_list, coin_name), "chain_id")
                 start_time = time.time()
                 if type_coin == "ERC-20":
-                    await store.sql_check_minimum_deposit_erc20(
+                    check_min_deposit = functools.partial(
+                        store.sql_check_minimum_deposit_erc20,
                         self.bot.erc_node_list[net_name],
                         net_name, coin_name,
                         contract, coin_decimal,
@@ -1538,6 +1539,7 @@ class Admin(commands.Cog):
                         chain_id, real_deposit_fee,
                         erc20_approve_spend, 7200
                     )
+                    await self.bot.loop.run_in_executor(None, check_min_deposit)
                     await ctx.reply("{}, processing {} update. Time token {}s".format(ctx.author.mention, coin_name, time.time()-start_time))
                 else:
                     await ctx.reply("{}, not support yet for this method for {}.".format(ctx.author.mention, coin_name))
@@ -2095,7 +2097,6 @@ class Admin(commands.Cog):
             return
         else:
             list_user_balances = []
-            list_user_balances.append("user id, server, balance, coin name")
             try:
                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
@@ -2147,13 +2148,13 @@ class Admin(commands.Cog):
                             if member is not None:
                                 member_name = "{}#{}".format(member.name, member.discriminator)
                         if total_balance > 0:
-                            list_user_balances.append("{},{},{},{},{}".format(
-                                each_user_id['user_id'],
-                                member_name,
-                                each_user_id['user_server'],
-                                total_balance,
-                                coin_name
-                            ))
+                            list_user_balances.append({
+                                'user_id': each_user_id['user_id'],
+                                'member_name': member_name,
+                                'user_server': each_user_id['user_server'],
+                                'balance': total_balance,
+                                'coin_name': coin_name
+                            })
                         elif total_balance < 0:
                             negative_users.append(each_user_id['user_id'])
                         sum_balance += total_balance
@@ -2210,8 +2211,18 @@ class Admin(commands.Cog):
                     msg_checkcoin += "Time token: {}s".format(duration)
                     msg_checkcoin += "```"
                     # List balance sheet
+                    # list_user_balances.append("user id, server, balance, coin name")
+                    # sort by balance
+                    list_user_balances = sorted(list_user_balances, key=lambda d: d['balance'], reverse=True)
+                    new_list = []
+                    new_list.append("user id, member_name, server, balance, coin name")
+                    for v in list_user_balances:
+                        new_list.append("{}, {}, {}, {}".format(
+                            v['user_id'], v['member_name'], v['user_server'], v['balance'], v['coin_name']
+                        ))
+
                     balance_sheet_file = disnake.File(
-                        BytesIO(("\n".join(list_user_balances)).encode()),
+                        BytesIO(("\n".join(new_list)).encode()),
                         filename=f"balance_sheet_{coin_name}_{str(int(time.time()))}.csv"
                     )
                     if len(msg_checkcoin) > 1000:

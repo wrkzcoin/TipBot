@@ -645,12 +645,13 @@ async def cexswap_find_possible_trade(
                                         from_coin, middle_coin, middle_amount, middle_coin,
                                         middle_coin, to_coin, got_amount, to_coin)
                                     if old_amount_get < got_amount:
-                                        print("PROFIT=>{}".format(msg))
+                                        # print("PROFIT=>{}".format(msg))
                                         possible_profits.append("  ⚆ {}=>{}, {}=>{}".format(
                                             from_coin, middle_coin, middle_coin, to_coin
                                         ))
                                     else:
-                                        print("NO PROFIT=>{}".format(msg))
+                                        # print("NO PROFIT=>{}".format(msg))
+                                        pass
                     return possible_profits
     except Exception:
         traceback.print_exc(file=sys.stdout)
@@ -2542,8 +2543,8 @@ class Cexswap(commands.Cog):
                                 for item in get_guilds:
                                     if int(item['serverid']) not in list_guild_ids:
                                         continue
+                                    get_guild = self.bot.get_guild(int(item['serverid']))
                                     try:
-                                        get_guild = self.bot.get_guild(int(item['serverid']))
                                         if get_guild:
                                             channel = get_guild.get_channel(int(item['trade_channel']))
                                             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id:
@@ -2556,6 +2557,17 @@ class Cexswap(commands.Cog):
                                         await self.botLogChan.send(
                                             f"[CEXSwap] failed to message to guild {get_guild.name} / {get_guild.id}."
                                         )
+                                        update = await store.sql_changeinfo_by_server(item['serverid'], 'trade_channel', None)
+                                        if update is True:
+                                            await get_guild.owner.send(f"[CEXSwap] TipBot's failed to send message to <#{str(channel.id)}> "\
+                                                f"in guild {get_guild.name} / {get_guild.id}. "\
+                                                f"TipBot unassigned that channel from [CEXSwap]'s trading."\
+                                                f"You can set again anytime later!\nYou can ignore this message."
+                                            )
+                                            await self.botLogChan.send(
+                                                f"[CEXSwap] informed guild owner {get_guild.name} / {get_guild.id} / <@{get_guild.owner.id}> "\
+                                                f"about failed message and unassigned trade channel."
+                                            )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                         else:

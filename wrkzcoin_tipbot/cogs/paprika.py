@@ -156,7 +156,7 @@ class Paprika(commands.Cog):
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
-        await asyncio.sleep(time_lap)
+        await asyncio.sleep(30.0)
         url = "https://api.coinpaprika.com/v1/tickers"
         try:
             print(f"/paprika fetching: {url}")

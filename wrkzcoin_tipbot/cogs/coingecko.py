@@ -139,7 +139,7 @@ class CoinGecko(commands.Cog):
                 for each_list in coin_chunk_list:
                     # Process
                     key_list = ",".join(each_list)
-                    url = "https://api.coingecko.com/api/v3/simple/price?ids="+key_list+"&vs_currencies=usd"
+                    url = "https://api.coingecko.com/api/v3/simple/price?ids="+key_list+"&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true&include_last_updated_at=true"
                     try:
                         async with aiohttp.ClientSession() as cs:
                             async with cs.get(url, timeout=30) as r:
@@ -152,13 +152,18 @@ class CoinGecko(commands.Cog):
                                     update_list = []
                                     for k, v in decoded_data.items():
                                         if 'usd' in v:
-                                            update_list.append((v['usd'], update_time, update_date.strftime('%Y-%m-%d %H:%M:%S'), k))
+                                            update_list.append((
+                                                v['usd'], update_time, update_date.strftime('%Y-%m-%d %H:%M:%S'),
+                                                v['usd_market_cap'], v['usd_24h_vol'], v['usd_24h_change'], v['last_updated_at'],
+                                                k
+                                            ))
                                     try:
                                         await store.openConnection()
                                         async with store.pool.acquire() as conn:
                                             async with conn.cursor() as cur:
                                                 sql = """ UPDATE coin_coingecko_list 
-                                                SET `price_usd`=%s, `price_time`=%s, `price_date`=%s 
+                                                SET `price_usd`=%s, `price_time`=%s, `price_date`=%s,
+                                                `usd_market_cap`=%s, `usd_24h_vol`=%s, `usd_24h_change`=%s, `last_updated_at`=%s 
                                                 WHERE `id`=%s """
                                                 await cur.executemany(sql, update_list)
                                                 await conn.commit()

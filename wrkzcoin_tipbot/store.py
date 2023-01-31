@@ -3735,7 +3735,7 @@ async def sql_roach_get_by_id(roach_id: str, user_server: str = 'DISCORD'):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
-async def sql_faucet_checkuser(user_id: str, user_server: str = 'DISCORD'):
+async def sql_faucet_checkuser(user_id: str, user_server: str = 'DISCORD', type_a: str='TAKE'):
     global pool
     user_server = user_server.upper()
     if user_server not in ['DISCORD', 'TELEGRAM', 'REDDIT']:
@@ -3751,18 +3751,22 @@ async def sql_faucet_checkuser(user_id: str, user_server: str = 'DISCORD'):
             async with conn.cursor() as cur:
                 if list_roach:
                     roach_sql = "(" + ",".join(list_roach) + ")"
-                    sql = """ SELECT * FROM discord_faucet WHERE claimed_user IN """ + roach_sql + """ AND `user_server`=%s 
-                              ORDER BY claimed_at DESC LIMIT 1"""
-                    await cur.execute(sql, (user_server,))
+                    sql = """
+                    SELECT * FROM discord_faucet WHERE claimed_user IN """ + roach_sql + """ 
+                    AND `user_server`=%s AND `type`=%s
+                    ORDER BY claimed_at DESC LIMIT 1
+                    """
+                    await cur.execute(sql, (user_server, type_a))
                 else:
-                    sql = """ SELECT * FROM discord_faucet WHERE `claimed_user` = %s AND `user_server`=%s 
-                              ORDER BY claimed_at DESC LIMIT 1"""
-                    await cur.execute(sql, (user_id, (user_server,)))
+                    sql = """
+                    SELECT * FROM discord_faucet 
+                    WHERE `claimed_user` = %s AND `user_server`=%s AND `type`=%s
+                    ORDER BY claimed_at DESC LIMIT 1"""
+                    await cur.execute(sql, (user_id, user_server, type_a))
                 result = await cur.fetchone()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return result
-
 
 async def sql_faucet_count_user(user_id: str, user_server: str = 'DISCORD'):
     global pool
@@ -3773,7 +3777,10 @@ async def sql_faucet_count_user(user_id: str, user_server: str = 'DISCORD'):
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT COUNT(*) FROM discord_faucet WHERE claimed_user = %s AND `user_server`=%s """
+                sql = """
+                SELECT COUNT(*) FROM discord_faucet 
+                WHERE claimed_user = %s AND `user_server`=%s
+                """
                 await cur.execute(sql, (user_id, user_server))
                 result = await cur.fetchone()
                 return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
@@ -3783,7 +3790,7 @@ async def sql_faucet_count_user(user_id: str, user_server: str = 'DISCORD'):
 
 async def sql_faucet_add(
     claimed_user: str, claimed_server: str, coin_name: str, claimed_amount: float, decimal: int,
-    user_server: str = 'DISCORD'
+    user_server: str = 'DISCORD', type_a: str = 'TAKE'
 ):
     global pool
     user_server = user_server.upper()
@@ -3793,12 +3800,13 @@ async def sql_faucet_add(
         await openConnection()
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ INSERT INTO discord_faucet (`claimed_user`, `coin_name`, `claimed_amount`, 
-                          `decimal`, `claimed_at`, `claimed_server`, `user_server`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s) """
+                sql = """ INSERT INTO discord_faucet 
+                (`claimed_user`, `coin_name`, `claimed_amount`, 
+                `decimal`, `claimed_at`, `claimed_server`, `user_server`, `type`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
                 await cur.execute(sql, (
                     claimed_user, coin_name, claimed_amount, decimal,
-                    int(time.time()), claimed_server, user_server
+                    int(time.time()), claimed_server, user_server, type_a
                     )
                 )
                 await conn.commit()

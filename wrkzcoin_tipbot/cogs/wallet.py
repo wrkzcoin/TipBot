@@ -13391,7 +13391,7 @@ class Wallet(commands.Cog):
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!{advert_txt}'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
                     await ctx.edit_original_message(content=msg)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -13450,7 +13450,7 @@ class Wallet(commands.Cog):
         # check user claim:
         try:
             if info is None:
-                check_claimed = await store.sql_faucet_checkuser(str(ctx.author.id), SERVER_BOT)
+                check_claimed = await store.sql_faucet_checkuser(str(ctx.author.id), SERVER_BOT, "TAKE")
                 if check_claimed is not None:
                     if int(time.time()) - check_claimed['claimed_at'] <= claim_interval * 3600:
                         # time_waiting = seconds_str(
@@ -13619,9 +13619,9 @@ class Wallet(commands.Cog):
                     amount_in_usd, None
                 )
                 try:
-                    faucet_add = await store.sql_faucet_add(
+                    await store.sql_faucet_add(
                         str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
-                        coin_decimal, SERVER_BOT
+                        coin_decimal, SERVER_BOT, "TAKE"
                     )
                     msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random `/take` "\
                         f"{coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
@@ -13656,6 +13656,251 @@ class Wallet(commands.Cog):
             del self.bot.tx_in_progress[str(ctx.author.id)]
         except Exception:
             pass
+
+    @commands.guild_only()
+    @commands.slash_command(
+        name="daily",
+        dm_permission=False,
+        usage="daily <coin>",
+        options=[
+            Option('coin', 'coin', OptionType.string, required=False)
+        ],
+        description="Daily claim for a available coin."
+    )
+    async def daily_take(
+        self,
+        ctx,
+        coin: str = None
+    ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /daily ...'
+        await ctx.response.send_message(msg)
+        await self.bot_log()
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/daily", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        # check if user create account less than 3 days
+        try:
+            account_created = ctx.author.created_at
+            if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
+                    f"Wait a few days before using /daily."
+                await ctx.edit_original_message(content=msg)
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        if str(ctx.author.id) in self.bot.tx_in_progress and \
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150 \
+                and ctx.author.id != self.bot.config['discord']['owner_id']:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
+            await ctx.edit_original_message(content=msg)
+            return
+
+        try:
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+                try:
+                    botChan = self.bot.get_channel(int(serverinfo['botchan']))
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
+                    await ctx.edit_original_message(content=msg)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+
+            # check if account locked
+            account_lock = await alert_if_userlock(ctx, 'daily')
+            if account_lock:
+                msg = f"{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}"
+                await ctx.edit_original_message(content=msg)
+                return
+            # end of check if account locked
+
+            advert_txt = ""
+            # if advert enable
+            if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                try:
+                    random.shuffle(self.bot.advert_list)
+                    advert_txt = "\n__**Random Message:**__ [{}](<{}>)```{}```".format(
+                        self.bot.advert_list[0]['title'], self.bot.advert_list[0]['link'], self.bot.advert_list[0]['content']
+                    )
+                    await self.utils.advert_impress(
+                        self.bot.advert_list[0]['id'], str(ctx.author.id),
+                        str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            # end advert
+
+            if 'daily' not in self.bot.other_data:
+                self.bot.other_data['daily'] = {}
+                for each_coin in self.bot.coin_name_list:
+                    is_daily = getattr(getattr(self.bot.coin_list, each_coin), "enable_daily")
+                    amount_daily = getattr(getattr(self.bot.coin_list, each_coin), "daily_amount")
+                    if is_daily == 1 and amount_daily > 0:
+                        self.bot.other_data['daily'][each_coin] = amount_daily
+            if coin is None:
+                # show summary
+                embed = disnake.Embed(
+                    title=f'TipBot Daily Claim',
+                    description=f"You shall only claim one token per 24h. Decide which one you want to `/daily <token name>`.",
+                    timestamp=datetime.fromtimestamp(int(time.time()))
+                )
+                list_daily = []
+                for k, v in self.bot.other_data['daily'].items():
+                    coin_name = k
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    amount_coin = num_format_coin(v, coin_name, coin_decimal, False)
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    list_daily.append("{} {} {}".format(
+                        coin_emoji, amount_coin, coin_name
+                    ))
+                embed.add_field(
+                    name="Daily {} Coins".format(len(list_daily)),
+                    value="{}".format("\n".join(list_daily)),
+                    inline=False
+                )
+
+                # if advert enable
+                if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                    try:
+                        random.shuffle(self.bot.advert_list)
+                        embed.add_field(
+                            name="{}".format(self.bot.advert_list[0]['title']),
+                            value="```{}```👉 <{}>".format(self.bot.advert_list[0]['content'], self.bot.advert_list[0]['link']),
+                            inline=False
+                        )
+                        await self.utils.advert_impress(
+                            self.bot.advert_list[0]['id'], str(ctx.author.id),
+                            str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                        )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                # end advert
+
+                embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+                embed.set_thumbnail(url=self.bot.user.display_avatar)
+                await ctx.edit_original_message(content=None, embed=embed)
+            else:
+                # check user claim:
+                try:
+                    claim_interval = 24 # hours
+                    check_claimed = await store.sql_faucet_checkuser(str(ctx.author.id), SERVER_BOT, "DAILY")
+                    if check_claimed is not None:
+                        if int(time.time()) - check_claimed['claimed_at'] <= claim_interval * 3600:
+                            user_claims = await store.sql_faucet_count_user(str(ctx.author.id))
+                            number_user_claimed = '{:,.0f}'.format(user_claims)
+                            time_waiting = disnake.utils.format_dt(
+                                claim_interval * 3600 + check_claimed['claimed_at'],
+                                style='R'
+                            )
+                            last_claim_at = disnake.utils.format_dt(
+                                check_claimed['claimed_at'],
+                                style='f'
+                            )
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed on {last_claim_at}. "\
+                                f"Waiting time {time_waiting} for next `/daily`. "\
+                                f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
+                                f"{advert_txt}"
+                            await ctx.edit_original_message(content=msg)
+                            return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+
+                coin_name = coin.upper()
+                if coin_name not in self.bot.other_data['daily']:
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, `{coin_name}` is not available for `/daily`."
+                    )
+                    return
+                else:
+                    amount = self.bot.other_data['daily'][coin_name]
+                    net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                    type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                    contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    get_deposit = await self.sql_get_userwallet(
+                        str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
+                    if get_deposit is None:
+                        get_deposit = await self.sql_register_user(
+                            str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                        )
+
+                    wallet_address = get_deposit['balance_wallet_address']
+                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        wallet_address = get_deposit['paymentid']
+                    elif type_coin in ["XRP"]:
+                        wallet_address = get_deposit['destination_tag']
+
+                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    userdata_balance = await self.wallet_api.user_balance(
+                        str(self.bot.user.id), coin_name, wallet_address, type_coin, height,
+                        deposit_confirm_depth, SERVER_BOT
+                    )
+                    actual_balance = float(userdata_balance['adjust'])
+                    if actual_balance < amount:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Bot's balance is empyt! Try with other coin!"
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    else:
+                        equivalent_usd = ""
+                        amount_in_usd = 0.0
+                        if usd_equivalent_enable == 1:
+                            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                            coin_name_for_price = coin_name
+                            if native_token_name:
+                                coin_name_for_price = native_token_name
+                            if coin_name_for_price in self.bot.token_hints:
+                                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                            else:
+                                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                            if per_unit and per_unit > 0:
+                                amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                                if amount_in_usd > 0.0001:
+                                    equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
+                        await store.sql_user_balance_mv_single(
+                            str(self.bot.user.id), str(ctx.author.id),
+                            str(ctx.guild.id), str(ctx.channel.id), amount, coin_name,
+                            "DAILY", coin_decimal, SERVER_BOT, contract,
+                            amount_in_usd, None
+                        )
+                        try:
+                            await store.sql_faucet_add(
+                                str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
+                                coin_decimal, SERVER_BOT, "DAILY"
+                            )
+                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got `/daily` "\
+                                f"{coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
+                                f"Use `/claim` to vote TipBot and get reward.{advert_txt}"
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(
+                                f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
+                                f"claimed /daily {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}"\
+                                f" in guild {ctx.guild.name}/{ctx.guild.id}"
+                            )
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot("wallet /daily " + str(traceback.format_exc()))
+        except disnake.errors.Forbidden:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I have no permission."
+            await ctx.edit_original_message(content=msg)
+            return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @daily_take.autocomplete("coin")
+    async def daily_coin_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.other_data['daily'].keys() if string in name.lower()][:10]
 
     @commands.guild_only()
     @commands.slash_command(

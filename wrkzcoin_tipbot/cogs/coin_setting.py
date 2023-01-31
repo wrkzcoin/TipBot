@@ -181,7 +181,15 @@ class CoinSetting(commands.Cog):
                 await self.get_token_hints()
                 await self.get_coin_alias_name()
 
-                await ctx.reply(f"{ctx.author.mention}, cexswap list, coin list, name, coin aliases reloaded...")
+                # check daily
+                for each_coin in self.bot.coin_name_list:
+                    is_daily = getattr(getattr(self.bot.coin_list, each_coin), "enable_daily")
+                    amount_daily = getattr(getattr(self.bot.coin_list, each_coin), "daily_amount")
+                    if is_daily == 1 and amount_daily > 0:
+                        self.bot.other_data['daily'][each_coin] = amount_daily
+                # end of daily
+
+                await ctx.reply(f"{ctx.author.mention}, cexswap list, coin list, name, coin aliases, daily reloaded...")
                 await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")
             elif cmd.lower() == "advertlist":
                 await self.get_advert_list()

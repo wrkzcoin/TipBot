@@ -191,7 +191,17 @@ class CoinSetting(commands.Cog):
                         self.bot.other_data['daily'][each_coin] = amount_daily
                 # end of daily
 
-                await ctx.reply(f"{ctx.author.mention}, cexswap list, coin list, name, coin aliases, daily reloaded...")
+                # check hourly
+                # reset
+                self.bot.other_data['hourly'] = {}
+                for each_coin in self.bot.coin_name_list:
+                    is_hourly = getattr(getattr(self.bot.coin_list, each_coin), "enable_hourly")
+                    amount_hourly = getattr(getattr(self.bot.coin_list, each_coin), "hourly_amount")
+                    if is_hourly == 1 and amount_hourly > 0:
+                        self.bot.other_data['hourly'][each_coin] = amount_hourly
+                # end of hourly
+
+                await ctx.reply(f"{ctx.author.mention}, cexswap list, coin list, name, coin aliases, daily, hourly reloaded...")
                 await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")
             elif cmd.lower() == "advertlist":
                 await self.get_advert_list()

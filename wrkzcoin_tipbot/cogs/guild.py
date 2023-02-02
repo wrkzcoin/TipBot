@@ -2272,6 +2272,81 @@ class Guild(commands.Cog):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
+
+    @commands.has_permissions(administrator=True)
+    @guild.sub_command(
+        name="discadia",
+        usage="guild discadia [resetkey]", 
+        options=[
+            Option('resetkey', 'resetkey', OptionType.string, required=False, choices=[
+                OptionChoice("YES", "YES"),
+                OptionChoice("NO", "NO")
+            ])
+        ],
+        description="Get token key to set for discadia vote in bot channel."
+    )
+    async def discadia(
+        self,
+        ctx,
+        resetkey: str=None
+    ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/guild discadia", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        secret = "discadia_vote_secret"
+        if resetkey is None: resetkey = "NO"
+        get_guild_by_key = await self.guild_find_by_key(str(ctx.guild.id), secret)
+        if get_guild_by_key is None:
+            # Generate
+            random_string = str(uuid.uuid4())
+            insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, False)
+            if insert_key:
+                try:
+                    await ctx.edit_original_message(
+                        content=f"Your guild {ctx.guild.name}\'s webhook link for discadia.com.\nWebook URL: "\
+                            f"`{self.bot.config['discadia']['guild_vote_url'] + random_string}`.\nKeep it secret and set it in server's webhook."
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            else:
+                try:
+                    await ctx.edit_original_message(content=f'Internal error! Please report!')
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+        elif get_guild_by_key and resetkey == "NO":
+            # Just display
+            try:
+                await ctx.edit_original_message(
+                    content=f"Your guild {ctx.guild.name}\'s webhook link for discadia.com:\n"\
+                        f"Webhook URL: `{self.bot.config['discadia']['guild_vote_url'] + get_guild_by_key}`\nKeep it secret and set it in server's webhook."
+                )
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+        elif get_guild_by_key and resetkey == "YES":
+            # Update a new key and say to it. Do not forget to update
+            random_string = str(uuid.uuid4())
+            insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, True)
+            if insert_key:
+                try:
+                    await ctx.edit_original_message(
+                        content=f"Your guild {ctx.guild.name}\'s webhook link for discadia.com:\nWebook URL: "\
+                            f"`{self.bot.config['discadia']['guild_vote_url'] + random_string}`.\nKeep it secret and set it in server's webhook."
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            else:
+                try:
+                    await ctx.edit_original_message(content=f'Internal error! Please report!')
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+
     # Guild deposit
     async def async_mdeposit(self, ctx, token: str=None, plain: str=None):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
@@ -2862,11 +2937,15 @@ class Guild(commands.Cog):
             )
         if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_coin'] and serverinfo['vote_reward_channel']:
             coin_decimal = getattr(getattr(self.bot.coin_list, serverinfo['vote_reward_coin']), "decimal")
+            vote_links = []
+            vote_links.append("https://top.gg/servers/{}/vote".format(ctx.guild.id))
+            if serverinfo['discadia_link'] is not None:
+                vote_links.append(serverinfo['discadia_link'])
             embed.add_field(
                 name="Vote Reward {} {}".format(
                     num_format_coin(serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin'], coin_decimal, False), serverinfo['vote_reward_coin']
                 ),
-                value="<#{}> | https://top.gg/servers/{}/vote".format(serverinfo['vote_reward_channel'], ctx.guild.id),
+                value="<#{}> | {}".format(serverinfo['vote_reward_channel'], "\n".join(vote_links)),
                 inline=False
             )
         try:
@@ -3259,7 +3338,8 @@ class Guild(commands.Cog):
                         style='R'
                     )
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed in this guild "\
-                        f"`{ctx.guild.name}` on {last_duration}. Waiting time {waiting_time}.{extra_msg}"
+                        f"`{ctx.guild.name}` on {last_duration}. Waiting time {waiting_time}."\
+                        f"{extra_msg} Other reward command `/take`, `/claim` and `/daily`."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -3365,7 +3445,7 @@ class Guild(commands.Cog):
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of "\
                                     f"{coin_emoji}**{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)}"\
                                     f" {coin_name}**{equivalent_usd} from `{ctx.guild.name}`.{extra_msg} "\
-                                    f"Other reward command `/take` and `/claim`. Invite me to your guild? "\
+                                    f"Other reward command `/take`, `/claim` and `/daily`. Invite me to your guild? "\
                                     f"Click on my name and `Add to Server`."
                                 await ctx.edit_original_message(content=msg)
                                 await logchanbot(

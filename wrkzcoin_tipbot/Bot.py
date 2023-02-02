@@ -29,6 +29,8 @@ from disnake.ext.commands import AutoShardedBot, when_mentioned
 # cache
 from cachetools import TTLCache
 
+import warnings
+
 import store
 # linedraw
 from linedraw.linedraw import *
@@ -39,6 +41,8 @@ from config import load_config
 # For hash file in case already have
 # ascii table
 
+# warnings.filterwarnings(action='once')
+warnings.filterwarnings("ignore")
 
 async def get_token_list():
     return await store.get_all_token()

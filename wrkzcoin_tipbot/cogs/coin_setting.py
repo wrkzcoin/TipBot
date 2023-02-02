@@ -182,6 +182,8 @@ class CoinSetting(commands.Cog):
                 await self.get_coin_alias_name()
 
                 # check daily
+                # reset
+                self.bot.other_data['daily'] = {}
                 for each_coin in self.bot.coin_name_list:
                     is_daily = getattr(getattr(self.bot.coin_list, each_coin), "enable_daily")
                     amount_daily = getattr(getattr(self.bot.coin_list, each_coin), "daily_amount")

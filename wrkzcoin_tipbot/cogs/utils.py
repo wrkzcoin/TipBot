@@ -9,8 +9,66 @@ import disnake
 from disnake.ext import commands
 
 import store
-from Bot import RowButtonRowCloseAnyMessage, logchanbot
+from Bot import RowButtonRowCloseAnyMessage, logchanbot, truncate
 
+
+def num_format_coin(amount, coin: str, coin_decimal: int, atomic: bool = False):
+    COIN_NAME = coin.upper()
+    if amount == 0:
+        return "0.0"
+
+    if atomic:
+        amount = amount / int(10 ** coin_decimal)
+        amount_str = 'Invalid.'
+        if coin_decimal == 0:
+            amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
+            if '.' in amount_test and len(amount_test.split('.')[1]) > 6:
+                amount_str = '{:,.6f}'.format(amount)
+            else:
+                amount_str = amount_test
+        elif coin_decimal < 4:
+            amount = truncate(amount, 2)
+            amount_str = '{:,.2f}'.format(amount)
+        elif coin_decimal < 6:
+            amount = truncate(amount, 6)
+            amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
+            if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
+                amount_str = '{:,.6f}'.format(amount)
+            else:
+                amount_str = amount_test
+        elif coin_decimal < 18:
+            amount = truncate(amount, 8)
+            amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
+            if '.' in amount_test and len(amount_test.split('.')[1]) > 5:
+                amount_str = '{:,.8f}'.format(amount)
+            else:
+                amount_str = amount_test
+        else:
+            # > 10**18
+            amount = truncate(amount, 8)
+            amount_test = '{:,f}'.format(float(('%f' % amount).rstrip('0').rstrip('.')))
+            if '.' in amount_test and len(amount_test.split('.')[1]) > 8:
+                amount_str = '{:,.8f}'.format(amount)
+            else:
+                amount_str = amount_test
+    else:
+        if amount < 0.00000001:
+            amount_str = '{:,.10f}'.format(truncate(amount, 10))
+        elif amount < 0.000001:
+            amount_str = '{:,.8f}'.format(truncate(amount, 8))
+        elif amount < 0.00001:
+            amount_str = '{:,.7f}'.format(truncate(amount, 7))
+        elif amount < 0.01:
+            amount_str = '{:,.6f}'.format(truncate(amount, 6))
+        elif amount < 1.0:
+            amount_str = '{:,.5f}'.format(truncate(amount, 5))
+        elif amount < 10:
+            amount_str = '{:,.4f}'.format(truncate(amount, 4))
+        elif amount < 1000.00:
+            amount_str = '{:,.3f}'.format(truncate(amount, 3))
+        else:
+            amount_str = '{:,.2f}'.format(truncate(amount, 2))
+    return amount_str.rstrip('0').rstrip('.') if '.' in amount_str else amount_str
 
 # https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
 

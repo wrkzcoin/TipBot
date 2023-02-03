@@ -18,12 +18,12 @@ from disnake.enums import ButtonStyle
 from cachetools import TTLCache
 
 import store
-from Bot import num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, \
+from Bot import logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, \
     EMOJI_MONEYFACE, NOTIFICATION_OFF_CMD, EMOJI_SPEAK, EMOJI_BELL, EMOJI_BELL_SLASH, EMOJI_HOURGLASS_NOT_DONE, \
     EMOJI_INFORMATION, EMOJI_PARTY, SERVER_BOT, seconds_str, text_to_num, truncate
 
 from cogs.wallet import WalletAPI
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 # Verifying free tip
 class FreeTip_Verify(disnake.ui.Modal):
@@ -228,7 +228,7 @@ class FreeTip_Button(disnake.ui.View):
                     # end of re-check balance
                 else:
                     # Multiple tip here
-                    amount_div = truncate(amount / len(attend_list_id), 4)
+                    amount_div = truncate(amount / len(attend_list_id), 12)
                     tips = None
 
                     tipAmount = num_format_coin(amount, coin_name, coin_decimal, False)
@@ -286,7 +286,7 @@ class FreeTip_Button(disnake.ui.View):
                                     )
                                     embed.add_field(
                                         name='Individual Tip amount',
-                                        value=f"{coin_emoji}{num_format_coin(truncate(amount / len(attend_list), 4), coin_name, coin_decimal, False)} "\
+                                        value=f"{coin_emoji}{num_format_coin(truncate(amount / len(attend_list), 12), coin_name, coin_decimal, False)} "\
                                             f"{token_display}",
                                         inline=True
                                     )
@@ -544,7 +544,7 @@ class Tips(commands.Cog):
                                 if len(attend_list_names) >= 1000:
                                     attend_list_names = attend_list_names[:1000]
                                 try:
-                                    indiv_amount = num_format_coin(truncate(amount / len(attend_list), 4), coin_name,
+                                    indiv_amount = num_format_coin(truncate(amount / len(attend_list), 12), coin_name,
                                                                    coin_decimal, False) if len(
                                         attend_list) > 0 else num_format_coin(truncate(amount, 4), coin_name,
                                                                               coin_decimal, False)
@@ -580,7 +580,7 @@ class Tips(commands.Cog):
                             else:
                                 # End of time but sometimes, it stuck. Let's disable it.
                                 try:
-                                    indiv_amount = num_format_coin(truncate(amount / len(attend_list), 4), coin_name,
+                                    indiv_amount = num_format_coin(truncate(amount / len(attend_list), 12), coin_name,
                                                                    coin_decimal, False) if len(
                                         attend_list) > 0 else num_format_coin(truncate(amount, 4), coin_name,
                                                                               coin_decimal, False)
@@ -1630,7 +1630,7 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        amount_div = truncate(amount / len(memids), 8)
+        amount_div = truncate(amount / len(memids), 12)
 
         tipAmount = num_format_coin(amount, coin_name, coin_decimal, False)
         ActualSpend_str = num_format_coin(amount_div * len(memids), coin_name, coin_decimal, False)
@@ -3249,9 +3249,9 @@ class Tips(commands.Cog):
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, no users or can not find any user to tip..."
             await ctx.edit_original_message(content=msg)
             return
-    
+
         if split_amount is True:
-            amount = amount / len(list_receivers)
+            amount = float(truncate(amount / len(list_receivers), 12))
 
         notifying_list = await store.sql_get_tipnotify()
         userdata_balance = await store.sql_user_balance_single(

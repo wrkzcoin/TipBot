@@ -6082,10 +6082,10 @@ class Wallet(commands.Cog):
         try:
             notify_list = await store.sql_get_pending_notification_users_erc20(SERVER_BOT)
             if len(notify_list) > 0:
-                for each_notify in notify_list:
+                for eachTx in notify_list:
                     try:
                         key = "notify_new_tx_erc20_{}_{}_{}".format(
-                            each_notify['token_name'], each_notify['user_id'], each_notify['txn']
+                            eachTx['token_name'], eachTx['user_id'], eachTx['txn']
                         )
                         if self.ttlcache[key] == key:
                             continue
@@ -6094,19 +6094,30 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                     is_notify_failed = False
-                    member = self.bot.get_user(int(each_notify['user_id']))
+                    member = self.bot.get_user(int(eachTx['user_id']))
                     if member:
                         update_status = await store.sql_updating_pending_move_deposit_erc20(
-                            True, is_notify_failed, each_notify['txn']
+                            True, is_notify_failed, eachTx['txn']
                         )
                         if update_status > 0:
                             msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(
                                 num_format_coin(
-                                    each_notify['real_amount'], each_notify['token_name'],
-                                    each_notify['token_decimal'], False
+                                    eachTx['real_amount'], eachTx['token_name'],
+                                    eachTx['token_decimal'], False
                                 ),
-                                each_notify['token_name']
+                                eachTx['token_name']
                             ) + "```"
+                            try:
+                                await log_to_channel(
+                                    "deposit",
+                                    "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                        num_format_coin(eachTx['real_amount'], eachTx['token_name'], eachTx['token_decimal'], False),
+                                        eachTx['token_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txn']
+                                    ),
+                                    self.bot.config['discord']['deposit_webhook']
+                                )
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
                             try:
                                 await member.send(msg)
                             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
@@ -6132,10 +6143,10 @@ class Wallet(commands.Cog):
         try:
             notify_list = await store.sql_get_pending_notification_users_trc20(SERVER_BOT)
             if notify_list and len(notify_list) > 0:
-                for each_notify in notify_list:
+                for eachTx in notify_list:
                     try:
                         key = "notify_new_tx_trc20_{}_{}_{}".format(
-                            each_notify['token_name'], each_notify['user_id'], each_notify['txn']
+                            eachTx['token_name'], eachTx['user_id'], eachTx['txn']
                         )
                         if self.ttlcache[key] == key:
                             continue
@@ -6144,19 +6155,30 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                     is_notify_failed = False
-                    member = self.bot.get_user(int(each_notify['user_id']))
+                    member = self.bot.get_user(int(eachTx['user_id']))
                     if member:
                         update_status = await store.sql_updating_pending_move_deposit_trc20(
-                            True, is_notify_failed, each_notify['txn']
+                            True, is_notify_failed, eachTx['txn']
                         )
                         if update_status > 0:
                             msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(
                                 num_format_coin(
-                                    each_notify['real_amount'], each_notify['token_name'],
-                                     each_notify['token_decimal'], False
+                                    eachTx['real_amount'], eachTx['token_name'],
+                                    eachTx['token_decimal'], False
                                 ),
-                                each_notify['token_name']
+                                eachTx['token_name']
                             ) + "```"
+                            try:
+                                await log_to_channel(
+                                    "deposit",
+                                    "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                        num_format_coin(eachTx['real_amount'], eachTx['token_name'], eachTx['token_decimal'], False),
+                                        eachTx['token_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txn']
+                                    ),
+                                    self.bot.config['discord']['deposit_webhook']
+                                )
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
                             try:
                                 await member.send(msg)
                             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
@@ -6453,6 +6475,17 @@ class Wallet(commands.Cog):
                                             num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
                                         ) + "```"
                                     try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                    try:
                                         await member.send(msg)
                                         sql = """ UPDATE `vite_get_transfers` 
                                             SET `notified_confirmation`=%s, `time_notified`=%s 
@@ -6630,6 +6663,17 @@ class Wallet(commands.Cog):
                                                 eachTx['coin_name'], eachTx['txid'],
                                                 num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
                                             ) + "```"
+                                        try:
+                                            await log_to_channel(
+                                                "deposit",
+                                                "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                    num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False),
+                                                    eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                                ),
+                                                self.bot.config['discord']['deposit_webhook']
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                         try:
                                             await member.send(msg)
                                             sql = """ UPDATE `cosmos_get_transfers` 
@@ -7123,6 +7167,17 @@ class Wallet(commands.Cog):
                                             num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
                                         ) + "```"
                                     try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                    try:
                                         await member.send(msg)
                                         sql = """ UPDATE `xlm_get_transfers` 
                                             SET `notified_confirmation`=%s, `time_notified`=%s
@@ -7339,6 +7394,17 @@ class Wallet(commands.Cog):
                                                 coin_name, eachTx['hash_id'],
                                                 num_format_coin(eachTx['amount'], coin_name, coin_decimal, False)
                                             ) + "```"
+                                        try:
+                                            await log_to_channel(
+                                                "deposit",
+                                                "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                    num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False),
+                                                    eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['hash_id']
+                                                ),
+                                                self.bot.config['discord']['deposit_webhook']
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                         try:
                                             await member.send(msg)
                                             sql = """ UPDATE `ada_get_transfers` 
@@ -7595,6 +7661,17 @@ class Wallet(commands.Cog):
                                                         coin_name, each_mv['txn'],
                                                         num_format_coin(each_mv['real_amount'], coin_name, coin_decimal, False)
                                                     ) + "```"
+                                                try:
+                                                    await log_to_channel(
+                                                        "deposit",
+                                                        "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                            num_format_coin(each_mv['real_amount'], each_mv['token_name'], coin_decimal, False),
+                                                            each_mv['token_name'], each_mv['user_id'], each_mv['user_id'], each_mv['txn']
+                                                        ),
+                                                        self.bot.config['discord']['deposit_webhook']
+                                                    )
+                                                except Exception:
+                                                    traceback.print_exc(file=sys.stdout)
                                                 try:
                                                     await member.send(msg)
                                                     sql = """ UPDATE `sol_move_deposit` 
@@ -7937,6 +8014,17 @@ class Wallet(commands.Cog):
                                             num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
                                         ) + "```"
                                     try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                    try:
                                         await member.send(msg)
                                         sql = """ UPDATE `cn_get_transfers` 
                                             SET `notified_confirmation`=%s, `time_notified`=%s 
@@ -8275,6 +8363,17 @@ class Wallet(commands.Cog):
                                             num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
                                         ) + "```"
                                     try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                    try:
                                         await member.send(msg)
                                         sql = """ UPDATE `doge_get_transfers` 
                                             SET `notified_confirmation`=%s, `time_notified`=%s 
@@ -8561,6 +8660,17 @@ class Wallet(commands.Cog):
                                                 num_format_coin(eachTx['amount'], coin_name, coin_decimal, False)
                                             ) + "```"
                                         try:
+                                            await log_to_channel(
+                                                "deposit",
+                                                "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                    num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False),
+                                                    eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txhash']
+                                                ),
+                                                self.bot.config['discord']['deposit_webhook']
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
+                                        try:
                                             await member.send(msg)
                                             sql = """ UPDATE `neo_get_transfers` 
                                                 SET `notified_confirmation`=%s, `time_notified`=%s 
@@ -8626,6 +8736,17 @@ class Wallet(commands.Cog):
                                             eachTx['coin_name'], eachTx['txid'],
                                             num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `xch_get_transfers`
@@ -8807,6 +8928,17 @@ class Wallet(commands.Cog):
                                             eachTx['coin_name'], eachTx['block'],
                                             num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['block']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `nano_move_deposit` 
@@ -9107,6 +9239,17 @@ class Wallet(commands.Cog):
                                             num_format_coin(eachTx['amount'], coin_name, coin_decimal, False)
                                         ) + "```"
                                     try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                    try:
                                         await member.send(msg)
                                         sql = """ UPDATE `xrp_get_transfers` 
                                             SET `notified_confirmation`=%s, `time_notified`=%s 
@@ -9377,6 +9520,17 @@ class Wallet(commands.Cog):
                                             num_format_coin(eachTx['amount'], eachTx['token_name'], coin_decimal, False)
                                         ) + "```"
                                     try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount'], eachTx['token_name'], coin_decimal, False),
+                                                eachTx['token_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txn']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                    try:
                                         await member.send(msg)
                                         sql = """ UPDATE `near_move_deposit` 
                                             SET `notified_confirmation`=%s, `time_notified`=%s 
@@ -9441,6 +9595,17 @@ class Wallet(commands.Cog):
                                             eachTx['token_name'],
                                             num_format_coin(eachTx['real_amount'], eachTx['token_name'], coin_decimal, False)
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['real_amount'], eachTx['token_name'], coin_decimal, False),
+                                                eachTx['token_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txn']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `vet_move_deposit` 
@@ -9693,6 +9858,17 @@ class Wallet(commands.Cog):
                                             eachTx['token_name'],
                                             num_format_coin(eachTx['real_amount'], eachTx['token_name'], coin_decimal, False)
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['real_amount'], eachTx['token_name'], coin_decimal, False),
+                                                eachTx['token_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txn']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `zil_move_deposit` 
@@ -10248,6 +10424,17 @@ class Wallet(commands.Cog):
                                                 eachTx['real_amount'], eachTx['token_name'], coin_decimal, False
                                             )
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['real_amount'], eachTx['token_name'], coin_decimal, False),
+                                                eachTx['token_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txn']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `tezos_move_deposit` 
@@ -13875,6 +14062,10 @@ class Wallet(commands.Cog):
                             amount_in_usd, None
                         )
                         try:
+                            del self.bot.tx_in_progress[str(ctx.author.id)]
+                        except Exception:
+                            pass
+                        try:
                             await store.sql_faucet_add(
                                 str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
                                 coin_decimal, SERVER_BOT, "DAILY"
@@ -14119,6 +14310,10 @@ class Wallet(commands.Cog):
                             "HOURLY", coin_decimal, SERVER_BOT, contract,
                             amount_in_usd, None
                         )
+                        try:
+                            del self.bot.tx_in_progress[str(ctx.author.id)]
+                        except Exception:
+                            pass
                         try:
                             await store.sql_faucet_add(
                                 str(ctx.author.id), str(ctx.guild.id), coin_name, amount,

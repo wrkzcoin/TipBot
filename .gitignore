@@ -13,3 +13,4 @@ wrkzcoin_tipbot/migration_to_v2.py
 wrkzcoin_tipbot/migrating.txt
 config.toml
 .howto/
+wrkzcoin_tipbot/cexswap_api.py

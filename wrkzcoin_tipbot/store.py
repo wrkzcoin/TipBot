@@ -2836,18 +2836,18 @@ async def sql_user_balance_mv_single(
                           (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, 
                           `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`, 
                           `extra_message`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s);
+                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(40,18)), CAST(%s AS DECIMAL(40,18)), %s, %s, %s, %s, %s);
 
                           INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, 
                           `balance`, `update_date`) 
-                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(40,18)), %s) ON DUPLICATE KEY 
                           UPDATE 
                           `balance`=`balance`+VALUES(`balance`), 
                           `update_date`=VALUES(`update_date`);
 
                           INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, 
                           `balance`, `update_date`) 
-                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(40,18)), %s) ON DUPLICATE KEY 
                           UPDATE 
                           `balance`=`balance`+VALUES(`balance`), 
                           `update_date`=VALUES(`update_date`);
@@ -2896,18 +2896,18 @@ async def sql_user_balance_mv_multple_amount(user_dict_tip, tiptype: str, user_s
                 sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, 
                 `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, 
                 `type`, `date`, `user_server`, `real_amount_usd`, `extra_message`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s, %s);
+                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(40,18)), %s, %s, %s, %s, %s, %s);
                         
                           INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, 
                           `balance`, `update_date`) 
-                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(40,18)), %s) ON DUPLICATE KEY 
                           UPDATE 
                           `balance`=`balance`+VALUES(`balance`), 
                           `update_date`=VALUES(`update_date`);
 
                           INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, 
                           `balance`, `update_date`) 
-                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                          VALUES (%s, %s, %s, CAST(%s AS DECIMAL(40,18)), %s) ON DUPLICATE KEY 
                           UPDATE 
                           `balance`=`balance`+VALUES(`balance`), 
                           `update_date`=VALUES(`update_date`);
@@ -2951,17 +2951,17 @@ async def sql_user_balance_mv_multiple(
                 sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, 
                 `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, 
                 `date`, `user_server`, `real_amount_usd`, `extra_message`) 
-                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s, %s);
+                          VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(40,18)), %s, %s, %s, %s, %s, %s);
                         
                 INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, 
                 `balance`, `update_date`) 
-                VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                VALUES (%s, %s, %s, CAST(%s AS DECIMAL(40,18)), %s) ON DUPLICATE KEY 
                 UPDATE 
                 `balance`=`balance`+VALUES(`balance`), 
                 `update_date`=VALUES(`update_date`);
 
                 INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
-                VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                VALUES (%s, %s, %s, CAST(%s AS DECIMAL(40,18)), %s) ON DUPLICATE KEY 
                 UPDATE 
                 `balance`=`balance`+VALUES(`balance`), 
                 `update_date`=VALUES(`update_date`);
@@ -3422,16 +3422,16 @@ async def sql_match_order_by_sellerid(
 
                         sql = """ INSERT INTO user_balance_mv 
                                   (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, `token_decimal`, `type`, `date`, `user_server`) 
-                                  VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s);
+                                  VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(40,18)), CAST(%s AS DECIMAL(40,18)), %s, %s, %s, %s);
 
                                   INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
-                                  VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                                  VALUES (%s, %s, %s, CAST(%s AS DECIMAL(40,18)), %s) ON DUPLICATE KEY 
                                   UPDATE 
                                   `balance`=`balance`+VALUES(`balance`), 
                                   `update_date`=VALUES(`update_date`);
 
                                   INSERT INTO user_balance_mv_data (`user_id`, `token_name`, `user_server`, `balance`, `update_date`) 
-                                  VALUES (%s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s) ON DUPLICATE KEY 
+                                  VALUES (%s, %s, %s, CAST(%s AS DECIMAL(40,18)), %s) ON DUPLICATE KEY 
                                   UPDATE 
                                   `balance`=`balance`+VALUES(`balance`), 
                                   `update_date`=VALUES(`update_date`);

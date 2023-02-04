@@ -14297,7 +14297,7 @@ class Wallet(commands.Cog):
                             )
                             msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got `/hourly` "\
                                 f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
-                                f"Use `/claim` to vote TipBot and get reward and more with `/hourly`.{advert_txt}"
+                                f"Use `/claim` to vote TipBot and get reward and more with `/daily`.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\

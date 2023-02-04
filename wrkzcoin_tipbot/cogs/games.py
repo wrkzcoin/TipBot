@@ -1828,6 +1828,10 @@ class Sokoban_Buttons(disnake.ui.View):
                         f"**{duration}**\n{result}",
                     view=None
                 )
+                try:
+                    del self.bot.queue_game_interactive[str(self.ctx.author.id)]
+                except Exception:
+                    pass
             else:
                 display_level = self.display_level(self.currentLevel)
                 embed = disnake.Embed(
@@ -1978,6 +1982,10 @@ class Sokoban_Buttons(disnake.ui.View):
                         f"**{duration}**\n{result}",
                     view=None
                 )
+                try:
+                    del self.bot.queue_game_interactive[str(self.ctx.author.id)]
+                except Exception:
+                    pass
             else:
                 display_level = self.display_level(self.currentLevel)
                 embed = disnake.Embed(
@@ -2126,7 +2134,11 @@ class Sokoban_Buttons(disnake.ui.View):
                     content=f"Level {self.level} completed. You have spent time: "\
                         f"**{duration}**\n{result}",
                     view=None
-                    )
+                )
+                try:
+                    del self.bot.queue_game_interactive[str(self.ctx.author.id)]
+                except Exception:
+                    pass
             else:
                 display_level = self.display_level(self.currentLevel)
                 embed = disnake.Embed(
@@ -2277,6 +2289,10 @@ class Sokoban_Buttons(disnake.ui.View):
                         f"**{duration}**\n{result}",
                     view=None
                 )
+                try:
+                    del self.bot.queue_game_interactive[str(self.ctx.author.id)]
+                except Exception:
+                    pass
             else:
                 display_level = self.display_level(self.currentLevel)
                 embed = disnake.Embed(

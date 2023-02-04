@@ -1423,6 +1423,9 @@ class add_liqudity(disnake.ui.Modal):
                     )
                 else:
                     if liq_pair is not None:
+                        cexswap_min_add_liq_1 = getattr(getattr(self.bot.coin_list, self.ticker_1), "cexswap_min_add_liq")
+                        cexswap_min_add_liq_2 = getattr(getattr(self.bot.coin_list, self.ticker_2), "cexswap_min_add_liq")
+                    else:
                         cexswap_min_add_liq_1 = getattr(getattr(self.bot.coin_list, self.ticker_1), "cexswap_min_initialized_liq")
                         cexswap_min_add_liq_2 = getattr(getattr(self.bot.coin_list, self.ticker_2), "cexswap_min_initialized_liq")
 

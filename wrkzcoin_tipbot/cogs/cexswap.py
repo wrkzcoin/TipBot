@@ -87,6 +87,28 @@ async def cexswap_get_pools(ticker: str=None):
         traceback.print_exc(file=sys.stdout)
     return []
 
+async def cexswap_get_all_poolshares(ticker: str=None):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                data_rows = []
+                sql = """ SELECT * 
+                FROM `cexswap_pools_share` 
+                """
+                if ticker is not None:
+                    sql += """
+                        WHERE `ticker_1_name`=%s OR `ticker_2_name`=%s
+                    """
+                    data_rows += [ticker]*2
+                await cur.execute(sql, tuple(data_rows))
+                result = await cur.fetchall()
+                if result:
+                    return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
 async def cexswap_get_all_lp_pools():
     try:
         await store.openConnection()
@@ -3515,6 +3537,10 @@ class Cexswap(commands.Cog):
             Option("amount", "Choose amount", OptionType.string, required=True),
             Option("token", "Choose token/coin name", OptionType.string, required=True),
             Option("max_alert", "Number of max notification", OptionType.integer, required=True),
+            Option('testing', 'If testing or real', OptionType.string, required=False, choices=[
+                OptionChoice("Testing Only", "YES"),
+                OptionChoice("Do airdrop", "NO")
+            ])
         ],
         description="Admin to airdrop to all liquidators."
     )
@@ -3524,10 +3550,11 @@ class Cexswap(commands.Cog):
         pool_name: str,
         amount: str,
         token: str,
-        max_alert: int
+        max_alert: int,
+        testing: str="NO"
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading aidrop..."
-        await ctx.response.send_message(msg, ephemeral=True)
+        await ctx.response.send_message(msg, ephemeral=False)
 
         if ctx.author.id != self.bot.config['discord']['owner']:
             await ctx.edit_original_message(content=f"{ctx.auhtor.mention}, you don't have permission!")
@@ -3538,48 +3565,6 @@ class Cexswap(commands.Cog):
             )
             return
         try:
-            pool_name = pool_name.upper()
-            if pool_name not in self.bot.cexswap_pairs:
-                # check if wrong order
-                try:
-                    tickers = pool_name.upper().split("/")
-                    if len(tickers) == 2:
-                        pool_name = "{}/{}".format(tickers[1], tickers[0])
-                        if pool_name not in self.bot.cexswap_pairs:
-                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                                f"Invalid given `{pool_name}`."
-                            await ctx.edit_original_message(content=msg)
-                            return
-                    else:
-                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                            f"Invalid given `{pool_name}`."
-                        await ctx.edit_original_message(content=msg)
-                        return
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                        f"Invalid given `{pool_name}`."
-                    await ctx.edit_original_message(content=msg)
-                    return
-                # End checking wrong order
-
-            if max_alert <= 0:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, `max_alert` must be bigger than 0."
-                await ctx.edit_original_message(content=msg)
-                return
-            elif max_alert > self.bot.config['cexswap']['max_airdrop_lp']:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, `max_alert` must be smaller than "\
-                    f"{self.bot.config['cexswap']['max_airdrop_lp']}."
-                await ctx.edit_original_message(content=msg)
-                return
-
-            tickers = pool_name.split("/")
-            liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], None)
-            if liq_pair is None:
-                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity of `{pool_name}` yet."
-                await ctx.edit_original_message(content=msg)
-                return
-
             coin_name = token.upper()
             if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
                 coin_name = self.bot.coin_alias_names[coin_name]
@@ -3636,6 +3621,155 @@ class Cexswap(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     return
             # end of check if amount is all
+
+            liq_users = []
+            balance_rows = []
+            lp_details = []
+            lp_discord_users = []
+            liq_user_percentages = {}
+            balance_user = {}
+
+            # owner
+            balance_rows.append((
+                str(ctx.author.id), coin_name, SERVER_BOT, -float(truncate(amount, 8)), int(time.time())
+            ))
+
+            pool_name = pool_name.upper()
+            # check if the given is a single coin/token
+            single_coin = False
+            if pool_name in self.bot.cexswap_coins:
+                single_coin = True
+                # that is one coin only
+                # Find pool with
+                find_other_lp = await cexswap_get_all_poolshares(pool_name)
+                # We'll get a list of that
+                if len(find_other_lp) == 0:
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there's not any pool share with `{pool_name}`."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                else:
+                    list_user_with_amount = {}
+                    total_amount = 0
+                    server_user_list = {}
+                    for i in find_other_lp:
+                        if i['user_id'] not in server_user_list:
+                            server_user_list[i['user_id']] = i['user_server']
+                        if i['ticker_1_name'] == pool_name:
+                            if i['user_id'] not in list_user_with_amount:
+                                list_user_with_amount[i['user_id'] ] = i['amount_ticker_1']
+                            else:
+                                list_user_with_amount[i['user_id'] ] += i['amount_ticker_1']
+                            total_amount += i['amount_ticker_1']
+                        elif i['ticker_2_name'] == pool_name:
+                            if i['user_id'] not in list_user_with_amount:
+                                list_user_with_amount[i['user_id'] ] = i['amount_ticker_2']
+                            else:
+                                list_user_with_amount[i['user_id'] ] += i['amount_ticker_2']
+                            total_amount += i['amount_ticker_2']
+                    for k, v in list_user_with_amount.items():
+                        distributed_amount = truncate(
+                            float(v) / float(total_amount) * float(truncate(amount, 12)), 8
+                        )
+                        if distributed_amount > 0:
+                            liq_users.append([float(distributed_amount), k, server_user_list[k]])
+                            if float(distributed_amount) / float(amount) * 100 > 0.01:
+                                liq_user_percentages[k] = "{:,.2f} {}".format(float(distributed_amount) / float(amount)*100, "%")
+                                balance_rows.append((
+                                    k, coin_name, server_user_list[k], float(truncate(distributed_amount, 8)), int(time.time())
+                                ))
+                                lp_details.append((
+                                    None, pool_name, str(ctx.author.id), k, coin_name,
+                                    float(truncate(amount, 8)), float(truncate(distributed_amount, 8)),
+                                    float(truncate(distributed_amount, 8)) / float(truncate(amount, 8)) * 100,
+                                    int(time.time())
+                                ))
+                                if server_user_list[k] == SERVER_BOT:
+                                    lp_discord_users.append(k)
+                                    balance_user[k] = num_format_coin(distributed_amount)
+
+            elif pool_name not in self.bot.cexswap_pairs:
+                # check if wrong order
+                try:
+                    tickers = pool_name.upper().split("/")
+                    if len(tickers) == 2:
+                        pool_name = "{}/{}".format(tickers[1], tickers[0])
+                        if pool_name not in self.bot.cexswap_pairs:
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                                f"Invalid given `{pool_name}`."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                    else:
+                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                            f"Invalid given `{pool_name}`."
+                        await ctx.edit_original_message(content=msg)
+                        return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                        f"Invalid given `{pool_name}`."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                # End checking wrong order
+
+            if pool_name not in self.bot.cexswap_pairs and single_coin is False:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                    f"Invalid given `{pool_name}`."
+                await ctx.edit_original_message(content=msg)
+                return
+            elif pool_name in self.bot.cexswap_pairs and single_coin is False:
+                tickers = pool_name.split("/")
+                liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], None)
+                if liq_pair is None:
+                    msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity of `{pool_name}` yet."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                else:
+                    if len(liq_pair['pool_share']) > 0:
+                        for each_s in liq_pair['pool_share']:
+                            distributed_amount = truncate(
+                                float(each_s['amount_ticker_1']) / float(liq_pair['pool']['amount_ticker_1']) * \
+                                float(truncate(amount, 12)), 8
+                            )
+                            if distributed_amount > 0:
+                                liq_users.append([float(distributed_amount), each_s['user_id'], each_s['user_server']])
+                                if float(each_s['amount_ticker_1']) / float(liq_pair['pool']['amount_ticker_1']) * 100 > 0.01:
+                                    liq_user_percentages[each_s['user_id']] = "{:,.2f} {}".format(
+                                        float(each_s['amount_ticker_1']) / float(liq_pair['pool']['amount_ticker_1'])*100, "%"
+                                    )
+                    if len(liq_users) == 0:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention} internal error, found 0 liquidator."
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    else:
+                        # lp users
+                        for i in liq_users:
+                            try:
+                                if float(truncate(amount, 8)) > 0.0:
+                                    balance_rows.append((
+                                        i[1], coin_name, i[2], float(truncate(i[0], 8)), int(time.time())
+                                    ))
+                                    lp_details.append((
+                                        liq_pair['pool']['pool_id'], pool_name, str(ctx.author.id), i[1], coin_name,
+                                        float(truncate(amount, 8)), float(truncate(i[0], 8)),
+                                        float(truncate(i[0], 8)) / float(truncate(amount, 8)) * 100,
+                                        int(time.time())
+                                    ))
+                                    if i[2] == SERVER_BOT:
+                                        lp_discord_users.append(i[1])
+                                        balance_user[str(i[1])] = num_format_coin(i[0])
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+
+            if max_alert <= 0:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, `max_alert` must be bigger than 0."
+                await ctx.edit_original_message(content=msg)
+                return
+            elif max_alert > self.bot.config['cexswap']['max_airdrop_lp']:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, `max_alert` must be smaller than "\
+                    f"{self.bot.config['cexswap']['max_airdrop_lp']}."
+                await ctx.edit_original_message(content=msg)
+                return
+
             amount = float(amount)
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
@@ -3674,54 +3808,13 @@ class Cexswap(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
 
-            liq_users = []
-            liq_user_percentages = {}
-            if len(liq_pair['pool_share']) > 0:
-                for each_s in liq_pair['pool_share']:
-                    distributed_amount = truncate(
-                            float(each_s['amount_ticker_1']) / float(liq_pair['pool']['amount_ticker_1']) * \
-                            float(truncate(amount, 12)), 8
+            if len(liq_users) > 0:
+                if testing == "NO":
+                    airdroping = await cexswap_airdrop_lp_detail(
+                        balance_rows, lp_details
                     )
-                    if distributed_amount > 0:
-                        liq_users.append([float(distributed_amount), each_s['user_id'], each_s['user_server']])
-                        if float(each_s['amount_ticker_1']) / float(liq_pair['pool']['amount_ticker_1']) > 0.0001:
-                            liq_user_percentages[each_s['user_id']] = "{:,.2f} {}".format(
-                                float(each_s['amount_ticker_1']) / float(liq_pair['pool']['amount_ticker_1'])*100, "%"
-                            )
-            if len(liq_users) == 0:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention} internal error, found 0 liquidator."
-                await ctx.edit_original_message(content=msg)
-                return
-            else:
-                balance_rows = []
-                lp_details = []
-                lp_discord_users = []
-                # owner
-                balance_rows.append((
-                    str(ctx.author.id), coin_name, SERVER_BOT, -float(truncate(amount, 8)), int(time.time())
-                ))
-                # lp users
-                balance_user = {}
-                for i in liq_users:
-                    try:
-                        if float(truncate(amount, 8)) > 0.0:
-                            balance_rows.append((
-                                i[1], coin_name, SERVER_BOT, float(truncate(i[0], 8)), int(time.time())
-                            ))
-                            lp_details.append((
-                                liq_pair['pool']['pool_id'], pool_name, str(ctx.author.id), i[1], coin_name,
-                                float(truncate(amount, 8)), float(truncate(i[0], 8)),
-                                float(truncate(i[0], 8)) / float(truncate(amount, 8)) * 100,
-                                int(time.time())
-                            ))
-                            if i[2] == SERVER_BOT:
-                                lp_discord_users.append(i[1])
-                                balance_user[str(i[1])] = num_format_coin(i[0])
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                airdroping = await cexswap_airdrop_lp_detail(
-                    balance_rows, lp_details
-                )
+                else:
+                    airdroping = True
                 num_notifying = 0
                 list_receivers_str = []
                 if airdroping is True and len(lp_discord_users) > 0:
@@ -3735,37 +3828,38 @@ class Cexswap(commands.Cog):
                     except Exception:
                         pass
                     # End of del key
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully airdrop for pool: `{pool_name}`."
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully airdrop for pool: `{pool_name}`. Testing: `{testing}`"
                     for each_u in lp_discord_users:
                         list_receivers_str.append("UserID {}: {} {}".format(each_u, balance_user[str(each_u)], coin_name))
-                        try:
-                            member = self.bot.get_user(int(each_u))
-                            if member is not None:
-                                try:
-                                    # Delete if has key
+                        if testing == "NO":
+                            try:
+                                member = self.bot.get_user(int(each_u))
+                                if member is not None:
                                     try:
-                                        key = str(each_u) + "_" + coin_name + "_" + SERVER_BOT
-                                        if key in self.bot.user_balance_cache:
-                                            del self.bot.user_balance_cache[key]
+                                        # Delete if has key
+                                        try:
+                                            key = str(each_u) + "_" + coin_name + "_" + SERVER_BOT
+                                            if key in self.bot.user_balance_cache:
+                                                del self.bot.user_balance_cache[key]
+                                        except Exception:
+                                            pass
+                                        # End of del key
+                                        msg_sending = f"Admin did an airdrop for pool `{pool_name}`. "\
+                                            f"You have **{liq_user_percentages[each_u]}** in that pool. "\
+                                            f"Airdrop shared delivers to your balance:"\
+                                            f"```{balance_user[str(each_u)]} {coin_name}```Thank you!"
+                                        await member.send(msg_sending)
+                                        num_notifying += 1
                                     except Exception:
-                                        pass
-                                    # End of del key
-                                    msg_sending = f"Admin did an airdrop for pool `{pool_name}`. "\
-                                        f"You have **{liq_user_percentages[each_u]}** in that pool. "\
-                                        f"Airdrop shared delivers to your balance:"\
-                                        f"```{balance_user[str(each_u)]} {coin_name}```Thank you!"
-                                    await member.send(msg_sending)
-                                    num_notifying += 1
-                                except Exception:
-                                    traceback.print_exc(file=sys.stdout)
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
+                                        traceback.print_exc(file=sys.stdout)
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
                 msg += " And notified {} user(s).".format(num_notifying)
                 msg += "```" + "\n".join(list_receivers_str) + "```"
                 await ctx.edit_original_message(content=msg)
                 await log_to_channel(
                     "cexswap",
-                    f"[AIRDROP LP]: User {ctx.author.mention} did airdrop LP for pools `{pool_name}`!",
+                    f"[AIRDROP LP]: User {ctx.author.mention} did airdrop LP for pools `{pool_name}`. Testing: {testing}!",
                     self.bot.config['discord']['cexswap']
                 )
         except Exception:

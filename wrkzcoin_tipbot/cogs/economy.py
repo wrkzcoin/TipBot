@@ -3191,191 +3191,194 @@ class Economy(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        # Get all available work in the guild
-        get_worklist = await self.db.economy_get_guild_worklist(str(ctx.guild.id), True)
-        # Getting list of work in the guild and re-act
-        get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
-        if get_userinfo:
-            # If health less than 50%, stop
-            if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your health is having issue. Do some heatlh check."
-                await ctx.edit_original_message(content=msg)
-                return
-                
-            elif get_userinfo['health_current']/get_userinfo['health_total'] < 0.3:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your health is having issue."
-                await ctx.edit_original_message(content=msg)
-                return
-            # If energy less than 20%, stop
-            if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.2:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you have very small energy. Eat to powerup."
-                await ctx.edit_original_message(content=msg)
-                return
-            try:
-                claim = None
-                get_last_act = await self.db.economy_get_last_activities(str(ctx.author.id), False)
-                if get_last_act is not None:
-                    remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
-                    if remaining < 0:
-                        claim = "CLAIM" # claim automatically
-                if get_last_act and get_last_act['status'] == 'COMPLETED' or get_last_act is None:
-                    # Add work if he needs to do
-                    e = disnake.Embed(title="{}#{} Work list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy game in TipBot", timestamp=datetime.now())
-                    get_worklist_guild = await self.db.economy_get_guild_worklist(str(ctx.guild.id), False)
-                    all_work_in_guild = {}
-                    if get_worklist_guild and len(get_worklist_guild) > 0:
-                        for each_work in get_worklist_guild:
-                            plus_minus = "+" if each_work['reward_expense_amount'] > 0 else ""
-                            coin_name = each_work['reward_coin_name']
-                            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                            reward_string = plus_minus + num_format_coin(each_work['reward_expense_amount']) + " " + coin_name
-                            e.add_field(
-                                name=each_work['work_name'] + " " + each_work['work_emoji'] + " ( Duration: {}) | {}".format(
-                                    seconds_str(each_work['duration_in_second']), reward_string
-                                ),
-                                value="```Exp: {}xp / Energy: {} / Health: {}```".format(
-                                    each_work['exp_gained_loss'], each_work['energy_loss'], each_work['health_loss']
-                                ),
-                                inline=False
-                            )
-                            all_work_in_guild[str(each_work['work_emoji'])] = each_work['work_id']
-                        e.set_footer(text=f"User {ctx.author.name}#{ctx.author.discriminator}")
-                        e.set_thumbnail(url=ctx.author.display_avatar)
-                        view = EconomyButton([each_work['work_emoji'] for each_work in get_worklist_guild], str(ctx.author.id), "work", 10)
-                        await ctx.edit_original_message(content=None, embed=e, view=view)
-                        self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
-                    else:
-                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, sorry, there is no available work yet."
-                        await ctx.edit_original_message(content=msg)
-                        return
-                else:
-                    # He is not free
-                    if claim and claim.upper() == 'CLAIM':
-                        # Check if he can complete the last work
-                        if get_last_act and get_last_act['status'] == 'ONGOING' and get_last_act['started'] + get_last_act['duration_in_second'] <= int(time.time()):
-                            # Get guild's balance not ctx.guild
-                            played_guild = self.bot.get_guild(int(get_last_act['guild_id']))
-                            # Check guild's balance:
-                            coin_name = get_last_act['reward_coin_name'].upper()                           
-                            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-                            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                            get_deposit = await self.wallet_api.sql_get_userwallet(get_last_act['guild_id'], coin_name, net_name, type_coin, SERVER_BOT, 0)
-                            if get_deposit is None:
-                                get_deposit = await self.wallet_api.sql_register_user(get_last_act['guild_id'], coin_name, net_name, type_coin, SERVER_BOT, 0)
-                            wallet_address = get_deposit['balance_wallet_address']
-                            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                                wallet_address = get_deposit['paymentid']
-                            elif type_coin in ["XRP"]:
-                                wallet_address = get_deposit['destination_tag']
-
-                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                            # height can be None
-                            userdata_balance = await store.sql_user_balance_single(get_last_act['guild_id'], coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
-                            total_balance = userdata_balance['adjust']
-
-                            # Negative check
-                            try:
-                                if total_balance < 0:
-                                    msg_negative = 'Negative balance detected:\Guild: '+str(get_last_act['guild_id'])+'\nCoin: '+coin_name+'\nBalance: '+str(total_balance)
-                                    await logchanbot(msg_negative)
-                            except Exception:
-                                await logchanbot(traceback.format_exc())
-                            # End negative check
-                            if get_last_act['reward_amount'] > total_balance:
-                                await logchanbot(
-                                    str(get_last_act['guild_id']) + f" runs out of balance for coin {coin_name}. "\
-                                        "Stop rewarding."
+        try:
+            # Get all available work in the guild
+            get_worklist = await self.db.economy_get_guild_worklist(str(ctx.guild.id), True)
+            # Getting list of work in the guild and re-act
+            get_userinfo = await self.db.economy_get_user(str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator))
+            if get_userinfo:
+                # If health less than 50%, stop
+                if get_userinfo['health_current']/get_userinfo['health_total'] < 0.5:
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your health is having issue. Do some heatlh check."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                    
+                elif get_userinfo['health_current']/get_userinfo['health_total'] < 0.3:
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, your health is having issue."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                # If energy less than 20%, stop
+                if get_userinfo['energy_current']/get_userinfo['energy_total'] < 0.2:
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you have very small energy. Eat to powerup."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                try:
+                    claim = None
+                    get_last_act = await self.db.economy_get_last_activities(str(ctx.author.id), False)
+                    if get_last_act is not None:
+                        remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
+                        if remaining < 0:
+                            claim = "CLAIM" # claim automatically
+                    if get_last_act and get_last_act['status'] == 'COMPLETED' or get_last_act is None:
+                        # Add work if he needs to do
+                        e = disnake.Embed(title="{}#{} Work list in guild: {}".format(ctx.author.name, ctx.author.discriminator, ctx.guild.name), description="Economy game in TipBot", timestamp=datetime.now())
+                        get_worklist_guild = await self.db.economy_get_guild_worklist(str(ctx.guild.id), False)
+                        all_work_in_guild = {}
+                        if get_worklist_guild and len(get_worklist_guild) > 0:
+                            for each_work in get_worklist_guild:
+                                plus_minus = "+" if each_work['reward_expense_amount'] > 0 else ""
+                                coin_name = each_work['reward_coin_name']
+                                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                reward_string = plus_minus + num_format_coin(each_work['reward_expense_amount']) + " " + coin_name
+                                e.add_field(
+                                    name=each_work['work_name'] + " " + each_work['work_emoji'] + " ( Duration: {}) | {}".format(
+                                        seconds_str(each_work['duration_in_second']), reward_string
+                                    ),
+                                    value="```Exp: {}xp / Energy: {} / Health: {}```".format(
+                                        each_work['exp_gained_loss'], each_work['energy_loss'], each_work['health_loss']
+                                    ),
+                                    inline=False
                                 )
-                                msg = f"{EMOJI_ERROR} {ctx.author.mention}, this guild runs out of balance to give reward."
-                                await ctx.edit_original_message(content=msg)
-                                return
-                            # OK, let him claim
-                            try:
-                                add_energy = get_last_act['energy']
-                                if get_userinfo['energy_current'] + add_energy > get_userinfo['energy_total'] and add_energy > 0:
-                                    add_energy = get_userinfo['energy_total'] - get_userinfo['energy_current']
-                                add_health = get_last_act['health']
-                                if get_userinfo['health_current'] + add_health > get_userinfo['health_total'] and add_health > 0:
-                                    add_health = get_userinfo['health_total'] - get_userinfo['health_current']
-                                update_work = await self.db.economy_update_activity(get_last_act['id'], str(ctx.author.id), get_last_act['exp'], add_health, add_energy)
-                                if update_work:
-                                    completed_task = 'You completed task #{}\n'.format(get_last_act['id'])
-                                    completed_task += 'Gained Exp: {}\n'.format(get_last_act['exp'])
-                                    coin_name = get_last_act['reward_coin_name']
-                                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                                    contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-                                    if get_last_act['reward_amount'] and get_last_act['reward_amount'] > 0:
-                                        completed_task += 'Reward Coin: {}{}\n'.format(num_format_coin(get_last_act['reward_amount'], coin_name))
-                                    if get_last_act['health'] and get_last_act['health'] > 0:
-                                        completed_task += 'Gained Health: {}\n'.format(get_last_act['health'])
-                                    if get_last_act['energy'] and get_last_act['energy'] > 0:
-                                        completed_task += 'Gained energy: {}\n'.format(get_last_act['energy'])
-                                    if get_last_act['energy'] and get_last_act['energy'] < 0:
-                                        completed_task += 'Spent of energy: {}'.format(get_last_act['energy'])
-
-                                    amount_in_usd = 0.0
-                                    if usd_equivalent_enable == 1:
-                                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                                        coin_name_for_price = coin_name
-                                        if native_token_name:
-                                            coin_name_for_price = native_token_name
-                                        if coin_name_for_price in self.bot.token_hints:
-                                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                                        else:
-                                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                                        if per_unit and per_unit > 0:
-                                            amount_in_usd = float(Decimal(per_unit) * Decimal(get_last_act['reward_amount']))
-                                    try:
-                                        key_coin = get_last_act['guild_id'] + "_" + coin_name + "_" + SERVER_BOT
-                                        if key_coin in self.bot.user_balance_cache:
-                                            del self.bot.user_balance_cache[key_coin]
-
-                                        key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                                        if key_coin in self.bot.user_balance_cache:
-                                            del self.bot.user_balance_cache[key_coin]
-                                    except Exception:
-                                        pass
-                                    reward = await store.sql_user_balance_mv_single(
-                                        get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), 
-                                        str(ctx.channel.id), get_last_act['reward_amount'], coin_name, 
-                                        'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd, None
-                                    )
-                                    await ctx.edit_original_message(
-                                        content=f"{EMOJI_INFORMATION} {ctx.author.mention} ```{completed_task}```"
-                                    )
-                                else:
-                                    msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."
-                                    await ctx.edit_original_message(content=msg)
-                                    return
-                            except:
-                                traceback.print_exc(file=sys.stdout)
-                                msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."
-                                await ctx.edit_original_message(content=msg)
-                                return
+                                all_work_in_guild[str(each_work['work_emoji'])] = each_work['work_id']
+                            e.set_footer(text=f"User {ctx.author.name}#{ctx.author.discriminator}")
+                            e.set_thumbnail(url=ctx.author.display_avatar)
+                            view = EconomyButton([each_work['work_emoji'] for each_work in get_worklist_guild], str(ctx.author.id), "work", 10)
+                            await ctx.edit_original_message(content=None, embed=e, view=view)
+                            self.bot.queue_game_economy[str(ctx.author.id)] = int(time.time())
                         else:
-                            additional_claim_msg = ""
-                            if remaining < 0:
-                                remaining = 0
-                                additional_claim_msg = "You shall claim it now!"
-                            msg = f"{EMOJI_ERROR} {ctx.author.mention}, sorry, you can not claim it now. Remaining time `{seconds_str(remaining)}`. {additional_claim_msg}"
+                            msg = f"{EMOJI_ERROR} {ctx.author.mention}, sorry, there is no available work yet."
                             await ctx.edit_original_message(content=msg)
                             return
                     else:
-                        remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
-                        msg =  f"{EMOJI_ERROR} {ctx.author.mention}, sorry, you are still busy with other activity. Remaining time `{seconds_str(remaining)}`."
-                        await ctx.edit_original_message(content=msg)
-                        return
-            except:
-                traceback.print_exc(file=sys.stdout)
-                error = disnake.Embed(title=":exclamation: Error", description=" :warning: internal error!")
-                await ctx.edit_original_message(content=None, embed=error)
-        else:
-            msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."
-            await ctx.edit_original_message(content=msg)
-            return
+                        # He is not free
+                        if claim and claim.upper() == 'CLAIM':
+                            # Check if he can complete the last work
+                            if get_last_act and get_last_act['status'] == 'ONGOING' and get_last_act['started'] + get_last_act['duration_in_second'] <= int(time.time()):
+                                # Get guild's balance not ctx.guild
+                                played_guild = self.bot.get_guild(int(get_last_act['guild_id']))
+                                # Check guild's balance:
+                                coin_name = get_last_act['reward_coin_name'].upper()                           
+                                net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                                type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                                get_deposit = await self.wallet_api.sql_get_userwallet(get_last_act['guild_id'], coin_name, net_name, type_coin, SERVER_BOT, 0)
+                                if get_deposit is None:
+                                    get_deposit = await self.wallet_api.sql_register_user(get_last_act['guild_id'], coin_name, net_name, type_coin, SERVER_BOT, 0)
+                                wallet_address = get_deposit['balance_wallet_address']
+                                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                    wallet_address = get_deposit['paymentid']
+                                elif type_coin in ["XRP"]:
+                                    wallet_address = get_deposit['destination_tag']
+
+                                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                # height can be None
+                                userdata_balance = await store.sql_user_balance_single(get_last_act['guild_id'], coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
+                                total_balance = userdata_balance['adjust']
+
+                                # Negative check
+                                try:
+                                    if total_balance < 0:
+                                        msg_negative = 'Negative balance detected:\Guild: '+str(get_last_act['guild_id'])+'\nCoin: '+coin_name+'\nBalance: '+str(total_balance)
+                                        await logchanbot(msg_negative)
+                                except Exception:
+                                    await logchanbot(traceback.format_exc())
+                                # End negative check
+                                if get_last_act['reward_amount'] > total_balance:
+                                    await logchanbot(
+                                        str(get_last_act['guild_id']) + f" runs out of balance for coin {coin_name}. "\
+                                            "Stop rewarding."
+                                    )
+                                    msg = f"{EMOJI_ERROR} {ctx.author.mention}, this guild runs out of balance to give reward."
+                                    await ctx.edit_original_message(content=msg)
+                                    return
+                                # OK, let him claim
+                                try:
+                                    add_energy = get_last_act['energy']
+                                    if get_userinfo['energy_current'] + add_energy > get_userinfo['energy_total'] and add_energy > 0:
+                                        add_energy = get_userinfo['energy_total'] - get_userinfo['energy_current']
+                                    add_health = get_last_act['health']
+                                    if get_userinfo['health_current'] + add_health > get_userinfo['health_total'] and add_health > 0:
+                                        add_health = get_userinfo['health_total'] - get_userinfo['health_current']
+                                    update_work = await self.db.economy_update_activity(get_last_act['id'], str(ctx.author.id), get_last_act['exp'], add_health, add_energy)
+                                    if update_work:
+                                        completed_task = 'You completed task #{}\n'.format(get_last_act['id'])
+                                        completed_task += 'Gained Exp: {}\n'.format(get_last_act['exp'])
+                                        coin_name = get_last_act['reward_coin_name']
+                                        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                                        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                                        if get_last_act['reward_amount'] and get_last_act['reward_amount'] > 0:
+                                            completed_task += 'Reward Coin: {}{}\n'.format(num_format_coin(get_last_act['reward_amount']), coin_name)
+                                        if get_last_act['health'] and get_last_act['health'] > 0:
+                                            completed_task += 'Gained Health: {}\n'.format(get_last_act['health'])
+                                        if get_last_act['energy'] and get_last_act['energy'] > 0:
+                                            completed_task += 'Gained energy: {}\n'.format(get_last_act['energy'])
+                                        if get_last_act['energy'] and get_last_act['energy'] < 0:
+                                            completed_task += 'Spent of energy: {}'.format(get_last_act['energy'])
+
+                                        amount_in_usd = 0.0
+                                        if usd_equivalent_enable == 1:
+                                            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                                            coin_name_for_price = coin_name
+                                            if native_token_name:
+                                                coin_name_for_price = native_token_name
+                                            if coin_name_for_price in self.bot.token_hints:
+                                                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                                                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                                            else:
+                                                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                                            if per_unit and per_unit > 0:
+                                                amount_in_usd = float(Decimal(per_unit) * Decimal(get_last_act['reward_amount']))
+                                        try:
+                                            key_coin = get_last_act['guild_id'] + "_" + coin_name + "_" + SERVER_BOT
+                                            if key_coin in self.bot.user_balance_cache:
+                                                del self.bot.user_balance_cache[key_coin]
+
+                                            key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                                            if key_coin in self.bot.user_balance_cache:
+                                                del self.bot.user_balance_cache[key_coin]
+                                        except Exception:
+                                            pass
+                                        reward = await store.sql_user_balance_mv_single(
+                                            get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), 
+                                            str(ctx.channel.id), get_last_act['reward_amount'], coin_name, 
+                                            'ECONOMY', coin_decimal, SERVER_BOT, contract, amount_in_usd, None
+                                        )
+                                        await ctx.edit_original_message(
+                                            content=f"{EMOJI_INFORMATION} {ctx.author.mention} ```{completed_task}```"
+                                        )
+                                    else:
+                                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."
+                                        await ctx.edit_original_message(content=msg)
+                                        return
+                                except:
+                                    traceback.print_exc(file=sys.stdout)
+                                    msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."
+                                    await ctx.edit_original_message(content=msg)
+                                    return
+                            else:
+                                additional_claim_msg = ""
+                                if remaining < 0:
+                                    remaining = 0
+                                    additional_claim_msg = "You shall claim it now!"
+                                msg = f"{EMOJI_ERROR} {ctx.author.mention}, sorry, you can not claim it now. Remaining time `{seconds_str(remaining)}`. {additional_claim_msg}"
+                                await ctx.edit_original_message(content=msg)
+                                return
+                        else:
+                            remaining = get_last_act['started'] + get_last_act['duration_in_second'] - int(time.time())
+                            msg =  f"{EMOJI_ERROR} {ctx.author.mention}, sorry, you are still busy with other activity. Remaining time `{seconds_str(remaining)}`."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                except:
+                    traceback.print_exc(file=sys.stdout)
+                    error = disnake.Embed(title=":exclamation: Error", description=" :warning: internal error!")
+                    await ctx.edit_original_message(content=None, embed=error)
+            else:
+                msg = f"{EMOJI_ERROR} {ctx.author.mention}, internal error."
+                await ctx.edit_original_message(content=msg)
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @commands.guild_only()
     @commands.slash_command(

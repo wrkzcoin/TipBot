@@ -13,10 +13,10 @@ import random
 
 import store
 
-from Bot import SERVER_BOT, num_format_coin, log_to_channel
+from Bot import SERVER_BOT, log_to_channel
 from cogs.wallet import Faucet
 from cogs.wallet import WalletAPI
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 
 class DiscadiaVote(commands.Cog):
@@ -190,7 +190,7 @@ class DiscadiaVote(commands.Cog):
                                 await log_to_channel(
                                     "vote",
                                     f"[{SERVER_BOT}] User <@{user_vote}> voted for guild `{guild_id}` "\
-                                    f"at **discadia** type `{type_vote}` but less than 1h."
+                                    f"at discadia type `{type_vote}` but less than 1h."
                                 )
                                 return web.Response(text="Thank you!")
                         except Exception:
@@ -306,10 +306,10 @@ class DiscadiaVote(commands.Cog):
                                             extra_msg = ""
                                             if extra_amount > 0:
                                                 extra_msg = " You have a guild's role that give you additional "\
-                                                    f"bonus **" + num_format_coin(extra_amount, coin_name, coin_decimal, False) \
+                                                    f"bonus **" + num_format_coin(extra_amount) \
                                                     + " " + coin_name + "**."
                                             msg = f"Thank you for voting for guild `{guild.name}` at discadia.com. "\
-                                                f"You got a reward {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} "\
+                                                f"You got a reward {num_format_coin(amount + extra_amount)} "\
                                                 f"{coin_name}.{extra_msg}"
                                             try:
                                                 await member.send(msg)
@@ -318,7 +318,7 @@ class DiscadiaVote(commands.Cog):
                                                     await guild_owner.send(
                                                         f"User {member.name}#{member.discriminator} / `{user_vote}` voted for your guild {guild.name} "\
                                                         f"at discadia.com. They got a reward "\
-                                                        f"{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}."
+                                                        f"{num_format_coin(amount + extra_amount)} {coin_name}."
                                                     )
                                                 except Exception:
                                                     pass
@@ -348,14 +348,14 @@ class DiscadiaVote(commands.Cog):
                                                         embed.add_field(
                                                             name=f"{coin_emoji}Reward",
                                                             value="{} {}".format(
-                                                                num_format_coin(amount, coin_name, coin_decimal, False),
+                                                                num_format_coin(amount),
                                                                 coin_name
                                                             ),
                                                             inline=True
                                                         )
                                                         if extra_amount > 0:
                                                             embed.add_field(name="Extra Reward", value="{} {}".format(
-                                                                num_format_coin(extra_amount, coin_name, coin_decimal, False),
+                                                                num_format_coin(extra_amount),
                                                                 coin_name), inline=True)
                                                         embed.add_field(
                                                             name="Link",
@@ -458,11 +458,6 @@ class DiscadiaVote(commands.Cog):
         await self.site.start()
 
     async def cog_load(self):
-        # Automatically called when the cog is loaded
-        # with the added benefit of being async!
-
-        # Ensure the task is started when the cog is loaded,
-        # and only after the bot is ready.
         await self.bot.wait_until_ready()
 
     def cog_unload(self):

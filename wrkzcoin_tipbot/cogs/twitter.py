@@ -15,13 +15,13 @@ from disnake.app_commands import Option, OptionChoice
 from datetime import datetime, timezone
 import base64
 
-from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, num_format_coin, text_to_num, is_ascii, \
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, text_to_num, is_ascii, \
     decrypt_string, EMOJI_INFORMATION, DEFAULT_TICKER, NOTIFICATION_OFF_CMD, EMOJI_MONEYFACE, EMOJI_ARROW_RIGHTHOOK, \
     EMOJI_HOURGLASS_NOT_DONE
 import store
 from cogs.wallet import WalletAPI
 from cogs.utils import MenuPage
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 
 class Twitter(commands.Cog):
@@ -1060,20 +1060,20 @@ class Twitter(commands.Cog):
             return
         # We assume max reward by max_tip / 10
         elif amount < min_tip or amount > max_tip / 10:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than {num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than "\
+                f"{num_format_coin(min_tip)} {token_display} or bigger than "\
+                f"{num_format_coin(max_tip / 10)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
-
         elif amount * 100 > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least 100x reward balance. "\
-                f"100x rewards = {num_format_coin(amount * 100, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least 100x reward balance. "\
+                f"100x rewards = {num_format_coin(amount * 100)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         elif amount * population > actual_balance:
-
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x reward balance. "\
-                f"{str(population)}x rewards = {num_format_coin(amount * population, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x reward balance. "\
+                f"{str(population)}x rewards = {num_format_coin(amount * population)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         else:
@@ -1081,7 +1081,8 @@ class Twitter(commands.Cog):
             get_channel = self.bot.get_channel(int(channel.id))
             channel_str = str(channel.id)
             # Test message
-            msg = f"New Twitter RT reward link <{twitter_link}> with {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} by {ctx.author.name}#{ctx.author.discriminator} and posting here."
+            msg = f"New Twitter RT reward link <{twitter_link}> with {num_format_coin(amount)} {token_display} by "\
+                f"{ctx.author.name}#{ctx.author.discriminator} and posting here."
             try:
                 await get_channel.send(msg)
             except Exception:
@@ -1098,7 +1099,8 @@ class Twitter(commands.Cog):
                 int(time.time()) + int(duration) * 24 * 3600
             )
             if rt_reward > 0:
-                msg = f'{ctx.author.mention}, successfully set reward for RT in guild {ctx.guild.name} to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for RT link <{twitter_link}>.'
+                msg = f"{ctx.author.mention}, successfully set reward for RT in guild {ctx.guild.name} to "\
+                    f"{num_format_coin(amount)} {token_display} for RT link <{twitter_link}>."
                 await ctx.edit_original_message(content=msg)
                 try:
                     await logchanbot(
@@ -1165,11 +1167,16 @@ class Twitter(commands.Cog):
                 screen_name = get_linkme['twitter_screen_name']
                 if screen_name.upper() != twitter_name.upper():
                     # He already have in record but has't verify, show existing to him
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you generated a key already but not `{twitter_name}`. You tried to link before with `{screen_name}`. Please unlink it first, if you want to change to `{twitter_name}` with `/twitter unlink`."
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you generated a key already but not `{twitter_name}`. "\
+                        f"You tried to link before with `{screen_name}`. Please unlink it first, "\
+                        f"if you want to change to `{twitter_name}` with `/twitter unlink`."
                     await ctx.edit_original_message(content=msg)
                 else:
                     # He already have in record but has't verify, show existing to him
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you generated a key already:```1) Open your twitter @{screen_name} and post a status by mentioning @BotTipsTweet and containing a string {secret_key} in your new tweet.\n2) Copy that tweet status full link to clipboard\n3) Execute command with TipBot /twitter linkme <your twitter name> <url_status>```"
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you generated a key already:"\
+                        f"```1) Open your twitter @{screen_name} and post a status by mentioning @BotTipsTweet and containing a string {secret_key} in your new tweet."\
+                        f"\n2) Copy that tweet status full link to clipboard"\
+                        f"\n3) Execute command with TipBot /twitter linkme <your twitter name> <url_status>```"
                     await ctx.edit_original_message(content=msg)
                 return
             elif get_linkme is None:
@@ -1182,7 +1189,10 @@ class Twitter(commands.Cog):
                     secret_key, int(time.time()), twitter_name
                 )
                 if add > 0:
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, one more step to verify:```1) Open your twitter @{twitter_name} and post a status by mentioning @BotTipsTweet and containing a string {secret_key} in your new tweet.\n2) Copy that tweet status full link to clipboard\n3) Execute command with with TipBot /twitter linkme <your twitter name> <url_status>```"
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, one more step to verify:```"\
+                        f"1) Open your twitter @{twitter_name} and post a status by mentioning @BotTipsTweet and containing a string {secret_key} in your new tweet."\
+                        f"\n2) Copy that tweet status full link to clipboard"\
+                        f"\n3) Execute command with with TipBot /twitter linkme <your twitter name> <url_status>```"
                     await ctx.edit_original_message(content=msg)
                 else:
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, internal error, please report."
@@ -1192,11 +1202,13 @@ class Twitter(commands.Cog):
             if "?" in status_link: status_link = status_link.split("?")[
                 0]  # reported by chooseuser#0308 when using mobile
             if get_linkme is None:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you didn't generate a `secret_key` yet. You can generate with `/twitter linkme <your twitter name>`."
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you didn't generate a `secret_key` yet. "\
+                    f"You can generate with `/twitter linkme <your twitter name>`."
                 await ctx.edit_original_message(content=msg)
                 return
             elif get_linkme and get_linkme['twitter_screen_name'] != twitter_name:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you didn't link yourself with twitter `{twitter_name}` before. If you want to change, unlink it first by `/twitter unlink`."
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you didn't link yourself with twitter "\
+                    f"`{twitter_name}` before. If you want to change, unlink it first by `/twitter unlink`."
                 await ctx.edit_original_message(content=msg)
                 return
             else:
@@ -1442,13 +1454,13 @@ class Twitter(commands.Cog):
 
                     if amount > max_tip or amount < min_tip:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than "\
-                            f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
-                            f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                            f"**{num_format_coin(max_tip)} {token_display}** "\
+                            f"or smaller than **{num_format_coin(min_tip)} {token_display}**."
                         await ctx.edit_original_message(content=msg)
                         return
                     elif amount > actual_balance:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a random tip of "\
-                            f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                            f"**{num_format_coin(amount)} {token_display}**."
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -1520,7 +1532,8 @@ class Twitter(commands.Cog):
                     if tip:
                         # tipper shall always get DM. Ignore notifyList
                         try:
-                            msg = f'{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you sent a twitter tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** to `{old_twitter}`.'
+                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you sent a twitter tip "\
+                                f"of **{num_format_coin(amount)} {token_display}** to `{old_twitter}`."
                             await ctx.edit_original_message(content=msg)
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -1531,7 +1544,7 @@ class Twitter(commands.Cog):
                             try:
                                 tw_user = self.bot.get_user(int(get_user['discord_user_id']))
                                 await tw_user.send(
-                                    f'{EMOJI_MONEYFACE} You got a twitter tip of **{num_format_coin(amount, coin_name, coin_decimal, False)} '
+                                    f'{EMOJI_MONEYFACE} You got a twitter tip of **{num_format_coin(amount)} '
                                     f'{token_display}** from {ctx.author.name}#{ctx.author.discriminator}{via_link}.'
                                     f'{NOTIFICATION_OFF_CMD}')
                             except Exception:
@@ -1619,7 +1632,7 @@ class Twitter(commands.Cog):
                     real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
                     fee_txt = " You must deposit at least {} {} to cover fees needed to credit your account. "\
                         f"This fee will be deducted from your deposit amount.".format(
-                            num_format_coin(real_min_deposit, coin_name, coin_decimal, False), token_display
+                            num_format_coin(real_min_deposit), token_display
                         )
                 embed = disnake.Embed(title=f'Deposit for your twitter {twitter_screen_name}',
                                       description=description + fee_txt,
@@ -1786,7 +1799,7 @@ class Twitter(commands.Cog):
                                 equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
 
                     page.add_field(name="{}{}".format(token_display, equivalent_usd),
-                                   value=num_format_coin(total_balance, coin_name, coin_decimal, False),
+                                   value=num_format_coin(total_balance),
                                    inline=True)
                     num_coins += 1
                     if num_coins > 0 and num_coins % per_page == 0:

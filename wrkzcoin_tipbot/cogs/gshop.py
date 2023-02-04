@@ -12,12 +12,12 @@ from typing import List
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 import store
-from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, \
+from Bot import get_token_list, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, \
     EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, RowButtonRowCloseAnyMessage, human_format, \
     text_to_num, truncate, seconds_str, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION, seconds_str_days
 
 from cogs.wallet import WalletAPI
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 
 async def external_get_guild_role_shop_items(guild_id: str):
@@ -562,7 +562,7 @@ class GShop(commands.Cog):
                     actual_balance = float(userdata_balance['adjust'])
                 if amount > actual_balance:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do purchase "\
-                        f"`{role.name}` which cost **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                        f"`{role.name}` which cost **{num_format_coin(amount)} "\
                         f"{token_display}**."
                     await ctx.edit_original_message(content=msg)
                 else:
@@ -616,7 +616,7 @@ class GShop(commands.Cog):
                             # Assign role
                             await member.add_roles(role)
                             duration = seconds_str_days(item_info['duration'])
-                            cost = "{} {}".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name)
+                            cost = "{} {}".format(num_format_coin(amount), coin_name)
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully purchased item "\
                                 f"`{item_id}` for `{cost}` with role `{role.name}` for period {duration}!"
                             await ctx.edit_original_message(content=msg)
@@ -753,8 +753,8 @@ class GShop(commands.Cog):
 
         if amount > max_tip or amount < min_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} amount cannot be bigger than "\
-                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
-                f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(max_tip)} {token_display}** "\
+                f"or smaller than **{num_format_coin(min_tip)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -921,8 +921,7 @@ class GShop(commands.Cog):
                 embed.add_field(
                     name="{}".format(each['item_id']),
                     value="Role: {}\nCost: {}{} {}\nAvailable/Total: {}/{}".format(
-                        each['role_name'], coin_emoji, num_format_coin(each['real_amount'], each['token_name'],
-                        each['token_decimal'], False), each['token_name'],
+                        each['role_name'], coin_emoji, num_format_coin(each['real_amount']), each['token_name'],
                         each['max_slot'] - each['already_ordered'], each['max_slot']),
                     inline=False
                 )

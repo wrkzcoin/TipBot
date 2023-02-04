@@ -12,6 +12,7 @@ from decimal import Decimal
 from io import BytesIO
 import os
 from bip_utils import Bip39SeedGenerator, Bip44Coins, Bip44
+import uuid
 
 import aiohttp
 import aiomysql
@@ -2907,7 +2908,7 @@ class Admin(commands.Cog):
     @commands.is_owner()
     @admin.command(hidden=True, usage='create', description='Create an address')
     async def create(self, ctx, token: str):
-        if token.upper() not in ["ERC-20", "TRC-20", "XTZ", "NEAR", "VET"]:
+        if token.upper() not in ["ERC-20", "TRC-20", "XTZ", "NEAR", "VET", "UUID"]:
             await ctx.reply(f"{ctx.author.mention}, only with ERC-20 and TRC-20.")
         elif token.upper() == "ERC-20":
             try:
@@ -2954,6 +2955,11 @@ class Admin(commands.Cog):
             wallet = thor_wallet.newWallet()
             await ctx.reply(
                 f"{ctx.author.mention}, {wallet.address}:```key:{wallet.priv.hex()}```",
+                view=RowButtonRowCloseAnyMessage()
+            )
+        elif token.upper() == "UUID":
+            await ctx.reply(
+                f"{ctx.author.mention}, uuid:```{str(uuid.uuid4())}```",
                 view=RowButtonRowCloseAnyMessage()
             )
 

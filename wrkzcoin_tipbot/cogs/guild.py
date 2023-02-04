@@ -20,13 +20,13 @@ from disnake.app_commands import Option, OptionChoice
 from discord_webhook import DiscordWebhook
 
 import store
-from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_INFORMATION, \
+from Bot import get_token_list, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_INFORMATION, \
     EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, \
     RowButtonRowCloseAnyMessage, human_format, text_to_num, truncate, \
     NOTIFICATION_OFF_CMD, DEFAULT_TICKER, seconds_str, seconds_str_days
 from cogs.wallet import WalletAPI
 from cogs.utils import MenuPage
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 
 class Guild(commands.Cog):
@@ -274,8 +274,7 @@ class Guild(commands.Cog):
                                             each_msg = "alone"
                                         msg_no_embed = ", ".join(list_receiver_names) + " got {} {} {}. Next drop in {}.".format(
                                             num_format_coin(
-                                                each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'],
-                                                coin_name, coin_decimal, False
+                                                each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount']
                                             ),
                                             coin_name,
                                             each_msg,
@@ -288,8 +287,7 @@ class Guild(commands.Cog):
                                             msg = f"There {verb} {str(len(list_receivers))} active talker(s) in the last {lap_str}."
                                             msg_no_embed = msg + " Each got {} {}. Next drop in {}. "\
                                                 "You can disable it by /tiptalker and set amount 0.".format(num_format_coin(
-                                                    each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'],
-                                                    coin_name, coin_decimal, False
+                                                    each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount']
                                                 ),
                                                 coin_name,
                                                 seconds_str(each_drop['tiptalk_duration'])
@@ -318,7 +316,7 @@ class Guild(commands.Cog):
                             embed.add_field(
                                 name="TOTAL",
                                 value="{}{} {}".format(
-                                    coin_emoji, num_format_coin(each_drop['tiptalk_amount'], coin_name, coin_decimal, False), coin_name
+                                    coin_emoji, num_format_coin(each_drop['tiptalk_amount']), coin_name
                                 ),
                                 inline=False
                             )
@@ -327,10 +325,7 @@ class Guild(commands.Cog):
                                 value="{}{} {}".format(
                                     coin_emoji,
                                     num_format_coin(
-                                        each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount'],
-                                        coin_name,
-                                        coin_decimal,
-                                        False
+                                        each_drop['tiptalk_amount']/len(list_receivers) if len(list_receivers) > 0 else each_drop['tiptalk_amount']
                                     ), 
                                     coin_name
                                 ),
@@ -358,7 +353,7 @@ class Guild(commands.Cog):
                                     await get_channel.send(content=msg_no_embed)
                                 await logchanbot(
                                     f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} to {str(len(list_receivers))} "\
-                                    f"for total of {num_format_coin(each_drop['tiptalk_amount'], coin_name, coin_decimal, False)} {coin_name}."
+                                    f"for total of {num_format_coin(each_drop['tiptalk_amount'])} {coin_name}."
                                 )
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -539,7 +534,7 @@ class Guild(commands.Cog):
                                     embed.add_field(
                                         name="ENTRY FEE",
                                         value="{} {}".format(
-                                            num_format_coin(each_raffle['amount'], coin_name, coin_decimal, False),
+                                            num_format_coin(each_raffle['amount']),
                                             coin_name
                                         ),
                                         inline=True
@@ -547,7 +542,7 @@ class Guild(commands.Cog):
                                     embed.add_field(
                                         name="1st WINNER: {}".format(winner_1_name),
                                         value="{} {}".format(
-                                            num_format_coin(won_amounts[0], coin_name, coin_decimal, False),
+                                            num_format_coin(won_amounts[0]),
                                             coin_name
                                         ),
                                         inline=False
@@ -555,7 +550,7 @@ class Guild(commands.Cog):
                                     embed.add_field(
                                         name="2nd WINNER: {}".format(winner_2_name),
                                         value="{} {}".format(
-                                            num_format_coin(won_amounts[1], coin_name, coin_decimal, False),
+                                            num_format_coin(won_amounts[1]),
                                             coin_name
                                         ),
                                         inline=False
@@ -563,7 +558,7 @@ class Guild(commands.Cog):
                                     embed.add_field(
                                         name="3rd WINNER: {}".format(winner_3_name),
                                         value="{} {}".format(
-                                            num_format_coin(won_amounts[2], coin_name, coin_decimal, False),
+                                            num_format_coin(won_amounts[2]),
                                             coin_name
                                         ),
                                         inline=False
@@ -576,9 +571,9 @@ class Guild(commands.Cog):
                                         each_raffle['id'], each_raffle['guild_name'], winner_1_name, winner_2_name, winner_3_name
                                     )
                                     msg_raffle += "```Three winners get reward of #1: {}{}, #2: {}{}, #3: {}{}```".format(
-                                        num_format_coin(won_amounts[0], coin_name, coin_decimal, False), coin_name,
-                                        num_format_coin(won_amounts[1], coin_name, coin_decimal, False), coin_name,
-                                        num_format_coin(won_amounts[2], coin_name, coin_decimal, False), coin_name
+                                        num_format_coin(won_amounts[0]), coin_name,
+                                        num_format_coin(won_amounts[1]), coin_name,
+                                        num_format_coin(won_amounts[2]), coin_name
                                     )
                                     if serverinfo['raffle_channel']:
                                         raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
@@ -921,14 +916,14 @@ class Guild(commands.Cog):
                                         if user_found is not None:
                                             await user_found.send(
                                                 f"Currently, your guild's balance of {coin_name} is lower than 10x reward: "\
-                                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
+                                                f"{num_format_coin(amount)} {coin_name}. "\
                                                 f"Vote reward is disable."
                                             )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                     await self.vote_logchan(f"[{SERVER_BOT}] Disable vote reward for {guild_found.name} / "\
                                         f"{guild_found.id}. Guild\'s balance below 10x: "\
-                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}."
+                                        f"{num_format_coin(amount)} {coin_name}."
                                     )
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -1285,8 +1280,8 @@ class Guild(commands.Cog):
 
         if amount < min_tip or amount > max_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, amount has to be between "\
-                f"`{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}` "\
-                f"and `{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}`."
+                f"`{num_format_coin(min_tip)} {token_display}` "\
+                f"and `{num_format_coin(max_tip)} {token_display}`."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -1320,7 +1315,7 @@ class Guild(commands.Cog):
                 start_ts = int(time.time())
                 message_raffle = "{}#{} created a raffle for **{} {}** in guild `{}`. Raffle in **{}**.".format(
                     ctx.author.name, ctx.author.discriminator,
-                    num_format_coin(amount, coin_name, coin_decimal, False),
+                    num_format_coin(amount),
                     coin_name, ctx.guild.name, duration
                 )
                 try:
@@ -1420,7 +1415,7 @@ class Guild(commands.Cog):
             try:
                 ending_ts = datetime.fromtimestamp(int(get_raffle['ending_ts']))
                 embed = disnake.Embed(title = "RAFFLE #{} / {}".format(get_raffle['id'], ctx.guild.name), timestamp=ending_ts)
-                embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(get_raffle['amount'], coin_name, coin_decimal, False), coin_name), inline=True)
+                embed.add_field(name="ENTRY FEE", value="{} {}".format(num_format_coin(get_raffle['amount']), coin_name), inline=True)
                 create_ts = datetime.fromtimestamp(int(get_raffle['created_ts'])).strftime("%Y-%m-%d %H:%M:%S")
                 create_ts_ago = str(timeago.format(create_ts, datetime.fromtimestamp(int(time.time()))))
                 embed.add_field(name="CREATED", value=create_ts_ago, inline=True)
@@ -1431,7 +1426,7 @@ class Guild(commands.Cog):
                         for each_user in list_raffle_id['entries']:
                             list_ping.append(each_user['user_name'])
                         embed.add_field(name="PARTICIPANT LIST", value=", ".join(list_ping), inline=False)
-                    embed.add_field(name="RAFFLE JAR", value=num_format_coin(len(list_raffle_id['entries'])*float(get_raffle['amount']), coin_name, coin_decimal, False)+" "+coin_name, inline=True)
+                    embed.add_field(name="RAFFLE JAR", value=num_format_coin(len(list_raffle_id['entries'])*float(get_raffle['amount']))+" "+coin_name, inline=True)
                 else:
                     embed.add_field(name="PARTICIPANTS", value="0", inline=True)
                 embed.add_field(name="STATUS", value=get_raffle['status'], inline=True)
@@ -1517,8 +1512,8 @@ class Guild(commands.Cog):
                             actual_balance = float(userdata_balance['adjust'])
 
                             if actual_balance < get_raffle['amount']:
-                                fee_str = num_format_coin(get_raffle['amount'], coin_name, get_raffle['decimal'], False) + " " + coin_name
-                                having_str = num_format_coin(actual_balance, coin_name, get_raffle['decimal'], False) + " " + coin_name
+                                fee_str = num_format_coin(get_raffle['amount']) + " " + coin_name
+                                having_str = num_format_coin(actual_balance) + " " + coin_name
                                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to join raffle entry. Fee: {fee_str}, having: {having_str}."
                                 await ctx.edit_original_message(content=msg)
                                 return
@@ -1538,8 +1533,7 @@ class Guild(commands.Cog):
                                     '{}#{}'.format(ctx.author.name, ctx.author.discriminator), SERVER_BOT
                                 )
                                 if inserting is True:
-                                    note_entry = num_format_coin(
-                                        get_raffle['amount'], get_raffle['coin_name'], get_raffle['decimal'], False) \
+                                    note_entry = num_format_coin(get_raffle['amount']) \
                                             + " " + get_raffle['coin_name'] + " is deducted from your balance."
                                     msg = f"{ctx.author.mention}, successfully registered your Entry for raffle "\
                                         f"#**{raffle_id}** in {ctx.guild.name}! {note_entry}"
@@ -1649,7 +1643,7 @@ class Guild(commands.Cog):
                 if total_balance > 0:
                     has_none_balance = False
                     coin_balance_list[coin_name] = "{} {}".format(
-                        num_format_coin(total_balance, coin_name, coin_decimal, False), token_display
+                        num_format_coin(total_balance), token_display
                     )
                     coin_balance[coin_name] = total_balance
                     usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
@@ -1825,14 +1819,14 @@ class Guild(commands.Cog):
         # We assume max reward by max_tip / 10
         elif amount < min_tip or amount > max_tip / 10:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, reward cannot be smaller than "\
-                f"{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} "\
-                f"or bigger than {num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}."
+                f"{num_format_coin(min_tip)} {token_display} "\
+                f"or bigger than {num_format_coin(max_tip / 10)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x "\
-                f"reward balance. 100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} "\
+                f"reward balance. 100x rewards = {num_format_coin(amount*100)} "\
                 f"{token_display}. Check with `/guild balance`."
             await ctx.edit_original_message(content=msg)
             return
@@ -1840,7 +1834,7 @@ class Guild(commands.Cog):
             population = len(ctx.guild.members)
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} you need to have at least {str(population)}x "\
                 f"reward balance. {str(population)}x rewards = "\
-                f"{num_format_coin(amount*population, coin_name, coin_decimal, False)} {token_display}."
+                f"{num_format_coin(amount*population)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         else:
@@ -1848,7 +1842,7 @@ class Guild(commands.Cog):
             get_channel = self.bot.get_channel(int(channel.id))
             channel_str = str(channel.id)
             # Test message
-            msg = f"New vote reward set to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}"\
+            msg = f"New vote reward set to {num_format_coin(amount)} {token_display}"\
                 f" by {ctx.author.name}#{ctx.author.discriminator} and message here."
             try:
                 await get_channel.send(msg)
@@ -1871,13 +1865,13 @@ class Guild(commands.Cog):
             update_reward = await self.update_reward(str(ctx.guild.id), float(amount), coin_name, False, channel_str)
             if update_reward > 0:
                 msg = f"{ctx.author.mention} Successfully set reward for voting in guild {ctx.guild.name} to "\
-                    f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}."
+                    f"{num_format_coin(amount)} {token_display}."
                 await ctx.edit_original_message(content=msg)
                 try:
                     await self.vote_logchan(
                         f"[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} "\
                         f"set a vote reward in guild {ctx.guild.name} / {ctx.guild.id} to "\
-                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}."
+                        f"{num_format_coin(amount)} {token_display}."
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -2026,14 +2020,14 @@ class Guild(commands.Cog):
                 
             if amount > actual_balance:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to deposit "\
-                    f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}."
+                    f"{num_format_coin(amount)} {token_display}."
                 await ctx.edit_original_message(content=msg)
                 return
 
             elif amount < min_tip or amount > max_tip:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than "\
-                    f"{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} "\
-                    f"or bigger than {num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}."
+                    f"{num_format_coin(min_tip)} {token_display} "\
+                    f"or bigger than {num_format_coin(max_tip)} {token_display}."
                 await ctx.edit_original_message(content=msg)
                 return
 
@@ -2093,7 +2087,7 @@ class Guild(commands.Cog):
                     if tip:
                         try:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} transferred "\
-                                f"{coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**"\
+                                f"{coin_emoji}**{num_format_coin(amount)} {coin_name}**"\
                                 f"{equivalent_usd} to {ctx.guild.name}."
                             await ctx.edit_original_message(content=msg)
                         except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
@@ -2106,7 +2100,7 @@ class Guild(commands.Cog):
                                 try:
                                     await user_found.send(
                                         f"Your guild **{ctx.guild.name}** got a deposit of "\
-                                        f"{coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}**"\
+                                        f"{coin_emoji}**{num_format_coin(amount)} {coin_name}**"\
                                         f"{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator} in "\
                                         f"`#{ctx.channel.name}`\n{NOTIFICATION_OFF_CMD}"
                                     )
@@ -2543,20 +2537,20 @@ class Guild(commands.Cog):
         # We assume max reward by max_tip / 10
         elif amount < min_tip or amount > max_tip / 10:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, faucet cannot be smaller than "\
-                f"{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} "\
-                f"or bigger than {num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}."
+                f"{num_format_coin(min_tip)} {token_display} "\
+                f"or bigger than {num_format_coin(max_tip / 10)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. "\
-                f"100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} {token_display}. Check with `/guild balance`."
+                f"100x rewards = {num_format_coin(amount*100)} {token_display}. Check with `/guild balance`."
             await ctx.edit_original_message(content=msg)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
             population = len(ctx.guild.members)
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you need to have at least {str(population)}x reward balance. "\
-                f"{str(population)}x rewards = {num_format_coin(amount*population, coin_name, coin_decimal, False)} {token_display}."
+                f"{str(population)}x rewards = {num_format_coin(amount*population)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         else:
@@ -2564,7 +2558,7 @@ class Guild(commands.Cog):
             get_channel = self.bot.get_channel(int(channel.id))
             channel_str = str(channel.id)
             # Test message
-            msg = f"New guild /faucet set to {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} "\
+            msg = f"New guild /faucet set to {num_format_coin(amount)} {token_display} "\
                 f"by {ctx.author.name}#{ctx.author.discriminator} and message here."
             try:
                 await get_channel.send(msg)
@@ -2588,13 +2582,13 @@ class Guild(commands.Cog):
             update_faucet = await self.update_faucet(str(ctx.guild.id), float(amount), coin_name, duration_s, False, channel_str)
             if update_faucet > 0:
                 msg = f"{ctx.author.mention}, successfully faucet in guild {ctx.guild.name} to "\
-                    f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}."
+                    f"{num_format_coin(amount)} {token_display} for every {duration}."
                 await ctx.edit_original_message(content=msg)
                 try:
                     await logchanbot(
                         f"[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set "\
                         f"/faucet in guild {ctx.guild.name} / {ctx.guild.id} to "\
-                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}."
+                        f"{num_format_coin(amount)} {token_display} for every {duration}."
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -2777,8 +2771,8 @@ class Guild(commands.Cog):
         # We assume max reward by max_tip / 10
         elif amount < min_tip or amount > max_tip / 10:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, activedrop/tiptalker amount cannot be smaller than "\
-                f"{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or bigger than "\
-                f"{num_format_coin(max_tip / 10, coin_name, coin_decimal, False)} {token_display}."
+                f"{num_format_coin(min_tip)} {token_display} or bigger than "\
+                f"{num_format_coin(max_tip / 10)} {token_display}."
             await ctx.edit_original_message(content=msg)
             try:
                 await logchanbot(
@@ -2792,7 +2786,7 @@ class Guild(commands.Cog):
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x `active drop amount`"\
-                f". 100x rewards = {num_format_coin(amount*100, coin_name, coin_decimal, False)} {token_display}."\
+                f". 100x rewards = {num_format_coin(amount*100)} {token_display}."\
                 f" Check with `/guild balance`."
             await ctx.edit_original_message(content=msg)
             return
@@ -2801,7 +2795,7 @@ class Guild(commands.Cog):
             get_channel = self.bot.get_channel(int(channel.id))
             channel_str = str(channel.id)
             # Test message
-            msg = f"New guild's active drop set to `{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+            msg = f"New guild's active drop set to `{num_format_coin(amount)} "\
                 f"{token_display}` by {ctx.author.name}#{ctx.author.discriminator} and always rewards "\
                 f"to active users in this channel every `{original_duration}`."
             try:
@@ -2819,7 +2813,7 @@ class Guild(commands.Cog):
             update_tiptalk = await self.update_activedrop(str(ctx.guild.id), float(amount), coin_name, duration_s, channel_str, role_id)
             if update_tiptalk > 0:
                 msg = f"{ctx.author.mention}, successfully set activedrop/tiptalker in guild {ctx.guild.name} to"\
-                    f" {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for every {duration}."
+                    f" {num_format_coin(amount)} {token_display} for every {duration}."
                 try:
                     if serverinfo['tiptalk_channel'] and channel_str != serverinfo['tiptalk_channel']:
                         msg += " You guild's previous /tiptalk set in channel <#{}> is deleted.".format( serverinfo['tiptalk_channel'] )
@@ -2830,7 +2824,7 @@ class Guild(commands.Cog):
                     await logchanbot(
                         f"[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} set "\
                         f"activedrop/tiptalker in guild {ctx.guild.name} / {ctx.guild.id} to "\
-                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} for"\
+                        f"{num_format_coin(amount)} {token_display} for"\
                         f" every {duration} in channel #{ctx.channel.name}."
                     )
                 except Exception:
@@ -2943,7 +2937,7 @@ class Guild(commands.Cog):
                 vote_links.append(serverinfo['discadia_link'])
             embed.add_field(
                 name="Vote Reward {} {}".format(
-                    num_format_coin(serverinfo['vote_reward_amount'], serverinfo['vote_reward_coin'], coin_decimal, False), serverinfo['vote_reward_coin']
+                    num_format_coin(serverinfo['vote_reward_amount']), serverinfo['vote_reward_coin']
                 ),
                 value="<#{}> | {}".format(serverinfo['vote_reward_channel'], "\n".join(vote_links)),
                 inline=False
@@ -3394,13 +3388,13 @@ class Guild(commands.Cog):
 
                     if amount + extra_amount > actual_balance:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, guild has insufficient balance for "\
-                            f"{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {token_display}."
+                            f"{num_format_coin(amount + extra_amount)} {token_display}."
                         await ctx.edit_original_message(content=msg)
                         return
                     elif amount + extra_amount < min_tip or amount + extra_amount > max_tip:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than "\
-                            f"{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display} or "\
-                            f"bigger than {num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}."
+                            f"{num_format_coin(min_tip)} {token_display} or "\
+                            f"bigger than {num_format_coin(max_tip)} {token_display}."
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -3441,16 +3435,16 @@ class Guild(commands.Cog):
                                 extra_msg = ""
                                 if extra_amount > 0:
                                     extra_msg = f" You have a guild's role that give you additional bonus {coin_emoji}**" + \
-                                        num_format_coin(extra_amount, coin_name, coin_decimal, False) + " " + coin_name + "**."
+                                        num_format_coin(extra_amount) + " " + coin_name + "**."
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of "\
-                                    f"{coin_emoji}**{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)}"\
+                                    f"{coin_emoji}**{num_format_coin(amount + extra_amount)}"\
                                     f" {coin_name}**{equivalent_usd} from `{ctx.guild.name}`.{extra_msg} "\
                                     f"Other reward command `/take`, `/claim`, `/daily` and `/hourly`. Invite me to your guild? "\
                                     f"Click on my name and `Add to Server`."
                                 await ctx.edit_original_message(content=msg)
                                 await logchanbot(
                                     f"[{SERVER_BOT}] User {ctx.author.name}#{ctx.author.discriminator} "\
-                                    f"claimed guild /faucet {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)}"\
+                                    f"claimed guild /faucet {num_format_coin(amount + extra_amount)}"\
                                     f" {coin_name} in guild {ctx.guild.name}/{ctx.guild.id}."
                                 )
                         except Exception:

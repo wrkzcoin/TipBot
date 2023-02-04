@@ -10,13 +10,11 @@ from decimal import Decimal
 import time
 from datetime import datetime
 import random
-
 import store
-
-from Bot import SERVER_BOT, num_format_coin, log_to_channel
+from Bot import SERVER_BOT, log_to_channel
 from cogs.wallet import Faucet
 from cogs.wallet import WalletAPI
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 
 class TopGGVote(commands.Cog):
@@ -172,7 +170,7 @@ class TopGGVote(commands.Cog):
                                     'date_voted'] < 3600 and type_vote != "test":
                                     await log_to_channel(
                                         "vote",
-                                        f"[{SERVER_BOT}] User <@{user_vote}> voted for guild `{guild_id}` "\
+                                        f"[{SERVER_BOT}] User <@{user_vote}> voted for guild `{guild_id}` at top.gg "\
                                         f"type `{type_vote}` but less than 1h."
                                     )
                                     return web.Response(text="Thank you!")
@@ -282,10 +280,10 @@ class TopGGVote(commands.Cog):
                                                 extra_msg = ""
                                                 if extra_amount > 0:
                                                     extra_msg = " You have a guild's role that give you additional "\
-                                                        f"bonus **" + num_format_coin(extra_amount, coin_name, coin_decimal, False) \
+                                                        f"bonus **" + num_format_coin(extra_amount) \
                                                         + " " + coin_name + "**."
                                                 msg = f"Thank you for voting for guild `{guild.name}` at top.gg. "\
-                                                    f"You got a reward {num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} "\
+                                                    f"You got a reward {num_format_coin(amount + extra_amount)} "\
                                                     f"{coin_name}.{extra_msg}"
                                                 try:
                                                     await member.send(msg)
@@ -294,7 +292,7 @@ class TopGGVote(commands.Cog):
                                                         await guild_owner.send(
                                                             f"User {member.name}#{member.discriminator} / `{user_vote}` voted for your guild {guild.name} "\
                                                             f"at top.gg. They got a reward "\
-                                                            f"{num_format_coin(amount + extra_amount, coin_name, coin_decimal, False)} {coin_name}."
+                                                            f"{num_format_coin(amount + extra_amount)} {coin_name}."
                                                         )
                                                     except Exception:
                                                         pass
@@ -324,14 +322,14 @@ class TopGGVote(commands.Cog):
                                                             embed.add_field(
                                                                 name=f"{coin_emoji}Reward",
                                                                 value="{} {}".format(
-                                                                    num_format_coin(amount, coin_name, coin_decimal, False),
+                                                                    num_format_coin(amount),
                                                                     coin_name
                                                                 ),
                                                                 inline=True
                                                             )
                                                             if extra_amount > 0:
                                                                 embed.add_field(name="Extra Reward", value="{} {}".format(
-                                                                    num_format_coin(extra_amount, coin_name, coin_decimal, False),
+                                                                    num_format_coin(extra_amount),
                                                                     coin_name), inline=True)
                                                             embed.add_field(
                                                                 name="Link",
@@ -424,7 +422,7 @@ class TopGGVote(commands.Cog):
                                 if check_last_vote is not None and int(time.time()) - check_last_vote['date_voted'] < 3600:
                                     await log_to_channel(
                                         "vote",
-                                        f"[{SERVER_BOT}] User <@{user_vote}> voted for bot <@{vote_to}> "\
+                                        f"[{SERVER_BOT}] User <@{user_vote}> voted for bot <@{vote_to}> at top.gg "\
                                         f"type `{type_vote}` but less than 1h."
                                     )
                                     return web.Response(text="Thank you!")
@@ -562,7 +560,7 @@ class TopGGVote(commands.Cog):
                                                                         traceback.print_exc(file=sys.stdout)
                                                                 # end advert
                                                                 msg = f"Thank you for voting for our TipBot at <{self.bot.config['bot_vote_link']['topgg']}>. "\
-                                                                    f"You just got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
+                                                                    f"You just got a reward {num_format_coin(amount)} {coin_name}. "\
                                                                     f"Check with `/claim` for voting list at other websites.{advert_txt}"
                                                                 try:
                                                                     await member.send(msg)
@@ -591,7 +589,7 @@ class TopGGVote(commands.Cog):
                                                                     )
                                                                     embed.add_field(
                                                                         name=f"{coin_emoji}Reward", value="{} {}".format(
-                                                                            num_format_coin(amount, coin_name, coin_decimal, False),
+                                                                            num_format_coin(amount),
                                                                             coin_name),
                                                                         inline=True
                                                                     )

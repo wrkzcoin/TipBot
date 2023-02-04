@@ -14,18 +14,56 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
 import store
-from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, \
+from Bot import get_token_list, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, \
     EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, RowButtonRowCloseAnyMessage, human_format, \
     text_to_num, truncate, seconds_str, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION, log_to_channel
 
 from cogs.wallet import WalletAPI
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 # https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
+
+async def cexswap_get_coin_setting(ticker: str):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * 
+                FROM `coin_settings` 
+                WHERE `enable`=1 AND `cexswap_enable`=1 AND `coin_name`=%s LIMIT 1
+                """
+                await cur.execute(sql, ticker.upper())
+                result = await cur.fetchone()
+                if result:
+                    return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def cexswap_get_list_enable_pair_list():
+    list_pairs = []
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ SELECT * 
+                FROM `coin_settings` 
+                WHERE `enable`=1 AND `cexswap_enable`=1 """
+                await cur.execute(sql,)
+                result = await cur.fetchall()
+                if result:
+                    list_coins = sorted([i['coin_name'] for i in result])
+                    for pair in itertools.combinations(list_coins, 2):
+                        list_pairs.append("{}/{}".format(pair[0], pair[1]))
+                    if len(list_pairs) > 0:
+                        return {"coins": list_coins, "pairs": list_pairs}
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
 
 async def cexswap_get_pools(ticker: str=None):
     try:
@@ -212,7 +250,7 @@ async def get_cexswap_get_coin_sell_logs(coin_name: str=None, user_id: str=None,
                 sql = """
                 SELECT SUM(`total_sold_amount`) AS sold, SUM(`total_sold_amount_usd`) AS sold_usd,
                 SUM(`got_total_amount`) AS got, SUM(`got_total_amount_usd`) AS got_usd,
-                `sold_ticker`, `got_ticker`,
+                `sold_ticker`, `got_ticker`, `pairs`,
                 SUM(`got_fee_liquidators`) AS `fee_liquidators`,
                 COUNT(*) AS total_swap
                 FROM `cexswap_sell_logs`
@@ -983,8 +1021,7 @@ class DropdownSummaryLP(disnake.ui.StringSelect):
                     list_lp = []
                     for k, v in self.lp_list_coins.items():
                         coin_emoji = getattr(getattr(self.bot.coin_list, k), "coin_emoji_discord")
-                        coin_decimal = getattr(getattr(self.bot.coin_list, k), "decimal")
-                        amount_str = num_format_coin(v, k, coin_decimal, False)
+                        amount_str = num_format_coin(v)
                         list_lp.append("{} {} {}".format(coin_emoji, amount_str, k))
                     list_lp_chunks = list(chunks(list_lp, 12))
                     for i in list_lp_chunks:
@@ -1097,16 +1134,11 @@ class DropdownLP(disnake.ui.StringSelect):
                     inline = False
                 )
                 for each_p in get_pools[0:showing_num]:
-                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, each_p['ticker_1_name']), "decimal")
-                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, each_p['ticker_2_name']), "decimal")
-
                     rate_1 = num_format_coin(
-                        each_p['amount_ticker_2']/each_p['amount_ticker_1'],
-                        each_p['ticker_2_name'], coin_decimal_2, False
+                        each_p['amount_ticker_2']/each_p['amount_ticker_1']
                     )
                     rate_2 = num_format_coin(
-                        each_p['amount_ticker_1']/each_p['amount_ticker_2'],
-                        each_p['ticker_1_name'], coin_decimal_1, False
+                        each_p['amount_ticker_1']/each_p['amount_ticker_2']
                     )
                     rate_coin_12 = "{} {} = {} {}\n{} {} = {} {}".format(
                         1, each_p['ticker_1_name'], rate_1, each_p['ticker_2_name'], 1, each_p['ticker_2_name'], rate_2, each_p['ticker_1_name']
@@ -1120,8 +1152,8 @@ class DropdownLP(disnake.ui.StringSelect):
                             )
                         ),
                         value="{} {}\n{} {}\n{}".format(
-                            num_format_coin(each_p['amount_ticker_1'], each_p['ticker_1_name'], coin_decimal_1, False), each_p['ticker_1_name'],
-                            num_format_coin(each_p['amount_ticker_2'], each_p['ticker_2_name'], coin_decimal_2, False), each_p['ticker_2_name'],
+                            num_format_coin(each_p['amount_ticker_1']), each_p['ticker_1_name'],
+                            num_format_coin(each_p['amount_ticker_2']), each_p['ticker_2_name'],
                             rate_coin_12
                         ),
                         inline=False
@@ -1241,9 +1273,6 @@ class add_liqudity(disnake.ui.Modal):
             amount_2 = amount_2.replace(",", "")
             amount_2 = text_to_num(amount_2)
 
-            coin_decimal_1 = getattr(getattr(self.bot.coin_list, self.ticker_1), "decimal")
-            coin_decimal_2 = getattr(getattr(self.bot.coin_list, self.ticker_2), "decimal")
-
             min_initialized_liq_1 = getattr(getattr(self.bot.coin_list, self.ticker_1), "cexswap_min_initialized_liq")
             min_initialized_liq_2 = getattr(getattr(self.bot.coin_list, self.ticker_2), "cexswap_min_initialized_liq")
 
@@ -1343,12 +1372,10 @@ class add_liqudity(disnake.ui.Modal):
                         amount_2 = new_amount_2
                         text_adjust_2 = " (Adjusted based on rate)"
                     rate_1 = num_format_coin(
-                        liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1'],
-                        self.ticker_2, coin_decimal_2, False
+                        liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1']
                     )
                     rate_2 = num_format_coin(
-                        liq_pair['pool']['amount_ticker_1']/liq_pair['pool']['amount_ticker_2'],
-                        self.ticker_1, coin_decimal_1, False
+                        liq_pair['pool']['amount_ticker_1']/liq_pair['pool']['amount_ticker_2']
                     )
                     rate_coin_12 = "{} {} = {} {}\n{} {} = {} {}".format(
                         1, self.ticker_1, rate_1, self.ticker_2, 1, self.ticker_2, rate_2, self.ticker_1
@@ -1356,8 +1383,8 @@ class add_liqudity(disnake.ui.Modal):
                     embed.add_field(
                         name="Total liquidity",
                         value="{} {}\n{} {}".format(
-                            num_format_coin(liq_pair['pool']['amount_ticker_1'], liq_pair['pool']['ticker_1_name'], coin_decimal_1, False), liq_pair['pool']['ticker_1_name'],
-                            num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False), liq_pair['pool']['ticker_2_name']
+                            num_format_coin(liq_pair['pool']['amount_ticker_1']), liq_pair['pool']['ticker_1_name'],
+                            num_format_coin(liq_pair['pool']['amount_ticker_2']), liq_pair['pool']['ticker_2_name']
                         ),
                         inline=False
                     )
@@ -1378,20 +1405,20 @@ class add_liqudity(disnake.ui.Modal):
                         embed.add_field(
                             name="Your existing liquidity",
                             value="{} {}{}\n{} {}{}".format(
-                                num_format_coin(liq_pair['pool_share']['amount_ticker_1'], liq_pair['pool_share']['ticker_1_name'], coin_decimal_1, False), liq_pair['pool_share']['ticker_1_name'], percent_1, 
-                                num_format_coin(liq_pair['pool_share']['amount_ticker_2'], liq_pair['pool_share']['ticker_2_name'], coin_decimal_1, False), liq_pair['pool_share']['ticker_2_name'], percent_2
+                                num_format_coin(liq_pair['pool_share']['amount_ticker_1']), liq_pair['pool_share']['ticker_1_name'], percent_1, 
+                                num_format_coin(liq_pair['pool_share']['amount_ticker_2']), liq_pair['pool_share']['ticker_2_name'], percent_2
                             ),
                             inline=False
                         )
                 if accepted is True:
                     embed.add_field(
                         name="Adding Ticker {}".format(self.ticker_1),
-                        value="Amount: {} {}{}".format(num_format_coin(amount_1, self.ticker_1, coin_decimal_1, False), self.ticker_1, text_adjust_1),
+                        value="Amount: {} {}{}".format(num_format_coin(amount_1), self.ticker_1, text_adjust_1),
                         inline=False
                     )
                     embed.add_field(
                         name="Adding Ticker {}".format(self.ticker_2),
-                        value="Amount: {} {}{}".format(num_format_coin(amount_2, self.ticker_1, coin_decimal_1, False), self.ticker_2, text_adjust_2),
+                        value="Amount: {} {}{}".format(num_format_coin(amount_2), self.ticker_2, text_adjust_2),
                         inline=False
                     )
                 else:
@@ -1400,8 +1427,8 @@ class add_liqudity(disnake.ui.Modal):
                         cexswap_min_add_liq_2 = getattr(getattr(self.bot.coin_list, self.ticker_2), "cexswap_min_initialized_liq")
 
                     init_liq_text = "{} {}\n{} {}".format(
-                        num_format_coin(cexswap_min_add_liq_1, self.ticker_1, coin_decimal_1, False), self.ticker_1,
-                        num_format_coin(cexswap_min_add_liq_2, self.ticker_2, coin_decimal_2, False), self.ticker_2
+                        num_format_coin(cexswap_min_add_liq_1), self.ticker_1,
+                        num_format_coin(cexswap_min_add_liq_2), self.ticker_2
                     )
                     embed.add_field(
                         name="Minimum adding",
@@ -1626,11 +1653,9 @@ class add_liquidity_btn(disnake.ui.View):
                 except Exception:
                     pass
                 # End of del key
-                coin_decimal_1 = getattr(getattr(self.bot.coin_list, ticker[0]), "decimal")
-                coin_decimal_2 = getattr(getattr(self.bot.coin_list, ticker[1]), "decimal")
                 add_msg = "{} {} and {} {}".format(
-                    num_format_coin(self.amount_1, ticker[0], coin_decimal_1, False), ticker[0],
-                    num_format_coin(self.amount_2, ticker[1], coin_decimal_2, False), ticker[1]
+                    num_format_coin(self.amount_1), ticker[0],
+                    num_format_coin(self.amount_2), ticker[1]
                 )
                 msg = f'{EMOJI_INFORMATION} {inter.author.mention}, successfully added.```{add_msg}```'
                 await inter.edit_original_message(content=msg)
@@ -1911,13 +1936,11 @@ class Cexswap(commands.Cog):
                         single_pair_amount = max(sub_1, sub_2)
                     if single_pair_amount > 0:
                         pair_amount = 2 * single_pair_amount
-                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, each_lp['ticker_1_name']), "decimal")
-                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, each_lp['ticker_2_name']), "decimal")
                     lp_in_usd[each_lp['pairs']] = {
                         'ticker_1_name': each_lp['ticker_1_name'],
-                        'amount_ticker_1': num_format_coin(each_lp['amount_ticker_1'], each_lp['ticker_1_name'], coin_decimal_1, False),
+                        'amount_ticker_1': num_format_coin(each_lp['amount_ticker_1']),
                         'ticker_2_name': each_lp['ticker_2_name'],
-                        'amount_ticker_2': num_format_coin(each_lp['amount_ticker_2'], each_lp['ticker_2_name'], coin_decimal_2, False),
+                        'amount_ticker_2': num_format_coin(each_lp['amount_ticker_2']),
                         'value_usd': pair_amount
                     }
 
@@ -1958,12 +1981,11 @@ class Cexswap(commands.Cog):
                             continue
                         coin_emoji = getattr(getattr(self.bot.coin_list, i), "coin_emoji_discord")
                         coin_emoji = coin_emoji + " " if coin_emoji else ""
-                        coin_decimal = getattr(getattr(self.bot.coin_list, i), "decimal")
                         earning_amount = num_format_coin(
-                            list_earning_dict[i], i, coin_decimal, False
+                            list_earning_dict[i]
                         )
                         traded_amount = num_format_coin(
-                            list_volume_dict[i], i, coin_decimal, False
+                            list_volume_dict[i]
                         )
                         earning_list.append("{}{} {}".format(coin_emoji, earning_amount, i))
                         volume_list.append("{}{} {}".format(coin_emoji, traded_amount, i))
@@ -2029,16 +2051,11 @@ class Cexswap(commands.Cog):
                 embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
                 embed.set_thumbnail(url=self.bot.user.display_avatar)
                 for each_p in get_pools[0:5]:
-                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, each_p['ticker_1_name']), "decimal")
-                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, each_p['ticker_2_name']), "decimal")
-
                     rate_1 = num_format_coin(
-                        each_p['amount_ticker_2']/each_p['amount_ticker_1'],
-                        each_p['ticker_2_name'], coin_decimal_2, False
+                        each_p['amount_ticker_2']/each_p['amount_ticker_1']
                     )
                     rate_2 = num_format_coin(
-                        each_p['amount_ticker_1']/each_p['amount_ticker_2'],
-                        each_p['ticker_1_name'], coin_decimal_1, False
+                        each_p['amount_ticker_1']/each_p['amount_ticker_2']
                     )
                     rate_coin_12 = "{} {} = {} {}\n{} {} = {} {}".format(
                         1, each_p['ticker_1_name'], rate_1, each_p['ticker_2_name'], 1, each_p['ticker_2_name'], rate_2, each_p['ticker_1_name']
@@ -2051,8 +2068,8 @@ class Cexswap(commands.Cog):
                             )
                         ),
                         value="{} {}\n{} {}\n{}".format(
-                            num_format_coin(each_p['amount_ticker_1'], each_p['ticker_1_name'], coin_decimal_1, False), each_p['ticker_1_name'],
-                            num_format_coin(each_p['amount_ticker_2'], each_p['ticker_2_name'], coin_decimal_2, False), each_p['ticker_2_name'],
+                            num_format_coin(each_p['amount_ticker_1']), each_p['ticker_1_name'],
+                            num_format_coin(each_p['amount_ticker_2']), each_p['ticker_2_name'],
                             rate_coin_12
                         ),
                         inline=False
@@ -2163,7 +2180,6 @@ class Cexswap(commands.Cog):
                     amount_liq_sell = liq_pair['pool']['amount_ticker_2']
                 cexswap_min = getattr(getattr(self.bot.coin_list, sell_token), "cexswap_min")
                 token_display = getattr(getattr(self.bot.coin_list, sell_token), "display_name")
-                coin_decimal = getattr(getattr(self.bot.coin_list, sell_token), "decimal")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, sell_token), "usd_equivalent_enable")
                 cexswap_max_swap_percent_sell = getattr(getattr(self.bot.coin_list, sell_token), "cexswap_max_swap_percent")
                 max_swap_sell_cap = cexswap_max_swap_percent_sell * float(amount_liq_sell)
@@ -2241,13 +2257,11 @@ class Cexswap(commands.Cog):
 
                 # Check if amount is more than liquidity
                 if truncate(float(amount), 8) > truncate(float(max_swap_sell_cap), 8):
-                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_1_name']), "decimal")
-                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_2_name']), "decimal")
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount `{sell_amount_old}`"\
-                        f" is more than allowable 10% of liquidity `{num_format_coin(max_swap_sell_cap, sell_token, coin_decimal, False)} {token_display}`." \
-                        f"```Current LP: {num_format_coin(liq_pair['pool']['amount_ticker_1'], liq_pair['pool']['ticker_1_name'], coin_decimal_1, False)} "\
+                        f" is more than allowable 10% of liquidity `{num_format_coin(max_swap_sell_cap)} {token_display}`." \
+                        f"```Current LP: {num_format_coin(liq_pair['pool']['amount_ticker_1'])} "\
                         f"{liq_pair['pool']['ticker_1_name']} and "\
-                        f"{num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False)} "\
+                        f"{num_format_coin(liq_pair['pool']['amount_ticker_2'])} "\
                         f"{liq_pair['pool']['ticker_2_name']} for LP {liq_pair['pool']['ticker_1_name']}/{liq_pair['pool']['ticker_2_name']}.```"
                     await ctx.edit_original_message(content=msg)
                     return
@@ -2295,8 +2309,7 @@ class Cexswap(commands.Cog):
                 
                 # If the amount get is too small.
                 if amount_get < self.bot.config['cexswap']['minimum_receive_or_reject']:
-                    coin_decimal_get = getattr(getattr(self.bot.coin_list, for_token), "decimal")
-                    num_receive = num_format_coin(amount_get, for_token, coin_decimal_get, False)
+                    num_receive = num_format_coin(amount_get)
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the received amount is too small "\
                         f"{num_receive} {for_token}. Please increase your sell amount!"
                     await ctx.edit_original_message(content=msg)
@@ -2308,12 +2321,27 @@ class Cexswap(commands.Cog):
                     return
                 elif truncate(amount, 8) < truncate(cexswap_min, 8):
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount `{sell_amount_old}`"\
-                        f" is below minimum `{num_format_coin(cexswap_min, sell_token, coin_decimal, False)} {token_display}`."
+                        f" is below minimum `{num_format_coin(cexswap_min)} {token_display}`."
                     await ctx.edit_original_message(content=msg)
                     return
 
                 elif truncate(actual_balance, 8) < truncate(amount, 8):
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, ⚠️ Please re-check balance {token_display}."
+                    # Try to see how much user can trade for before checking balance
+                    got_fee_dev = amount_get * self.bot.config['cexswap']['dev_fee'] / 100
+                    got_fee_liquidators = amount_get * self.bot.config['cexswap']['liquidator_fee'] / 100
+                    got_fee_guild = 0.0
+                    guild_id = "DM"
+                    if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                        got_fee_guild = amount_get * self.bot.config['cexswap']['guild_fee'] / 100
+                        guild_id = str(ctx.guild.id)
+                    else:
+                        got_fee_dev += amount_get * self.bot.config['cexswap']['guild_fee'] / 100
+                    fee = truncate(got_fee_dev, 12) + truncate(got_fee_liquidators, 12) + truncate(got_fee_guild, 12)
+                    user_amount_get = num_format_coin(truncate(amount_get - float(fee), 12))
+                    user_amount_sell = num_format_coin(amount)
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, ⚠️ Please re-check balance {token_display}.\n"\
+                        f"```You could get {user_amount_get} {for_token}\n"\
+                        f"From selling {user_amount_sell} {sell_token}{price_impact_text}.```"
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -2341,7 +2369,6 @@ class Cexswap(commands.Cog):
                             if distributed_amount is not None:
                                 liq_users.append([distributed_amount, each_s['user_id'], each_s['user_server']])
                     contract = getattr(getattr(self.bot.coin_list, for_token), "contract")
-                    coin_decimal = getattr(getattr(self.bot.coin_list, for_token), "decimal")
                     channel_id = "DM" if guild_id == "DM" else str(ctx.channel.id)
                     # get price per unit
                     per_unit_sell = 0.0
@@ -2373,10 +2400,8 @@ class Cexswap(commands.Cog):
                             per_unit_get = 0.0
 
                     fee = truncate(got_fee_dev, 12) + truncate(got_fee_liquidators, 12) + truncate(got_fee_guild, 12)
-                    coin_decimal_get = getattr(getattr(self.bot.coin_list, for_token), "decimal")
-                    coin_decimal_sell = getattr(getattr(self.bot.coin_list, sell_token), "decimal")
-                    user_amount_get = num_format_coin(truncate(amount_get - float(fee), 12), for_token, coin_decimal_get, False)
-                    user_amount_sell = num_format_coin(amount, sell_token, coin_decimal_sell, False)
+                    user_amount_get = num_format_coin(truncate(amount_get - float(fee), 12))
+                    user_amount_sell = num_format_coin(amount)
 
                     suggestion_msg = ""
                     if self.bot.config['cexswap']['enable_better_price'] == 1:
@@ -2489,6 +2514,7 @@ class Cexswap(commands.Cog):
                             del self.bot.tipping_in_progress[str(ctx.author.id)]
                         except Exception:
                             pass
+                        coin_decimal = getattr(getattr(self.bot.coin_list, for_token), "decimal")
                         selling = await cexswap_sold(
                             ref_log, liq_pair['pool']['pool_id'], truncate(amount, 12), sell_token, 
                             truncate(amount_get, 12), for_token, str(ctx.author.id), SERVER_BOT,
@@ -2525,7 +2551,7 @@ class Cexswap(commands.Cog):
                             except Exception:
                                 pass
                             # End of del key
-                            # fee_str = num_format_coin(fee, for_token, coin_decimal_get, False)
+                            # fee_str = num_format_coin(fee)
                             # . Fee {fee_str} {for_token}\n
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully traded!\n"\
                                 f"```Get {user_amount_get} {for_token}\n"\
@@ -2626,7 +2652,6 @@ class Cexswap(commands.Cog):
             if pool_name in self.bot.cexswap_coins:
                 coin_name = pool_name
                 coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 testing = self.bot.config['cexswap']['testing_msg']
                 embed = disnake.Embed(
                     title="Coin/Token {} {} TipBot's CEXSwap".format(coin_emoji, coin_name),
@@ -2658,14 +2683,12 @@ class Cexswap(commands.Cog):
                         if coin_name == target_coin:
                             target_coin = i['ticker_2_name']
                             rate_1 = i['amount_ticker_2'] / i['amount_ticker_1']
-                        coin_decimal_target = getattr(getattr(self.bot.coin_list, target_coin), "decimal")
                         coin_emoji_target = getattr(getattr(self.bot.coin_list, target_coin), "coin_emoji_discord")
                         if truncate(rate_1, 10) > 0:
                             rate_list.append("{} {} {}".format(
                                 coin_emoji_target,
-                                num_format_coin(
-                                    rate_1, target_coin, coin_decimal_target, False
-                                ), target_coin
+                                num_format_coin(rate_1),
+                                target_coin
                             ))
                     if len(rate_list) > 0:
                         rate_list_chunks = list(chunks(rate_list, 12))
@@ -2682,7 +2705,7 @@ class Cexswap(commands.Cog):
                             j += 1
                     embed.add_field(
                         name="All liquidity {}".format(coin_name),
-                        value=num_format_coin(total_liq, coin_name, coin_decimal, False),
+                        value=num_format_coin(total_liq),
                         inline=False
                     )
                     # Check volume
@@ -2707,7 +2730,7 @@ class Cexswap(commands.Cog):
                                     embed.add_field(
                                         name="Volume {} {}".format(k, coin_emoji),
                                         value="{}{}".format(
-                                            num_format_coin(sum_amount, coin_name, coin_decimal, False), equi_usd
+                                            num_format_coin(sum_amount), equi_usd
                                         ),
                                         inline=True
                                     )
@@ -2784,8 +2807,6 @@ class Cexswap(commands.Cog):
 
                 min_initialized_liq_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "cexswap_min_initialized_liq")
                 min_initialized_liq_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "cexswap_min_initialized_liq")
-                coin_decimal_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "decimal")
-                coin_decimal_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "decimal")
 
                 testing = self.bot.config['cexswap']['testing_msg']
                 embed = disnake.Embed(
@@ -2794,14 +2815,14 @@ class Cexswap(commands.Cog):
                     timestamp=datetime.now(),
                 )
                 init_liq_text = "{} {}\n{} {}".format(
-                    num_format_coin(min_initialized_liq_1, tickers[0], coin_decimal_1, False), tickers[0],
-                    num_format_coin(min_initialized_liq_2, tickers[1], coin_decimal_2, False), tickers[1]
+                    num_format_coin(min_initialized_liq_1), tickers[0],
+                    num_format_coin(min_initialized_liq_2), tickers[1]
                 )
                 min_liq_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "cexswap_min_add_liq")
                 min_liq_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "cexswap_min_add_liq")
                 add_liq_text = "{} {}\n{} {}".format(
-                    num_format_coin(min_liq_1, tickers[0], coin_decimal_1, False), tickers[0],
-                    num_format_coin(min_liq_2, tickers[1], coin_decimal_2, False), tickers[1]
+                    num_format_coin(min_liq_1), tickers[0],
+                    num_format_coin(min_liq_2), tickers[1]
                 )
                 embed.add_field(
                     name="Minimum adding (After POOL)",
@@ -2813,12 +2834,10 @@ class Cexswap(commands.Cog):
                 liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], None)
                 if liq_pair is not None:
                     rate_1 = num_format_coin(
-                        liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1'],
-                        tickers[1], coin_decimal_2, False
+                        liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1']
                     )
                     rate_2 = num_format_coin(
-                        liq_pair['pool']['amount_ticker_1']/liq_pair['pool']['amount_ticker_2'],
-                        tickers[0], coin_decimal_1, False
+                        liq_pair['pool']['amount_ticker_1']/liq_pair['pool']['amount_ticker_2']
                     )
                     rate_coin_12 = "{} {} = {} {}\n{} {} = {} {}".format(
                         1, tickers[0], rate_1, tickers[1], 1, tickers[1], rate_2, tickers[0]
@@ -2844,8 +2863,8 @@ class Cexswap(commands.Cog):
                     embed.add_field(
                         name="Total liquidity (from {} user(s))".format(len(liq_pair['pool_share'])),
                         value="{} {}\n{} {}{}".format(
-                            num_format_coin(liq_pair['pool']['amount_ticker_1'], liq_pair['pool']['ticker_1_name'], coin_decimal_1, False), liq_pair['pool']['ticker_1_name'],
-                            num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False), liq_pair['pool']['ticker_2_name'],
+                            num_format_coin(liq_pair['pool']['amount_ticker_1']), liq_pair['pool']['ticker_1_name'],
+                            num_format_coin(liq_pair['pool']['amount_ticker_2']), liq_pair['pool']['ticker_2_name'],
                             "\n~{} {}".format(truncate(pair_amount, 2), "USD") if pair_amount > 0 else ""
                         ),
                         inline=False
@@ -2871,9 +2890,8 @@ class Cexswap(commands.Cog):
                                 coin_emoji = coin_emoji + " " if coin_emoji else ""
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
-                            coin_decimal = getattr(getattr(self.bot.coin_list, each['sold_ticker']), "decimal")
                             sold_amount = num_format_coin(
-                                each['sold'], each['sold_ticker'], coin_decimal, False
+                                each['sold']
                             )
                             list_volume.append("{}{} {}".format(coin_emoji, sold_amount, each['sold_ticker']))
 
@@ -2884,9 +2902,8 @@ class Cexswap(commands.Cog):
                                 coin_emoji = coin_emoji + " " if coin_emoji else ""
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
-                            coin_decimal = getattr(getattr(self.bot.coin_list, each['got_ticker']), "decimal")
                             traded_amount = num_format_coin(
-                                each['got'], each['got_ticker'], coin_decimal, False
+                                each['got']
                             )
                             list_volume.append("{}{} {}".format(coin_emoji, traded_amount, each['got_ticker']))
                             embed.add_field(
@@ -2985,12 +3002,10 @@ class Cexswap(commands.Cog):
 
             min_initialized_liq_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "cexswap_min_initialized_liq")
             min_initialized_liq_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "cexswap_min_initialized_liq")
-            coin_decimal_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "decimal")
-            coin_decimal_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "decimal")
 
             init_liq_text = "{} {} and {} {}".format(
-                num_format_coin(min_initialized_liq_1, tickers[0], coin_decimal_1, False), tickers[0],
-                num_format_coin(min_initialized_liq_2, tickers[1], coin_decimal_2, False), tickers[1]
+                num_format_coin(min_initialized_liq_1), tickers[0],
+                num_format_coin(min_initialized_liq_2), tickers[1]
             )
 
             liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], str(ctx.author.id))
@@ -3030,12 +3045,10 @@ class Cexswap(commands.Cog):
                 )
             else:
                 rate_1 = num_format_coin(
-                    liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1'],
-                    tickers[1], coin_decimal_2, False
+                    liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1']
                 )
                 rate_2 = num_format_coin(
-                    liq_pair['pool']['amount_ticker_1']/liq_pair['pool']['amount_ticker_2'],
-                    tickers[0], coin_decimal_1, False
+                    liq_pair['pool']['amount_ticker_1']/liq_pair['pool']['amount_ticker_2']
                 )
                 rate_coin_12 = "{} {} = {} {}\n{} {} = {} {}".format(
                     1, tickers[0], rate_1, tickers[1], 1, tickers[1], rate_2, tickers[0]
@@ -3045,8 +3058,8 @@ class Cexswap(commands.Cog):
                 embed.add_field(
                     name="Total liquidity",
                     value="{} {}\n{} {}".format(
-                        num_format_coin(liq_pair['pool']['amount_ticker_1'], liq_pair['pool']['ticker_1_name'], coin_decimal_1, False), liq_pair['pool']['ticker_1_name'],
-                        num_format_coin(liq_pair['pool']['amount_ticker_2'], liq_pair['pool']['ticker_2_name'], coin_decimal_2, False), liq_pair['pool']['ticker_2_name']
+                        num_format_coin(liq_pair['pool']['amount_ticker_1']), liq_pair['pool']['ticker_1_name'],
+                        num_format_coin(liq_pair['pool']['amount_ticker_2']), liq_pair['pool']['ticker_2_name']
                     ),
                     inline=False
                 )
@@ -3068,8 +3081,8 @@ class Cexswap(commands.Cog):
                     embed.add_field(
                         name="Your existing liquidity",
                         value="{} {}{}\n{} {}{}".format(
-                            num_format_coin(liq_pair['pool_share']['amount_ticker_1'], liq_pair['pool_share']['ticker_1_name'], coin_decimal_1, False), liq_pair['pool_share']['ticker_1_name'], percent_1, 
-                            num_format_coin(liq_pair['pool_share']['amount_ticker_2'], liq_pair['pool_share']['ticker_2_name'], coin_decimal_1, False), liq_pair['pool_share']['ticker_2_name'], percent_2
+                            num_format_coin(liq_pair['pool_share']['amount_ticker_1']), liq_pair['pool_share']['ticker_1_name'], percent_1, 
+                            num_format_coin(liq_pair['pool_share']['amount_ticker_2']), liq_pair['pool_share']['ticker_2_name'], percent_2
                         ),
                         inline=False
                     )
@@ -3077,8 +3090,8 @@ class Cexswap(commands.Cog):
                 min_liq_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "cexswap_min_add_liq")
                 min_liq_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "cexswap_min_add_liq")
                 init_liq_text = "{} {}\n{} {}".format(
-                    num_format_coin(min_liq_1, tickers[0], coin_decimal_1, False), tickers[0],
-                    num_format_coin(min_liq_2, tickers[1], coin_decimal_2, False), tickers[1]
+                    num_format_coin(min_liq_1), tickers[0],
+                    num_format_coin(min_liq_2), tickers[1]
                 )
             embed.add_field(
                 name="Minimum adding",
@@ -3113,7 +3126,6 @@ class Cexswap(commands.Cog):
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                 get_deposit = await self.wallet_api.sql_get_userwallet(
                     str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
@@ -3150,7 +3162,7 @@ class Cexswap(commands.Cog):
 
                 balances.append(float(userdata_balance['adjust']))
                 balances_str.append(
-                    num_format_coin(float(userdata_balance['adjust']), coin_name, coin_decimal, False)
+                    num_format_coin(float(userdata_balance['adjust']))
                 )
             # ticker 1
             await ctx.edit_original_message(
@@ -3236,9 +3248,6 @@ class Cexswap(commands.Cog):
                 notifying_u = []
                 if len(liq_pair['pool_share']) > 0:
                     balance_user = {}
-                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_1_name']), "decimal")
-                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_2_name']), "decimal")
-
                     for each_s in liq_pair['pool_share']:
                         try:
                             if truncate(float(each_s['amount_ticker_1']), 12) > 0:
@@ -3255,8 +3264,8 @@ class Cexswap(commands.Cog):
                                 ]
                                 if int(each_s['user_id']) not in notifying_u:
                                     notifying_u.append(int(each_s['user_id']))
-                            amount_1_str = num_format_coin(each_s['amount_ticker_1'], each_s['ticker_1_name'], coin_decimal_1, False)
-                            amount_2_str = num_format_coin(each_s['amount_ticker_2'], each_s['ticker_2_name'], coin_decimal_2, False)
+                            amount_1_str = num_format_coin(each_s['amount_ticker_1'])
+                            amount_2_str = num_format_coin(each_s['amount_ticker_2'])
                             balance_user[each_s['user_id']] = "{} {} and {} {}".format(
                                 amount_1_str, each_s['ticker_1_name'],
                                 amount_2_str, each_s['ticker_2_name']
@@ -3437,10 +3446,8 @@ class Cexswap(commands.Cog):
                         liq_pair['pool']['pool_id'], amount_remove_1, ticker_1, amount_remove_2, ticker_2,
                         str(ctx.author.id), SERVER_BOT, complete_remove, delete_pool
                     )
-                    coin_decimal_1 = getattr(getattr(self.bot.coin_list, ticker_1), "decimal")
-                    coin_decimal_2 = getattr(getattr(self.bot.coin_list, ticker_2), "decimal")
-                    amount_1_str = num_format_coin(amount_remove_1, ticker_1, coin_decimal_1, False)
-                    amount_2_str = num_format_coin(amount_remove_2, ticker_2, coin_decimal_2, False)
+                    amount_1_str = num_format_coin(amount_remove_1)
+                    amount_2_str = num_format_coin(amount_remove_2)
 
                     try:
                         del self.bot.tipping_in_progress[str(ctx.author.id)]
@@ -3589,7 +3596,6 @@ class Cexswap(commands.Cog):
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
@@ -3655,13 +3661,13 @@ class Cexswap(commands.Cog):
 
             if amount > max_tip or amount < min_tip:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than "\
-                    f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than "\
-                    f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                    f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
+                    f"**{num_format_coin(min_tip)} {token_display}**."
                 await ctx.edit_original_message(content=msg)
                 return
             elif amount > actual_balance:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a airdrop LP of "\
-                    f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                    f"**{num_format_coin(amount)} {token_display}**."
                 await ctx.edit_original_message(content=msg)
                 return
 
@@ -3707,7 +3713,7 @@ class Cexswap(commands.Cog):
                             ))
                             if i[2] == SERVER_BOT:
                                 lp_discord_users.append(i[1])
-                                balance_user[str(i[1])] = num_format_coin(i[0], coin_name, coin_decimal, False)
+                                balance_user[str(i[1])] = num_format_coin(i[0])
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                 airdroping = await cexswap_airdrop_lp_detail(
@@ -3812,11 +3818,9 @@ class Cexswap(commands.Cog):
             if len(get_poolshare) > 0:
                 list_coin_lp_user = []
                 for p in get_poolshare:
-                    # coin_decimal = getattr(getattr(self.bot.coin_list, p['ticker_1_name']), "decimal")
-                    # amount_1 = num_format_coin(p['amount_ticker_1'], p['ticker_1_name'], coin_decimal, False)
+                    # amount_1 = num_format_coin(p['amount_ticker_1'])
                     amount_1 = human_format(p['amount_ticker_1'])
-                    # coin_decimal = getattr(getattr(self.bot.coin_list, p['ticker_2_name']), "decimal")
-                    # amount_2 = num_format_coin(p['amount_ticker_2'], p['ticker_2_name'], coin_decimal, False)
+                    # amount_2 = num_format_coin(p['amount_ticker_2'])
                     amount_2 = human_format(p['amount_ticker_2'])
                     coin_1 = p['ticker_1_name'][:4] + ".." if len(p['ticker_1_name']) > 5 else p['ticker_1_name']
                     coin_2 = p['ticker_2_name'][:4] + ".." if len(p['ticker_2_name']) > 5 else p['ticker_2_name']
@@ -3860,9 +3864,8 @@ class Cexswap(commands.Cog):
                             coin_emoji = coin_emoji + " " if coin_emoji else ""
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                    coin_decimal = getattr(getattr(self.bot.coin_list, each['got_ticker']), "decimal")
                     earning_amount = num_format_coin(
-                        each['collected_amount'], each['got_ticker'], coin_decimal, False
+                        each['collected_amount']
                     )
                     list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
 

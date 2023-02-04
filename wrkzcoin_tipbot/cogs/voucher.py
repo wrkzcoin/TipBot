@@ -9,7 +9,7 @@ from io import BytesIO
 import disnake
 import qrcode
 import store
-from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, EMOJI_INFORMATION, num_format_coin, \
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, SERVER_BOT, EMOJI_INFORMATION, \
     text_to_num, is_ascii
 from PIL import Image, ImageDraw, ImageFont
 from cogs.wallet import WalletAPI
@@ -17,11 +17,10 @@ from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
 from terminaltables import AsciiTable
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 
 class Voucher(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
@@ -331,12 +330,16 @@ class Voucher(commands.Cog):
             img_frame = Image.open(self.path_voucher_defaultimg)
 
         if voucher_each < min_voucher_amount or voucher_each > max_voucher_amount:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than {num_format_coin(min_voucher_amount, coin_name, coin_decimal, False)} {token_display} or bigger than {num_format_coin(max_voucher_amount, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than "\
+                f"{num_format_coin(min_voucher_amount)} {token_display} or bigger than "\
+                f"{num_format_coin(max_voucher_amount)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
 
         if actual_balance < total_amount + total_fee_amount:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to create voucher.A voucher needed amount + fee: {num_format_coin(total_amount + total_fee_amount, coin_name)} {token_display}\nHaving: {num_format_coin(actual_balance, coin_name, coin_decimal, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to create voucher. "\
+                f"A voucher needed amount + fee: {num_format_coin(total_amount + total_fee_amount)} "\
+                f"{token_display}\nHaving: {num_format_coin(actual_balance)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -399,7 +402,7 @@ class Voucher(commands.Cog):
 
                     # amount font
                     try:
-                        msg = num_format_coin(voucher_each, coin_name, coin_decimal, False) + coin_name
+                        msg = num_format_coin(voucher_each) + coin_name
                         W, H = (1123, 644)
                         draw = ImageDraw.Draw(img_frame)
                         myFont = ImageFont.truetype(self.pathfont, 44)
@@ -455,8 +458,8 @@ class Voucher(commands.Cog):
                             await ctx.author.send(
                                 f"New Voucher Link ({i + 1} of {voucher_numb}): {qrstring}\n"
                                 "```"
-                                f"Amount: {num_format_coin(voucher_each, coin_name, coin_decimal, False)} {coin_name}\n"
-                                f"Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, coin_name, coin_decimal, False)} {coin_name}\n"
+                                f"Amount: {num_format_coin(voucher_each)} {coin_name}\n"
+                                f"Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount)} {coin_name}\n"
                                 f"Voucher comment: {comment_str}```"
                             )
                         except Exception:
@@ -507,7 +510,7 @@ class Voucher(commands.Cog):
 
                 # amount font
                 try:
-                    msg = str(num_format_coin(voucher_each, coin_name, coin_decimal, False)) + coin_name
+                    msg = num_format_coin(voucher_each) + coin_name
                     W, H = (1123, 644)
                     draw = ImageDraw.Draw(img_frame)
                     myFont = ImageFont.truetype(self.pathfont, 44)
@@ -566,8 +569,8 @@ class Voucher(commands.Cog):
                         msg = await ctx.author.send(
                             f"New Voucher Link: {qrstring}\n"
                             "```"
-                            f"Amount: {num_format_coin(voucher_each, coin_name, coin_decimal, False)} {coin_name}\n"
-                            f"Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount, coin_name, coin_decimal, False)} {coin_name}\n"
+                            f"Amount: {num_format_coin(voucher_each)} {coin_name}\n"
+                            f"Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount)} {coin_name}\n"
                             f"Voucher comment: {comment_str}```"
                         )
                     except Exception:
@@ -622,11 +625,11 @@ class Voucher(commands.Cog):
                 ['Ref Link', 'Amount', 'Claimed?', 'Created']
             ]
             for each in get_vouchers:
-                coin_decimal = getattr(getattr(self.bot.coin_list, each['coin_name']), "decimal")
-                table_data.append([each['secret_string'],
-                                   num_format_coin(each['amount'], each['coin_name'], coin_decimal, False) + " " + each[
-                                       'coin_name'], 'YES' if each['already_claimed'] == 'YES' else 'NO',
-                                   datetime.fromtimestamp(each['date_create']).strftime('%Y-%m-%d')])
+                table_data.append([
+                    each['secret_string'],
+                    num_format_coin(each['amount']) + " " + each['coin_name'], 'YES' if each['already_claimed'] == 'YES' else 'NO',
+                    datetime.fromtimestamp(each['date_create']).strftime('%Y-%m-%d')
+                ])
             table = AsciiTable(table_data)
             table.padding_left = 1
             table.padding_right = 1
@@ -704,13 +707,12 @@ class Voucher(commands.Cog):
                 ['Ref Link', 'Amount', 'Claimed?', 'Created']
             ]
             for each in get_vouchers:
-                coin_decimal = getattr(getattr(self.bot.coin_list, each['coin_name']), "decimal")
                 table_data.append([
-                    each['secret_string'], num_format_coin(each['amount'], each['coin_name'], coin_decimal, False) \
-                        + " " + each['coin_name'],
+                    each['secret_string'],
+                    num_format_coin(each['amount']) + " " + each['coin_name'],
                     'YES' if each['already_claimed'] == 'YES' else 'NO',
-                    datetime.fromtimestamp(each['date_create']).strftime('%Y-%m-%d')]
-                )
+                    datetime.fromtimestamp(each['date_create']).strftime('%Y-%m-%d')
+                ])
             table = AsciiTable(table_data)
             table.padding_left = 1
             table.padding_right = 1

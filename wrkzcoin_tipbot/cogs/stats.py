@@ -4,13 +4,14 @@ from datetime import datetime
 import time
 
 import disnake
-from Bot import EMOJI_INFORMATION, logchanbot, SERVER_BOT, num_format_coin
+from Bot import EMOJI_INFORMATION, logchanbot, SERVER_BOT
 from cogs.wallet import WalletAPI
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
 import store
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
+
 
 class Stats(commands.Cog):
     def __init__(self, bot):
@@ -80,7 +81,7 @@ class Stats(commands.Cog):
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 embed.add_field(
                     name="BALANCE {}".format(display_name),
-                    value=num_format_coin(balance, coin_name, coin_decimal, False),
+                    value=num_format_coin(balance),
                     inline=True
                 )
                 try:
@@ -88,7 +89,7 @@ class Stats(commands.Cog):
                     if get_tip_stats is not None:
                         embed.add_field(
                             name="Tip/DB Records: {:,.0f}".format(get_tip_stats['numb_tip']),
-                            value=num_format_coin(get_tip_stats['amount_tip'], coin_name, coin_decimal, False),
+                            value=num_format_coin(get_tip_stats['amount_tip']),
                             inline=True
                         )
                         embed.add_field(

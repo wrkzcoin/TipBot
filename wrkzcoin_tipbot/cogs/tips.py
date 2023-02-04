@@ -172,7 +172,7 @@ class FreeTip_Button(disnake.ui.View):
 
             if len(attend_list) == 0:
                 embed = disnake.Embed(
-                    title=f"FreeTip appears {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
+                    title=f"FreeTip appears {coin_emoji}{num_format_coin(amount)} {token_display} {equivalent_usd}",
                     description=f"Already expired", timestamp=datetime.fromtimestamp(get_freetip['airdrop_time']))
                 if get_freetip['airdrop_content'] and len(get_freetip['airdrop_content']) > 0:
                     embed.add_field(name="Comment", value=get_freetip['airdrop_content'], inline=False)
@@ -191,7 +191,7 @@ class FreeTip_Button(disnake.ui.View):
                 try:
                     if get_owner is not None:
                         await get_owner.send(
-                            f"Free tip of {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                            f"Free tip of {coin_emoji}{num_format_coin(amount)} "\
                             f"{token_display} {equivalent_usd} expired and no one collected.\n{link_to_msg}"
                         )
                 except (disnake.Forbidden, disnake.errors.Forbidden) as e:
@@ -222,7 +222,7 @@ class FreeTip_Button(disnake.ui.View):
                 if actual_balance < 0 and get_owner:
                     await self.message.reply(
                         f"{EMOJI_RED_NO} {get_owner.mention}, insufficient balance to do a "\
-                        f"free tip of {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}."
+                        f"free tip of {num_format_coin(amount)} {coin_name}."
                     )
                     change_status = await store.discord_freetip_update(str(self.message.id), "FAILED")
                     # end of re-check balance
@@ -231,9 +231,9 @@ class FreeTip_Button(disnake.ui.View):
                     amount_div = truncate(amount / len(attend_list_id), 12)
                     tips = None
 
-                    tipAmount = num_format_coin(amount, coin_name, coin_decimal, False)
-                    ActualSpend_str = num_format_coin(amount_div * len(attend_list_id), coin_name, coin_decimal, False)
-                    amountDiv_str = num_format_coin(amount_div, coin_name, coin_decimal, False)
+                    tipAmount = num_format_coin(amount)
+                    ActualSpend_str = num_format_coin(amount_div * len(attend_list_id))
+                    amountDiv_str = num_format_coin(amount_div)
 
                     each_equivalent_usd = ""
                     actual_spending_usd = ""
@@ -271,7 +271,7 @@ class FreeTip_Button(disnake.ui.View):
                         # Edit embed
                         try:
                             embed = disnake.Embed(
-                                title=f"FreeTip appears {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
+                                title=f"FreeTip appears {coin_emoji}{num_format_coin(amount)} {token_display} {equivalent_usd}",
                                 description=f"Click to collect",
                                 timestamp=datetime.fromtimestamp(get_freetip['airdrop_time']))
                             if get_freetip['airdrop_content'] and len(get_freetip['airdrop_content']) > 0:
@@ -286,13 +286,13 @@ class FreeTip_Button(disnake.ui.View):
                                     )
                                     embed.add_field(
                                         name='Individual Tip amount',
-                                        value=f"{coin_emoji}{num_format_coin(truncate(amount / len(attend_list), 12), coin_name, coin_decimal, False)} "\
+                                        value=f"{coin_emoji}{num_format_coin(truncate(amount / len(attend_list), 12))} "\
                                             f"{token_display}",
                                         inline=True
                                     )
                                     embed.add_field(
                                         name="Num. Attendees",
-                                        value=f"**{len(attend_list)}** members",
+                                        value=f"{len(attend_list)} members",
                                         inline=True
                                     )
                             except Exception:
@@ -518,7 +518,7 @@ class Tips(commands.Cog):
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                             embed = disnake.Embed(
-                                title=f"FreeTip appears {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                title=f"FreeTip appears {coin_emoji}{num_format_coin(amount)} "\
                                     f"{token_display} {equivalent_usd}",
                                 description=f"FreeTip by {owner_displayname}",
                                 timestamp=datetime.fromtimestamp(each_message_data['airdrop_time'])
@@ -544,10 +544,8 @@ class Tips(commands.Cog):
                                 if len(attend_list_names) >= 1000:
                                     attend_list_names = attend_list_names[:1000]
                                 try:
-                                    indiv_amount = num_format_coin(truncate(amount / len(attend_list), 12), coin_name,
-                                                                   coin_decimal, False) if len(
-                                        attend_list) > 0 else num_format_coin(truncate(amount, 4), coin_name,
-                                                                              coin_decimal, False)
+                                    indiv_amount = num_format_coin(truncate(amount / len(attend_list), 12)) \
+                                        if len(attend_list) > 0 else num_format_coin(truncate(amount, 12))
                                     if each_message_data['airdrop_content'] and \
                                         len(each_message_data['airdrop_content']) > 0:
                                         embed.add_field(
@@ -580,10 +578,8 @@ class Tips(commands.Cog):
                             else:
                                 # End of time but sometimes, it stuck. Let's disable it.
                                 try:
-                                    indiv_amount = num_format_coin(truncate(amount / len(attend_list), 12), coin_name,
-                                                                   coin_decimal, False) if len(
-                                        attend_list) > 0 else num_format_coin(truncate(amount, 4), coin_name,
-                                                                              coin_decimal, False)
+                                    indiv_amount = num_format_coin(truncate(amount / len(attend_list), 12)) if \
+                                        len(attend_list) > 0 else num_format_coin(truncate(amount, 12))
                                     if each_message_data['airdrop_content'] and len(
                                             each_message_data['airdrop_content']) > 0:
                                         embed.add_field(
@@ -942,13 +938,13 @@ class Tips(commands.Cog):
 
         if amount > max_tip or amount < min_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than "\
-                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or "\
-                f"smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(max_tip)} {token_display}** or "\
+                f"smaller than **{num_format_coin(min_tip)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a random tip of "\
-                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(amount)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -1030,14 +1026,14 @@ class Tips(commands.Cog):
             # tipper shall always get DM. Ignore notifying list
             try:
                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {rand_user.name}#{rand_user.discriminator} got your random tip of "\
-                    f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** in server `{ctx.guild.name}`"
+                    f"**{num_format_coin(amount)} {token_display}** in server `{ctx.guild.name}`"
                 await ctx.edit_original_message(content=msg)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             if str(rand_user.id) not in notifying_list:
                 try:
                     await rand_user.send(
-                        f"{EMOJI_MONEYFACE} You got a random tip of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} "
+                        f"{EMOJI_MONEYFACE} You got a random tip of {coin_emoji}**{num_format_coin(amount)} "
                         f"{token_display}** from {ctx.author.name}#{ctx.author.discriminator} in server `{ctx.guild.name}`\n"
                         f"{NOTIFICATION_OFF_CMD}"
                     )
@@ -1292,13 +1288,13 @@ class Tips(commands.Cog):
 
         if amount > max_tip or amount < min_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than "\
-                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than "\
-                f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
+                f"**{num_format_coin(min_tip)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a free tip of "\
-                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(amount)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -1321,7 +1317,7 @@ class Tips(commands.Cog):
                     equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
 
         embed = disnake.Embed(
-            title=f"FreeTip appears {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display} {equivalent_usd}",
+            title=f"FreeTip appears {coin_emoji}{num_format_coin(amount)} {token_display} {equivalent_usd}",
             description=f"Click to collect", timestamp=datetime.fromtimestamp(int(time.time()) + duration_s))
         try:
             # Delete if has key
@@ -1337,7 +1333,7 @@ class Tips(commands.Cog):
             embed.add_field(name="Attendees", value="Click to collect!", inline=False)
             embed.add_field(
                 name="Individual Tip Amount",
-                value=f"{coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}",
+                value=f"{coin_emoji}{num_format_coin(amount)} {token_display}",
                 inline=True
             )
             embed.add_field(name="Num. Attendees", value="**0** members", inline=True)
@@ -1558,7 +1554,7 @@ class Tips(commands.Cog):
             if len(coin_emoji) > 0:
                 await ctx.edit_original_message(
                     content=f"{EMOJI_INFORMATION} {ctx.author.mention}, executing /tipall with {coin_emoji} "\
-                        f"amount {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}..."
+                        f"amount {num_format_coin(amount)} {coin_name}..."
                 )
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -1576,13 +1572,13 @@ class Tips(commands.Cog):
 
         if amount > max_tip or amount < min_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than "\
-                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than "\
-                f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
+                f"**{num_format_coin(min_tip)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to tip of "\
-                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(amount)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -1632,9 +1628,9 @@ class Tips(commands.Cog):
 
         amount_div = truncate(amount / len(memids), 12)
 
-        tipAmount = num_format_coin(amount, coin_name, coin_decimal, False)
-        ActualSpend_str = num_format_coin(amount_div * len(memids), coin_name, coin_decimal, False)
-        amountDiv_str = num_format_coin(amount_div, coin_name, coin_decimal, False)
+        tipAmount = num_format_coin(amount)
+        ActualSpend_str = num_format_coin(amount_div * len(memids))
+        amountDiv_str = num_format_coin(amount_div)
 
         if amount_div <= 0:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, amount truncated to `0 {coin_name}`. Try bigger one."
@@ -1667,9 +1663,9 @@ class Tips(commands.Cog):
 
         if amount / len(memids) < min_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be smaller "\
-                f"than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} "\
+                f"than **{num_format_coin(min_tip)} "\
                 f"{token_display}** for each member. You need at least "\
-                f"**{num_format_coin(len(memids) * min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(len(memids) * min_tip)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -2657,14 +2653,14 @@ class Tips(commands.Cog):
 
                                     if amount < min_tip or amount > max_tip:
                                         error_msg = f"tipping for {coin_name} cannot be smaller than "\
-                                            f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}** "\
-                                            f"or bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**."
+                                            f"**{num_format_coin(min_tip)} {token_display}** "\
+                                            f"or bigger than **{num_format_coin(max_tip)} {token_display}**."
                                         has_amount_error = True
                                         break
                                     elif amount * len(list_member_ids) > actual_balance:
                                         error_msg = f"insufficient balance to tip "\
-                                            f"**{num_format_coin(amount * len(list_member_ids), coin_name, coin_decimal, False)} "\
-                                            f"{token_display}**. Having {num_format_coin(actual_balance, coin_name, coin_decimal, False)} "\
+                                            f"**{num_format_coin(amount * len(list_member_ids))} "\
+                                            f"{token_display}**. Having {num_format_coin(actual_balance)} "\
                                             f"{token_display}."
                                         has_amount_error = True
                                         break
@@ -2766,8 +2762,9 @@ class Tips(commands.Cog):
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             passed_tips.append("{}{} {}".format(
-                                coin_emoji, num_format_coin(v * len(list_member_ids), k, list_coin_decimal[k], False), k))
-                            each_tips.append("{}{} {}".format(coin_emoji, num_format_coin(v, k, list_coin_decimal[k], False), k))
+                                coin_emoji, num_format_coin(v * len(list_member_ids)), k
+                            ))
+                            each_tips.append("{}{} {}".format(coin_emoji, num_format_coin(v), k))
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                 except Exception:
@@ -2949,13 +2946,13 @@ class Tips(commands.Cog):
 
         if amount < min_tip or amount > max_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be smaller than "\
-                f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}** "\
-                f"or bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(min_tip)} {token_display}** "\
+                f"or bigger than **{num_format_coin(max_tip)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send {tip_type_text} of "\
-                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(amount)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -2984,7 +2981,7 @@ class Tips(commands.Cog):
 
         if total_amount > max_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be bigger than "\
-                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(max_tip)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif actual_balance < total_amount:
@@ -2992,8 +2989,8 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        tipAmount = num_format_coin(total_amount, coin_name, coin_decimal, False)
-        amountDiv_str = num_format_coin(amount, coin_name, coin_decimal, False)
+        tipAmount = num_format_coin(total_amount)
+        amountDiv_str = num_format_coin(amount)
         equivalent_usd = ""
         total_equivalent_usd = ""
         amount_in_usd = 0.0
@@ -3267,13 +3264,13 @@ class Tips(commands.Cog):
 
         if amount > max_tip or amount < min_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be bigger than "\
-                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
-                f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(max_tip)} {token_display}** "\
+                f"or smaller than **{num_format_coin(min_tip)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send "\
-                f"{tip_type_text} of **{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                f"{tip_type_text} of **{num_format_coin(amount)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -3303,17 +3300,17 @@ class Tips(commands.Cog):
 
         if total_amount > max_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be bigger than "\
-                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(max_tip)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif amount < min_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be smaller than "\
-                f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(min_tip)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif total_amount > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention} {guild_name}, insufficient balance to send total "\
-                f"{tip_type_text} of **{num_format_coin(total_amount, coin_name, coin_decimal, False)} {token_display}**."
+                f"{tip_type_text} of **{num_format_coin(total_amount)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -3390,10 +3387,10 @@ class Tips(commands.Cog):
         if tiptalk:
             # tipper shall always get DM. Ignore notifying list
             try:
-                msg = f"{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {coin_emoji}**{num_format_coin(total_amount, coin_name, coin_decimal, False)}"\
+                msg = f"{EMOJI_ARROW_RIGHTHOOK} {tip_type_text} of {coin_emoji}**{num_format_coin(total_amount)}"\
                     f" {token_display}** {total_equivalent_usd} was sent to ({len(list_receivers)}) members in "\
                     f"server `{ctx.guild.name}` for active talking.\nEach member got: "\
-                    f"{coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** {equivalent_usd}\n"
+                    f"{coin_emoji}**{num_format_coin(amount)} {token_display}** {equivalent_usd}\n"
                 try:
                     await ctx.author.send(msg)
                 except Exception:
@@ -3443,7 +3440,7 @@ class Tips(commands.Cog):
                         try:
                             if len(mention_users) > 0:
                                 msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
-                                    f"you got a {tip_type_text} of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)}"\
+                                    f"you got a {tip_type_text} of {coin_emoji}**{num_format_coin(amount)}"\
                                     f" {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
                                     f"\n{extra_msg}"
                                 await ctx.followup.send(msg)
@@ -3466,7 +3463,7 @@ class Tips(commands.Cog):
                     if numb_mention < total_found:
                         remaining_str = " and other {} members".format(total_found - numb_mention)
                     msg = f"{EMOJI_MONEYFACE} {mention_users}{remaining_str}, "\
-                        f"you got a {tip_type_text} of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** "\
+                        f"you got a {tip_type_text} of {coin_emoji}**{num_format_coin(amount)} {token_display}** "\
                         f"{equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}\n{extra_msg}"
                     await ctx.followup.send(msg)
                 except Exception:
@@ -3598,13 +3595,13 @@ class Tips(commands.Cog):
 
                 if amount < min_tip or amount > max_tip:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be smaller than **"\
-                        f"{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}** "\
-                        f"or bigger than **{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**."
+                        f"{num_format_coin(min_tip)} {token_display}** "\
+                        f"or bigger than **{num_format_coin(max_tip)} {token_display}**."
                     await ctx.reply(msg)
                     return
                 elif amount > actual_balance:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send tip of "\
-                        f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                        f"**{num_format_coin(amount)} {token_display}**."
                     await ctx.reply(msg)
                     return
                 
@@ -3685,17 +3682,17 @@ class Tips(commands.Cog):
 
                     if total_amount > max_tip:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be bigger than "\
-                            f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**."
+                            f"**{num_format_coin(max_tip)} {token_display}**."
                         await ctx.reply(msg)
                         return
                     elif amount < min_tip:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, total transaction cannot be smaller than "\
-                            f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                            f"**{num_format_coin(min_tip)} {token_display}**."
                         await ctx.reply(msg)
                         return
                     elif total_amount > actual_balance:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send total "\
-                            f"tip of **{num_format_coin(total_amount, coin_name, coin_decimal, False)} {token_display}**."
+                            f"tip of **{num_format_coin(total_amount)} {token_display}**."
                         await ctx.reply(msg)
                         return
 
@@ -3764,10 +3761,10 @@ class Tips(commands.Cog):
                     if tip is not None:
                         # tipper shall always get DM. Ignore notifying_list
                         try:
-                            msg = f"{EMOJI_ARROW_RIGHTHOOK} tip of {coin_emoji}**{num_format_coin(total_amount, coin_name, coin_decimal, False)}"\
+                            msg = f"{EMOJI_ARROW_RIGHTHOOK} tip of {coin_emoji}**{num_format_coin(total_amount)}"\
                                 f" {token_display}** {total_equivalent_usd} was sent to ({len(list_receivers)}) member(s) in "\
                                 f"server `{ctx.guild.name}`.\nEach member got: "\
-                                f"{coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}** {equivalent_usd}\n"
+                                f"{coin_emoji}**{num_format_coin(amount)} {token_display}** {equivalent_usd}\n"
                             try:
                                 await ctx.author.send(msg)
                             except Exception:
@@ -3801,7 +3798,7 @@ class Tips(commands.Cog):
 
                             try:
                                 msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
-                                    f"you got a tip of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)}"\
+                                    f"you got a tip of {coin_emoji}**{num_format_coin(amount)}"\
                                     f" {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
                                     f"\n{extra_msg}"
                                 await ctx.reply(msg)
@@ -3848,7 +3845,7 @@ class Tips(commands.Cog):
                                         try:
                                             if len(mention_users) > 0:
                                                 msg = f"{EMOJI_MONEYFACE} {mention_users}, "\
-                                                    f"you got a tip of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)}"\
+                                                    f"you got a tip of {coin_emoji}**{num_format_coin(amount)}"\
                                                     f" {token_display}** {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}"\
                                                     f"\n{extra_msg}"
                                                 await ctx.reply(msg)
@@ -3871,7 +3868,7 @@ class Tips(commands.Cog):
                                     if numb_mention < total_found:
                                         remaining_str = " and other {} members".format(total_found - numb_mention)
                                     msg = f"{EMOJI_MONEYFACE} {mention_users}{remaining_str}, "\
-                                        f"you got a tip of {coin_emoji}**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**"\
+                                        f"you got a tip of {coin_emoji}**{num_format_coin(amount)} {token_display}**"\
                                         f" {equivalent_usd} from {ctx.author.name}#{ctx.author.discriminator}\n{extra_msg}"
                                     await ctx.reply(msg)
                                 except Exception:

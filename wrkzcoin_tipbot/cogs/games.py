@@ -14,7 +14,7 @@ from disnake.enums import OptionType
 from disnake.ext import commands
 
 import store
-from Bot import logchanbot, EMOJI_RED_NO, EMOJI_INFORMATION, EMOJI_ERROR, num_format_coin, seconds_str, \
+from Bot import logchanbot, EMOJI_RED_NO, EMOJI_INFORMATION, EMOJI_ERROR, seconds_str, \
     SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE, remap_keys, DEFAULT_TICKER
 
 from games.blackjack import displayHands as blackjack_displayHands
@@ -28,7 +28,7 @@ from games.twentyfortyeight import getNewBoard as g2048_getNewBoard
 from games.twentyfortyeight import getScore as g2048_getScore
 from games.twentyfortyeight import isFull as g2048_isFull
 from games.twentyfortyeight import makeMove as g2048_makeMove
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 
 class DatabaseGames:
@@ -315,8 +315,8 @@ class BlackJackButtons(disnake.ui.View):
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
-            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                f"{coin_name}** to Tip balance!"
+            result = f"You got reward of {num_format_coin(amount)} "\
+                f"{coin_name} to tip balance!"
             if self.free_game is True:
                 result = f"You do not get any reward because it is a free game! "\
                     "Waiting to refresh your paid plays (24h max)."
@@ -479,8 +479,8 @@ class BlackJackButtons(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                f"{coin_name}** to Tip balance!"
+            result = f"You got reward of {num_format_coin(amount)} "\
+                f"{coin_name} to tip balance!"
             if self.free_game is True:
                 result = f"You do not get any reward because it is a free game! "\
                     "Waiting to refresh your paid plays (24h max)."
@@ -657,8 +657,8 @@ class Maze_Buttons(disnake.ui.View):
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
-            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                f"{coin_name}** to Tip balance!"
+            result = f"You got reward of {num_format_coin(amount)} "\
+                f"{coin_name} to tip balance!"
             if self.free_game is True:
                 result = f"You do not get any reward because it is a free game! "\
                     "Waiting to refresh your paid plays (24h max)."
@@ -779,8 +779,8 @@ class Maze_Buttons(disnake.ui.View):
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
-            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                f"{coin_name}** to Tip balance!"
+            result = f"You got reward of {num_format_coin(amount)} "\
+                f"{coin_name} to tip balance!"
             if self.free_game is True:
                 result = f"You do not get any reward because it is a free game! "\
                     "Waiting to refresh your paid plays (24h max)."
@@ -901,8 +901,8 @@ class Maze_Buttons(disnake.ui.View):
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
-            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                f"{coin_name}** to Tip balance!"
+            result = f"You got reward of {num_format_coin(amount)} "\
+                f"{coin_name} to tip balance!"
             if self.free_game is True:
                 result = f"You do not get any reward because it is a free game! "\
                     "Waiting to refresh your paid plays (24h max)."
@@ -1020,8 +1020,8 @@ class Maze_Buttons(disnake.ui.View):
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
-            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                f"{coin_name}** to Tip balance!"
+            result = f"You got reward of {num_format_coin(amount)} "\
+                f"{coin_name} to tip balance!"
             if self.free_game is True:
                 result = f"You do not get any reward because it is a free game! "\
                     "Waiting to refresh your paid plays (24h max)."
@@ -1171,8 +1171,8 @@ class g2048_Buttons(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                f"{coin_name}** to Tip balance!"
+            result = f"You got reward of {num_format_coin(amount)} "\
+                f"{coin_name} to tip balance!"
             if self.free_game is True:
                 result = f"You do not get any reward because it is a free game! "\
                     "Waiting to refresh your paid plays (24h max)."
@@ -1282,8 +1282,8 @@ class g2048_Buttons(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                f"{coin_name}** to Tip balance!"
+            result = f"You got reward of {num_format_coin(amount)} "\
+                f"{coin_name} to tip balance!"
             if self.free_game is True:
                 result = f"You do not get any reward because it is a free game! "\
                     "Waiting to refresh your paid plays (24h max)."
@@ -1393,8 +1393,8 @@ class g2048_Buttons(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                f"{coin_name}** to Tip balance!"
+            result = f"You got reward of {num_format_coin(amount)} "\
+                f"{coin_name} to tip balance!"
             if self.free_game is True:
                 result = f"You do not get any reward because it is a free game! "\
                     "Waiting to refresh your paid plays (24h max)."
@@ -1503,8 +1503,8 @@ class g2048_Buttons(disnake.ui.View):
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                f"{coin_name}** to Tip balance!"
+            result = f"You got reward of {num_format_coin(amount)} "\
+                f"{coin_name} to tip balance!"
             if self.free_game is True:
                 result = f"You do not get any reward because it is a free game! "\
                     "Waiting to refresh your paid plays (24h max)."
@@ -1805,8 +1805,8 @@ class Sokoban_Buttons(disnake.ui.View):
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                 native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                    f"{coin_name}** to Tip balance!"
+                result = f"You got reward of {num_format_coin(amount)} "\
+                    f"{coin_name} to tip balance!"
                 if self.free_game is True:
                     result = f"You got no reward. Waiting to refresh your paid plays (24h max)."
 
@@ -1955,8 +1955,8 @@ class Sokoban_Buttons(disnake.ui.View):
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                 native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                    f"{coin_name}** to Tip balance!"
+                result = f"You got reward of {num_format_coin(amount)} "\
+                    f"{coin_name} to tip balance!"
                 if self.free_game is True:
                     result = "You got no reward. Waiting to refresh your paid plays (24h max)."
                 if self.free_game is True:
@@ -2104,8 +2104,8 @@ class Sokoban_Buttons(disnake.ui.View):
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                 native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                    f"{coin_name}** to Tip balance!"
+                result = f"You got reward of {num_format_coin(amount)} "\
+                    f"{coin_name} to tip balance!"
                 if self.free_game is True:
                     result = "You got no reward. Waiting to refresh your paid plays (24h max)."
                 if self.free_game is True:
@@ -2254,8 +2254,8 @@ class Sokoban_Buttons(disnake.ui.View):
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                 native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                    f"{coin_name}** to Tip balance!"
+                result = f"You got reward of {num_format_coin(amount)} "\
+                    f"{coin_name} to tip balance!"
                 if self.free_game is True:
                     result = "You got no reward. Waiting to refresh your paid plays (24h max)."
                 if self.free_game is True:
@@ -2543,7 +2543,7 @@ class Games(commands.Cog):
         usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
         native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
-        result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}** "\
+        result = f"You got reward of {num_format_coin(amount)} {coin_name} "\
             "to Tip balance!"
         if free_game is True:
             if won:
@@ -2802,8 +2802,8 @@ class Games(commands.Cog):
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                 usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                 native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                result = f"You got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                    f"{coin_name}** to Tip balance!"
+                result = f"You got reward of {num_format_coin(amount)} "\
+                    f"{coin_name} to tip balance!"
                 if free_game is True:
                     if won:
                         result = "You won! but this is a free game without **reward**! "\
@@ -3059,8 +3059,8 @@ class Games(commands.Cog):
                                 if free_game is False:
                                     if won:
                                         result = f"You won **snail#{str(your_snail)}**! {ctx.author.mention} "\
-                                            f"got reward of **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                            f"{coin_name}** to Tip balance!"
+                                            f"got reward of {num_format_coin(amount)} "\
+                                            f"{coin_name} to tip balance!"
                                     else:
                                         result = f"You lose! **snail{randomSnailName}** is the winner!!! "\
                                             f"You bet for **snail#{str(your_snail)}**"

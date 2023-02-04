@@ -11,7 +11,7 @@ from cachetools import TTLCache
 
 import disnake
 import store
-from Bot import num_format_coin, logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, SERVER_BOT, text_to_num, \
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, SERVER_BOT, text_to_num, \
     truncate, seconds_str_days
 from cogs.wallet import WalletAPI
 from disnake.app_commands import Option
@@ -20,7 +20,8 @@ from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
 
 from disnake.ext import commands, tasks
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
+
 
 class PartyButton(disnake.ui.View):
     message: disnake.Message
@@ -125,7 +126,7 @@ class PartyDrop(commands.Cog):
                                     "Party Pot will be distributed equally to all attendees after "\
                                     "completion.".format(
                                         coin_emoji,
-                                        num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False),
+                                        num_format_coin(get_message['minimum_amount']),
                                         coin_name
                                 ),
                                 timestamp=datetime.fromtimestamp(get_message['partydrop_time']))
@@ -143,9 +144,9 @@ class PartyDrop(commands.Cog):
                             all_name_list.append(get_message['from_userid'])
                             if len(attend_list) > 0:
                                 name_list = []
-                                name_list.append("<@{}> : {} {}".format(get_message['from_userid'], num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False), token_display))
+                                name_list.append("<@{}> : {} {}".format(get_message['from_userid'], num_format_coin(get_message['init_amount']), token_display))
                                 for each_att in attend_list:
-                                    name_list.append("<@{}> : {} {}".format(each_att['attendant_id'], num_format_coin(each_att['joined_amount'], coin_name, coin_decimal, False), token_display))
+                                    name_list.append("<@{}> : {} {}".format(each_att['attendant_id'], num_format_coin(each_att['joined_amount']), token_display))
                                     total_amount += each_att['joined_amount']
                                     user_tos.append({'from_user': each_att['attendant_id'], 'to_user': str(self.bot.user.id), 'guild_id': get_message['guild_id'], 'channel_id': get_message['channel_id'], 'amount': each_att['joined_amount'], 'coin': get_message['token_name'], 'decimal': get_message['token_decimal'], 'contract': get_message['contract'], 'real_amount_usd': get_message['unit_price_usd']*each_att['joined_amount'] if get_message['unit_price_usd'] and get_message['unit_price_usd'] > 0 else 0.0, 'extra_message': None})
                                     
@@ -157,7 +158,7 @@ class PartyDrop(commands.Cog):
                                     embed.add_field(name='Attendant', value="\n".join(name_list), inline=False)
                             indiv_amount = total_amount / len(all_name_list) # including initiator
                             amount_in_usd = indiv_amount * get_message['unit_price_usd'] if get_message['unit_price_usd'] and get_message['unit_price_usd'] > 0.0 else 0.0
-                            indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
+                            indiv_amount_str = num_format_coin(indiv_amount)
                             embed.add_field(
                                 name='Each Member Receives:',
                                 value=f"{coin_emoji}{indiv_amount_str} {token_display}",
@@ -165,12 +166,12 @@ class PartyDrop(commands.Cog):
                             )
                             embed.add_field(
                                 name='Started amount', 
-                                value=coin_emoji + num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                value=coin_emoji + num_format_coin(get_message['init_amount']) + " " + coin_name,
                                 inline=True
                             )
                             embed.add_field(
                                 name='Party Pot', 
-                                value=coin_emoji + num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
+                                value=coin_emoji + num_format_coin(total_amount) + " " + coin_name,
                                 inline=True
                             )
                             try:
@@ -211,7 +212,7 @@ class PartyDrop(commands.Cog):
                                 description="Each click will deduct from your TipBot's balance. Minimum entrance cost: {}`{} {}`. "\
                                     "Party Pot will be distributed equally to all attendees after "\
                                     "completion.".format(
-                                        coin_emoji, num_format_coin(get_message['minimum_amount'], coin_name, coin_decimal, False),
+                                        coin_emoji, num_format_coin(get_message['minimum_amount']),
                                         coin_name
                                 ),
                                 timestamp=datetime.fromtimestamp(get_message['partydrop_time']))
@@ -229,9 +230,9 @@ class PartyDrop(commands.Cog):
                             user_tos = []
                             user_tos.append(get_message['from_userid'])
                             if len(attend_list) > 0:
-                                name_list.append("<@{}> : {} {}".format(get_message['from_userid'], num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False), token_display))
+                                name_list.append("<@{}> : {} {}".format(get_message['from_userid'], num_format_coin(get_message['init_amount']), token_display))
                                 for each_att in attend_list:
-                                    name_list.append("<@{}> : {} {}".format(each_att['attendant_id'], num_format_coin(each_att['joined_amount'], coin_name, coin_decimal, False), token_display))
+                                    name_list.append("<@{}> : {} {}".format(each_att['attendant_id'], num_format_coin(each_att['joined_amount']), token_display))
                                     total_amount += each_att['joined_amount']
                                     user_tos.append(each_att['attendant_id'])
                                     if len(name_list) > 0 and len(name_list) % 15 == 0:
@@ -250,7 +251,7 @@ class PartyDrop(commands.Cog):
                             except Exception:
                                 pass
                             amount_in_usd = indiv_amount * get_message['unit_price_usd'] if get_message['unit_price_usd'] and get_message['unit_price_usd'] > 0.0 else 0.0
-                            indiv_amount_str = num_format_coin(indiv_amount, coin_name, coin_decimal, False)
+                            indiv_amount_str = num_format_coin(indiv_amount)
                             embed.add_field(
                                 name='Each Member Receives:',
                                 value=f"{coin_emoji}{indiv_amount_str} {token_display}",
@@ -258,12 +259,12 @@ class PartyDrop(commands.Cog):
                             )
                             embed.add_field(
                                 name='Started amount', 
-                                value=coin_emoji + num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name,
+                                value=coin_emoji + num_format_coin(get_message['init_amount']) + " " + coin_name,
                                 inline=True
                             )
                             embed.add_field(
                                 name='Party Pot', 
-                                value=coin_emoji + num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name,
+                                value=coin_emoji + num_format_coin(total_amount) + " " + coin_name,
                                 inline=True
                             )
                             try:
@@ -528,14 +529,14 @@ class PartyDrop(commands.Cog):
 
         if min_amount > max_tip or min_amount < min_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, minimum amount cannot be bigger than "\
-                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
-                f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(max_tip)} {token_display}** "\
+                f"or smaller than **{num_format_coin(min_tip)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif sponsor_amount > 5*max_tip or sponsor_amount < min_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, sponored amount cannot be bigger than "\
-                f"**{num_format_coin(5*max_tip, coin_name, coin_decimal, False)} {token_display}** "\
-                f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(5*max_tip)} {token_display}** "\
+                f"or smaller than **{num_format_coin(min_tip)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif min_amount > sponsor_amount/5:
@@ -544,7 +545,7 @@ class PartyDrop(commands.Cog):
             return
         elif sponsor_amount > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to sponsor "\
-                f"**{num_format_coin(sponsor_amount, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(sponsor_amount)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -586,19 +587,19 @@ class PartyDrop(commands.Cog):
                 "Party Pot will be distributed equally to all attendees after "\
                 "completion.".format(
                     coin_emoji,
-                    num_format_coin(min_amount, coin_name, coin_decimal, False),
+                    num_format_coin(min_amount),
                     coin_name
             ),
             timestamp=datetime.fromtimestamp(party_end)
         )
         embed.add_field(
             name='Started amount',
-            value=coin_emoji + num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
+            value=coin_emoji + num_format_coin(sponsor_amount) + " " + coin_name,
             inline=True
         )
         embed.add_field(
             name='Party Pot',
-            value=coin_emoji + num_format_coin(sponsor_amount, coin_name, coin_decimal, False) + " " + coin_name,
+            value=coin_emoji + num_format_coin(sponsor_amount) + " " + coin_name,
             inline=True
         )
         time_left = seconds_str_days(duration_s)

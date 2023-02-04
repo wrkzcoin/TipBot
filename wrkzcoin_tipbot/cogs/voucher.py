@@ -176,212 +176,320 @@ class Voucher(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        await self.bot_log()
-        coin_name = coin.upper()
-        # Token name check
-        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
-            coin_name = self.bot.coin_alias_names[coin_name]
-        if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-            await ctx.edit_original_message(content=msg)
-            return
-        else:
-            if getattr(getattr(self.bot.coin_list, coin_name), "enable_voucher") != 1:
-                msg = f'{ctx.author.mention}, **{coin_name}** voucher is disable for this coin.'
+        try:
+            await self.bot_log()
+            coin_name = coin.upper()
+            # Token name check
+            if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                coin_name = self.bot.coin_alias_names[coin_name]
+            if not hasattr(self.bot.coin_list, coin_name):
+                msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
                 await ctx.edit_original_message(content=msg)
                 return
-        # End token name check
+            else:
+                if getattr(getattr(self.bot.coin_list, coin_name), "enable_voucher") != 1:
+                    msg = f'{ctx.author.mention}, **{coin_name}** voucher is disable for this coin.'
+                    await ctx.edit_original_message(content=msg)
+                    return
+            # End token name check
 
-        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-        token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
 
-        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-        get_deposit = await self.wallet_api.sql_get_userwallet(
-            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
-        )
-        if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(
-                str(ctx.author.id), coin_name, net_name, type_coin,
-                SERVER_BOT, 0, 0
+            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
+            if get_deposit is None:
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin,
+                    SERVER_BOT, 0, 0
+                )
 
-        wallet_address = get_deposit['balance_wallet_address']
-        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-            wallet_address = get_deposit['paymentid']
-        elif type_coin in ["XRP"]:
-            wallet_address = get_deposit['destination_tag']
-        # Check if tx in progress
-        if str(ctx.author.id) in self.bot.tipping_in_progress and \
-            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
-            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
-            await ctx.edit_original_message(content=msg)
-            return
-
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-
-        # Numb voucher
-        amount = amount.replace(",", "")
-        voucher_numb = 1
-        if 'x' in amount.lower() or '*' in amount:
-            # This is a batch
-            if 'x' in amount.lower():
-                voucher_numb = amount.lower().split("x")[0]
-                voucher_each = amount.lower().split("x")[1]
-            elif '*' in amount:
-                voucher_numb = amount.lower().split("*")[0]
-                voucher_each = amount.lower().split("*")[1]
-            try:
-                voucher_numb = int(voucher_numb)
-                voucher_each = float(voucher_each)
-                if voucher_numb > self.max_batch:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, too many. Maximum allowed: **{self.max_batch}**'
-                    await ctx.edit_original_message(content=msg)
-                    return
-            except ValueError:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid number or amount to create vouchers.'
+            wallet_address = get_deposit['balance_wallet_address']
+            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                wallet_address = get_deposit['paymentid']
+            elif type_coin in ["XRP"]:
+                wallet_address = get_deposit['destination_tag']
+            # Check if tx in progress
+            if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+                msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
                 await ctx.edit_original_message(content=msg)
                 return
-        else:
-            # check if amount is all
-            all_amount = False
-            if not amount.isdigit() and amount.upper() == "ALL":
-                all_amount = True
-                userdata_balance = await store.sql_user_balance_single(
-                    str(ctx.author.id), coin_name, wallet_address, type_coin, 
-                    height, deposit_confirm_depth, SERVER_BOT
-                )
-                amount = float(userdata_balance['adjust'])
-            # If $ is in amount, let's convert to coin/token
-            elif "$" in amount[-1] or "$" in amount[0]:  # last is $
-                # Check if conversion is allowed for this coin.
-                amount = amount.replace(",", "").replace("$", "")
-                if usd_equivalent_enable == 0:
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
-                    await ctx.edit_original_message(content=msg)
-                    return
-                else:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    per_unit = None
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
-                        amount = float(Decimal(amount) / Decimal(per_unit))
-                    else:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+
+            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+
+            # Numb voucher
+            amount = amount.replace(",", "")
+            voucher_numb = 1
+            if 'x' in amount.lower() or '*' in amount:
+                # This is a batch
+                if 'x' in amount.lower():
+                    voucher_numb = amount.lower().split("x")[0]
+                    voucher_each = amount.lower().split("x")[1]
+                elif '*' in amount:
+                    voucher_numb = amount.lower().split("*")[0]
+                    voucher_each = amount.lower().split("*")[1]
+                try:
+                    voucher_numb = int(voucher_numb)
+                    voucher_each = float(voucher_each)
+                    if voucher_numb > self.max_batch:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, too many. Maximum allowed: **{self.max_batch}**'
                         await ctx.edit_original_message(content=msg)
                         return
-            else:
-                amount = amount.replace(",", "")
-                amount = text_to_num(amount)
-                if amount is None:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+                except ValueError:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid number or amount to create vouchers.'
                     await ctx.edit_original_message(content=msg)
                     return
-                voucher_each = float(amount)
-            # end of check if amount is all
-
-        total_amount = voucher_numb * voucher_each
-        min_voucher_amount = getattr(getattr(self.bot.coin_list, coin_name), "voucher_min")
-        max_voucher_amount = getattr(getattr(self.bot.coin_list, coin_name), "voucher_max")
-        fee_voucher_amount = getattr(getattr(self.bot.coin_list, coin_name), "real_voucher_fee")
-        total_fee_amount = voucher_numb * fee_voucher_amount
-
-        per_unit_usd = 0.0
-        if usd_equivalent_enable == 1:
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            coin_name_for_price = coin_name
-            if native_token_name:
-                coin_name_for_price = native_token_name
-            if coin_name_for_price in self.bot.token_hints:
-                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                per_unit_usd = self.bot.coin_paprika_id_list[id]['price_usd']
             else:
-                per_unit_usd = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                # check if amount is all
+                all_amount = False
+                if not amount.isdigit() and amount.upper() == "ALL":
+                    all_amount = True
+                    userdata_balance = await store.sql_user_balance_single(
+                        str(ctx.author.id), coin_name, wallet_address, type_coin, 
+                        height, deposit_confirm_depth, SERVER_BOT
+                    )
+                    amount = float(userdata_balance['adjust'])
+                # If $ is in amount, let's convert to coin/token
+                elif "$" in amount[-1] or "$" in amount[0]:  # last is $
+                    # Check if conversion is allowed for this coin.
+                    amount = amount.replace(",", "").replace("$", "")
+                    if usd_equivalent_enable == 0:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    else:
+                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                        coin_name_for_price = coin_name
+                        if native_token_name:
+                            coin_name_for_price = native_token_name
+                        per_unit = None
+                        if coin_name_for_price in self.bot.token_hints:
+                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                        else:
+                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                        if per_unit and per_unit > 0:
+                            amount = float(Decimal(amount) / Decimal(per_unit))
+                        else:
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
+                            await ctx.edit_original_message(content=msg)
+                            return
+                else:
+                    amount = amount.replace(",", "")
+                    amount = text_to_num(amount)
+                    if amount is None:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    voucher_each = float(amount)
+                # end of check if amount is all
 
-        userdata_balance = await store.sql_user_balance_single(
-            str(ctx.author.id), coin_name, wallet_address, type_coin,
-            height, deposit_confirm_depth, SERVER_BOT
-        )
-        actual_balance = userdata_balance['adjust']
-        if actual_balance <= 0:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please check your **{token_display}** balance.'
-            await ctx.edit_original_message(content=msg)
-            return
+            total_amount = voucher_numb * voucher_each
+            min_voucher_amount = getattr(getattr(self.bot.coin_list, coin_name), "voucher_min")
+            max_voucher_amount = getattr(getattr(self.bot.coin_list, coin_name), "voucher_max")
+            fee_voucher_amount = getattr(getattr(self.bot.coin_list, coin_name), "real_voucher_fee")
+            total_fee_amount = voucher_numb * fee_voucher_amount
 
-        # If voucher in setting
-        voucher_setting = await self.sql_voucher_get_setting(coin_name)
-        if isinstance(voucher_setting, dict):
-            logo = Image.open(voucher_setting['logo_image_path'])
-            img_frame = Image.open(voucher_setting['frame_image_path'])
-        else:
-            logo = Image.open(self.coin_logo_path + coin_name.lower() + ".png")
-            img_frame = Image.open(self.path_voucher_defaultimg)
+            per_unit_usd = 0.0
+            if usd_equivalent_enable == 1:
+                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                coin_name_for_price = coin_name
+                if native_token_name:
+                    coin_name_for_price = native_token_name
+                if coin_name_for_price in self.bot.token_hints:
+                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                    per_unit_usd = self.bot.coin_paprika_id_list[id]['price_usd']
+                else:
+                    per_unit_usd = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
 
-        if voucher_each < min_voucher_amount or voucher_each > max_voucher_amount:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than "\
-                f"{num_format_coin(min_voucher_amount)} {token_display} or bigger than "\
-                f"{num_format_coin(max_voucher_amount)} {token_display}."
-            await ctx.edit_original_message(content=msg)
-            return
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin,
+                height, deposit_confirm_depth, SERVER_BOT
+            )
+            actual_balance = userdata_balance['adjust']
+            if actual_balance <= 0:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please check your **{token_display}** balance.'
+                await ctx.edit_original_message(content=msg)
+                return
 
-        if actual_balance < total_amount + total_fee_amount:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to create voucher. "\
-                f"A voucher needed amount + fee: {num_format_coin(total_amount + total_fee_amount)} "\
-                f"{token_display}\nHaving: {num_format_coin(actual_balance)} {token_display}."
-            await ctx.edit_original_message(content=msg)
-            return
+            # If voucher in setting
+            voucher_setting = await self.sql_voucher_get_setting(coin_name)
+            if isinstance(voucher_setting, dict):
+                logo = Image.open(voucher_setting['logo_image_path'])
+                img_frame = Image.open(voucher_setting['frame_image_path'])
+            else:
+                logo = Image.open(self.coin_logo_path + coin_name.lower() + ".png")
+                img_frame = Image.open(self.path_voucher_defaultimg)
 
-        comment_str = ""
-        if comment:
-            comment_str = comment.strip().replace('\n', ' ').replace('\r', '')
+            if voucher_each < min_voucher_amount or voucher_each > max_voucher_amount:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than "\
+                    f"{num_format_coin(min_voucher_amount)} {token_display} or bigger than "\
+                    f"{num_format_coin(max_voucher_amount)} {token_display}."
+                await ctx.edit_original_message(content=msg)
+                return
 
-        if len(comment_str) > self.max_comment:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please limit your comment to max. "\
-                f"**{self.max_comment}** chars."
-            await ctx.edit_original_message(content=msg)
-            return
-        elif not is_ascii(comment_str):
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, unsupported char(s) detected in comment.'
-            await ctx.edit_original_message(content=msg)
-            return
+            if actual_balance < total_amount + total_fee_amount:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to create voucher. "\
+                    f"A voucher needed amount + fee: {num_format_coin(total_amount + total_fee_amount)} "\
+                    f"{token_display}\nHaving: {num_format_coin(actual_balance)} {token_display}."
+                await ctx.edit_original_message(content=msg)
+                return
 
-        # Test if can DM. If failed, returrn
-        try:
-            tmp_msg = await ctx.author.send(f"{ctx.author.mention}, we are making voucher, hold on...")
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, failed to direct message with you.'
-            await ctx.edit_original_message(content=msg)
-            return
+            comment_str = ""
+            if comment:
+                comment_str = comment.strip().replace('\n', ' ').replace('\r', '')
 
-        voucher_make = None
-        # If it is a batch or not
-        if voucher_numb > 1:
-            for i in range(voucher_numb):
+            if len(comment_str) > self.max_comment:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please limit your comment to max. "\
+                    f"**{self.max_comment}** chars."
+                await ctx.edit_original_message(content=msg)
+                return
+            elif not is_ascii(comment_str):
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, unsupported char(s) detected in comment.'
+                await ctx.edit_original_message(content=msg)
+                return
+
+            # Test if can DM. If failed, returrn
+            try:
+                tmp_msg = await ctx.author.send(f"{ctx.author.mention}, we are making voucher, hold on...")
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, failed to direct message with you.'
+                await ctx.edit_original_message(content=msg)
+                return
+
+            voucher_make = None
+            # If it is a batch or not
+            if voucher_numb > 1:
+                for i in range(voucher_numb):
+                    try:
+                        secret_string = str(uuid.uuid4())
+                        unique_filename = str(uuid.uuid4())
+                        # loop voucher_numb times
+                        # do some QR code
+                        qr = qrcode.QRCode(
+                            version=1,
+                            error_correction=qrcode.constants.ERROR_CORRECT_L,
+                            box_size=10,
+                            border=2,
+                        )
+                        qrstring = self.voucher_url + "/claim/" + secret_string  # config
+                        qr.add_data(qrstring)
+                        qr.make(fit=True)
+                        qr_img = qr.make_image(fill_color="black", back_color="white")
+                        qr_img = qr_img.resize((280, 280))
+                        qr_img = qr_img.convert("RGBA")
+
+                        # Logo
+                        try:
+                            box = (115, 115, 165, 165)
+                            qr_img.crop(box)
+                            region = logo
+                            region = region.resize((box[2] - box[0], box[3] - box[1]))
+                            qr_img.paste(region, box)
+                        except Exception:
+                            await logchanbot("voucher " +str(traceback.format_exc()))
+                        # Image Frame on which we want to paste  
+                        img_frame.paste(qr_img, (100, 150))
+
+                        # amount font
+                        try:
+                            msg = num_format_coin(voucher_each) + coin_name
+                            W, H = (1123, 644)
+                            draw = ImageDraw.Draw(img_frame)
+                            myFont = ImageFont.truetype(self.pathfont, 44)
+                            w, h = myFont.getsize(msg)
+                            draw.text((250 - w / 2, 275 + 125 + h), msg, fill="black", font=myFont)
+
+                            # Instruction to claim
+                            myFont = ImageFont.truetype(self.pathfont, 36)
+                            msg_claim = "SCAN TO CLAIM IT!"
+                            w, h = myFont.getsize(msg_claim)
+                            draw.text((250 - w / 2, 275 + 125 + h + 60), msg_claim, fill="black", font=myFont)
+
+                            # comment part
+                            comment_txt = "COMMENT: " + comment_str.upper()
+                            myFont = ImageFont.truetype(self.pathfont, 24)
+                            w, h = myFont.getsize(comment_txt)
+                            draw.text((561 - w / 2, 275 + 125 + h + 120), comment_txt, fill="black", font=myFont)
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot("voucher " +str(traceback.format_exc()))
+                        voucher_make = None
+                        try:
+                            img_frame.save(self.path_voucher_create + unique_filename + ".png")
+                            if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                                self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
+                                try:
+                                    voucher_make = await self.sql_send_to_voucher(
+                                        str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
+                                        voucher_each, fee_voucher_amount,
+                                        comment_str, secret_string,
+                                        unique_filename + ".png", coin_name,
+                                        coin_decimal, contract, per_unit_usd,
+                                        SERVER_BOT
+                                    )
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot("voucher " +str(traceback.format_exc()))
+                            else:
+                                # reject and tell to wait
+                                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                                await ctx.edit_original_message(content=msg)
+                                return
+                            try:
+                                del self.bot.tipping_in_progress[str(ctx.author.id)]
+                            except Exception:
+                                pass
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot("voucher " +str(traceback.format_exc()))
+
+                        if voucher_make:
+                            try:
+                                await ctx.author.send(
+                                    f"New Voucher Link ({i + 1} of {voucher_numb}): {qrstring}\n"
+                                    "```"
+                                    f"Amount: {num_format_coin(voucher_each)} {coin_name}\n"
+                                    f"Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount)} {coin_name}\n"
+                                    f"Voucher comment: {comment_str}```"
+                                )
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                        else:
+                            msg = f'{EMOJI_ERROR} {ctx.author.mention}, error voucher creation!'
+                            await ctx.edit_original_message(content=msg)
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot("voucher " +str(traceback.format_exc()))
+                if voucher_make is not None and hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                    msg = f'{ctx.author.mention}, new vouchers sent to your DM.'
+                    await ctx.edit_original_message(content=msg)
+                elif voucher_make is not None:
+                    msg = f'{ctx.author.mention}, thank you for using our TipBot!'
+                    await ctx.edit_original_message(content=msg)
+                await tmp_msg.delete()
+            elif voucher_numb == 1:
                 try:
+                    # do some QR code
                     secret_string = str(uuid.uuid4())
                     unique_filename = str(uuid.uuid4())
-                    # loop voucher_numb times
-                    # do some QR code
                     qr = qrcode.QRCode(
                         version=1,
                         error_correction=qrcode.constants.ERROR_CORRECT_L,
                         box_size=10,
                         border=2,
                     )
-                    qrstring = self.voucher_url + "/claim/" + secret_string  # config
+                    qrstring = self.voucher_url + "/claim/" + secret_string
                     qr.add_data(qrstring)
                     qr.make(fit=True)
                     qr_img = qr.make_image(fill_color="black", back_color="white")
@@ -396,8 +504,9 @@ class Voucher(commands.Cog):
                         region = region.resize((box[2] - box[0], box[3] - box[1]))
                         qr_img.paste(region, box)
                     except Exception:
+                        traceback.print_exc(file=sys.stdout)
                         await logchanbot("voucher " +str(traceback.format_exc()))
-                    # Image Frame on which we want to paste  
+                    # Image Frame on which we want to paste 
                     img_frame.paste(qr_img, (100, 150))
 
                     # amount font
@@ -406,7 +515,9 @@ class Voucher(commands.Cog):
                         W, H = (1123, 644)
                         draw = ImageDraw.Draw(img_frame)
                         myFont = ImageFont.truetype(self.pathfont, 44)
+                        # w, h = draw.textsize(msg, font=myFont)
                         w, h = myFont.getsize(msg)
+                        # draw.text(((W-w)/2,(H-h)/2), msg, fill="black",font=myFont)
                         draw.text((250 - w / 2, 275 + 125 + h), msg, fill="black", font=myFont)
 
                         # Instruction to claim
@@ -423,6 +534,7 @@ class Voucher(commands.Cog):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot("voucher " +str(traceback.format_exc()))
+                    # Saved in the same relative location 
                     voucher_make = None
                     try:
                         img_frame.save(self.path_voucher_create + unique_filename + ".png")
@@ -431,18 +543,18 @@ class Voucher(commands.Cog):
                             try:
                                 voucher_make = await self.sql_send_to_voucher(
                                     str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                    voucher_each, fee_voucher_amount,
-                                    comment_str, secret_string,
-                                    unique_filename + ".png", coin_name,
-                                    coin_decimal, contract, per_unit_usd,
-                                    SERVER_BOT
+                                    voucher_each, fee_voucher_amount, comment_str,
+                                    secret_string, unique_filename + ".png",
+                                    coin_name, coin_decimal, contract,
+                                    per_unit_usd, SERVER_BOT
                                 )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                                 await logchanbot("voucher " +str(traceback.format_exc()))
                         else:
                             # reject and tell to wait
-                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
+                                "Please wait it to finish."
                             await ctx.edit_original_message(content=msg)
                             return
                         try:
@@ -455,8 +567,8 @@ class Voucher(commands.Cog):
 
                     if voucher_make:
                         try:
-                            await ctx.author.send(
-                                f"New Voucher Link ({i + 1} of {voucher_numb}): {qrstring}\n"
+                            msg = await ctx.author.send(
+                                f"New Voucher Link: {qrstring}\n"
                                 "```"
                                 f"Amount: {num_format_coin(voucher_each)} {coin_name}\n"
                                 f"Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount)} {coin_name}\n"
@@ -464,131 +576,22 @@ class Voucher(commands.Cog):
                             )
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
+                            await logchanbot("voucher " +str(traceback.format_exc()))
                     else:
                         msg = f'{EMOJI_ERROR} {ctx.author.mention}, error voucher creation!'
                         await ctx.edit_original_message(content=msg)
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-                    await logchanbot("voucher " +str(traceback.format_exc()))
-            if voucher_make is not None and hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                msg = f'{ctx.author.mention}, new vouchers sent to your DM.'
-                await ctx.edit_original_message(content=msg)
-            elif voucher_make is not None:
-                msg = f'{ctx.author.mention}, thank you for using our TipBot!'
-                await ctx.edit_original_message(content=msg)
-            await tmp_msg.delete()
-        elif voucher_numb == 1:
-            try:
-                # do some QR code
-                secret_string = str(uuid.uuid4())
-                unique_filename = str(uuid.uuid4())
-                qr = qrcode.QRCode(
-                    version=1,
-                    error_correction=qrcode.constants.ERROR_CORRECT_L,
-                    box_size=10,
-                    border=2,
-                )
-                qrstring = self.voucher_url + "/claim/" + secret_string
-                qr.add_data(qrstring)
-                qr.make(fit=True)
-                qr_img = qr.make_image(fill_color="black", back_color="white")
-                qr_img = qr_img.resize((280, 280))
-                qr_img = qr_img.convert("RGBA")
-
-                # Logo
-                try:
-                    box = (115, 115, 165, 165)
-                    qr_img.crop(box)
-                    region = logo
-                    region = region.resize((box[2] - box[0], box[3] - box[1]))
-                    qr_img.paste(region, box)
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-                    await logchanbot("voucher " +str(traceback.format_exc()))
-                # Image Frame on which we want to paste 
-                img_frame.paste(qr_img, (100, 150))
-
-                # amount font
-                try:
-                    msg = num_format_coin(voucher_each) + coin_name
-                    W, H = (1123, 644)
-                    draw = ImageDraw.Draw(img_frame)
-                    myFont = ImageFont.truetype(self.pathfont, 44)
-                    # w, h = draw.textsize(msg, font=myFont)
-                    w, h = myFont.getsize(msg)
-                    # draw.text(((W-w)/2,(H-h)/2), msg, fill="black",font=myFont)
-                    draw.text((250 - w / 2, 275 + 125 + h), msg, fill="black", font=myFont)
-
-                    # Instruction to claim
-                    myFont = ImageFont.truetype(self.pathfont, 36)
-                    msg_claim = "SCAN TO CLAIM IT!"
-                    w, h = myFont.getsize(msg_claim)
-                    draw.text((250 - w / 2, 275 + 125 + h + 60), msg_claim, fill="black", font=myFont)
-
-                    # comment part
-                    comment_txt = "COMMENT: " + comment_str.upper()
-                    myFont = ImageFont.truetype(self.pathfont, 24)
-                    w, h = myFont.getsize(comment_txt)
-                    draw.text((561 - w / 2, 275 + 125 + h + 120), comment_txt, fill="black", font=myFont)
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-                    await logchanbot("voucher " +str(traceback.format_exc()))
-                # Saved in the same relative location 
-                voucher_make = None
-                try:
-                    img_frame.save(self.path_voucher_create + unique_filename + ".png")
-                    if str(ctx.author.id) not in self.bot.tipping_in_progress:
-                        self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
-                        try:
-                            voucher_make = await self.sql_send_to_voucher(
-                                str(ctx.author.id), '{}#{}'.format(ctx.author.name, ctx.author.discriminator),
-                                voucher_each, fee_voucher_amount, comment_str,
-                                secret_string, unique_filename + ".png",
-                                coin_name, coin_decimal, contract,
-                                per_unit_usd, SERVER_BOT
-                            )
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                            await logchanbot("voucher " +str(traceback.format_exc()))
-                    else:
-                        # reject and tell to wait
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
-                            "Please wait it to finish."
+                    if voucher_make is not None and hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                        msg = f'{ctx.author.mention}, new vouchers sent to your DM.'
                         await ctx.edit_original_message(content=msg)
-                        return
-                    try:
-                        del self.bot.tipping_in_progress[str(ctx.author.id)]
-                    except Exception:
-                        pass
+                    elif voucher_make is not None:
+                        msg = f'{ctx.author.mention}, thank you for using our TipBot!'
+                        await ctx.edit_original_message(content=msg)
+                    await tmp_msg.delete()
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot("voucher " +str(traceback.format_exc()))
-
-                if voucher_make:
-                    try:
-                        msg = await ctx.author.send(
-                            f"New Voucher Link: {qrstring}\n"
-                            "```"
-                            f"Amount: {num_format_coin(voucher_each)} {coin_name}\n"
-                            f"Voucher Fee (Incl. network fee): {num_format_coin(fee_voucher_amount)} {coin_name}\n"
-                            f"Voucher comment: {comment_str}```"
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                        await logchanbot("voucher " +str(traceback.format_exc()))
-                else:
-                    msg = f'{EMOJI_ERROR} {ctx.author.mention}, error voucher creation!'
-                    await ctx.edit_original_message(content=msg)
-                if voucher_make is not None and hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                    msg = f'{ctx.author.mention}, new vouchers sent to your DM.'
-                    await ctx.edit_original_message(content=msg)
-                elif voucher_make is not None:
-                    msg = f'{ctx.author.mention}, thank you for using our TipBot!'
-                    await ctx.edit_original_message(content=msg)
-                await tmp_msg.delete()
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-                await logchanbot("voucher " +str(traceback.format_exc()))
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @make.autocomplete("coin")
     async def voucher_make_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
@@ -663,19 +666,28 @@ class Voucher(commands.Cog):
             try:
                 voucher_url_list = []
                 for item in get_vouchers:
+                    # check if voucher is enable here
+                    if not hasattr(self.bot.coin_list, item['coin_name']):
+                        continue
+                    is_voucher = getattr(getattr(self.bot.coin_list, item['coin_name']), "enable_voucher")
+                    if is_voucher != 1:
+                        continue
                     voucher_url_list.append(self.voucher_url + '/claim/' + item['secret_string'])
-                voucher_url_list_str = "\n".join(voucher_url_list)
-                combined_vouchers = "Total unclaimed: " + str(len(voucher_url_list)) + "\n\n" + voucher_url_list_str
-                data_file = disnake.File(
-                    BytesIO(combined_vouchers.encode()),
-                    filename=f"unclaimed_voucher_{str(ctx.author.id)}_{str(int(time.time()))}.csv"
-                )
-                await ctx.edit_original_message(content=None, file=data_file)
+                if len(voucher_url_list) > 0:
+                    voucher_url_list_str = "\n".join(voucher_url_list)
+                    combined_vouchers = "Total unclaimed: " + str(len(voucher_url_list)) + "\n\n" + voucher_url_list_str
+                    data_file = disnake.File(
+                        BytesIO(combined_vouchers.encode()),
+                        filename=f"unclaimed_voucher_{str(ctx.author.id)}_{str(int(time.time()))}.csv"
+                    )
+                    await ctx.edit_original_message(content=None, file=data_file)
+                else:
+                    await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have any unclaimed voucher.")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("voucher " +str(traceback.format_exc()))
         else:
-            await ctx.edit_original_message(content=f'{ctx.author.mention}, you did not create any voucher yet.')
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have any unclaimed voucher.")
 
     @voucher.sub_command(
         usage="voucher claim",
@@ -720,8 +732,7 @@ class Voucher(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
         else:
-            await ctx.edit_original_message(content=f'{ctx.author.mention}, you did not create any voucher yet.')
-        return
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have any claimed voucher.")
 
     @voucher.sub_command(
         usage="voucher getclaim",

@@ -13588,8 +13588,11 @@ class Wallet(commands.Cog):
                         serverinfo['vote_reward_amount']
                     )
 
-                    extra_take_text += "\n⚆ Vote {} at top.gg <https://top.gg/servers/{}/vote> for {} {} each time.".format(
+                    extra_take_text += "\n⚆ Vote {} at top.gg <https://top.gg/servers/{}/vote> for {} {} each vote.".format(
                         ctx.guild.name, ctx.guild.id, vote_reward_amount, serverinfo['vote_reward_coin'])
+                    if serverinfo['discadia_link']:
+                        extra_take_text += "\n⚆ Vote {} at discadia <{}> for {} {} each vote.".format(
+                            ctx.guild.name, serverinfo['discadia_link'], vote_reward_amount, serverinfo['vote_reward_coin'])
                 if serverinfo['rt_reward_amount'] and serverinfo['rt_reward_coin'] and serverinfo[
                     'rt_end_timestamp'] and serverinfo['rt_end_timestamp'] - 600 > int(time.time()) and serverinfo[
                     'rt_link']:
@@ -13916,10 +13919,10 @@ class Wallet(commands.Cog):
                 for k, v in self.bot.other_data['daily'].items():
                     coin_name = k
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                    amount_coin = num_format_coin(v)
+                    amount_str = str(v).rstrip('0').rstrip('.') if '.' in str(v) else v
                     coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                     list_daily.append("{} {} {}".format(
-                        coin_emoji, amount_coin, coin_name
+                        coin_emoji, amount_str, coin_name
                     ))
                 embed.add_field(
                     name="Daily {} Coins".format(len(list_daily)),
@@ -14166,10 +14169,10 @@ class Wallet(commands.Cog):
                 for k, v in self.bot.other_data['hourly'].items():
                     coin_name = k
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                    amount_coin = num_format_coin(v)
+                    amount_str = str(v).rstrip('0').rstrip('.') if '.' in str(v) else v
                     coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                     list_hourly.append("{} {} {}".format(
-                        coin_emoji, amount_coin, coin_name
+                        coin_emoji, amount_str, coin_name
                     ))
                 embed.add_field(
                     name="Hourly {} Coins".format(len(list_hourly)),

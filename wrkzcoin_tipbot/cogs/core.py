@@ -25,11 +25,11 @@ class Core(commands.Cog):
     @commands.slash_command(description="Clear TipBot's 100 messages")
     async def clearbotmessages(self, ctx):
         count = 0
+        await ctx.response.send_message("Loading messages...", ephemeral=True)
         try:
             messages = await ctx.channel.history(limit=100).flatten()
             if messages and len(messages) > 0:
                 await logchanbot(f"[CLEARBOTMSG] in guild {ctx.guild.name} / {ctx.guild.id} by {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} in channel #{ctx.channel.name}.")
-                await ctx.response.send_message("Loading messages...", ephemeral=True)
                 try:
                     self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                                  str(ctx.author.id), SERVER_BOT, "/clearbotmessages", int(time.time())))
@@ -55,6 +55,10 @@ class Core(commands.Cog):
                 )
             else:
                 await ctx.response.send_message("There is no message by me or anymore.", ephemeral=True)
+        except disnake.errors.Forbidden:
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, I have no permission to do so! Please grant permission!"
+            )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

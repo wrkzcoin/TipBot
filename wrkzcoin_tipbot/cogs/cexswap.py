@@ -87,7 +87,7 @@ async def cexswap_get_pools(ticker: str=None):
         traceback.print_exc(file=sys.stdout)
     return []
 
-async def cexswap_get_all_poolshares(ticker: str=None):
+async def cexswap_get_all_poolshares(user_id: str=None, ticker: str=None):
     try:
         await store.openConnection()
         async with store.pool.acquire() as conn:
@@ -96,10 +96,20 @@ async def cexswap_get_all_poolshares(ticker: str=None):
                 sql = """ SELECT * 
                 FROM `cexswap_pools_share` 
                 """
-                if ticker is not None:
+                if user_id is not None:
                     sql += """
-                        WHERE `ticker_1_name`=%s OR `ticker_2_name`=%s
+                    WHERE `user_id`=%s
                     """
+                    data_rows += [user_id]
+                if ticker is not None:
+                    if user_id is not None:
+                        sql += """
+                            AND (`ticker_1_name`=%s OR `ticker_2_name`=%s)
+                        """
+                    else:
+                        sql += """
+                            WHERE `ticker_1_name`=%s OR `ticker_2_name`=%s
+                        """
                     data_rows += [ticker]*2
                 await cur.execute(sql, tuple(data_rows))
                 result = await cur.fetchall()
@@ -395,8 +405,49 @@ async def cexswap_earning_guild(guild_id: str=None):
         traceback.print_exc(file=sys.stdout)
     return []
 
+async def cexswap_airdrop_check_op(
+    user_id: str, user_server: str, pool_name: str
+):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """
+                SELECT * FROM `cexswap_airdroper_op`
+                WHERE `is_enable`=1 AND `user_id`=%s AND `user_server`=%s AND `pool_name`=%s LIMIT 1
+                """
+                await cur.execute(sql, (user_id, user_server, pool_name))
+                result = await cur.fetchone()
+                if result:
+                    return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def cexswap_airdrop_count(
+    user_id: str, user_server: str, pool_name: str, duration: int=7*24*3600
+):
+    try:
+        lap_time = int(time.time()) - duration
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """
+                SELECT COUNT(*) AS counts FROM `cexswap_airdroper_op_logs`
+                WHERE `user_id`=%s AND `user_server`=%s AND `pool_name`=%s
+                AND `cexswap_airdroper_op_logs`>%s
+                """
+                await cur.execute(sql, (user_id, user_server, pool_name, lap_time))
+                result = await cur.fetchone()
+                if result:
+                    return result['counts']
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return 0
+
 async def cexswap_airdrop_lp_detail(
-    list_balance_updates, list_lp_receivers
+    list_balance_updates, list_lp_receivers,
+    op_id: str, user_server: str, drop_amount: float, drop_coin: str, pool_name: str
 ):
     try:
         await store.openConnection()
@@ -422,6 +473,15 @@ async def cexswap_airdrop_lp_detail(
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
                 """
                 await cur.executemany(sql, list_lp_receivers)
+                await conn.commit()
+
+                # Update log
+                sql = """
+                INSERT INTO `cexswap_airdroper_op_logs`
+                (`user_id`, `user_server`, `drop_amount`, `drop_coin`, `drop_time`, `pool_name`)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """
+                await cur.execute(sql, (op_id, user_server, drop_amount, drop_coin, int(time.time()), pool_name))
                 await conn.commit()
                 return True
     except Exception:
@@ -1707,6 +1767,8 @@ class add_liquidity_btn(disnake.ui.View):
                             get_guild = self.bot.get_guild(int(item['serverid']))
                             if get_guild:
                                 channel = get_guild.get_channel(int(item['trade_channel']))
+                                if channel is None:
+                                    continue
                                 if hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel.id != inter.channel.id:
                                     continue
                                 elif channel is not None:
@@ -2598,6 +2660,8 @@ class Cexswap(commands.Cog):
                                     try:
                                         if get_guild:
                                             channel = get_guild.get_channel(int(item['trade_channel']))
+                                            if channel is None:
+                                                continue
                                             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id:
                                                 continue
                                             elif channel is not None:
@@ -3509,6 +3573,8 @@ class Cexswap(commands.Cog):
                                     get_guild = self.bot.get_guild(int(item['serverid']))
                                     if get_guild:
                                         channel = get_guild.get_channel(int(item['trade_channel']))
+                                        if channel is None:
+                                            continue
                                         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id:
                                             continue
                                         else:
@@ -3556,11 +3622,34 @@ class Cexswap(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading aidrop..."
         await ctx.response.send_message(msg, ephemeral=False)
 
-        if ctx.author.id != self.bot.config['discord']['owner']:
+        # check if he's op and own that pool
+        check_op = await cexswap_airdrop_check_op(str(ctx.author.id), SERVER_BOT, pool_name)
+        if ctx.author.id != self.bot.config['discord']['owner'] and check_op is None:
+            await ctx.edit_original_message(content=f"{ctx.auhtor.mention}, you don't have permission with `{pool_name}` or invalid!")
+            await log_to_channel(
+                "cexswap",
+                f"[AIRDROP]: User {ctx.author.mention} tried /cexswap airdrop `{pool_name}`. Permission denied!",
+                self.bot.config['discord']['cexswap']
+            )
+            return
+        if ctx.author.id != self.bot.config['discord']['owner'] and check_op is not None:
+            # Check number he done airdrop
+            max_aidrop = check_op['limit_drop_per_week']
+            count_airdrop = await cexswap_airdrop_count(str(ctx.author.id), SERVER_BOT, pool_name, 7*24*3600) # 1 week
+            if count_airdrop >= max_aidrop:
+                await ctx.edit_original_message(
+                    content=f"{ctx.auhtor.mention}, you reached maximum airdrop per week for `{pool_name}` max. **{str(max_aidrop)}**!")
+                await log_to_channel(
+                    "cexswap",
+                    f"[AIRDROP]: User {ctx.author.mention} tried /cexswap reach maximum airdrop `{pool_name}` max. **{str(max_aidrop)}**!",
+                    self.bot.config['discord']['cexswap']
+                )
+                return
+        elif ctx.author.id != self.bot.config['discord']['owner']:
             await ctx.edit_original_message(content=f"{ctx.auhtor.mention}, you don't have permission!")
             await log_to_channel(
                 "cexswap",
-                f"[AIRDROP]: User {ctx.author.mention} tried /cexswap airdrop. Permission denied!",
+                f"[AIRDROP]: User {ctx.author.mention} tried /cexswap airdrop `{pool_name}`. Permission denied!",
                 self.bot.config['discord']['cexswap']
             )
             return
@@ -3641,7 +3730,7 @@ class Cexswap(commands.Cog):
                 single_coin = True
                 # that is one coin only
                 # Find pool with
-                find_other_lp = await cexswap_get_all_poolshares(pool_name)
+                find_other_lp = await cexswap_get_all_poolshares(user_id=None, ticker=pool_name)
                 # We'll get a list of that
                 if len(find_other_lp) == 0:
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there's not any pool share with `{pool_name}`."
@@ -3811,7 +3900,8 @@ class Cexswap(commands.Cog):
             if len(liq_users) > 0:
                 if testing == "NO":
                     airdroping = await cexswap_airdrop_lp_detail(
-                        balance_rows, lp_details
+                        balance_rows, lp_details,
+                        str(ctx.author.id), SERVER_BOT, amount, coin_name, pool_name
                     )
                 else:
                     airdroping = True
@@ -3844,9 +3934,9 @@ class Cexswap(commands.Cog):
                                         except Exception:
                                             pass
                                         # End of del key
-                                        msg_sending = f"Admin did an airdrop for pool `{pool_name}`. "\
+                                        msg_sending = f"[Admin/Pool OP] did an airdrop for pool `{pool_name}`. "\
                                             f"You have **{liq_user_percentages[each_u]}** in that pool. "\
-                                            f"Airdrop shared delivers to your balance:"\
+                                            f"Airdrop delivered to your balance:"\
                                             f"```{balance_user[str(each_u)]} {coin_name}```Thank you!"
                                         await member.send(msg_sending)
                                         num_notifying += 1
@@ -3882,18 +3972,23 @@ class Cexswap(commands.Cog):
             Option('option', 'option', OptionType.string, required=False, choices=[
                 OptionChoice("show public", "public"),
                 OptionChoice("show private", "private")
-            ])
+            ]),
+            Option("token", "Show only this token/coin name", OptionType.string, required=False),
         ],
         description="Show some earning from cexswap."
     )
     async def cexswap_earning(
         self,
         ctx,
-        option: str="private"
+        option: str="private",
+        token: str=None
     ):
         eph = True
         if option.lower() == "public":
             eph = False
+        if token is not None:
+            token = token.upper()
+
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading..."
         await ctx.response.send_message(msg, ephemeral=eph)
 
@@ -3910,46 +4005,88 @@ class Cexswap(commands.Cog):
                 description=f"{ctx.author.mention}, {testing}List of distributed earning from Liquidity Pools.",
                 timestamp=datetime.now(),
             )
-            # check current LP user has
-            get_poolshare = await cexswap_get_poolshare(str(ctx.author.id), SERVER_BOT)
-            if len(get_poolshare) > 0:
-                list_coin_lp_user = []
-                for p in get_poolshare:
-                    # amount_1 = num_format_coin(p['amount_ticker_1'])
-                    amount_1 = human_format(p['amount_ticker_1'])
-                    # amount_2 = num_format_coin(p['amount_ticker_2'])
-                    amount_2 = human_format(p['amount_ticker_2'])
-                    coin_1 = p['ticker_1_name'][:4] + ".." if len(p['ticker_1_name']) > 5 else p['ticker_1_name']
-                    coin_2 = p['ticker_2_name'][:4] + ".." if len(p['ticker_2_name']) > 5 else p['ticker_2_name']
-                    list_coin_lp_user.append("⚆ {}/{} :\n---{} {}\n---{} {}\n".format(
-                        coin_1, coin_2,
-                        amount_1, p['ticker_1_name'],
-                        amount_2, p['ticker_2_name']
-                    ))
-                list_coin_lp_user_chunks = list(chunks(list_coin_lp_user, 4))
-                j = 1
-                extra_text = ""
-                for i in list_coin_lp_user_chunks:
-                    if len(list_coin_lp_user_chunks) > 1:
-                        extra_text = " [{}/{}]".format(j, len(list_coin_lp_user_chunks))
+            if token is None:
+                # check current LP user has
+                get_poolshare = await cexswap_get_poolshare(str(ctx.author.id), SERVER_BOT)
+                if len(get_poolshare) > 0:
+                    list_coin_lp_user = []
+                    for p in get_poolshare:
+                        # amount_1 = num_format_coin(p['amount_ticker_1'])
+                        amount_1 = human_format(p['amount_ticker_1'])
+                        # amount_2 = num_format_coin(p['amount_ticker_2'])
+                        amount_2 = human_format(p['amount_ticker_2'])
+                        coin_1 = p['ticker_1_name'][:4] + ".." if len(p['ticker_1_name']) > 5 else p['ticker_1_name']
+                        coin_2 = p['ticker_2_name'][:4] + ".." if len(p['ticker_2_name']) > 5 else p['ticker_2_name']
+                        list_coin_lp_user.append("⚆ {}/{} :\n---{} {}\n---{} {}\n".format(
+                            coin_1, coin_2,
+                            amount_1, p['ticker_1_name'],
+                            amount_2, p['ticker_2_name']
+                        ))
+                    list_coin_lp_user_chunks = list(chunks(list_coin_lp_user, 4))
+                    j = 1
+                    extra_text = ""
+                    for i in list_coin_lp_user_chunks:
+                        if len(list_coin_lp_user_chunks) > 1:
+                            extra_text = " [{}/{}]".format(j, len(list_coin_lp_user_chunks))
+                        embed.add_field(
+                            name="Your LP{}".format(extra_text),
+                            value="{}".format("\n".join(i)),
+                            inline=True
+                        )
+                        j += 1
+            else:
+                # if that coin is enable
+                if token not in self.bot.cexswap_coins:
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there is no `{token}` in CEXSwap."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                # check pool share of a coin by user
+                find_other_lp = await cexswap_get_all_poolshares(user_id=None, ticker=token)
+                # We'll get a list of that
+                if len(find_other_lp) == 0:
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you currently don't have any pool share with `{token}`."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                else:
+                    user_amount = 0
+                    total_pool_coin = 0
+                    user_pools = [i for i in find_other_lp if i['user_id']==str(ctx.author.id)]
+                    for i in find_other_lp:
+                        if i['user_id'] != str(ctx.author.id):
+                            if i['ticker_1_name'] == token:
+                                total_pool_coin += i['amount_ticker_1']
+                            elif i['ticker_2_name'] == token:
+                                total_pool_coin += i['amount_ticker_2']
+                        else:
+                            if i['ticker_1_name'] == token:
+                                user_amount += i['amount_ticker_1']
+                                total_pool_coin += i['amount_ticker_1']
+                            elif i['ticker_2_name'] == token:
+                                user_amount += i['amount_ticker_2']
+                                total_pool_coin += i['amount_ticker_2']
                     embed.add_field(
-                        name="Your LP{}".format(extra_text),
-                        value="{}".format("\n".join(i)),
-                        inline=True
+                        name="Your have {} LP with {}".format(len(user_pools), token),
+                        value="Amount: {} {}\n({:,.2f} {})".format(
+                            num_format_coin(user_amount), token, user_amount/total_pool_coin*100,"%"
+                        ),
+                        inline=False
                     )
-                    j += 1
-
+                    embed.add_field(
+                        name="Your LP with {}".format(token),
+                        value="{}".format(", ".join(list(set([i['pairs'] for i in user_pools])))),
+                        inline=False
+                    )
             # check earning
             get_user_earning = await get_cexswap_earning(user_id=str(ctx.author.id), from_time=None, pool_id=None)
-            if len(get_user_earning) == 0:
+            if len(get_user_earning) == 0 and token is None:
                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you don't have any earning from LP yet."
                 await ctx.edit_original_message(content=msg)
                 return
-            else:
-                embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
-                embed.set_thumbnail(url=ctx.author.display_avatar)
+            elif len(get_user_earning) > 0:
                 list_earning = []
                 for each in get_user_earning:
+                    if token is not None and token != each['got_ticker']:
+                        continue
                     coin_emoji = ""
                     try:
                         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
@@ -3965,29 +4102,38 @@ class Cexswap(commands.Cog):
                         each['collected_amount']
                     )
                     list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
+                if len(list_earning) > 0:
+                    list_earning_split = list(chunks(list_earning, 12))
+                    j = 1
+                    extra_text = ""
+                    for i in list_earning_split:
+                        if len(list_earning_split) > 1:
+                            extra_text = " [{}/{}]".format(j, len(list_earning_split))
+                        embed.add_field(
+                            name="Your earning{}".format(extra_text),
+                            value="{}".format("\n".join(i)),
+                            inline=False
+                        )
+                        j += 1
 
-                list_earning_split = list(chunks(list_earning, 12))
-                j = 1
-                extra_text = ""
-                for i in list_earning_split:
-                    if len(list_earning_split) > 1:
-                        extra_text = " [{}/{}]".format(j, len(list_earning_split))
-                    embed.add_field(
-                        name="Your earning{}".format(extra_text),
-                        value="{}".format("\n".join(i)),
-                        inline=False
-                    )
-                    j += 1
-                embed.add_field(
-                    name="NOTE",
-                    value="You can check your balance by `/balance` or `/balances`. "\
-                        "From every trade, you will always receive fee {} x amount liquidated pools.".format("0.50%"),
-                    inline=False
-                )
-                await ctx.edit_original_message(content=None, embed=embed)
+            # last emebed to add
+            embed.add_field(
+                name="NOTE",
+                value="You can check your balance by `/balance` or `/balances`. "\
+                    "From every trade, you will always receive fee {} x amount liquidated pools.\n\n"\
+                    "You can check recent earning also with `/reent cexswaplp <token>`.".format("0.50%"),
+                inline=False
+            )
+            embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+            embed.set_thumbnail(url=ctx.author.display_avatar)
+            await ctx.edit_original_message(content=None, embed=embed)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @cexswap_earning.autocomplete("token")
+    async def cexswap_earning_token_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.cexswap_coins if string in name.lower()][:10]
 
     @commands.Cog.listener()
     async def on_ready(self):

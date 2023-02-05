@@ -312,7 +312,9 @@ class Trade(commands.Cog):
                             get_guild = self.bot.get_guild(int(item['serverid']))
                             if get_guild:
                                 channel = self.bot.get_channel(int(item['trade_channel']))
-                                if channel:
+                                if channel is None:
+                                    continue
+                                else:
                                     await channel.send(get_message+buy_msg+additional_message)
                                     if channel.id == ctx.channel.id:
                                         await ctx.edit_original_message(content=f"{ctx.author.mention}, sell order posted!")
@@ -839,7 +841,9 @@ class Trade(commands.Cog):
                                             get_guild = self.bot.get_guild(int(item['serverid']))
                                             if get_guild:
                                                 channel = self.bot.get_channel(int(item['trade_channel']))
-                                                if channel and ctx.channel.id != channel.id:
+                                                if channel is None:
+                                                    continue
+                                                elif ctx.channel.id != channel.id:
                                                     await channel.send(msg)
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)

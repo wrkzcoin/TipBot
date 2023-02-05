@@ -776,7 +776,36 @@ async def cexswap_find_possible_trade(
     except Exception:
         traceback.print_exc(file=sys.stdout)
     return possible_profits
-    
+
+async def cexswap_estimate(
+    ref_log: str, pool_id: int, pairs: str, amount_sell: float, sell_ticker: str,
+    amount_get: float, got_ticker: str,
+    got_fee_dev: float, got_fee_liquidators: float,
+    got_fee_guild: float, price_impact_percent: float
+):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """
+                INSERT INTO `cexswap_estimate`
+                (`pool_id`, `pairs`, `ref_log`, `sold_ticker`, `total_sold_amount`,
+                `got_total_amount`,  `got_fee_dev`, `got_fee_liquidators`, `got_fee_guild`, 
+                `got_ticker`, `price_impact_percent`, `time`)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                """
+                data_rows = [
+                    pool_id, pairs, ref_log, sell_ticker, float(amount_sell),
+                    float(amount_get), float(got_fee_dev), float(got_fee_liquidators), float(got_fee_guild),
+                    got_ticker, price_impact_percent, int(time.time())
+                ]
+                await cur.execute(sql, tuple(data_rows))
+                await conn.commit()
+        return True
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
 async def cexswap_sold(
     ref_log: str, pool_id: int, amount_sell: float, sell_ticker: str,
     amount_get: float, got_ticker: str,
@@ -2388,11 +2417,13 @@ class Cexswap(commands.Cog):
 
                 # price impact = unit price now / unit price after sold
                 price_impact_text = ""
+                price_impact_percent = 0.0
                 new_impact_ratio = (float(amount_qty_2) + amount) / (float(amount_qty_1) - amount_get)
                 old_impact_ratio = float(amount_qty_2) / float(amount_qty_1)
                 impact_ratio = abs(old_impact_ratio - new_impact_ratio) / max(old_impact_ratio, new_impact_ratio)
                 if 0.0001 < impact_ratio < 1:
                     price_impact_text = "\nPrice impact: ~{:,.2f}{}".format(impact_ratio * 100, "%")
+                    price_impact_percent = impact_ratio * 100
                 
                 # If the amount get is too small.
                 if amount_get < self.bot.config['cexswap']['minimum_receive_or_reject']:
@@ -2517,9 +2548,14 @@ class Cexswap(commands.Cog):
                     view = ConfirmSell(self.bot, ctx.author.id)
                     await ctx.edit_original_message(content=msg, view=view)
 
-                    await cexswap_find_possible_trade(
-                        sell_token, for_token, amount * slippage, amount_get
-                    )
+                    try:
+                        await cexswap_estimate(
+                            ref_log, liq_pair['pool']['pool_id'], "{}->{}".format(sell_token, for_token),
+                            truncate(amount, 12), sell_token, truncate(amount_get - float(fee), 12), for_token,
+                            got_fee_dev, got_fee_liquidators, got_fee_guild, price_impact_percent
+                        )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
 
                     # Wait for the View to stop listening for input...
                     await view.wait()
@@ -4121,7 +4157,7 @@ class Cexswap(commands.Cog):
                 name="NOTE",
                 value="You can check your balance by `/balance` or `/balances`. "\
                     "From every trade, you will always receive fee {} x amount liquidated pools.\n\n"\
-                    "You can check recent earning also with `/reent cexswaplp <token>`.".format("0.50%"),
+                    "You can check recent earning also with `/recent cexswaplp <token>`.".format("0.50%"),
                 inline=False
             )
             embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))

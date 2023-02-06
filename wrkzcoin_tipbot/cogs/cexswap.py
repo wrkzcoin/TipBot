@@ -33,6 +33,25 @@ def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
+async def call_cexswap_api(user_id: str, user_server: str, method: str, full_payload):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ UPDATE `bot_users` 
+                SET `cexswap_calls`=`cexswap_calls`+1
+                WHERE `user_id`=%s AND `user_server`=%s LIMIT 1;
+
+                INSERT INTO `cexswap_api_call` (`user_id`, `user_server`, `method`, `full_json`, `date`)
+                VALUES (%s, %s, %s, %s, %s);
+                """
+                await cur.execute(sql, (user_id, user_server, user_id, user_server, method, full_payload, int(time.time())))
+                await conn.commit()
+                return True
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
 async def bot_user_add(user_id: str, user_server: str, api_key: str, hash_key: str):
     try:
         await store.openConnection()
@@ -4715,6 +4734,11 @@ class Cexswap(commands.Cog):
                                             self.bot.config['discord']['cexswap']
                                         )
                                         return web.json_response(result, status=200)
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            # Update API calls
+                            try:
+                                await call_cexswap_api(find_user['user_id'], find_user['user_server'], method, json.dumps(full_payload))
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             if method == "sell":

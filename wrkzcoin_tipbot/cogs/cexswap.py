@@ -1477,9 +1477,10 @@ class DropdownViewSummary(disnake.ui.View):
 
 # DropdownLP Viewer
 class DropdownLP(disnake.ui.StringSelect):
-    def __init__(self, ctx, bot, list_coins, active_coin):
+    def __init__(self, ctx, bot, list_chunks, list_coins, active_coin):
         self.ctx = ctx
         self.bot = bot
+        self.list_chunks = list_chunks
         self.list_coins = list_coins
         self.active_coin = active_coin
         self.utils = Utils(self.bot)
@@ -1489,11 +1490,11 @@ class DropdownLP(disnake.ui.StringSelect):
                 label=each,
                 description="Select {}".format(each),
                 emoji=getattr(getattr(self.bot.coin_list, each), "coin_emoji_discord")
-            ) for each in self.list_coins
+            ) for each in self.list_chunks
         ]
 
         super().__init__(
-            placeholder="Choose coin/token..." if self.active_coin is None else "You selected {}".format(self.active_coin),
+            placeholder="Choose coin/token..." if self.active_coin is None or self.active_coin not in self.list_chunks else "You selected {}".format(self.active_coin),
             min_values=1,
             max_values=1,
             options=options,
@@ -1570,13 +1571,16 @@ class DropdownLP(disnake.ui.StringSelect):
 
 class DropdownViewLP(disnake.ui.View):
     def __init__(self, ctx, bot, list_coins, active_coin: str):
-        super().__init__(timeout=120.0)
+        super().__init__(timeout=300.0)
         self.ctx = ctx
         self.bot = bot
         self.list_coins = list_coins
         self.active_coin = active_coin
 
-        self.add_item(DropdownLP(self.ctx, self.bot, self.list_coins, self.active_coin))
+        # split to small chunks
+        list_chunks = list(chunks(self.list_coins, 20))
+        for i in list_chunks:
+            self.add_item(DropdownLP(self.ctx, self.bot, i, self.list_coins, self.active_coin))
 
     async def on_timeout(self):
         original_message = await self.ctx.original_message()
@@ -2471,9 +2475,10 @@ class Cexswap(commands.Cog):
                     )
 
                 # filter uniq tokens
-                list_coins = list(set([i['ticker_1_name'] for i in get_pools] + [i['ticker_2_name'] for i in get_pools]))[:25]
+                list_coins = list(set([i['ticker_1_name'] for i in get_pools] + [i['ticker_2_name'] for i in get_pools]))
 
                 # Create the view containing our dropdown
+                # list_coins can be more than 25 - limit of Discord
                 view = DropdownViewLP(ctx, self.bot, list_coins, active_coin=None)
                 await ctx.edit_original_message(
                     content=None,
@@ -4749,6 +4754,15 @@ class Cexswap(commands.Cog):
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             if method == "sell":
+                                # stop it first here.
+                                if find_user['user_id'] in self.bot.tipping_in_progress and \
+                                    int(time.time()) - self.bot.tipping_in_progress[find_user['user_id']] < 30:
+                                    result = {
+                                        "success": False,
+                                        "error": "You have another transaction in progress!",
+                                        "time": int(time.time())
+                                    }
+
                                 if len(params) > 1:
                                     result = {
                                         "success": False,
@@ -4832,6 +4846,16 @@ class Cexswap(commands.Cog):
                                         }
                                         return web.json_response(result, status=500)
 
+                                    if find_user['user_id'] in self.bot.tipping_in_progress and \
+                                        int(time.time()) - self.bot.tipping_in_progress[find_user['user_id']] < 30:
+                                        result = {
+                                            "success": False,
+                                            "error": "You have another transaction in progress!",
+                                            "time": int(time.time())
+                                        }
+                                    else:
+                                        self.bot.tipping_in_progress[find_user['user_id']] = int(time.time())
+
                                     selling = await cexswap_sold_by_api(
                                         ref_log, amount, sell_param['sell_token'], sell_param['for_token'],
                                         find_user['user_id'], find_user['user_server'],
@@ -4862,6 +4886,10 @@ class Cexswap(commands.Cog):
                                             f"{selling['sell']} {selling['sell_token']} Get: {selling['get']} {selling['for_token']}. Ref: {selling['ref']}",
                                             self.bot.config['discord']['cexswap']
                                         )
+                                        try:
+                                            del self.bot.tipping_in_progress[find_user['user_id']]
+                                        except Exception:
+                                            pass
                                         try:
                                             get_user = self.bot.get_user(int(find_user['user_id']))
                                             if get_user is not None:

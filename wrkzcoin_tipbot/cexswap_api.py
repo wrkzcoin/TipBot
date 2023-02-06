@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Response, Header, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
+import asyncio
 
 import time
 import traceback, sys
@@ -34,6 +35,121 @@ app = FastAPI(
     docs_url="/manual"
 )
 config = load_config()
+
+# start of background
+class BackgroundRunner:
+    def __init__(self, app_main):
+        self.app_main = app_main
+
+    async def fetch_paprika_price(
+        self
+    ):
+        config = load_config()
+        while True:
+            try:
+                await store.openConnection()
+                async with store.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        sql = """
+                        SELECT * FROM `coin_paprika_list` 
+                        WHERE `enable`=1
+                        """
+                        await cur.execute(sql, ())
+                        result = await cur.fetchall()
+                        if result and len(result) > 0:
+                            id_list = {}
+                            symbol_list = {}
+                            for each_item in result:
+                                id_list[each_item['id']] = each_item  # key example: btc-bitcoin
+                                symbol_list[each_item['symbol'].upper()] = each_item  # key example: BTC
+                            self.app_main.coin_paprika_id_list = id_list
+                            self.app_main.coin_paprika_symbol_list = symbol_list
+                        # Alias price
+                        sql = """
+                        SELECT * FROM `coin_alias_price`
+                        """
+                        await cur.execute(sql, ())
+                        result = await cur.fetchall()
+                        if result and len(result) > 0:
+                            hints = {}
+                            hint_names = {}
+                            for each_item in result:
+                                hints[each_item['ticker']] = each_item
+                                hint_names[each_item['name'].upper()] = each_item
+                            self.app_main.token_hints = hints
+                            self.app_main.token_hint_names = hint_names
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+            await asyncio.sleep(60.0)
+
+    async def paprika_price_token(self, token_name: str, by_id: bool=False):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `coin_paprika_list`
+                    WHERE `symbol`=%s
+                    """
+                    if by_id is True:
+                        sql = """
+                        SELECT * FROM `coin_paprika_list`
+                        WHERE `id`=%s
+                        """
+                    await cur.execute(sql, (token_name))
+                    result = await cur.fetchall()
+                    if result:
+                        price_list = []
+                        for i in result:
+                            price_list.append({
+                                "id": i['id'],
+                                "symbol": i['symbol'],
+                                "name": i['name'],
+                                "price_usd": i['price_usd'],
+                                "price_date": i['last_updated']
+                            })
+                        return price_list
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+    
+    async def coingecko_price_token(self, token_name: str, by_id: bool=False):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `coin_coingecko_list`
+                    WHERE `symbol`=%s
+                    """
+                    if by_id is True:
+                        sql = """
+                        SELECT * FROM `coin_coingecko_list`
+                        WHERE `id`=%s
+                        """
+                    await cur.execute(sql, (token_name))
+                    result = await cur.fetchall()
+                    if result:
+                        price_list = []
+                        for i in result:
+                            price_list.append({
+                                "id": i['id'],
+                                "symbol": i['symbol'],
+                                "name": i['name'],
+                                "price_usd": i['price_usd'],
+                                "price_date": i['price_date']
+                            })
+                        return price_list
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+runner = BackgroundRunner(app)
+
+@app.on_event('startup')
+async def app_startup():
+    asyncio.create_task(runner.fetch_paprika_price())
+# End of background
 
 async def get_coin_setting():
     try:
@@ -272,6 +388,64 @@ async def estimate_amount_token_sell(
                 }
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+@app.get("/paprika_price/{token}")
+async def get_paprika_price(
+    token: str, request: Request
+):
+    """
+    token: coin name or token name. Example: BTC, LTC, DOGE, etc
+    """
+    if config['cexswap_api']['api_enable'] != 1:
+        return {
+            "success": False,
+            "data": None,
+            "error": "API is currently disable!",
+            "time": int(time.time())
+        }
+    token = token.upper()
+    app.coin_list = await get_coin_setting()
+    note = None
+    if token not in app.coin_list:
+        note = f"Token {token} not in our CEXSwap!"
+    price = await runner.paprika_price_token(token_name=token, by_id=False)
+    return {
+        "success": True,
+        "unit": "USD",
+        "data": price,
+        "error": None,
+        "note": note,
+        "time": int(time.time())
+    }
+
+@app.get("/gecko_price/{token}")
+async def get_coingecko_price(
+    token: str, request: Request
+):
+    """
+    token: coin name or token name. Example: BTC, LTC, DOGE, etc
+    """
+    if config['cexswap_api']['api_enable'] != 1:
+        return {
+            "success": False,
+            "data": None,
+            "error": "API is currently disable!",
+            "time": int(time.time())
+        }
+    token = token.upper()
+    app.coin_list = await get_coin_setting()
+    note = None
+    if token not in app.coin_list:
+        note = f"Token {token} not in our CEXSwap!"
+    price = await runner.coingecko_price_token(token_name=token, by_id=False)
+    return {
+        "success": True,
+        "unit": "USD",
+        "data": price,
+        "error": None,
+        "note": note,
+        "time": int(time.time())
+    }
 
 @app.get("/summary/{slug}")
 async def get_summary_detail(

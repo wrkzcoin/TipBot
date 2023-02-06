@@ -1,4 +1,9 @@
 import sys, traceback
+from aiohttp import web
+import uuid
+from hashlib import sha256
+import json
+import asyncio
 
 import disnake
 from disnake.ext import commands
@@ -16,7 +21,8 @@ from disnake.app_commands import Option, OptionChoice
 import store
 from Bot import get_token_list, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, \
     EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, RowButtonRowCloseAnyMessage, human_format, \
-    text_to_num, truncate, seconds_str, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION, log_to_channel
+    text_to_num, truncate, seconds_str, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION, log_to_channel, \
+    encrypt_string, decrypt_string
 
 from cogs.wallet import WalletAPI
 from cogs.utils import Utils, num_format_coin
@@ -26,6 +32,57 @@ def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
+
+async def bot_user_add(user_id: str, user_server: str, api_key: str, hash_key: str):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """ INSERT INTO `bot_users` 
+                (`user_id`, `user_server`, `cexswap_api_key`, `cexswap_api_key_sha256`)
+                VALUES (%s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    `cexswap_api_key`=VALUES(`cexswap_api_key`),
+                    `cexswap_api_key_sha256`=VALUES(`cexswap_api_key_sha256`)
+                """
+                await cur.execute(sql, (user_id, user_server, api_key, hash_key))
+                await conn.commit()
+                return True
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+async def find_user_by_id(user_id: str, user_server: str):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """
+                SELECT * FROM `bot_users` WHERE `user_id`=%s AND `user_server`=%s LIMIT 1
+                """
+                await cur.execute(sql, (user_id, user_server))
+                result = await cur.fetchone()
+                if result:
+                    return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def find_user_by_apikey(apikey: str):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """
+                SELECT * FROM `bot_users` WHERE `cexswap_api_key_sha256`=%s LIMIT 1
+                """
+                await cur.execute(sql, (apikey))
+                result = await cur.fetchone()
+                if result:
+                    return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
 
 async def cexswap_get_coin_setting(ticker: str):
     try:
@@ -805,6 +862,204 @@ async def cexswap_estimate(
     except Exception:
         traceback.print_exc(file=sys.stdout)
     return False
+
+async def cexswap_sold_by_api(
+    ref_log: str, amount_sell: float, sell_token: str, 
+    for_token: str, user_id: str, user_server: str,
+    coin_list, config
+):
+    """
+    coin_list: list of all coin to get params
+    config: configuration file
+    """
+    amount_sell = float(amount_sell)
+    try:
+        cexswap_enable = getattr(getattr(coin_list, sell_token), "cexswap_enable")
+        if cexswap_enable != 1:
+            return {
+                "success": False,
+                "error": f"{sell_token} not enable CEXSwap!",
+            }
+        cexswap_enable = getattr(getattr(coin_list, for_token), "cexswap_enable")
+        if cexswap_enable != 1:
+            return {
+                "success": False,
+                "error": f"{for_token} not enable CEXSwap!",
+            }
+        # check amount
+        min_swap = truncate(getattr(getattr(coin_list, sell_token), "cexswap_min"), 8)
+        if truncate(amount_sell, 8) < min_swap:
+            return {
+                "success": False,
+                "error": "Sell amount is below minimum!",
+            }
+        # find LP amount
+        liq_pair = await cexswap_get_pool_details(sell_token, for_token, None)
+        if liq_pair is None:
+            return {
+                "success": False,
+                "error": f"There is no pair {sell_token}/{for_token}",
+            }
+        else:
+            # check if coin sell is enable
+            is_sellable = getattr(getattr(coin_list, sell_token), "cexswap_sell_enable")
+            if is_sellable != 1:
+                return {
+                    "success": False,
+                    "error": f"Coin/token `{sell_token}` is currently disable for CEXSwap.",
+                }
+            is_sellable = getattr(getattr(coin_list, for_token), "cexswap_sell_enable")
+            if is_sellable != 1:
+                return {
+                    "success": False,
+                    "error": f"Coin/token `{for_token}` is currently disable for CEXSwap.",
+                }
+            try:
+                # check amount
+                amount_liq_sell = liq_pair['pool']['amount_ticker_1']
+                if sell_token == liq_pair['pool']['ticker_2_name']:
+                    amount_liq_sell = liq_pair['pool']['amount_ticker_2']
+                cexswap_min = getattr(getattr(coin_list, sell_token), "cexswap_min")
+                token_display = getattr(getattr(coin_list, sell_token), "display_name")
+                cexswap_max_swap_percent_sell = getattr(getattr(coin_list, sell_token), "cexswap_max_swap_percent")
+                max_swap_sell_cap = cexswap_max_swap_percent_sell * float(amount_liq_sell)
+
+                # Check if amount is more than liquidity
+                if truncate(float(amount_sell), 8) > truncate(float(max_swap_sell_cap), 8):
+                    msg = f"The given amount {amount_sell}"\
+                        f" is more than allowable 10% of liquidity {num_format_coin(max_swap_sell_cap)} {sell_token}." \
+                        f" Current LP: {num_format_coin(liq_pair['pool']['amount_ticker_1'])} "\
+                        f"{liq_pair['pool']['ticker_1_name']} and "\
+                        f"{num_format_coin(liq_pair['pool']['amount_ticker_2'])} "\
+                        f"{liq_pair['pool']['ticker_2_name']} for LP {liq_pair['pool']['ticker_1_name']}/{liq_pair['pool']['ticker_2_name']}."
+                    return {
+                        "success": False,
+                        "error": msg,
+                    }
+
+                # Check if too big rate gap
+                try:
+                    rate_ratio = liq_pair['pool']['amount_ticker_1'] / liq_pair['pool']['amount_ticker_2']
+                    if rate_ratio > 10**12 or rate_ratio < 1/10**12:
+                        msg = "Rate ratio is out of range. Try with other pairs."
+                        return {
+                            "success": False,
+                            "error": msg,
+                        }
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+
+                # check slippage first
+                slippage = 1.0 - amount_sell / float(liq_pair['pool']['amount_ticker_1']) - config['cexswap_slipage']['reserve']
+                amount_get = amount_sell * float(liq_pair['pool']['amount_ticker_2'] / liq_pair['pool']['amount_ticker_1'])
+
+                amount_qty_1 = liq_pair['pool']['amount_ticker_2']
+                amount_qty_2 = liq_pair['pool']['amount_ticker_1']
+
+                if sell_token == liq_pair['pool']['ticker_2_name']:
+                    amount_get = amount_sell * float(liq_pair['pool']['amount_ticker_1'] / liq_pair['pool']['amount_ticker_2'])
+                    slippage = 1.0 - amount_sell / float(liq_pair['pool']['amount_ticker_2']) - config['cexswap_slipage']['reserve']
+
+                    amount_qty_1 = liq_pair['pool']['amount_ticker_1']
+                    amount_qty_2 = liq_pair['pool']['amount_ticker_2']
+
+                # adjust slippage
+                amount_get = slippage * amount_get
+                if slippage > 1 or slippage < 0.88:
+                    msg = "Internal error with slippage. Try again later!"
+                    return {
+                        "success": False,
+                        "error": msg,
+                    }
+
+                # price impact = unit price now / unit price after sold
+                price_impact_text = ""
+                price_impact_percent = 0.0
+                new_impact_ratio = (float(amount_qty_2) + amount_sell) / (float(amount_qty_1) - amount_get)
+                old_impact_ratio = float(amount_qty_2) / float(amount_qty_1)
+                impact_ratio = abs(old_impact_ratio - new_impact_ratio) / max(old_impact_ratio, new_impact_ratio)
+                if 0.0001 < impact_ratio < 1:
+                    price_impact_text = "\nPrice impact: ~{:,.2f}{}".format(impact_ratio * 100, "%")
+                    price_impact_percent = impact_ratio * 100
+                
+                # If the amount get is too small.
+                if amount_get < config['cexswap']['minimum_receive_or_reject']:
+                    num_receive = num_format_coin(amount_get)
+                    msg = f"The received amount is too small "\
+                        f"{num_receive} {for_token}. Please increase your sell amount!"
+                    return {
+                        "success": False,
+                        "error": msg,
+                    }
+                else:
+                    # OK, sell..
+                    got_fee_dev = amount_get * config['cexswap']['dev_fee'] / 100
+                    got_fee_liquidators = amount_get * config['cexswap']['liquidator_fee'] / 100
+                    got_fee_guild = 0.0
+                    guild_id = "CEXSWAP API"
+                    got_fee_dev += amount_get * config['cexswap']['guild_fee'] / 100
+                    liq_users = []
+                    if len(liq_pair['pool_share']) > 0:
+                        for each_s in liq_pair['pool_share']:
+                            distributed_amount = None
+                            if for_token == each_s['ticker_1_name']:
+                                distributed_amount = float(each_s['amount_ticker_1']) / float(liq_pair['pool']['amount_ticker_1']) * float(truncate(got_fee_liquidators, 12))
+                            elif for_token == each_s['ticker_2_name']:
+                                distributed_amount = float(each_s['amount_ticker_2']) / float(liq_pair['pool']['amount_ticker_2']) * float(truncate(got_fee_liquidators, 12))
+                            if distributed_amount is not None:
+                                liq_users.append([distributed_amount, each_s['user_id'], each_s['user_server']])
+                    contract = getattr(getattr(coin_list, for_token), "contract")
+                    channel_id = "CEXSWAP API"
+                    # get price per unit
+                    per_unit_sell = 0.0 # TODO
+                    per_unit_get = 0.0 # TODO
+
+                    fee = truncate(got_fee_dev, 12) + truncate(got_fee_liquidators, 12) + truncate(got_fee_guild, 12)
+                    user_amount_get = num_format_coin(truncate(amount_get - float(fee), 12))
+                    user_amount_sell = num_format_coin(amount_sell)
+                    coin_decimal = getattr(getattr(coin_list, for_token), "decimal")
+
+                    pool_amount_get = liq_pair['pool']['amount_ticker_2']
+                    pool_amount_sell = liq_pair['pool']['amount_ticker_1']
+                    if sell_token == liq_pair['pool']['ticker_2_name']:
+                        pool_amount_get = liq_pair['pool']['amount_ticker_1']
+                        pool_amount_sell = liq_pair['pool']['amount_ticker_2']
+
+                    selling = await cexswap_sold(
+                        ref_log, liq_pair['pool']['pool_id'], truncate(amount_sell, 12), sell_token, 
+                        truncate(amount_get, 12), for_token, user_id, user_server,
+                        guild_id,
+                        truncate(got_fee_dev, 12), truncate(got_fee_liquidators, 12), truncate(got_fee_guild, 12),
+                        liq_users, contract, coin_decimal, channel_id, per_unit_sell, per_unit_get,
+                        pool_amount_sell, pool_amount_get
+                    )
+                    if selling is True:
+                        msg = f"Successfully traded! "\
+                            f"Get {user_amount_get} {for_token} "\
+                            f"from selling {user_amount_sell} {sell_token}{price_impact_text} Ref: {ref_log}"
+                        del_users_cache =  ["{}_{}_{}".format(i[1], sell_token, i[2]) for i in liq_users]
+                        del_users_cache +=  ["{}_{}_{}".format(i[1], for_token, i[2]) for i in liq_users]
+                        del_users_cache += ["{}_{}_{}".format(user_id, sell_token, user_server)]
+                        del_users_cache += ["{}_{}_{}".format(user_id, for_token, user_server)]
+                        return {
+                            "success": True,
+                            "sell": user_amount_sell,
+                            "sell_token": sell_token,
+                            "get": user_amount_get,
+                            "for_token": for_token,
+                            "price_impact_percent": price_impact_percent,
+                            "delete_cache_balance":del_users_cache,
+                            "message": msg,
+                            "ref": ref_log
+                        }
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return {
+        "success": False,
+        "error": "Internal error!",
+    }
 
 async def cexswap_sold(
     ref_log: str, pool_id: int, amount_sell: float, sell_ticker: str,
@@ -4002,6 +4257,103 @@ class Cexswap(commands.Cog):
         return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
 
     @cexswap.sub_command(
+        name="apikey",
+        usage="cexswap apikey [resetkey]", 
+        options=[
+            Option('resetkey', 'resetkey', OptionType.string, required=False, choices=[
+                OptionChoice("YES", "YES"),
+                OptionChoice("NO", "NO")
+            ])
+        ],
+        description="Get token key for CEXSwap API call."
+    )
+    async def cexswap_apikey(
+        self,
+        ctx,
+        resetkey: str=None
+    ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/cexswap apikey", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        if self.bot.config['cexswap_api']['api_private_key_enable'] != 1:
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, private API is currently disable! Check again later!"
+            )
+            return
+
+        # Check if user not in main guild
+        try:
+            main_guild = self.bot.get_guild(self.bot.config['cexswap_api']['main_guild_id'])
+            if main_guild is not None:
+                get_user = main_guild.get_member(ctx.author.id)
+                if get_user is None:
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, you need to stay in our main Discord guild to get API key!"
+                    )
+                    return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        try:
+            if resetkey is None:
+                resetkey = "NO"
+            get_user = await find_user_by_id(str(ctx.author.id), SERVER_BOT)
+            if get_user is None:
+                random_string = str(uuid.uuid4())
+                hash_key = sha256(random_string.encode()).hexdigest()
+                insert_key = await bot_user_add(str(ctx.author.id), SERVER_BOT, encrypt_string(random_string), hash_key)
+                if insert_key is True:
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, your CEXSwap API key:```{random_string}```Keep it in a secret place!"
+                    )
+                    await log_to_channel(
+                        "cexswap",
+                        f"[API CREATE]: User {ctx.author.mention} / {ctx.author.id} create a new API key!",
+                        self.bot.config['discord']['cexswap']
+                    )
+                else:
+                    await ctx.edit_original_message(
+                        content=f"Internal error!"
+                    )
+            else:
+                if resetkey == "NO":
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, your CEXSwap API key:```{decrypt_string(get_user['cexswap_api_key'])}```Keep it in a secret place!"
+                    )
+                    await log_to_channel(
+                        "cexswap",
+                        f"[API SHOW]: User {ctx.author.mention} / {ctx.author.id} asked to show API key!",
+                        self.bot.config['discord']['cexswap']
+                    )
+                else:
+                    # he reset
+                    random_string = str(uuid.uuid4())
+                    hash_key = sha256(random_string.encode()).hexdigest()
+                    insert_key = await bot_user_add(str(ctx.author.id), SERVER_BOT, encrypt_string(random_string), hash_key)
+                    if insert_key is True:
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, you reset CEXSwap API key to:```{random_string}```Keep it in a secret place!"
+                        )
+                        await log_to_channel(
+                            "cexswap",
+                            f"[API RESET]: User {ctx.author.mention} / {ctx.author.id} reset a new API key!",
+                            self.bot.config['discord']['cexswap']
+                        )
+                    else:
+                        await ctx.edit_original_message(
+                            content=f"Internal error!"
+                        )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @cexswap.sub_command(
         name="earning",
         usage="cexswap earning",
         options=[
@@ -4171,6 +4523,369 @@ class Cexswap(commands.Cog):
         string = string.lower()
         return [name for name in self.bot.cexswap_coins if string in name.lower()][:10]
 
+    async def webserver(self):
+        async def handler_get(request):
+            if 'Authorization' in request.headers:
+                try:
+                    # find user by key
+                    key = request.headers['Authorization']
+                    hash_key = sha256(key.encode()).hexdigest()
+                    find_user = await find_user_by_apikey(hash_key)
+                    if find_user is None:
+                        result = {
+                            "success": False,
+                            "error": "Invalid Authorization API Key!",
+                            "time": int(time.time())
+                        }
+                        return web.json_response(result, status=500)
+                    else:
+                        if str(request.rel_url).startswith("/get_balance/"):
+                            coin_name = str(request.rel_url).replace("/get_balance/", "").replace("/", "").upper().strip()
+                            if len(coin_name) == 0:
+                                result = {
+                                    "success": False,
+                                    "error": "Invalid coin name!",
+                                    "time": int(time.time())
+                                }
+                                return web.json_response(result, status=400)
+                            if not hasattr(self.bot.coin_list, coin_name):
+                                result = {
+                                    "success": False,
+                                    "error": f"{coin_name} doesn't exist with us!",
+                                    "time": int(time.time())
+                                }
+                                return web.json_response(result, status=400)
+                            else:
+                                user_id = find_user['user_id']
+                                user_server = find_user['user_server']
+                                net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                                type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+
+                                get_deposit = await self.wallet_api.sql_get_userwallet(
+                                    user_id, coin_name, net_name, type_coin, user_server, 0)
+                                if get_deposit is None:
+                                    get_deposit = await self.wallet_api.sql_register_user(
+                                        user_id, coin_name, net_name, type_coin, user_server, 0, 0
+                                    )
+
+                                wallet_address = get_deposit['balance_wallet_address']
+                                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                    wallet_address = get_deposit['paymentid']
+                                elif type_coin in ["XRP"]:
+                                    wallet_address = get_deposit['destination_tag']
+
+                                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                userdata_balance = await self.wallet_api.user_balance(
+                                    user_id, coin_name, wallet_address, type_coin,
+                                    height, deposit_confirm_depth, user_server
+                                )
+                                total_balance = userdata_balance['adjust']
+                                if total_balance == 0:
+                                    # Delete if has key
+                                    key = user_id + "_" + coin_name + "_" + user_server
+                                    try:
+                                        if key in self.bot.user_balance_cache:
+                                            del self.bot.user_balance_cache[key]
+                                    except Exception:
+                                        pass
+                                    # End of del key
+                                result = {
+                                    "success": True,
+                                    "error": None,
+                                    "coin_name": coin_name,
+                                    "balance": total_balance,
+                                    "time": int(time.time())
+                                }
+                                return web.json_response(result, status=200)
+                        if str(request.rel_url).startswith("/coininfo/"):
+                            coin_name = str(request.rel_url).replace("/coininfo/", "").replace("/", "").upper().strip()
+                            if len(coin_name) == 0:
+                                result = {
+                                    "success": False,
+                                    "error": "Invalid coin name!",
+                                    "time": int(time.time())
+                                }
+                                return web.json_response(result, status=400)
+                            if not hasattr(self.bot.coin_list, coin_name):
+                                result = {
+                                    "success": False,
+                                    "error": f"{coin_name} doesn't exist with us!",
+                                    "time": int(time.time())
+                                }
+                                return web.json_response(result, status=400)
+                            else:
+                                min_swap = str(truncate(getattr(getattr(self.bot.coin_list, coin_name), "cexswap_min"), 8))
+                                cexswap_enable = getattr(getattr(self.bot.coin_list, coin_name), "cexswap_enable")
+                                result = {
+                                    "success": True,
+                                    "data": {
+                                        "cexswap_enable": True if cexswap_enable==1 else False,
+                                        "minimum_swap": min_swap,
+                                    },
+                                    "error": None,
+                                    "time": int(time.time())
+                                }
+                                return web.json_response(result, status=200)
+                        else:
+                            result = {
+                                "success": False,
+                                "error": "Invalid call",
+                                "time": int(time.time())
+                            }
+                            return web.json_response(result, status=404)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            else:
+                result = {
+                    "success": False,
+                    "error": "Missing Authorization API key!",
+                    "time": int(time.time())
+                }
+                return web.json_response(result, status=404)
+            return web.Response(text="Hello, world")
+
+        async def handler_post(request):
+            try:
+                if request.body_exists:
+                    # check if api is ready only
+                    api_readonly = self.bot.config['cexswap_api']['api_readonly']
+                    if api_readonly == 1:
+                        result = {
+                            "success": False,
+                            "error": "API is currently read-only mode!",
+                            "time": int(time.time())
+                        }
+                        return web.json_response(result, status=400)
+
+                    payload = await request.read()
+                    headers = request.headers
+                    full_payload = json.loads(payload)
+                    if 'method' not in full_payload:
+                        result = {
+                            "success": False,
+                            "error": "Unknown method!",
+                            "time": int(time.time())
+                        }
+                        return web.json_response(result, status=404)
+                    if 'params' not in full_payload:
+                        result = {
+                            "success": False,
+                            "error": "Missing params!",
+                            "time": int(time.time())
+                        }
+                        return web.json_response(result, status=400)
+                    method = full_payload['method']
+                    params = full_payload['params']
+                    id_call = 0
+                    if 'id' in full_payload:
+                        id_call = full_payload['id']
+
+                    if 'Authorization' in request.headers:
+                        # find user by key
+                        key = request.headers['Authorization']
+                        hash_key = sha256(key.encode()).hexdigest()
+                        find_user = await find_user_by_apikey(hash_key)
+                        if find_user is None:
+                            result = {
+                                "success": False,
+                                "error": "Invalid Authorization API Key!",
+                                "time": int(time.time())
+                            }
+                            return web.json_response(result, status=500)
+                        else:
+                            # Check if user not in main guild
+                            try:
+                                main_guild = self.bot.get_guild(self.bot.config['cexswap_api']['main_guild_id'])
+                                if main_guild is not None and find_user['user_id'] == SERVER_BOT:
+                                    get_user = main_guild.get_member(int(find_user['user_id']))
+                                    if get_user is None:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": "Your Discord Account needs to be in our main Discord Guild to execute this!",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        await log_to_channel(
+                                            "cexswap",
+                                            f"[API REJECT]: User <@{find_user['user_id']}> / {find_user['user_id']} not in our Discord Guild!",
+                                            self.bot.config['discord']['cexswap']
+                                        )
+                                        return web.json_response(result, status=200)
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            if method == "sell":
+                                if len(params) > 1:
+                                    result = {
+                                        "success": False,
+                                        "data": None,
+                                        "error": "Currently, only one trade is allow!",
+                                        "id": id_call,
+                                        "time": int(time.time())
+                                    }
+                                    return web.json_response(result, status=200)
+                                elif len(params) == 1:
+                                    sell_param = params[0]
+                                    if 'amount' not in sell_param or 'sell_token' not in sell_param or 'for_token' not in sell_param:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": "Missing or wrong parameters!",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+
+                                    sell_param['sell_token'] = sell_param['sell_token'].upper()
+                                    sell_param['for_token'] = sell_param['for_token'].upper()
+                                    amount = sell_param['amount'].replace(",", "")
+                                    amount = text_to_num(amount)
+                                    if amount is None or amount == 0:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": "Invalid given amount!",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+                                    if sell_param['sell_token'] not in self.bot.cexswap_coins or \
+                                        sell_param['for_token'] not in self.bot.cexswap_coins:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": "Invalid given coin/token or they are not in CEXSwap!",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+                                    ref_log = ''.join(random.choice(ascii_uppercase) for i in range(16))
+                                    net_name = getattr(getattr(self.bot.coin_list, sell_param['sell_token']), "net_name")
+                                    type_coin = getattr(getattr(self.bot.coin_list, sell_param['sell_token']), "type")
+                                    height = self.wallet_api.get_block_height(type_coin, sell_param['sell_token'], net_name)
+                                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, sell_param['sell_token']), "deposit_confirm_depth")
+                                    get_deposit = await self.wallet_api.sql_get_userwallet(
+                                        find_user['user_id'], sell_param['sell_token'], net_name, type_coin, find_user['user_server'], 0
+                                    )
+                                    if get_deposit is None:
+                                        get_deposit = await self.wallet_api.sql_register_user(
+                                            find_user['user_id'], sell_param['sell_token'], net_name, type_coin, find_user['user_server'], 0, 0
+                                        )
+
+                                    wallet_address = get_deposit['balance_wallet_address']
+                                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                        wallet_address = get_deposit['paymentid']
+                                    elif type_coin in ["XRP"]:
+                                        wallet_address = get_deposit['destination_tag']
+
+                                    userdata_balance = await self.wallet_api.user_balance(
+                                        find_user['user_id'], sell_param['sell_token'], wallet_address, 
+                                        type_coin, height, deposit_confirm_depth, find_user['user_server']
+                                    )
+                                    actual_balance = float(userdata_balance['adjust'])
+                                    if actual_balance < 0 or truncate(actual_balance, 8) < truncate(amount, 8):
+                                        result = {
+                                            "success": False,
+                                            "error": "Not sufficient balance!",
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+                                    if amount < 0:
+                                        result = {
+                                            "success": False,
+                                            "error": "Invalid given amount!",
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+
+                                    selling = await cexswap_sold_by_api(
+                                        ref_log, amount, sell_param['sell_token'], sell_param['for_token'],
+                                        find_user['user_id'], find_user['user_server'],
+                                        self.bot.coin_list, self.bot.config
+                                    )
+                                    if selling['success'] is True:
+                                        result = {
+                                            "success": True,
+                                            "sell": selling['sell'],
+                                            "sell_token": selling['sell_token'],
+                                            "get": selling['get'],
+                                            "for_token": selling['for_token'],
+                                            "price_impact_percent": selling['price_impact_percent'],
+                                            "message": selling['message'],
+                                            "error": None,
+                                            "time": int(time.time())
+                                        }
+                                        if len(selling['delete_cache_balance']) > 0:
+                                            for i in selling['delete_cache_balance']:
+                                                try:
+                                                    if i in self.bot.user_balance_cache:
+                                                        del self.bot.user_balance_cache[i]
+                                                except Exception:
+                                                    traceback.print_exc(file=sys.stdout)
+                                        await log_to_channel(
+                                            "cexswap",
+                                            f"[API SOLD]: User <@{find_user['user_id']}> / {find_user['user_id']} Sold: " \
+                                            f"{selling['sell']} {selling['sell_token']} Get: {selling['get']} {selling['for_token']}. Ref: {selling['ref']}",
+                                            self.bot.config['discord']['cexswap']
+                                        )
+                                        try:
+                                            get_user = self.bot.get_user(int(find_user['user_id']))
+                                            if get_user is not None:
+                                                msg = f"Sold {selling['sell']} {selling['sell_token']}\nGet: {selling['get']} {selling['for_token']}\nRef: {selling['ref']}"
+                                                await get_user.send(
+                                                    f"You executed CEXSwap API sold: ```{msg}```" \
+                                                    "If you haven't done so, please contact our support and change API key immediately!"
+                                                )
+                                        except Exception:
+                                            pass
+                                        return web.json_response(result, status=200)
+                                    else:
+                                        result = {
+                                            "success": False,
+                                            "error": selling['error'],
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+                            else:
+                                result = {
+                                    "success": False,
+                                    "error": "Unknown method!",
+                                    "time": int(time.time())
+                                }
+                                return web.json_response(result, status=404)
+                    else:
+                        result = {
+                            "success": False,
+                            "error": "Missing Authorization API key!",
+                            "time": int(time.time())
+                        }
+                        return web.json_response(result, status=404)
+                else:
+                    result = {
+                        "success": False,
+                        "error": "Invalid call",
+                        "time": int(time.time())
+                    }
+                    return web.json_response(result, status=404)
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+        app = web.Application()
+        app.router.add_get('/{tail:.*}', handler_get)
+        app.router.add_post('/{tail:.*}', handler_post)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        self.site = web.TCPSite(
+            runner,
+            self.bot.config['cexswap_api']['binding_ip'],
+            self.bot.config['cexswap_api']['api_port_private']
+        )
+        await self.bot.wait_until_ready()
+        await self.site.start()
+
     @commands.Cog.listener()
     async def on_ready(self):
         if len(self.bot.cexswap_coins) == 0:
@@ -4179,9 +4894,12 @@ class Cexswap(commands.Cog):
     async def cog_load(self):
         if len(self.bot.cexswap_coins) == 0:
             await self.cexswap_get_list_enable_pairs()
+        await self.bot.wait_until_ready()
 
     def cog_unload(self):
-        pass
+        asyncio.ensure_future(self.site.stop())
 
 def setup(bot):
-    bot.add_cog(Cexswap(bot))
+    cex = Cexswap(bot)
+    bot.add_cog(cex)
+    bot.loop.create_task(cex.webserver())

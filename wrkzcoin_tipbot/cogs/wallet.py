@@ -843,7 +843,7 @@ class WalletAPI(commands.Cog):
         try:
             if self.pool is None:
                 self.pool = await aiomysql.create_pool(
-                    host=self.bot.config['mysql']['host'], port=3306, minsize=2, maxsize=4,
+                    host=self.bot.config['mysql']['host'], port=3306, minsize=4, maxsize=8,
                     user=self.bot.config['mysql']['user'], password=self.bot.config['mysql']['password'],
                     db=self.bot.config['mysql']['db'], cursorclass=DictCursor, autocommit=True
                 )

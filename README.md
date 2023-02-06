@@ -87,9 +87,8 @@ Refer to <https://coininfo.bot.tips> for the entire list.
 
 * [Refer to donation link](./DONATION.md)
 
-### API:
-* [Refer to API link](./TRADE_API.md)
-* Swagger: <http://tradeapi.bot.tips/>
+### CEXSwap API:
+* [Refer to API link](./CEXSWAP_API.md)
 
 ## Contributing
 

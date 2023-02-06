@@ -2,6 +2,7 @@ from fastapi import FastAPI, Response, Header, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 import asyncio
+from hashlib import sha256
 
 import time
 import traceback, sys
@@ -17,9 +18,10 @@ from config import load_config
 from cogs.cexswap import cexswap_get_pools, cexswap_get_all_lp_pools, cexswap_get_pool_details, \
 cexswap_get_poolshare, get_cexswap_get_sell_logs, get_cexswap_get_coin_sell_logs, \
 cexswap_get_list_enable_pair_list, cexswap_get_coin_setting, cexswap_route_trade, \
-cexswap_find_possible_trade, cexswap_estimate
+cexswap_find_possible_trade, cexswap_estimate, find_user_by_apikey, \
+cexswap_count_api_usage
 
-from Bot import truncate, text_to_num
+from Bot import truncate, text_to_num, logchanbot
 import store
 from cogs.utils import num_format_coin
 
@@ -176,9 +178,14 @@ class SellToken(BaseModel):
     sell_token: str
     for_token: str
 
+class BuyToken(BaseModel):
+    amount: str
+    buy_token: str
+    sell_token: str
+
 @app.post("/estimate_sell/")
 async def estimate_amount_token_sell(
-    request: Request, item: SellToken
+    request: Request, item: SellToken, Authorization: Union[str, None] = Header(default=None)
 ):
     if config['cexswap_api']['api_enable'] != 1:
         return {
@@ -188,13 +195,52 @@ async def estimate_amount_token_sell(
             "time": int(time.time())
         }
 
+    user_id = "PUBLIC"
+    user_server = "PUBLIC"
+
+    if config['cexswap_api']['is_estimation_pub'] != 1 and Authorization is not None:
+        hash_key = sha256(Authorization.encode()).hexdigest()
+        find_user = await find_user_by_apikey(hash_key)
+        if find_user is None:
+            return {
+                "success": False,
+                "data": None,
+                "error": "Invalid given Authorization API Key!",
+                "time": int(time.time())
+            }
+        else:
+            user_id = find_user['user_id']
+            user_server = find_user['user_server']
+
+    # check usage of API by user_id and user_server
     if config['cexswap_api']['is_estimation_pub'] != 1:
-        return {
-            "success": False,
-            "data": None,
-            "error": "Estimation is not public yet!",
-            "time": int(time.time())
-        }
+        if user_id == "PUBLIC" and user_server == "PUBLIC":
+            count = await cexswap_count_api_usage(user_id, user_server, 1, 3600)
+            if count >= config['cexswap_api']['public_api_call_1h']:
+                return {
+                    "success": False,
+                    "data": None,
+                    "error": "Public usage reached limit for the last hour, please use with API key as 'Authorization'!",
+                    "time": int(time.time())
+                }
+
+            count = await cexswap_count_api_usage(user_id, user_server, 1, 24*3600)
+            if count >= config['cexswap_api']['public_api_call_24h']:
+                return {
+                    "success": False,
+                    "data": None,
+                    "error": "Public usage reached limit for the last 24 hours, please use with API key as 'Authorization'!",
+                    "time": int(time.time())
+                }
+        else:
+            count = await cexswap_count_api_usage(user_id, user_server, 1, 3600)
+            if count >= config['cexswap_api']['private_api_estimate_1h']:
+                return {
+                    "success": False,
+                    "data": None,
+                    "error": "Your API usage reached limit for the last hour!",
+                    "time": int(time.time())
+                }
 
     sell_token = item.sell_token.upper()
     for_token = item.for_token.upper()
@@ -368,7 +414,8 @@ async def estimate_amount_token_sell(
                     await cexswap_estimate(
                         ref_log, liq_pair['pool']['pool_id'], "{}->{}".format(sell_token, for_token),
                         truncate(amount, 12), sell_token, truncate(amount_get - float(fee), 12), for_token,
-                        got_fee_dev, got_fee_liquidators, 0.0, price_impact_percent
+                        got_fee_dev, got_fee_liquidators, 0.0, price_impact_percent,
+                        user_id, user_server, use_api=1
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)

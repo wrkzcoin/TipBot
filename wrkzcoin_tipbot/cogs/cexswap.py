@@ -857,7 +857,8 @@ async def cexswap_estimate(
     ref_log: str, pool_id: int, pairs: str, amount_sell: float, sell_ticker: str,
     amount_get: float, got_ticker: str,
     got_fee_dev: float, got_fee_liquidators: float,
-    got_fee_guild: float, price_impact_percent: float
+    got_fee_guild: float, price_impact_percent: float,
+    user_id: str, user_server: str, use_api: int
 ):
     try:
         await store.openConnection()
@@ -867,13 +868,13 @@ async def cexswap_estimate(
                 INSERT INTO `cexswap_estimate`
                 (`pool_id`, `pairs`, `ref_log`, `sold_ticker`, `total_sold_amount`,
                 `got_total_amount`,  `got_fee_dev`, `got_fee_liquidators`, `got_fee_guild`, 
-                `got_ticker`, `price_impact_percent`, `time`)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                `got_ticker`, `price_impact_percent`, `time`, `user_id`, `user_server`, `use_api`)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 """
                 data_rows = [
                     pool_id, pairs, ref_log, sell_ticker, float(amount_sell),
                     float(amount_get), float(got_fee_dev), float(got_fee_liquidators), float(got_fee_guild),
-                    got_ticker, price_impact_percent, int(time.time())
+                    got_ticker, price_impact_percent, int(time.time()), user_id, user_server, use_api
                 ]
                 await cur.execute(sql, tuple(data_rows))
                 await conn.commit()
@@ -881,6 +882,26 @@ async def cexswap_estimate(
     except Exception:
         traceback.print_exc(file=sys.stdout)
     return False
+
+async def cexswap_count_api_usage(
+    user_id: str, user_server: int, use_api: int=1, duration: int=1*3600
+):
+    lap = int(time.time()) - duration
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """
+                SELECT COUNT(*) AS numb FROM `cexswap_estimate` WHERE `user_id`=%s AND `user_server`=%s AND `use_api`=%s
+                AND `time`>%s
+                """
+                await cur.execute(sql, (user_id, user_server, use_api, lap))
+                result = await cur.fetchone()
+                if result:
+                    return result['numb']
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return 0
 
 async def cexswap_sold_by_api(
     ref_log: str, amount_sell: float, sell_token: str, 
@@ -2836,7 +2857,8 @@ class Cexswap(commands.Cog):
                         await cexswap_estimate(
                             ref_log, liq_pair['pool']['pool_id'], "{}->{}".format(sell_token, for_token),
                             truncate(amount, 12), sell_token, truncate(amount_get - float(fee), 12), for_token,
-                            got_fee_dev, got_fee_liquidators, got_fee_guild, price_impact_percent
+                            got_fee_dev, got_fee_liquidators, got_fee_guild, price_impact_percent,
+                            str(ctx.author.id), SERVER_BOT, 0
                         )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
@@ -4730,7 +4752,7 @@ class Cexswap(commands.Cog):
                             # Check if user not in main guild
                             try:
                                 main_guild = self.bot.get_guild(self.bot.config['cexswap_api']['main_guild_id'])
-                                if main_guild is not None and find_user['user_id'] == SERVER_BOT:
+                                if main_guild is not None and find_user['user_server'] == SERVER_BOT:
                                     get_user = main_guild.get_member(int(find_user['user_id']))
                                     if get_user is None:
                                         result = {
@@ -4969,6 +4991,8 @@ class Cexswap(commands.Cog):
                         get_guilds = await self.utils.get_trade_channel_list()
                         if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0 and \
                             self.bot.config['cexswap_api']['api_trade_announcement'] == 1:
+                            # too many announcement, skip. Take 10 first
+                            result = result[:10]
                             for each_ann in result:
                                 try:
                                     list_guild_ids = [i.id for i in self.bot.guilds]

@@ -4330,13 +4330,14 @@ class Cexswap(commands.Cog):
             if resetkey is None:
                 resetkey = "NO"
             get_user = await find_user_by_id(str(ctx.author.id), SERVER_BOT)
+            link_help = self.bot.config['cexswap_api']['link_help']
             if get_user is None:
                 random_string = str(uuid.uuid4())
                 hash_key = sha256(random_string.encode()).hexdigest()
                 insert_key = await bot_user_add(str(ctx.author.id), SERVER_BOT, encrypt_string(random_string), hash_key)
                 if insert_key is True:
                     await ctx.edit_original_message(
-                        content=f"{ctx.author.mention}, your CEXSwap API key:```{random_string}```Keep it in a secret place!"
+                        content=f"{ctx.author.mention}, your CEXSwap API key:```{random_string}```Keep it in a secret place!{link_help}"
                     )
                     await log_to_channel(
                         "cexswap",
@@ -4350,7 +4351,7 @@ class Cexswap(commands.Cog):
             else:
                 if resetkey == "NO":
                     await ctx.edit_original_message(
-                        content=f"{ctx.author.mention}, your CEXSwap API key:```{decrypt_string(get_user['cexswap_api_key'])}```Keep it in a secret place!"
+                        content=f"{ctx.author.mention}, your CEXSwap API key:```{decrypt_string(get_user['cexswap_api_key'])}```Keep it in a secret place!{link_help}"
                     )
                     await log_to_channel(
                         "cexswap",
@@ -4364,7 +4365,7 @@ class Cexswap(commands.Cog):
                     insert_key = await bot_user_add(str(ctx.author.id), SERVER_BOT, encrypt_string(random_string), hash_key)
                     if insert_key is True:
                         await ctx.edit_original_message(
-                            content=f"{ctx.author.mention}, you reset CEXSwap API key to:```{random_string}```Keep it in a secret place!"
+                            content=f"{ctx.author.mention}, you reset CEXSwap API key to:```{random_string}```Keep it in a secret place!{link_help}"
                         )
                         await log_to_channel(
                             "cexswap",

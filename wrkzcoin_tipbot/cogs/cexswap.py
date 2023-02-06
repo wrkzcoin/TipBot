@@ -4592,7 +4592,66 @@ class Cexswap(commands.Cog):
                         }
                         return web.json_response(result, status=500)
                     else:
-                        if str(request.rel_url).startswith("/get_balance/"):
+                        if str(request.rel_url).startswith("/get_address/"):
+                            coin_name = str(request.rel_url).replace("/get_address/", "").replace("/", "").upper().strip()
+                            if len(coin_name) == 0:
+                                result = {
+                                    "success": False,
+                                    "error": "Invalid coin name!",
+                                    "time": int(time.time())
+                                }
+                                return web.json_response(result, status=400)
+                            if not hasattr(self.bot.coin_list, coin_name):
+                                result = {
+                                    "success": False,
+                                    "error": f"{coin_name} doesn't exist with us!",
+                                    "time": int(time.time())
+                                }
+                                return web.json_response(result, status=400)
+                            else:
+                                enable_deposit = getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit")
+                                if enable_deposit == 0:
+                                    result = {
+                                        "success": False,
+                                        "error": f"{coin_name} deposit is currently disable!",
+                                        "time": int(time.time())
+                                    }
+                                    return web.json_response(result, status=400)
+
+                                user_id = find_user['user_id']
+                                user_server = find_user['user_server']
+                                net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                                type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                                get_deposit = await self.wallet_api.sql_get_userwallet(
+                                    user_id, coin_name, net_name, type_coin, user_server, 0)
+                                if get_deposit is None:
+                                    get_deposit = await self.wallet_api.sql_register_user(
+                                        user_id, coin_name, net_name, type_coin, user_server, 0, 0
+                                    )
+
+                                wallet_address = get_deposit['balance_wallet_address']
+                                plain_address = wallet_address
+                                if type_coin in ["HNT", "XLM", "VITE", "COSMOS"]:
+                                    address_memo = wallet_address.split()
+                                    plain_address = address_memo[0] + f" MEMO/TAG: {address_memo[2]}"
+                                if plain_address is not None:
+                                    result = {
+                                        "success": True,
+                                        "error": None,
+                                        "coin_name": coin_name,
+                                        "user_id": user_id,
+                                        "address": plain_address,
+                                        "time": int(time.time())
+                                    }
+                                    return web.json_response(result, status=200)
+                                else:
+                                    result = {
+                                        "success": False,
+                                        "error": f"{coin_name} internal error!",
+                                        "time": int(time.time())
+                                    }
+                                    return web.json_response(result, status=500)
+                        elif str(request.rel_url).startswith("/get_balance/"):
                             coin_name = str(request.rel_url).replace("/get_balance/", "").replace("/", "").upper().strip()
                             if len(coin_name) == 0:
                                 result = {

@@ -455,6 +455,7 @@ async def list_all_coin_information():
             withdraw = "✅" if c['enable_withdraw'] == 1 else "❌"
             twitter = "✅" if c['enable_twitter'] == 1 else "❌"
             telegram = "✅" if c['enable_telegram'] == 1 else "❌"
+            cexswap = "✅" if c['cexswap_enable'] == 1 else "❌"
 
             explorer_link = c['explorer_link']
             if explorer_link and explorer_link.startswith("http"):
@@ -487,7 +488,7 @@ async def list_all_coin_information():
                 traceback.print_exc(file=sys.stdout)
             all_coins.append(
                 [c['coin_name'], height, c['deposit_confirm_depth'], tip, deposit, withdraw, twitter, telegram,
-                    tip_info, withdraw_info, explorer_link]
+                    cexswap, tip_info, withdraw_info, explorer_link]
             )
         return {
             "data": all_coins,

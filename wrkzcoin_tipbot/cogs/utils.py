@@ -9,8 +9,30 @@ import disnake
 from disnake.ext import commands
 
 import store
-from Bot import RowButtonRowCloseAnyMessage, logchanbot
+from Bot import RowButtonRowCloseAnyMessage, logchanbot, truncate
 
+
+def num_format_coin(amount):
+    if amount == 0:
+        return "0.0"
+
+    if amount < 0.00000001:
+        amount_str = '{:,.10f}'.format(truncate(amount, 10))
+    elif amount < 0.000001:
+        amount_str = '{:,.8f}'.format(truncate(amount, 8))
+    elif amount < 0.00001:
+        amount_str = '{:,.7f}'.format(truncate(amount, 7))
+    elif amount < 0.01:
+        amount_str = '{:,.6f}'.format(truncate(amount, 6))
+    elif amount < 1.0:
+        amount_str = '{:,.5f}'.format(truncate(amount, 5))
+    elif amount < 10:
+        amount_str = '{:,.4f}'.format(truncate(amount, 4))
+    elif amount < 1000.00:
+        amount_str = '{:,.3f}'.format(truncate(amount, 3))
+    else:
+        amount_str = '{:,.2f}'.format(truncate(amount, 2))
+    return amount_str.rstrip('0').rstrip('.') if '.' in amount_str else amount_str
 
 # https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
 
@@ -221,6 +243,7 @@ class Utils(commands.Cog):
         self.cache_kv_db_paprika = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="paprika", autocommit=True)
         self.cache_kv_db_faucet = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="faucet", autocommit=True)
         self.cache_kv_db_market_guild = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="market_guild", autocommit=True)
+        self.cache_kv_db_user_disable = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="user_disable", autocommit=True)
 
     async def get_bot_settings(self):
         try:
@@ -357,8 +380,9 @@ class Utils(commands.Cog):
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `discord_server`
                     WHERE `trade_channel` IS NOT NULL
+                        AND `enable_trade`=%s
                     """
-                    await cur.execute(sql,)
+                    await cur.execute(sql, "YES")
                     result = await cur.fetchall()
                     if result:
                         return result
@@ -726,10 +750,83 @@ class Utils(commands.Cog):
                         result = await cur.fetchall()
                         if result:
                             return result
+                    elif what.lower() == "cexswaplp":
+                        sql = """
+                        SELECT `cexswap_distributing_fee`.*, `cexswap_pools`.`pairs`, `cexswap_pools`.`pool_id` FROM `cexswap_distributing_fee`
+                        INNER JOIN `cexswap_pools` ON `cexswap_distributing_fee`.`pool_id`=`cexswap_pools`.`pool_id`
+                        WHERE `cexswap_distributing_fee`.`distributed_user_id`=%s AND `cexswap_distributing_fee`.`got_ticker`=%s 
+                            AND `cexswap_distributing_fee`.`distributed_user_server`=%s 
+                        ORDER BY `cexswap_distributing_fee`.`date` DESC LIMIT """+ str(limit)
+                        await cur.execute(sql, (user_id, coin_name, user_server))
+                        result = await cur.fetchall()
+                        if result:
+                            return result
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return []
     # End of recent activity
+
+    # Check if a user lock
+    def is_locked_user(self, user_id: str, user_server: str="DISCORD"):
+        try:
+            get_member = self.get_cache_kv(
+                "user_disable",
+                f"{user_id}_{user_server}"
+            )
+            if get_member is not None:
+                return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    # get coin emoji
+    def get_coin_emoji(self, coin_name: str, get_link: bool=False):
+        coin_emoji = ""
+        try:
+            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+            if coin_emoji is None:
+                coin_emoji = ""
+            else:
+                if get_link is True:
+                    split_id = coin_emoji.split(":")[2]
+                    link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")) + '.gif'
+                    return link
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return coin_emoji
+
+    def get_explorer_link(self, coin_name: str, tx: str):
+        explorer_link = ""
+        try:
+            explorer_link = getattr(getattr(self.bot.coin_list, coin_name), "explorer_tx_prefix")
+            if explorer_link is None:
+                explorer_link = ""
+            else:
+                explorer_link = "\nLink: <" + explorer_link.replace("{tx_hash_here}", tx) + ">"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return explorer_link
+
+    def get_usd_paprika(self, coin_name: str):
+        usd_equivalent_enable = getattr(
+            getattr(self.bot.coin_list, coin_name),
+            "usd_equivalent_enable"
+        )
+        if usd_equivalent_enable == 1:
+            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+            coin_name_for_price = coin_name
+            if native_token_name:
+                coin_name_for_price = native_token_name
+            per_unit = None
+            if coin_name_for_price in self.bot.token_hints:
+                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+            else:
+                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+            if per_unit and per_unit > 0:
+                return per_unit
+        else:
+            return 0
 
     def set_cache_kv(self, table: str, key: str, value):
         try:
@@ -754,6 +851,9 @@ class Utils(commands.Cog):
             elif table.lower() == "market_guild":
                 self.cache_kv_db_market_guild[key.upper()] = value
                 return True
+            elif table.lower() == "user_disable":
+                self.cache_kv_db_user_disable[key.upper()] = value
+                return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return False
@@ -774,6 +874,8 @@ class Utils(commands.Cog):
                 return self.cache_kv_db_faucet[key.upper()]
             elif table.lower() == "market_guild":
                 return self.cache_kv_db_market_guild[key.upper()]
+            elif table.lower() == "user_disable":
+                return self.cache_kv_db_user_disable[key.upper()]
         except KeyError:
             pass
         return None
@@ -801,6 +903,9 @@ class Utils(commands.Cog):
             elif table.lower() == "market_guild":
                 del self.cache_kv_db_market_guild[key.upper()]
                 return True
+            elif table.lower() == "user_disable":
+                del self.cache_kv_db_user_disable[key.upper()]
+                return True
         except KeyError:
             pass
         return False
@@ -821,6 +926,8 @@ class Utils(commands.Cog):
                 return self.cache_kv_db_faucet
             elif table.lower() == "market_guild":
                 return self.cache_kv_db_market_guild
+            elif table.lower() == "user_disable":
+                return self.cache_kv_db_user_disable
         except KeyError:
             pass
         return None
@@ -841,6 +948,8 @@ class Utils(commands.Cog):
             self.cache_kv_db_faucet = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="faucet", autocommit=True)
         if self.cache_kv_db_market_guild is None:
             self.cache_kv_db_market_guild = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="market_guild", autocommit=True)
+        if self.cache_kv_db_user_disable is None:
+            self.cache_kv_db_user_disable = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="user_disable", autocommit=True)
 
     def cog_unload(self):
         self.cache_kv_db_test.close()
@@ -850,6 +959,7 @@ class Utils(commands.Cog):
         self.cache_kv_db_paprika.close()
         self.cache_kv_db_faucet.close()
         self.cache_kv_db_market_guild.close()
+        self.cache_kv_db_user_disable.close()
 
 def setup(bot):
     bot.add_cog(Utils(bot))

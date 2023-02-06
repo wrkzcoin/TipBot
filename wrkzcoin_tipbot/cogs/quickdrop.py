@@ -15,12 +15,12 @@ from disnake.app_commands import Option, OptionChoice
 
 import disnake
 import store
-from Bot import num_format_coin, logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, SERVER_BOT, text_to_num, \
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, SERVER_BOT, text_to_num, \
     truncate, seconds_str_days
 from cogs.wallet import WalletAPI
 from disnake.ext import commands, tasks
+from cogs.utils import Utils, num_format_coin
 
-from cogs.utils import Utils
 
 class QuickDropButton(disnake.ui.View):
     message: disnake.Message
@@ -120,7 +120,7 @@ class QuickDrop(commands.Cog):
                                 name='Amount',
                                 value="🎉🎉 {}{} {} 🎉🎉".format(
                                     coin_emoji,
-                                    num_format_coin(amount, coin_name, coin_decimal, False),
+                                    num_format_coin(amount),
                                     coin_name
                                 ),
                                 inline=False
@@ -152,6 +152,19 @@ class QuickDrop(commands.Cog):
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+        # check lock
+        try:
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                await ctx.edit_original_message(
+                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    "Please contact bot dev by /about link."
+                )
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # end check lock
 
         # Token name check
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
@@ -302,13 +315,13 @@ class QuickDrop(commands.Cog):
 
             if amount > max_tip or amount < min_tip:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, amount cannot be bigger than "\
-                    f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** "\
-                    f"or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                    f"**{num_format_coin(max_tip)} {token_display}** "\
+                    f"or smaller than **{num_format_coin(min_tip)} {token_display}**."
                 await ctx.edit_original_message(content=msg)
                 return
             elif amount > actual_balance:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to drop "\
-                    f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                    f"**{num_format_coin(amount)} {token_display}**."
                 await ctx.edit_original_message(content=msg)
                 return
 

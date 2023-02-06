@@ -6,12 +6,12 @@ import time
 
 import disnake
 import store
-from Bot import EMOJI_RED_NO, num_format_coin, SERVER_BOT
+from Bot import EMOJI_RED_NO, SERVER_BOT
 from cogs.wallet import WalletAPI
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 
 class BotBalance(commands.Cog):
@@ -117,7 +117,7 @@ class BotBalance(commands.Cog):
                 embed.add_field(
                     name="{}Token/Coin {}{}".format(coin_emoji, token_display, equivalent_usd),
                     value="```Available: {} {}```".format(
-                        num_format_coin(total_balance, coin_name, coin_decimal, False), token_display),
+                        num_format_coin(total_balance), token_display),
                     inline=False
                 )
             except Exception:

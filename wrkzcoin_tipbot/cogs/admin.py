@@ -12,6 +12,7 @@ from decimal import Decimal
 from io import BytesIO
 import os
 from bip_utils import Bip39SeedGenerator, Bip44Coins, Bip44
+import uuid
 
 import aiohttp
 import aiomysql
@@ -21,7 +22,7 @@ from disnake.enums import OptionType
 
 import store
 from Bot import num_format_coin, SERVER_BOT, logchanbot, encrypt_string, decrypt_string, \
-    RowButtonRowCloseAnyMessage, EMOJI_INFORMATION, EMOJI_RED_NO
+    RowButtonRowCloseAnyMessage, EMOJI_INFORMATION, EMOJI_RED_NO, truncate
 from aiomysql.cursors import DictCursor
 from attrdict import AttrDict
 from cogs.wallet import WalletAPI
@@ -1155,6 +1156,86 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("admin " +str(traceback.format_exc()))
 
+    async def audit_lp_db(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    pool = {}
+                    # cexswap_pools
+                    sql = """
+                    SELECT SUM(`amount_ticker_1`) as amount_ticker_1, 
+                    SUM(`amount_ticker_2`) AS amount_ticker_2, `ticker_1_name`, `ticker_2_name`
+                    FROM `cexswap_pools`
+                    GROUP BY `ticker_1_name`, `ticker_2_name`
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool['cexswap_pools'] = result
+
+                    # cexswap_pools_share
+                    sql = """
+                    SELECT SUM(`amount_ticker_1`) as amount_ticker_1, 
+                    SUM(`amount_ticker_2`) AS amount_ticker_2, `ticker_1_name`, `ticker_2_name`, `pairs`
+                    FROM `cexswap_pools_share`
+                    GROUP BY  `ticker_1_name`, `ticker_2_name`
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool['cexswap_pools_share'] = result
+
+                    # cexswap_add_remove_logs
+                    sql = """
+                    SELECT SUM(`amount`) AS amount, `token_name`, `action`
+                    FROM `cexswap_add_remove_logs`
+                    GROUP BY `token_name`, `action`;
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool['cexswap_add_remove_logs'] = result
+
+                    # cexswap_sell_logs
+                    sql = """
+                    SELECT SUM(`got_total_amount`) AS amount, `got_ticker`
+                    FROM `cexswap_sell_logs`
+                    GROUP BY `got_ticker`;
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool['cexswap_sell_logs'] = result
+
+                    # cexswap_distributing_fee
+                    sql = """
+                    SELECT SUM(`distributed_amount`) AS amount, `got_ticker`
+                    FROM `cexswap_distributing_fee`
+                    GROUP BY `got_ticker`;
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool['cexswap_distributing_fee'] = result
+
+                    # user_balance_mv cexswaplp
+                    sql = """
+                    SELECT SUM(`real_amount`) AS amount, `token_name`
+                    FROM `user_balance_mv`
+                    WHERE `type`=%s AND `from_userid`=%s
+                    GROUP BY `token_name`;
+                    """
+                    await cur.execute(sql, ("CEXSWAPLP", "SYSTEM"))
+                    result = await cur.fetchall()
+                    if result:
+                        pool['cexswaplp'] = result
+                    return pool
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot("admin " +str(traceback.format_exc()))
+        return None
+
     async def cog_check(self, ctx):
         return commands.is_owner()
 
@@ -1327,7 +1408,100 @@ class Admin(commands.Cog):
     )
     async def admin(self, ctx):
         if ctx.invoked_subcommand is None: await ctx.reply(f"{ctx.author.mention}, invalid admin command")
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await ctx.reply(f"{ctx.author.mention}, permission denied!")
         return
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='admin enableuser <user id> <user_server>', description="Disable a user from using command.")
+    async def enableuser(self, ctx, user_id: str, user_server: str="DISCORD"):
+        try:
+            if user_server.upper() not in ["DISCORD", "TELEGRAM"]:
+                msg = f"{ctx.author.mention}, invalid user_server `{user_server}`."
+                await ctx.reply(msg)
+                return
+
+            if user_server.upper() == "DISCORD":
+                member = self.bot.get_user(int(user_id))
+                if member is None:
+                    msg = f"{ctx.author.mention}, can't find user with ID `{user_id}@{user_server}`."
+                    await ctx.reply(msg)
+                    return
+
+            # Check in table
+            get_member = self.utils.get_cache_kv(
+                "user_disable",
+                f"{user_id}_{user_server}"
+            )
+            if get_member is not None:
+                # exist, then remove
+                self.utils.del_cache_kv(
+                    "user_disable",
+                    f"{user_id}_{user_server}"
+                )
+                msg = f"{ctx.author.mention}, ✅ user `{user_id}@{user_server}` removed from lock!"
+                await ctx.reply(msg)
+                return
+            else:
+                msg = f"{ctx.author.mention}, 🔴 user `{user_id}@{user_server}` is not locked."
+                await ctx.reply(msg)
+                return
+
+        except ValueError:
+            msg = f"{ctx.author.mention}, invalid given user ID."
+            await ctx.reply(msg)
+            return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='admin disableuser <user id> <user_server> <reasons>', description="Disable a user from using command.")
+    async def disableuser(self, ctx, user_id: str, user_server: str="DISCORD", *, reasons: str=None):
+        try:
+            if reasons is None:
+                msg = f"{ctx.author.mention}, please have reasons!"
+                await ctx.reply(msg)
+                return
+            if user_server.upper() not in ["DISCORD", "TELEGRAM"]:
+                msg = f"{ctx.author.mention}, invalid user_server `{user_server}`."
+                await ctx.reply(msg)
+                return
+
+            if user_server.upper() == "DISCORD":
+                member = self.bot.get_user(int(user_id))
+                if member is None:
+                    msg = f"{ctx.author.mention}, can't find user with ID `{user_id}@{user_server}`."
+                    await ctx.reply(msg)
+                    return
+
+            # Check in table
+            get_member = self.utils.get_cache_kv(
+                "user_disable",
+                f"{user_id}_{user_server}"
+            )
+            if get_member is not None:
+                # exist, then tell.
+                reason = get_member['reason']
+                locked_time = get_member['time']
+                msg = f"{ctx.author.mention}, ✅ user `{user_id}@{user_server}` already locked on <t:{locked_time}:f> reasons ```{reason}```"
+                await ctx.reply(msg)
+                return
+            else:
+                self.utils.set_cache_kv(
+                    "user_disable",
+                    f"{user_id}_{user_server}",
+                    {'time': int(time.time()), 'reason': reasons if reasons else "N/A"}
+                )
+                msg = f"{ctx.author.mention}, ✅ successfully locked `{user_id}@{user_server}` with reasons ```{reasons if reasons else 'N/A'}```"
+                await ctx.reply(msg)
+                return
+
+        except ValueError:
+            msg = f"{ctx.author.mention}, invalid given user ID."
+            await ctx.reply(msg)
+            return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
     @admin.command(hidden=True, usage='admin updatebalance <coin>', description='Force update a balance of a coin/token')
@@ -1356,7 +1530,8 @@ class Admin(commands.Cog):
                 chain_id = getattr(getattr(self.bot.coin_list, coin_name), "chain_id")
                 start_time = time.time()
                 if type_coin == "ERC-20":
-                    await store.sql_check_minimum_deposit_erc20(
+                    check_min_deposit = functools.partial(
+                        store.sql_check_minimum_deposit_erc20,
                         self.bot.erc_node_list[net_name],
                         net_name, coin_name,
                         contract, coin_decimal,
@@ -1365,6 +1540,7 @@ class Admin(commands.Cog):
                         chain_id, real_deposit_fee,
                         erc20_approve_spend, 7200
                     )
+                    await self.bot.loop.run_in_executor(None, check_min_deposit)
                     await ctx.reply("{}, processing {} update. Time token {}s".format(ctx.author.mention, coin_name, time.time()-start_time))
                 else:
                     await ctx.reply("{}, not support yet for this method for {}.".format(ctx.author.mention, coin_name))
@@ -1739,8 +1915,180 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
+    @admin.command(hidden=True, usage='auditlp', description='Audit LP of CEXSwap')
+    async def auditlp(self, ctx):
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying auditlp!".format(
+                ctx.author.name, ctx.author.discriminator, ctx.author.mention)
+            )
+            return
+        try:
+            get_lp = await self.audit_lp_db()
+            cexswap_pools = {}
+            cexswap_pools_share = {}
+            cexswap_add = {}
+            cexswap_remove = {}
+            cexswap_sell_logs = {}
+            cexswap_distributing_fee = {}
+            cexswaplp = {}
+            final_amount = {}
+            coin_list = []
+            if get_lp is not None:
+                # cexswap_pools
+                if len(get_lp['cexswap_pools']) > 0:
+                    for each in get_lp['cexswap_pools']:
+                        if each['ticker_1_name'] not in coin_list:
+                            coin_list.append(each['ticker_1_name'])
+                        if each['ticker_2_name'] not in coin_list:
+                            coin_list.append(each['ticker_2_name'])
+                        # ticker_1
+                        if each['ticker_1_name'] not in cexswap_pools:
+                            cexswap_pools[each['ticker_1_name']] = each['amount_ticker_1']
+                        else:
+                            cexswap_pools[each['ticker_1_name']] += each['amount_ticker_1']
+                        # ticker_2
+                        if each['ticker_2_name'] not in cexswap_pools:
+                            cexswap_pools[each['ticker_2_name']] = each['amount_ticker_2']
+                        else:
+                            cexswap_pools[each['ticker_2_name']] += each['amount_ticker_2']
+
+                # cexswap_pools_share
+                if len(get_lp['cexswap_pools_share']) > 0:
+                    for each in get_lp['cexswap_pools_share']:
+                        if each['ticker_1_name'] not in coin_list:
+                            coin_list.append(each['ticker_1_name'])
+                        if each['ticker_2_name'] not in coin_list:
+                            coin_list.append(each['ticker_2_name'])
+                        # ticker_1
+                        if each['ticker_1_name'] not in cexswap_pools_share:
+                            cexswap_pools_share[each['ticker_1_name']] = each['amount_ticker_1']
+                        else:
+                            cexswap_pools_share[each['ticker_1_name']] += each['amount_ticker_1']
+                        # ticker_2
+                        if each['ticker_2_name'] not in cexswap_pools_share:
+                            cexswap_pools_share[each['ticker_2_name']] = each['amount_ticker_2']
+                        else:
+                            cexswap_pools_share[each['ticker_2_name']] += each['amount_ticker_2']
+
+                # cexswap_add_remove_logs
+                if len(get_lp['cexswap_add_remove_logs']) > 0:
+                    for each in get_lp['cexswap_add_remove_logs']:
+                        if each['token_name'] not in coin_list:
+                            coin_list.append(each['token_name'])
+
+                        if each['action'] == "add":
+                            if each['token_name'] not in cexswap_add:
+                                cexswap_add[each['token_name']] = each['amount']
+                            else:
+                                cexswap_add[each['token_name']] += each['amount']
+                        else:
+                            if each['token_name'] not in cexswap_remove:
+                                cexswap_remove[each['token_name']] = each['amount']
+                            else:
+                                cexswap_remove[each['token_name']] += each['amount']
+
+                # cexswap_sell_logs
+                if len(get_lp['cexswap_sell_logs']) > 0:
+                    for each in get_lp['cexswap_sell_logs']:
+                        if each['got_ticker'] not in coin_list:
+                            coin_list.append(each['got_ticker'])
+
+                        if each['got_ticker'] not in cexswap_sell_logs:
+                            cexswap_sell_logs[each['got_ticker']] = each['amount']
+                        else:
+                            cexswap_sell_logs[each['got_ticker']] += each['amount']
+
+                # cexswap_distributing_fee
+                if len(get_lp['cexswap_distributing_fee']) > 0:
+                    for each in get_lp['cexswap_distributing_fee']:
+                        if each['got_ticker'] not in coin_list:
+                            coin_list.append(each['got_ticker'])
+
+                        if each['got_ticker'] not in cexswap_distributing_fee:
+                            cexswap_distributing_fee[each['got_ticker']] = each['amount']
+                        else:
+                            cexswap_distributing_fee[each['got_ticker']] += each['amount']
+                
+                # cexswaplp
+                if len(get_lp['cexswaplp']) > 0:
+                    for each in get_lp['cexswaplp']:
+                        if each['token_name'] not in coin_list:
+                            coin_list.append(each['token_name'])
+
+                        if each['token_name'] not in cexswaplp:
+                            cexswaplp[each['token_name']] = each['amount']
+                        else:
+                            cexswaplp[each['token_name']] += each['amount']
+
+                # Final pool vs share
+                msg = ""
+                result = []
+                for each in coin_list:
+                    final_amount[each] = 0.0
+                    if each in cexswap_pools:
+                        final_amount[each] += float(cexswap_pools[each])
+                    if each in cexswap_pools_share:
+                        final_amount[each] -= float(cexswap_pools_share[each])
+                    result.append("\nPOOL vs SHARE FOR {}\n   {} - {} = {} {}".format(
+                        each, float(truncate(cexswap_pools[each], 4)),
+                        float(truncate(cexswap_pools_share[each], 4)),
+                        "✅" if truncate(final_amount[each], 8) == 0 else "🔴",
+                        truncate(final_amount[each], 6)
+                    ))
+                msg += "\n".join(result)
+                msg += "\n\n"
+                result = []
+                for each in coin_list:
+                    add_remove = 0.0
+                    pool_amount = 0.0
+                    if cexswap_pools.get(each):
+                        pool_amount += float(cexswap_pools.get(each))
+
+                    if cexswap_add.get(each):
+                        add_remove += float(cexswap_add.get(each))
+                    if cexswap_remove.get(each):
+                        add_remove -= float(cexswap_remove.get(each))
+                    if cexswap_sell_logs.get(each):
+                        add_remove -= float(cexswap_sell_logs.get(each))
+                    if cexswap_distributing_fee.get(each):
+                        add_remove -= float(cexswap_distributing_fee.get(each))
+                    if cexswaplp.get(each):
+                        add_remove -= float(cexswaplp.get(each))
+
+                    result.append("DETAIL {}:\n   POOL: {}\n   -(ADD: {} - REMOVE: {} - SOLD {} - FEE {} - FEE LP {})\n   = {} ({:,.2f}{}) GOT: {} {}\n".format(
+                        each, pool_amount, 
+                        truncate(float(cexswap_add.get(each)), 5) if cexswap_add.get(each) else 0, 
+                        truncate(float(cexswap_remove.get(each)), 5) if cexswap_remove.get(each) else 0,
+                        truncate(float(cexswap_sell_logs.get(each)), 5) if cexswap_sell_logs.get(each) else 0,
+                        truncate(float(cexswap_distributing_fee.get(each)), 4) if cexswap_distributing_fee.get(each) else 0,
+                        truncate(float(cexswaplp.get(each)), 5) if cexswaplp.get(each) else 0,
+                        truncate(add_remove, 4), add_remove/float(cexswap_pools.get(each))*100, "%",
+                        truncate(float(cexswap_pools.get(each)) - add_remove, 5),
+                        "✅" if truncate(float(cexswap_pools.get(each)) - add_remove, 5) >= 0 else "🔴"
+                    ))
+                msg += "\n".join(result)
+                msg = f"```{msg}```"
+                if len(msg) >= 2000:
+                    data_file = disnake.File(
+                        BytesIO(msg.encode()),
+                        filename=f"auditLP_{str(int(time.time()))}.txt"
+                    )
+                    reply_msg = await ctx.reply(file=data_file)
+                await ctx.reply(msg)
+            else:
+                msg = f"{ctx.author.mention}, I can not get result."
+                await ctx.reply(msg)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.is_owner()
     @admin.command(hidden=True, usage='auditcoin <coin name>', description='Audit coin\'s balance')
     async def auditcoin(self, ctx, coin: str):
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying auditcoin!".format(
+                ctx.author.name, ctx.author.discriminator, ctx.author.mention)
+            )
+            return
         coin_name = coin.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
@@ -1750,7 +2098,6 @@ class Admin(commands.Cog):
             return
         else:
             list_user_balances = []
-            list_user_balances.append("user id, server, balance, coin name")
             try:
                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
@@ -1802,13 +2149,13 @@ class Admin(commands.Cog):
                             if member is not None:
                                 member_name = "{}#{}".format(member.name, member.discriminator)
                         if total_balance > 0:
-                            list_user_balances.append("{},{},{},{},{}".format(
-                                each_user_id['user_id'],
-                                member_name,
-                                each_user_id['user_server'],
-                                total_balance,
-                                coin_name
-                            ))
+                            list_user_balances.append({
+                                'user_id': each_user_id['user_id'],
+                                'member_name': member_name,
+                                'user_server': each_user_id['user_server'],
+                                'balance': total_balance,
+                                'coin_name': coin_name
+                            })
                         elif total_balance < 0:
                             negative_users.append(each_user_id['user_id'])
                         sum_balance += total_balance
@@ -1865,8 +2212,18 @@ class Admin(commands.Cog):
                     msg_checkcoin += "Time token: {}s".format(duration)
                     msg_checkcoin += "```"
                     # List balance sheet
+                    # list_user_balances.append("user id, server, balance, coin name")
+                    # sort by balance
+                    list_user_balances = sorted(list_user_balances, key=lambda d: d['balance'], reverse=True)
+                    new_list = []
+                    new_list.append("user id, member_name, server, balance, coin name")
+                    for v in list_user_balances:
+                        new_list.append("{}, {}, {}, {}".format(
+                            v['user_id'], v['member_name'], v['user_server'], v['balance'], v['coin_name']
+                        ))
+
                     balance_sheet_file = disnake.File(
-                        BytesIO(("\n".join(list_user_balances)).encode()),
+                        BytesIO(("\n".join(new_list)).encode()),
                         filename=f"balance_sheet_{coin_name}_{str(int(time.time()))}.csv"
                     )
                     if len(msg_checkcoin) > 1000:
@@ -1946,6 +2303,11 @@ class Admin(commands.Cog):
     )
     async def credit(self, ctx, member_id: str, amount: str, coin: str, user_server: str = "DISCORD"):
         user_server = user_server.upper()
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying auditlp!".format(
+                ctx.author.name, ctx.author.discriminator, ctx.author.mention)
+            )
+            return
         if user_server not in ["DISCORD", "TWITTER", "TELEGRAM", "REDDIT"]:
             await ctx.reply(f"{ctx.author.mention}, invalid server.")
             return
@@ -2546,7 +2908,7 @@ class Admin(commands.Cog):
     @commands.is_owner()
     @admin.command(hidden=True, usage='create', description='Create an address')
     async def create(self, ctx, token: str):
-        if token.upper() not in ["ERC-20", "TRC-20", "XTZ", "NEAR", "VET"]:
+        if token.upper() not in ["ERC-20", "TRC-20", "XTZ", "NEAR", "VET", "UUID"]:
             await ctx.reply(f"{ctx.author.mention}, only with ERC-20 and TRC-20.")
         elif token.upper() == "ERC-20":
             try:
@@ -2593,6 +2955,11 @@ class Admin(commands.Cog):
             wallet = thor_wallet.newWallet()
             await ctx.reply(
                 f"{ctx.author.mention}, {wallet.address}:```key:{wallet.priv.hex()}```",
+                view=RowButtonRowCloseAnyMessage()
+            )
+        elif token.upper() == "UUID":
+            await ctx.reply(
+                f"{ctx.author.mention}, uuid:```{str(uuid.uuid4())}```",
                 view=RowButtonRowCloseAnyMessage()
             )
 

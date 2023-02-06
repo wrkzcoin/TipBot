@@ -156,7 +156,7 @@ class Paprika(commands.Cog):
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
-        await asyncio.sleep(time_lap)
+        await asyncio.sleep(30.0)
         url = "https://api.coinpaprika.com/v1/tickers"
         try:
             print(f"/paprika fetching: {url}")
@@ -293,7 +293,7 @@ class Paprika(commands.Cog):
         cache_pap_coin = self.utils.get_cache_kv("paprika", id)
         if cache_pap_coin is not None and cache_pap_coin['fetched_time'] + self.bot.config['kv_db']['paprika_ttl_coin_id'] > int(time.time()):
             print(f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S} get paprika used cache for coin id [{id}]...")
-            return cache_pap_coin['json_data']
+            return cache_pap_coin
         try:
             async with aiohttp.ClientSession() as session:
                 url = 'https://api.coinpaprika.com/v1/tickers/{}'.format(id)
@@ -444,29 +444,28 @@ class Paprika(commands.Cog):
         # get paprika
         j = await self.fetch_coin_paprika(coin_name)
         if j is not None:
-            j = j['json_data']
-            if float(j['quotes']['USD']['price']) > 100:
-                trading_at = "${:.2f}".format(float(j['quotes']['USD']['price']))
-            elif float(j['quotes']['USD']['price']) > 1:
-                trading_at = "${:.3f}".format(float(j['quotes']['USD']['price']))
-            elif float(j['quotes']['USD']['price']) > 0.01:
-                trading_at = "${:.4f}".format(float(j['quotes']['USD']['price']))
-            else:
-                trading_at = "${:.8f}".format(float(j['quotes']['USD']['price']))
-            response_text = "{} ({}) is #{} by marketcap (${:,.2f}), trading at {} with a 24h vol of ${:,.2f}. "\
-                "It's changed {}% over 24h, {}% over 7d, {}% over 30d, and {}% over 1y with an ath of ${} on {}.".format(
-                    j['name'], j['symbol'], j['rank'], float(j['quotes']['USD']['market_cap']), trading_at,
-                    float(j['quotes']['USD']['volume_24h']), j['quotes']['USD']['percent_change_24h'],
-                    j['quotes']['USD']['percent_change_7d'], j['quotes']['USD']['percent_change_30d'],
-                    j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'],
-                    j['quotes']['USD']['ath_date']
-                )
             try:
-                self.paprika_coin_cache[key] = response_text
+                j = j['json_data']
+                if float(j['quotes']['USD']['price']) > 100:
+                    trading_at = "${:.2f}".format(float(j['quotes']['USD']['price']))
+                elif float(j['quotes']['USD']['price']) > 1:
+                    trading_at = "${:.3f}".format(float(j['quotes']['USD']['price']))
+                elif float(j['quotes']['USD']['price']) > 0.01:
+                    trading_at = "${:.4f}".format(float(j['quotes']['USD']['price']))
+                else:
+                    trading_at = "${:.8f}".format(float(j['quotes']['USD']['price']))
+                response_text = "{} ({}) is #{} by marketcap (${:,.2f}), trading at {} with a 24h vol of ${:,.2f}. "\
+                    "It's changed {}% over 24h, {}% over 7d, {}% over 30d, and {}% over 1y with an ath of ${} on {}.".format(
+                        j['name'], j['symbol'], j['rank'], float(j['quotes']['USD']['market_cap']), trading_at,
+                        float(j['quotes']['USD']['volume_24h']), j['quotes']['USD']['percent_change_24h'],
+                        j['quotes']['USD']['percent_change_7d'], j['quotes']['USD']['percent_change_30d'],
+                        j['quotes']['USD']['percent_change_1y'], j['quotes']['USD']['ath_price'],
+                        j['quotes']['USD']['ath_date']
+                    )
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, {response_text}")
             except Exception:
                 traceback.format_exc()
-                await logchanbot("paprika " +str(traceback.format_exc()))
-            await ctx.edit_original_message(content=f"{ctx.author.mention}, {response_text}")
+                return
             # fetch tradeview image
             if self.tradeview is True:
                 try:

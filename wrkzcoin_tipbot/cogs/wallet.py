@@ -86,13 +86,13 @@ from cosmospy import Transaction as Cosmos_Transaction
 import cn_addressvalidation
 
 import store
-from Bot import num_format_coin, logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, \
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, \
     RowButtonRowCloseAnyMessage, text_to_num, truncate, seconds_str, encrypt_string, decrypt_string, \
     EMOJI_HOURGLASS_NOT_DONE, alert_if_userlock, MSG_LOCKED_ACCOUNT, EMOJI_MONEYFACE, EMOJI_INFORMATION, \
     seconds_str_days, log_to_channel
 
 from cogs.utils import MenuPage
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 from cogs.utils import print_color
 
 Account.enable_unaudited_hdwallet_features()
@@ -843,7 +843,7 @@ class WalletAPI(commands.Cog):
         try:
             if self.pool is None:
                 self.pool = await aiomysql.create_pool(
-                    host=self.bot.config['mysql']['host'], port=3306, minsize=2, maxsize=4,
+                    host=self.bot.config['mysql']['host'], port=3306, minsize=4, maxsize=8,
                     user=self.bot.config['mysql']['user'], password=self.bot.config['mysql']['password'],
                     db=self.bot.config['mysql']['db'], cursorclass=DictCursor, autocommit=True
                 )
@@ -885,6 +885,27 @@ class WalletAPI(commands.Cog):
                         json_resp = await response.json()
                         if response.status == 200 or response.status == 201:
                             balance = float(Decimal(json_resp['unlocked']) / Decimal(10 ** coin_decimal))
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+        elif type_coin == "BCN":
+            url = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
+            json_data = {
+                "jsonrpc": "2.0",
+                "id": "0",
+                "method": "getBalance"
+            }
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=json_data, headers=headers, timeout=60) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            decoded_data = json.loads(res_data)
+                            json_resp = decoded_data
+                            balance = float(Decimal(json_resp['result']['availableBalance']) / Decimal(10 ** coin_decimal))
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif type_coin == "TRTL-SERVICE":
@@ -2505,7 +2526,7 @@ class WalletAPI(commands.Cog):
         return False
 
     async def call_doge(self, method_name: str, coin: str, payload: str = None) -> Dict:
-        timeout = 64
+        timeout = 150
         coin_name = coin.upper()
         headers = {
             'content-type': 'text/plain;',
@@ -4550,6 +4571,10 @@ class TransferExtra(disnake.ui.Modal):
             await interaction.edit_original_message(f"{interaction.author.mention}, address can't be empty!")
             return
 
+        if 'extra_option' not in interaction.text_values:
+            await interaction.edit_original_message(f"{interaction.author.mention}, without extra, please use `/withdraw` command!")
+            return
+
         extra_option = interaction.text_values['extra_option'].strip()
         if extra_option is None or len(extra_option) == 0:
             await interaction.edit_original_message(f"{interaction.author.mention}, without extra, please use `/withdraw` command!")
@@ -5170,11 +5195,7 @@ class Wallet(commands.Cog):
                                         if total_balance == 0:
                                             zero_tokens.append(coin_name)
                                         elif total_balance > 0:
-                                            non_zero_tokens[coin_name] = num_format_coin(
-                                                total_balance, coin_name,
-                                                coin_decimal,
-                                                False
-                                            ) + " " + token_display
+                                            non_zero_tokens[coin_name] = num_format_coin(total_balance) + " " + token_display
                                     if len(zero_tokens) == len(all_names):
                                         response = "You do not have any balance. Please DEPOSIT"
                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
@@ -5334,23 +5355,23 @@ class Wallet(commands.Cog):
                                                 continue
                                             if amount > actual_balance:
                                                 response = f"Insufficient balance to send out "\
-                                                    f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}."
+                                                    f"{num_format_coin(amount)} {token_display}."
                                                 await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                 continue
 
                                             if amount + NetFee > actual_balance:
                                                 response = f"Insufficient balance to send out "\
-                                                    f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                    f"{num_format_coin(amount)} "\
                                                     f"{token_display}. You need to leave at least network fee: "\
-                                                    f"{num_format_coin(NetFee, coin_name, coin_decimal, False)} {token_display}."
+                                                    f"{num_format_coin(NetFee)} {token_display}."
                                                 await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                 continue
 
                                             elif amount < min_tx or amount > max_tx:
                                                 response = f"Transaction cannot be smaller than "\
-                                                    f"{num_format_coin(min_tx, coin_name, coin_decimal, False)} "\
+                                                    f"{num_format_coin(min_tx)} "\
                                                     f"{token_display} or bigger than "\
-                                                    f"{num_format_coin(max_tx, coin_name, coin_decimal, False)} {token_display}."
+                                                    f"{num_format_coin(max_tx)} {token_display}."
                                                 await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                 continue
                                             equivalent_usd = ""
@@ -5405,10 +5426,10 @@ class Wallet(commands.Cog):
 
                                                 if send_tx:
                                                     fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                                        num_format_coin(NetFee, coin_name, coin_decimal, False),
+                                                        num_format_coin(NetFee),
                                                         coin_name)
                                                     try:
-                                                        response = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                        response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         continue
                                                     except Exception:
@@ -5416,8 +5437,8 @@ class Wallet(commands.Cog):
                                                     try:
                                                         await log_to_channel(
                                                             "withdraw", 
-                                                            f"[{user_server}] A user {tw_user} sucessfully withdrew "\
-                                                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                            f"[{user_server}] User {tw_user} sucessfully withdrew "\
+                                                            f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}"
                                                         )
                                                     except Exception:
@@ -5439,14 +5460,14 @@ class Wallet(commands.Cog):
 
                                                 if send_tx:
                                                     fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                                        num_format_coin(NetFee, coin_name, coin_decimal, False),
+                                                        num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
                                                         f"[{user_server}] User {tw_user} sucessfully withdrew "\
-                                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                        f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}"
                                                     )
                                                     continue
@@ -5458,8 +5479,7 @@ class Wallet(commands.Cog):
                                                     continue
                                                 else:
                                                     try:
-                                                        main_address = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                               "MainAddress")
+                                                        main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                                                         send_tx = await self.wallet_api.send_external_nano(
                                                             main_address, each_msg['sender_id'], amount,
                                                             address, coin_name, coin_decimal
@@ -5468,20 +5488,21 @@ class Wallet(commands.Cog):
                                                             fee_txt = "\nWithdrew fee/node: `0.00 {}`.".format(
                                                                 coin_name)
                                                             SendTx_hash = send_tx['block']
-                                                            response = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`{fee_txt}'
+                                                            response = f'You withdrew {num_format_coin(amount)} "\
+                                                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`{fee_txt}'
                                                             await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                             await log_to_channel(
                                                                 "withdraw",
                                                                 f"User {tw_user} successfully withdrew "\
-                                                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                                                f"{token_display}{equivalent_usd}."
+                                                                f"{num_format_coin(amount)} "\
+                                                                f"{token_display}{equivalent_usd}"
                                                             )
                                                             continue
                                                         else:
                                                             await log_to_channel(
                                                                 "withdraw",
-                                                                f"[{user_server}] A user {tw_user} failed to withdraw "\
-                                                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                                f"[{user_server}] User {tw_user} failed to withdraw "\
+                                                                f"{num_format_coin(amount)} "\
                                                                 f"{token_display}{equivalent_usd}."
                                                             )
                                                     except Exception:
@@ -5497,15 +5518,14 @@ class Wallet(commands.Cog):
                                                 )
                                                 if send_tx:
                                                     fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                                        num_format_coin(NetFee, coin_name, coin_decimal, False),
+                                                        num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
-                                                    await update_bot_response(each_msg['text'], response,
-                                                                              each_msg['id'])
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
                                                         f"[{user_server}] User {tw_user} successfully withdrew "\
-                                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                        f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}."
                                                     )
                                                     continue
@@ -5513,16 +5533,13 @@ class Wallet(commands.Cog):
                                                     await log_to_channel(
                                                         "withdraw",
                                                         f"[{user_server}] User {tw_user} failed to withdraw "\
-                                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                        f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}."
                                                     )
                                             elif type_coin == "HNT":
-                                                wallet_host = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                      "wallet_address")
-                                                main_address = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                       "MainAddress")
-                                                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                       "decimal")
+                                                wallet_host = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
+                                                main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+                                                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                                                 password = decrypt_string(
                                                     getattr(getattr(self.bot.coin_list, coin_name), "walletkey"))
                                                 send_tx = await self.wallet_api.send_external_hnt(
@@ -5532,23 +5549,23 @@ class Wallet(commands.Cog):
                                                 )
                                                 if send_tx:
                                                     fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                                        num_format_coin(NetFee, coin_name, coin_decimal, False),
+                                                        num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f"You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                    response = f"You withdrew {num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
-                                                        f"[{user_server}] A user {tw_user} successfully withdrew "\
-                                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                        f"[{user_server}] User {tw_user} successfully withdrew "\
+                                                        f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}."
                                                     )
                                                     continue
                                                 else:
                                                     await log_to_channel(
                                                         "withdraw",
-                                                        f"[{user_server}] [FAILED] A user {tw_user} failed to withdraw "\
-                                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                        f"[{user_server}] [FAILED] User {tw_user} failed to withdraw "\
+                                                        f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}."
                                                     )
 
@@ -5571,16 +5588,16 @@ class Wallet(commands.Cog):
                                                         tx_hash = send_tx['id']
                                                         fee = send_tx['fee']['quantity'] / 10 ** coin_decimal + fee_limit
                                                         fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                                            num_format_coin(fee, coin_name, coin_decimal, False),
+                                                            num_format_coin(fee),
                                                             coin_name)
-                                                        response = f"You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                        response = f"You withdrew {num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: "\
                                                             f"`{tx_hash}`{fee_txt}"
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
                                                             "withdraw",
                                                             f"[{user_server}] User {tw_user} successfully withdrew "\
-                                                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                            f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}."
                                                         )
                                                         continue
@@ -5592,7 +5609,7 @@ class Wallet(commands.Cog):
                                                         await log_to_channel(
                                                             "withdraw",
                                                             f"[{user_server}] [FAILED] User {tw_user} failed to withdraw "\
-                                                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                            f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
                                                         )
                                                         continue
@@ -5602,7 +5619,7 @@ class Wallet(commands.Cog):
                                                         await log_to_channel(
                                                             "withdraw",
                                                             f"[{user_server}] [FAILED] User {tw_user} failed to withdraw "\
-                                                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                            f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}."
                                                         )
                                                         continue
@@ -5647,7 +5664,7 @@ class Wallet(commands.Cog):
                                                         response = 'I cannot check balance, please try again later!'
                                                         await log_to_channel(
                                                             "withdraw",
-                                                            f"[{user_server}] A user {tw_user} failed to check balance gas coin for "\
+                                                            f"[{user_server}] User {tw_user} failed to check balance gas coin for "\
                                                             f"asset transfer..."
                                                         )
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
@@ -5664,21 +5681,19 @@ class Wallet(commands.Cog):
                                                         gas_coin_msg = ""
                                                         if GAS_COIN is not None:
                                                             gas_coin_msg = " and fee `{} {}` you shall receive additional `{} {}`.".format(
-                                                                num_format_coin(send_tx['network_fee'] + fee_limit / 20,
-                                                                                GAS_COIN, 6, False), GAS_COIN,
-                                                                num_format_coin(send_tx['ada_received'], GAS_COIN, 6,
-                                                                                False), GAS_COIN)
+                                                                num_format_coin(send_tx['network_fee'] + fee_limit / 20), GAS_COIN,
+                                                                num_format_coin(send_tx['ada_received']), GAS_COIN)
                                                         fee_txt = "\nWithdrew fee/node: `{} {}`{}.".format(
-                                                            num_format_coin(NetFee, coin_name, coin_decimal, False),
+                                                            num_format_coin(NetFee),
                                                             coin_name, gas_coin_msg)
-                                                        response = f"You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                        response = f"You withdrew {num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: "\
                                                             f"`{tx_hash}`{fee_txt}"
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
                                                             "withdraw",
                                                             f"[{user_server}] User {tw_user} successfully withdrew "\
-                                                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                            f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}."
                                                         )
                                                         continue
@@ -5689,7 +5704,7 @@ class Wallet(commands.Cog):
                                                         await log_to_channel(
                                                             "withdraw",
                                                             f"[{user_server}] [FAILED] Uer {tw_user} failed to withdraw "\
-                                                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                            f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
                                                         )
                                                     else:
@@ -5697,8 +5712,8 @@ class Wallet(commands.Cog):
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
                                                             "withdraw",
-                                                            f"[{user_server}] [FAILED] A user {tw_user} failed to withdraw "\
-                                                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                            f"[{user_server}] [FAILED] User {tw_user} failed to withdraw "\
+                                                            f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}."
                                                         )
                                                         continue
@@ -5710,22 +5725,22 @@ class Wallet(commands.Cog):
                                                     address, coin_name, coin_decimal, tx_fee, NetFee, user_server)
                                                 if send_tx:
                                                     fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                                        num_format_coin(NetFee, coin_name, coin_decimal, False),
+                                                        num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
-                                                        f"[{user_server}] A user {tw_user} successfully withdrew "\
-                                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                        f"[{user_server}] User {tw_user} successfully withdrew "\
+                                                        f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}."
                                                     )
                                                     continue
                                                 else:
                                                     await log_to_channel(
                                                         "withdraw",
-                                                        f"[{user_server}] [FAILED] A user {tw_user} failed to withdraw "\
-                                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                        f"[{user_server}] [FAILED] User {tw_user} failed to withdraw "\
+                                                        f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}."
                                                     )
                                             elif type_coin == "BTC":
@@ -5734,22 +5749,22 @@ class Wallet(commands.Cog):
                                                     coin_name, 0, NetFee, user_server)  # tx_fee=0
                                                 if send_tx:
                                                     fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                                        num_format_coin(NetFee, coin_name, coin_decimal, False),
+                                                        num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
                                                         f"[{user_server}] User {tw_user} successfully withdrew "\
-                                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                        f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}."
                                                     )
                                                     continue
                                                 else:
                                                     await log_to_channel(
                                                         "withdraw",
-                                                        f"[{user_server}] [FAILED] A user {tw_user} failed to "\
-                                                        f"withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                        f"[{user_server}] [FAILED] User {tw_user} failed to "\
+                                                        f"withdraw {num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}."
                                                     )
                                             elif type_coin == "XMR" or type_coin == "TRTL-API" or type_coin == "TRTL-SERVICE" or type_coin == "BCN":
@@ -5766,21 +5781,21 @@ class Wallet(commands.Cog):
                                                 )  # paymentId: None (end)
                                                 if send_tx:
                                                     fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                                        num_format_coin(NetFee, coin_name, coin_decimal, False),
+                                                        num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
                                                         f"[{user_server}] User {tw_user} successfully executed withdraw "\
-                                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}."
+                                                        f"{num_format_coin(amount)} {token_display}{equivalent_usd}."
                                                     )
                                                     continue
                                                 else:
                                                     await log_to_channel(
                                                         "withdraw",
                                                         f"[{user_server}] User {tw_user} failed to execute to withdraw "\
-                                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}."
+                                                        f"{num_format_coin(amount)} {token_display}{equivalent_usd}."
                                                     )  # ctx
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
@@ -5981,7 +5996,7 @@ class Wallet(commands.Cog):
                                                 )
                                                 if member is not None:
                                                     msg = f"Thank you for RT <{twitter_link}>. You just got a reward of "\
-                                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}."
+                                                        f"{num_format_coin(amount)} {coin_name}."
                                                     try:
                                                         await member.send(msg)
                                                         guild_owner = self.bot.get_user(guild.owner.id)
@@ -5989,7 +6004,7 @@ class Wallet(commands.Cog):
                                                             await guild_owner.send(
                                                                 f"User `{each_discord_user}` RT your twitter at <{twitter_link}>. "\
                                                                 f"He/she just got a reward of "\
-                                                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}."
+                                                                f"{num_format_coin(amount)} {coin_name}."
                                                             )
                                                         except Exception:
                                                             pass
@@ -6008,7 +6023,7 @@ class Wallet(commands.Cog):
                                                                 embed.add_field(
                                                                     name="Reward",
                                                                     value="{} {}".format(
-                                                                        num_format_coin(amount, coin_name, coin_decimal, False),
+                                                                        num_format_coin(amount),
                                                                         coin_name
                                                                     ),
                                                                     inline=True)
@@ -6056,10 +6071,10 @@ class Wallet(commands.Cog):
         try:
             notify_list = await store.sql_get_pending_notification_users_erc20(SERVER_BOT)
             if len(notify_list) > 0:
-                for each_notify in notify_list:
+                for eachTx in notify_list:
                     try:
                         key = "notify_new_tx_erc20_{}_{}_{}".format(
-                            each_notify['token_name'], each_notify['user_id'], each_notify['txn']
+                            eachTx['token_name'], eachTx['user_id'], eachTx['txn']
                         )
                         if self.ttlcache[key] == key:
                             continue
@@ -6068,19 +6083,29 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                     is_notify_failed = False
-                    member = self.bot.get_user(int(each_notify['user_id']))
+                    member = self.bot.get_user(int(eachTx['user_id']))
                     if member:
                         update_status = await store.sql_updating_pending_move_deposit_erc20(
-                            True, is_notify_failed, each_notify['txn']
+                            True, is_notify_failed, eachTx['txn']
                         )
                         if update_status > 0:
                             msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(
                                 num_format_coin(
-                                    each_notify['real_amount'], each_notify['token_name'],
-                                    each_notify['token_decimal'], False
+                                    eachTx['real_amount']
                                 ),
-                                each_notify['token_name']
+                                eachTx['token_name']
                             ) + "```"
+                            try:
+                                await log_to_channel(
+                                    "deposit",
+                                    "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                        num_format_coin(eachTx['real_amount']),
+                                        eachTx['token_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txn']
+                                    ),
+                                    self.bot.config['discord']['deposit_webhook']
+                                )
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
                             try:
                                 await member.send(msg)
                             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
@@ -6106,10 +6131,10 @@ class Wallet(commands.Cog):
         try:
             notify_list = await store.sql_get_pending_notification_users_trc20(SERVER_BOT)
             if notify_list and len(notify_list) > 0:
-                for each_notify in notify_list:
+                for eachTx in notify_list:
                     try:
                         key = "notify_new_tx_trc20_{}_{}_{}".format(
-                            each_notify['token_name'], each_notify['user_id'], each_notify['txn']
+                            eachTx['token_name'], eachTx['user_id'], eachTx['txn']
                         )
                         if self.ttlcache[key] == key:
                             continue
@@ -6118,19 +6143,29 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                     is_notify_failed = False
-                    member = self.bot.get_user(int(each_notify['user_id']))
+                    member = self.bot.get_user(int(eachTx['user_id']))
                     if member:
                         update_status = await store.sql_updating_pending_move_deposit_trc20(
-                            True, is_notify_failed, each_notify['txn']
+                            True, is_notify_failed, eachTx['txn']
                         )
                         if update_status > 0:
                             msg = "You got a new deposit confirmed: ```" + "Amount: {} {}".format(
                                 num_format_coin(
-                                    each_notify['real_amount'], each_notify['token_name'],
-                                     each_notify['token_decimal'], False
+                                    eachTx['real_amount']
                                 ),
-                                each_notify['token_name']
+                                eachTx['token_name']
                             ) + "```"
+                            try:
+                                await log_to_channel(
+                                    "deposit",
+                                    "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                        num_format_coin(eachTx['real_amount']),
+                                        eachTx['token_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txn']
+                                    ),
+                                    self.bot.config['discord']['deposit_webhook']
+                                )
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
                             try:
                                 await member.send(msg)
                             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
@@ -6183,7 +6218,7 @@ class Wallet(commands.Cog):
                                     msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                         "Coin: {}\nTx: {}\nAmount: {}".format(
                                             eachTx['coin_name'], eachTx['txid'],
-                                            num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
+                                            num_format_coin(eachTx['amount'])
                                         ) + "```"
                                     try:
                                         await member.send(msg)
@@ -6424,8 +6459,19 @@ class Wallet(commands.Cog):
                                     msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                         "Coin: {}\nTx: {}\nAmount: {}".format(
                                             eachTx['coin_name'], eachTx['txid'],
-                                            num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
+                                            num_format_coin(eachTx['amount'])
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount']),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `vite_get_transfers` 
@@ -6602,8 +6648,19 @@ class Wallet(commands.Cog):
                                         msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                             "Coin: {}\nTx: {}\nAmount: {}".format(
                                                 eachTx['coin_name'], eachTx['txid'],
-                                                num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
+                                                num_format_coin(eachTx['amount'])
                                             ) + "```"
+                                        try:
+                                            await log_to_channel(
+                                                "deposit",
+                                                "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                    num_format_coin(eachTx['amount']),
+                                                    eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                                ),
+                                                self.bot.config['discord']['deposit_webhook']
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                         try:
                                             await member.send(msg)
                                             sql = """ UPDATE `cosmos_get_transfers` 
@@ -6624,6 +6681,156 @@ class Wallet(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
+    @tasks.loop(seconds=120.0)
+    async def update_balance_juno(self):
+        time_lap = 20  # seconds
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "update_balance_juno"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        timeout = 30
+        # Get status
+        coin_name = "JUNO"
+        coin_family = "COSMOS"
+        if not hasattr(self.bot.coin_list, coin_name):
+            return
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        # Update height
+        rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
+        net_height = await cosmos_get_height(rpchost + "block", 32)
+        if net_height is None:
+            return
+        else:
+            try:
+                self.utils.set_cache_kv(
+                    "block",
+                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                    net_height
+                )
+                # if there are other asset, set them all here
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+            if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 0 and getattr(
+                    getattr(self.bot.coin_list, coin_name), "enable_deposit") == 1:
+                try:
+                    async def get_juno_transactions(endpoint: str, account_addr: str):
+                        try:
+                            headers = {
+                                'Content-Type': 'application/json',
+                                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+                            }
+                            async with aiohttp.ClientSession() as session:
+                                async with session.get(
+                                    endpoint + "?pagination.limit=50&events=coin_received.receiver={}".format("%27" + account_addr + "%27"),
+                                    headers=headers,
+                                    timeout=32
+                                ) as response:
+                                    if response.status == 200:
+                                        res_data = await response.read()
+                                        res_data = res_data.decode('utf-8')
+                                        decoded_data = json.loads(res_data)
+                                        if len(decoded_data) > 0:
+                                            return decoded_data
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        return []
+
+                    async def get_tx_incoming(coin_name: str):
+                        try:
+                            await self.openConnection()
+                            async with self.pool.acquire() as conn:
+                                async with conn.cursor() as cur:
+                                    sql = """ SELECT * FROM `cosmos_get_transfers` """
+                                    await cur.execute(sql,)
+                                    result = await cur.fetchall()
+                                    if result:
+                                        return result
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        return []
+
+                    url = getattr(getattr(self.bot.coin_list, coin_name), "http_address")
+                    main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+                    get_transactions = await get_juno_transactions(url, main_address)
+                    if len(get_transactions['tx_responses']) > 0:
+                        get_incoming_tx = await get_tx_incoming(coin_name)
+                        list_existing_tx = []
+                        if len(get_incoming_tx) > 0:
+                            list_existing_tx = [each['txid'] for each in get_incoming_tx]
+                        for each_tx in get_transactions['tx_responses']:
+                            if each_tx['code'] != 0:
+                                # skip
+                                continue
+                            try:
+                                amount = 0.0
+                                tx_hash = each_tx['txhash']
+                                height = int(each_tx['height'])
+                                if tx_hash in list_existing_tx:
+                                    # Skip
+                                    continue
+
+                                user_id = None
+                                user_memo = each_tx['tx']['body']['memo']
+                                get_user_memo = None
+                                if len(each_tx['tx']['body']['messages']) > 0:
+                                    for each_from_to in each_tx['tx']['body']['messages']:
+                                        from_addr = each_from_to['from_address']
+                                        to_addr = each_from_to['to_address']
+                                        if len(each_from_to['amount']) > 0:
+                                            for each_amount in each_from_to['amount']:
+                                                get_denom = await self.wallet_api.cosmos_get_coin_by_denom(each_amount['denom'])
+                                                if get_denom is None:
+                                                    continue
+                                                coin_name = get_denom['coin_name']
+                                                try:
+                                                    self.utils.set_cache_kv(
+                                                        "block",
+                                                        f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                                                        net_height
+                                                    )
+                                                    # if there are other asset, set them all here
+                                                except Exception:
+                                                    traceback.print_exc(file=sys.stdout)
+                                                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                                amount = int(each_amount['amount']) / 10**coin_decimal
+                                                if main_address == to_addr:
+                                                    if user_memo and len(user_memo) > 0:
+                                                        get_user_memo = await store.sql_get_userwallet_by_paymentid(
+                                                            "{} MEMO: {}".format(main_address, user_memo),
+                                                            coin_name, coin_family
+                                                        )
+                                                        if get_user_memo is not None and get_user_memo['user_id'] is not None:
+                                                            user_id = get_user_memo['user_id']
+
+                                                    if amount > 0:
+                                                        await self.openConnection()
+                                                        async with self.pool.acquire() as conn:
+                                                            async with conn.cursor() as cur:
+                                                                sql = """ INSERT INTO `cosmos_get_transfers` 
+                                                                    (`coin_name`, `user_id`, `txid`, `height`, `amount`, 
+                                                                    `decimal`, `address`, `memo`, `time_insert`, `user_server`) 
+                                                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                                                    """
+                                                                await cur.execute(sql, (
+                                                                    coin_name, user_id, tx_hash, height, amount,
+                                                                    coin_decimal, main_address,
+                                                                    user_memo if user_memo else None,
+                                                                    int(time.time()),
+                                                                    get_user_memo['user_server'] if get_user_memo else None
+                                                                ))
+                                                                await conn.commit()
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
@@ -6944,8 +7151,19 @@ class Wallet(commands.Cog):
                                     msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                         "Coin: {}\nTx: {}\nAmount: {}".format(
                                             eachTx['coin_name'], eachTx['txid'],
-                                            num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
+                                            num_format_coin(eachTx['amount'])
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount']),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `xlm_get_transfers` 
@@ -7161,8 +7379,19 @@ class Wallet(commands.Cog):
                                         msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                             "Coin: {}\nTx: {}\nAmount: {}".format(
                                                 coin_name, eachTx['hash_id'],
-                                                num_format_coin(eachTx['amount'], coin_name, coin_decimal, False)
+                                                num_format_coin(eachTx['amount'])
                                             ) + "```"
+                                        try:
+                                            await log_to_channel(
+                                                "deposit",
+                                                "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                    num_format_coin(eachTx['amount']),
+                                                    eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['hash_id']
+                                                ),
+                                                self.bot.config['discord']['deposit_webhook']
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                         try:
                                             await member.send(msg)
                                             sql = """ UPDATE `ada_get_transfers` 
@@ -7417,8 +7646,19 @@ class Wallet(commands.Cog):
                                                 msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                                     "Coin: {}\nMoved Tx: {}\nAmount: {}".format(
                                                         coin_name, each_mv['txn'],
-                                                        num_format_coin(each_mv['real_amount'], coin_name, coin_decimal, False)
+                                                        num_format_coin(each_mv['real_amount'])
                                                     ) + "```"
+                                                try:
+                                                    await log_to_channel(
+                                                        "deposit",
+                                                        "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                            num_format_coin(each_mv['real_amount']),
+                                                            each_mv['token_name'], each_mv['user_id'], each_mv['user_id'], each_mv['txn']
+                                                        ),
+                                                        self.bot.config['discord']['deposit_webhook']
+                                                    )
+                                                except Exception:
+                                                    traceback.print_exc(file=sys.stdout)
                                                 try:
                                                     await member.send(msg)
                                                     sql = """ UPDATE `sol_move_deposit` 
@@ -7758,8 +7998,19 @@ class Wallet(commands.Cog):
                                     msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                         "Coin: {}\nTx: {}\nAmount: {}".format(
                                             eachTx['coin_name'], eachTx['txid'],
-                                            num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
+                                            num_format_coin(eachTx['amount'])
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount']),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `cn_get_transfers` 
@@ -8096,8 +8347,19 @@ class Wallet(commands.Cog):
                                     msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                         "Coin: {}\nTx: {}\nAmount: {}".format(
                                             eachTx['coin_name'], eachTx['txid'],
-                                            num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
+                                            num_format_coin(eachTx['amount'])
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount']),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `doge_get_transfers` 
@@ -8382,8 +8644,19 @@ class Wallet(commands.Cog):
                                         msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                             "Coin: {}\nTx: {}\nAmount: {}".format(
                                                 coin_name, eachTx['txhash'],
-                                                num_format_coin(eachTx['amount'], coin_name, coin_decimal, False)
+                                                num_format_coin(eachTx['amount'])
                                             ) + "```"
+                                        try:
+                                            await log_to_channel(
+                                                "deposit",
+                                                "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                    num_format_coin(eachTx['amount']),
+                                                    eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txhash']
+                                                ),
+                                                self.bot.config['discord']['deposit_webhook']
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                         try:
                                             await member.send(msg)
                                             sql = """ UPDATE `neo_get_transfers` 
@@ -8448,8 +8721,19 @@ class Wallet(commands.Cog):
                                     msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                         "Coin: {}\nTx: {}\nAmount: {}".format(
                                             eachTx['coin_name'], eachTx['txid'],
-                                            num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
+                                            num_format_coin(eachTx['amount'])
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount']),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `xch_get_transfers`
@@ -8629,8 +8913,19 @@ class Wallet(commands.Cog):
                                     msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                         "Coin: {}\nBlock: {}\nAmount: {}".format(
                                             eachTx['coin_name'], eachTx['block'],
-                                            num_format_coin(eachTx['amount'], eachTx['coin_name'], coin_decimal, False)
+                                            num_format_coin(eachTx['amount'])
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount']),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['block']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `nano_move_deposit` 
@@ -8763,7 +9058,8 @@ class Wallet(commands.Cog):
             if len(erc_contracts) > 0:
                 tasks = []
                 for each_c in erc_contracts:
-                    tasks.append(store.sql_check_minimum_deposit_erc20(
+                    check_min_deposit = functools.partial(
+                        store.sql_check_minimum_deposit_erc20,
                         self.bot.erc_node_list[each_c['net_name']],
                         each_c['net_name'], each_c['coin_name'],
                         each_c['contract'], each_c['decimal'],
@@ -8771,7 +9067,9 @@ class Wallet(commands.Cog):
                         each_c['gas_ticker'], each_c['move_gas_amount'],
                         each_c['chain_id'], each_c['real_deposit_fee'],
                         each_c['erc20_approve_spend'], 7200
-                    ))
+                    )
+                    check_min_deposit_exec = await self.bot.loop.run_in_executor(None, check_min_deposit)
+                    tasks.append(check_min_deposit_exec)
                 completed = 0
                 for task in asyncio.as_completed(tasks):
                     fetch_updates = await task
@@ -8782,14 +9080,17 @@ class Wallet(commands.Cog):
             if len(main_tokens) > 0:
                 tasks = []
                 for each_c in main_tokens:
-                    tasks.append(store.sql_check_minimum_deposit_erc20(
+                    check_min_deposit = functools.partial(
+                        store.sql_check_minimum_deposit_erc20,
                         self.bot.erc_node_list[each_c['net_name']],
                         each_c['net_name'], each_c['coin_name'], None,
                         each_c['decimal'], each_c['min_move_deposit'],
                         each_c['min_gas_tx'], each_c['gas_ticker'],
                         each_c['move_gas_amount'], each_c['chain_id'],
                         each_c['real_deposit_fee'], 0, 7200
-                    ))
+                    )
+                    check_min_deposit_exec = await self.bot.loop.run_in_executor(None, check_min_deposit)
+                    tasks.append(check_min_deposit_exec)
                 completed = 0
                 for task in asyncio.as_completed(tasks):
                     fetch_updates = await task
@@ -8922,8 +9223,19 @@ class Wallet(commands.Cog):
                                     msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                         "Coin: {}\nTx: {}\nAmount: {}".format(
                                             coin_name, eachTx['txid'],
-                                            num_format_coin(eachTx['amount'], coin_name, coin_decimal, False)
+                                            num_format_coin(eachTx['amount'])
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount']),
+                                                eachTx['coin_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txid']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `xrp_get_transfers` 
@@ -9192,8 +9504,19 @@ class Wallet(commands.Cog):
                                     msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                         "Coin: {}\nAmount: {}".format(
                                             eachTx['token_name'],
-                                            num_format_coin(eachTx['amount'], eachTx['token_name'], coin_decimal, False)
+                                            num_format_coin(eachTx['amount'])
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['amount']),
+                                                eachTx['token_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txn']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `near_move_deposit` 
@@ -9257,8 +9580,19 @@ class Wallet(commands.Cog):
                                     msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                         "Coin: {}\nAmount: {}".format(
                                             eachTx['token_name'],
-                                            num_format_coin(eachTx['real_amount'], eachTx['token_name'], coin_decimal, False)
+                                            num_format_coin(eachTx['real_amount'])
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['real_amount']),
+                                                eachTx['token_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txn']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `vet_move_deposit` 
@@ -9509,8 +9843,19 @@ class Wallet(commands.Cog):
                                     msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                         "Coin: {}\nAmount: {}".format(
                                             eachTx['token_name'],
-                                            num_format_coin(eachTx['real_amount'], eachTx['token_name'], coin_decimal, False)
+                                            num_format_coin(eachTx['real_amount'])
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['real_amount']),
+                                                eachTx['token_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txn']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `zil_move_deposit` 
@@ -10063,9 +10408,20 @@ class Wallet(commands.Cog):
                                     msg = "You got a new deposit (it could take a few minutes to credit): ```" + \
                                         "Coin: {}\nAmount: {}".format(
                                             eachTx['token_name'], num_format_coin(
-                                                eachTx['real_amount'], eachTx['token_name'], coin_decimal, False
+                                                eachTx['real_amount']
                                             )
                                         ) + "```"
+                                    try:
+                                        await log_to_channel(
+                                            "deposit",
+                                            "[DEPOSIT] {} {} from <@{}> / {}. ref: {}".format(
+                                                num_format_coin(eachTx['real_amount']),
+                                                eachTx['token_name'], eachTx['user_id'], eachTx['user_id'], eachTx['txn']
+                                            ),
+                                            self.bot.config['discord']['deposit_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
                                         sql = """ UPDATE `tezos_move_deposit` 
@@ -10147,7 +10503,6 @@ class Wallet(commands.Cog):
                             each_c['gas_ticker'], each_c['move_gas_amount'],
                             each_c['chain_id'], each_c['real_deposit_fee'], 7200
                         )
-                        pass
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
             main_tokens = await self.get_all_contracts("TRC-20", True)
@@ -10163,7 +10518,6 @@ class Wallet(commands.Cog):
                             each_c['move_gas_amount'], each_c['chain_id'],
                             each_c['real_deposit_fee'], 7200
                         )
-                        pass
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
         except Exception:
@@ -10877,16 +11231,16 @@ class Wallet(commands.Cog):
                 real_deposit_fee_text = ""
                 if real_deposit_fee > 0:
                     real_deposit_fee_text = " {} {}".format(
-                        num_format_coin(real_deposit_fee, coin_name, coin_decimal, False), token_display)
+                        num_format_coin(real_deposit_fee), token_display)
                 fee_txt = " You must deposit at least {} {} to cover fees needed to credit your account. "\
                     "The fee{} will be deducted from your deposit amount.".format(
-                        num_format_coin(real_min_deposit, coin_name, coin_decimal, False), token_display, real_deposit_fee_text
+                        num_format_coin(real_min_deposit), token_display, real_deposit_fee_text
                         )
             elif getattr(getattr(self.bot.coin_list, coin_name), "min_move_deposit") and getattr(
                     getattr(self.bot.coin_list, coin_name), "min_move_deposit") > 0:
                 min_move_deposit = getattr(getattr(self.bot.coin_list, coin_name), "min_move_deposit")
                 fee_txt = " You should deposit at least {} {}.".format(
-                        num_format_coin(min_move_deposit, coin_name, coin_decimal, False), token_display
+                        num_format_coin(min_move_deposit), token_display
                         )
             embed = disnake.Embed(
                 title=f"{coin_emoji}Deposit for {ctx.author.name}#{ctx.author.discriminator}",
@@ -10921,9 +11275,10 @@ class Wallet(commands.Cog):
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"] and getattr(
                     getattr(self.bot.coin_list, coin_name),
                     "split_main_paymentid") == 1:  # split main and integrated address
+                main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                 embed.add_field(
                     name="Main Address",
-                    value="`{}`".format(get_deposit['main_address']),
+                    value="```{}```".format(main_address),
                     inline=False
                 )
                 embed.add_field(
@@ -11134,7 +11489,7 @@ class Wallet(commands.Cog):
                 embed.add_field(
                     name="{}Token/Coin {}{}".format(coin_emoji+" " if coin_emoji else "", token_display, equivalent_usd),
                     value="```Available: {} {}```".format(
-                        num_format_coin(total_balance, coin_name, coin_decimal, False), token_display),
+                        num_format_coin(total_balance), token_display),
                     inline=False
                 )
                 if getattr(getattr(self.bot.coin_list, coin_name), "related_coins"):
@@ -11359,7 +11714,7 @@ class Wallet(commands.Cog):
                     page.add_field(
                         name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, equivalent_usd),
                         value="{}".format(
-                            num_format_coin(total_balance, coin_name, coin_decimal, False)),
+                            num_format_coin(total_balance)),
                         inline=True
                     )
                     num_coins += 1
@@ -11506,8 +11861,22 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # check lock
+        try:
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                await ctx.edit_original_message(
+                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    "Please contact bot dev by /about link."
+                )
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # end check lock
+
         if str(ctx.author.id) in self.bot.tx_in_progress and \
-            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150 and \
+                ctx.author.id != self.bot.config['discord']['owner_id']:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
             await ctx.edit_original_message(content=msg)
             return
@@ -11554,7 +11923,8 @@ class Wallet(commands.Cog):
 
             # Check if tx in progress
             if str(ctx.author.id) in self.bot.tx_in_progress and \
-                int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
+                int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150 \
+                    and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
                 await ctx.edit_original_message(content=msg)
                 return
@@ -11625,21 +11995,21 @@ class Wallet(commands.Cog):
                     return
                 if amount > actual_balance:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send out "\
-                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}."
+                        f"{num_format_coin(amount)} {token_display}."
                     await ctx.edit_original_message(content=msg)
                     return
 
                 if amount + NetFee > actual_balance:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send out "\
-                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}. "\
-                        f"You need to leave at least network fee: {num_format_coin(NetFee, coin_name, coin_decimal, False)}"\
+                        f"{num_format_coin(amount)} {token_display}. "\
+                        f"You need to leave at least network fee: {num_format_coin(NetFee)}"\
                         f" {token_display}."
                     await ctx.edit_original_message(content=msg)
                     return
                 elif amount < min_tx or amount > max_tx:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transaction cannot be smaller than "\
-                        f"{num_format_coin(min_tx, coin_name, coin_decimal, False)} {token_display} or "\
-                        f"bigger than {num_format_coin(max_tx, coin_name, coin_decimal, False)} {token_display}."
+                        f"{num_format_coin(min_tx)} {token_display} or "\
+                        f"bigger than {num_format_coin(max_tx)} {token_display}."
                     await ctx.edit_original_message(content=msg)
                     return
 
@@ -11674,7 +12044,8 @@ class Wallet(commands.Cog):
                             equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
 
                 if str(ctx.author.id) in self.bot.tx_in_progress and \
-                    int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
+                    int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150 and \
+                        ctx.author.id != self.bot.config['discord']['owner_id']:
                     msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
                     await ctx.edit_original_message(content=msg)
                     return
@@ -11700,7 +12071,7 @@ class Wallet(commands.Cog):
                         return
 
                     send_tx = None
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         try:
                             url = self.bot.erc_node_list[net_name]
@@ -11727,37 +12098,32 @@ class Wallet(commands.Cog):
                         pass
                     if send_tx:
                         fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                            num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
-                        try:
-                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
-                            await ctx.edit_original_message(content=msg)
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                        try:
-                            await log_to_channel(
-                                "withdraw",
-                                f"[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} / "\
-                                f"{ctx.author.mention} sucessfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}"
-                            )
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                        return
-                    else:
-                        msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`."
+                            num_format_coin(NetFee), coin_name)
+                        explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
+                        msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
+                            f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
+                            f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                         await ctx.edit_original_message(content=msg)
                         await log_to_channel(
                             "withdraw",
-                            f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                            f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                            f"[{SERVER_BOT}] User {ctx.author.name}#{ctx.author.discriminator} / "\
+                            f"{ctx.author.mention} sucessfully withdrew {num_format_coin(amount)} "\
+                            f"{token_display}{equivalent_usd}.{explorer_link}"
+                        )
+                        return
+                    else:
+                        msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
+                            f"{num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`."
+                        await ctx.edit_original_message(content=msg)
+                        await log_to_channel(
+                            "withdraw",
+                            f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                            f"failed to withdraw {num_format_coin(amount)} "\
                             f"{token_display}{equivalent_usd}."
                         )
                 elif type_coin in ["TRC-20", "TRC-10"]:
                     send_tx = None
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         try:
                             send_tx = await self.send_external_trc20(
@@ -11783,34 +12149,29 @@ class Wallet(commands.Cog):
 
                     if send_tx:
                         fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                            num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name
+                            num_format_coin(NetFee), coin_name
                         )
-                        try:
-                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
-                            await ctx.edit_original_message(content=msg)
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                        try:
-                            await log_to_channel(
-                                "withdraw",
-                                f"[{SERVER_BOT}] A user {ctx.author.name}#{ctx.author.discriminator} / "\
-                                f"{ctx.author.mention} sucessfully withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}"
-                            )
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
+                        explorer_link = self.utils.get_explorer_link(coin_name, send_tx)                            
+                        msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
+                            f"{num_format_coin(amount)} "\
+                            f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                        await ctx.edit_original_message(content=msg)
+                        await log_to_channel(
+                            "withdraw",
+                            f"[{SERVER_BOT}] User {ctx.author.name}#{ctx.author.discriminator} / "\
+                            f"{ctx.author.mention} sucessfully withdrew "\
+                            f"{num_format_coin(amount)} {token_display}{equivalent_usd}.{explorer_link}"
+                        )
                         return
                     else:
                         msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                            f"{num_format_coin(amount)} "\
                             f"{token_display}{equivalent_usd} to `{address}`."
                         await ctx.edit_original_message(content=msg)
                         await log_to_channel(
                             "withdraw",
-                            f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                            f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                            f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                            f"failed to withdraw {num_format_coin(amount)} "\
                             f"{token_display}{equivalent_usd}."
                         )
                 elif type_coin == "NANO":
@@ -11820,7 +12181,7 @@ class Wallet(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
-                        if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                             self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                             try:
                                 main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
@@ -11828,27 +12189,28 @@ class Wallet(commands.Cog):
                                     main_address, str(ctx.author.id), amount, address, coin_name, coin_decimal
                                 )
                                 if send_tx:
+                                    tx_hash = send_tx['block']
+                                    explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
                                     fee_txt = "\nWithdrew fee/node: `0.00 {}`.".format(coin_name)
-                                    SendTx_hash = send_tx['block']
                                     msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                        f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`{fee_txt}"
+                                        f"{num_format_coin(amount)} "\
+                                        f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
                                     await ctx.edit_original_message(content=msg)
                                     await log_to_channel(
                                         "withdraw",
-                                        f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                        f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                        f"{token_display}{equivalent_usd}."
+                                        f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                        f"successfully withdrew {num_format_coin(amount)} "\
+                                        f"{token_display}{equivalent_usd}.{explorer_link}"
                                     )
                                 else:
                                     msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                        f"{num_format_coin(amount)} "\
                                         f"{token_display}{equivalent_usd} to `{address}`."
                                     await ctx.edit_original_message(content=msg)
                                     await log_to_channel(
                                         "withdraw",
-                                        f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                        f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                        f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                        f"failed to withdraw {num_format_coin(amount)} "\
                                         f"{token_display}{equivalent_usd}."
                                     )
                             except Exception:
@@ -11867,7 +12229,7 @@ class Wallet(commands.Cog):
                         except Exception:
                             pass
                 elif type_coin == "CHIA":
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         send_tx = await self.wallet_api.send_external_xch(
                             str(ctx.author.id), amount, address, coin_name,
@@ -11875,26 +12237,27 @@ class Wallet(commands.Cog):
                         )
                         if send_tx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                                num_format_coin(NetFee), coin_name)
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
+                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
+                                f"{num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                            await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"successfully withdrew {num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd}.{explorer_link}"
                             )
-                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
-                            await ctx.edit_original_message(content=msg)
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
@@ -11907,7 +12270,7 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "HNT":
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         wallet_host = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
                         main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
@@ -11920,26 +12283,27 @@ class Wallet(commands.Cog):
                         )
                         if send_tx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                                num_format_coin(NetFee), coin_name)
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
+                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
+                                f"{num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                            await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"successfully withdrew {num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd}.{explorer_link}"
                             )
-                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
-                            await ctx.edit_original_message(content=msg)
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
@@ -11964,7 +12328,7 @@ class Wallet(commands.Cog):
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
                         await ctx.edit_original_message(content=msg)
                         return
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         send_tx = await vite_send_tx(url, main_address, address, atomic_amount, "", contract, priv)
                         if send_tx:
@@ -11974,32 +12338,33 @@ class Wallet(commands.Cog):
                                 NetFee, send_tx['hash'], json.dumps(send_tx), SERVER_BOT
                             )
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                                num_format_coin(NetFee), coin_name)
+                            explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
+                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
+                                f"{num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                            await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"successfully withdrew {num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd}.{explorer_link}"
                             )
-                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}"
-                            await ctx.edit_original_message(content=msg)
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
                         # reject and tell to wait
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
-                            "Please wait it to finish.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
+                            "Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
                 elif type_coin == "XLM":
@@ -12021,7 +12386,7 @@ class Wallet(commands.Cog):
                                 f"The destination account may not trust the asset you are attempting to send!"
                             await ctx.edit_original_message(content=msg)
                             return
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         wallet_host = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -12036,29 +12401,30 @@ class Wallet(commands.Cog):
                         )
                         if send_tx:
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name
+                                num_format_coin(NetFee), coin_name
                             )
-                            await log_to_channel(
-                                "withdraw",
-                                f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}."
-                            )
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                f"{num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             if extra_option is not None:
                                 msg += "\nWith memo: `{}`".format(extra_option)
                             await ctx.edit_original_message(content=msg)
+                            await log_to_channel(
+                                "withdraw",
+                                f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"successfully withdrew {num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                            )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
@@ -12089,7 +12455,11 @@ class Wallet(commands.Cog):
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress `{address}` for {coin_name}."
                             await ctx.edit_original_message(content=msg)
                             return
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                        if sub_type == "JUNO" and not address.startswith("juno"):
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress `{address}` for {coin_name}."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         wallet_host = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -12100,12 +12470,12 @@ class Wallet(commands.Cog):
                         hrp = getattr(getattr(self.bot.coin_list, coin_name), "header")
                         denom = getattr(getattr(self.bot.coin_list, coin_name), "contract")
 
-                        get_wallet_seq = await cosmos_get_seq(wallet_host, main_address, 8)
+                        get_wallet_seq = await cosmos_get_seq(wallet_host, main_address, 16)
                         if get_wallet_seq is None:
                             await log_to_channel(
                                 "withdraw",
-                                f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"failed to withdrew {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}.\n" \
                                 "ERROR: cosmos_get_seq is None."
                             )
@@ -12113,53 +12483,57 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg)
                             del self.bot.tx_in_progress[str(ctx.author.id)]
                             return
+                        fee = 1000
+                        if getattr(getattr(self.bot.coin_list, coin_name), "fee_limit"):
+                            fee=int(getattr(getattr(self.bot.coin_list, coin_name), "fee_limit") * 10 ** coin_decimal)
                         send_tx = await self.wallet_api.cosmos_send_tx(
                             rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),
                             int(get_wallet_seq['account']['sequence']), key,
                             amount, coin_decimal, str(ctx.author.id), address, SERVER_BOT,
-                            NetFee, fee=1000,gas=120000, memo="", timeout=32, hrp=hrp, denom=denom
+                            NetFee, fee=fee,gas=120000, memo="", timeout=32, hrp=hrp, denom=denom
                         )
                         if send_tx:
                             tx_hash = send_tx['result']['hash']
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name
+                                num_format_coin(NetFee), coin_name
                             )
                             if send_tx['result']['code'] != 0:
                                 error = send_tx['result']['log']
                                 await log_to_channel(
                                     "withdraw",
-                                    f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                    f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                    f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"failed to withdraw {num_format_coin(amount)} "\
                                     f"{token_display}{equivalent_usd}.\nERROR: {error}"
                                 )
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                    f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                    f"{num_format_coin(amount)} "\
                                     f"{token_display}{equivalent_usd} to `{address}`.\nERROR: `{error}`"
                                 if extra_option is not None:
                                     msg += "\nWith memo: `{}`".format(extra_option)
                                 await ctx.edit_original_message(content=msg)
                             else:
-                                await log_to_channel(
-                                    "withdraw",
-                                    f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                    f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                    f"{token_display}{equivalent_usd}."
-                                )
+                                explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                    f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                    f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}"
+                                    f"{num_format_coin(amount)} "\
+                                    f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
                                 if extra_option is not None:
                                     msg += "\nWith memo: `{}`".format(extra_option)
                                 await ctx.edit_original_message(content=msg)
+                                await log_to_channel(
+                                    "withdraw",
+                                    f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"successfully withdrew {num_format_coin(amount)} "\
+                                    f"{token_display}{equivalent_usd}.{explorer_link}"
+                                )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
@@ -12176,7 +12550,7 @@ class Wallet(commands.Cog):
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid address. It should start with `addr1`."
                         await ctx.edit_original_message(content=msg)
                         return
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         if coin_name == "ADA":
                             self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -12190,24 +12564,25 @@ class Wallet(commands.Cog):
                                 tx_hash = send_tx['id']
                                 fee = send_tx['fee']['quantity'] / 10 ** coin_decimal + fee_limit
                                 fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                    num_format_coin(fee, coin_name, coin_decimal, False), coin_name)
+                                    num_format_coin(fee), coin_name)
+                                explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
+                                msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
+                                    f"{num_format_coin(amount)} "\
+                                    f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                                await ctx.edit_original_message(content=msg)
                                 await log_to_channel(
                                     "withdraw",
                                     f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                    f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                    f"{token_display}{equivalent_usd}."
+                                    f"successfully withdrew {num_format_coin(amount)} "\
+                                    f"{token_display}{equivalent_usd}.{explorer_link}"
                                 )
-                                msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                    f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                    f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}"
-                                await ctx.edit_original_message(content=msg)
                             elif "code" in send_tx and "message" in send_tx:
                                 code = send_tx['code']
                                 message = send_tx['message']
                                 await log_to_channel(
                                     "withdraw",
                                     f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                    f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                    f"failed to withdraw {num_format_coin(amount)} "\
                                     f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
                                 )
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
@@ -12216,7 +12591,7 @@ class Wallet(commands.Cog):
                                 await log_to_channel(
                                     "withdraw",
                                     f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                    f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                    f"failed to withdraw {num_format_coin(amount)} "\
                                     f"{token_display}{equivalent_usd}."
                                 )
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
@@ -12290,27 +12665,28 @@ class Wallet(commands.Cog):
                                 gas_coin_msg = ""
                                 if GAS_COIN is not None:
                                     gas_coin_msg = " and fee `{} {}` you shall receive additional `{} {}`.".format(
-                                        num_format_coin(send_tx['network_fee'] + fee_limit / 20, GAS_COIN, 6, False),
-                                        GAS_COIN, num_format_coin(send_tx['ada_received'], GAS_COIN, 6, False), GAS_COIN)
+                                        num_format_coin(send_tx['network_fee'] + fee_limit / 20),
+                                        GAS_COIN, num_format_coin(send_tx['ada_received']), GAS_COIN)
                                 fee_txt = "\nWithdrew fee/node: `{} {}`{}.".format(
-                                    num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name, gas_coin_msg)
+                                    num_format_coin(NetFee), coin_name, gas_coin_msg)
+                                explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
+                                msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
+                                    f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
+                                    f"`{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                                await ctx.edit_original_message(content=msg)
                                 await log_to_channel(
                                     "withdraw",
                                     f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                    f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                    f"{token_display}{equivalent_usd}."
+                                    f"successfully withdrew {num_format_coin(amount)} "\
+                                    f"{token_display}{equivalent_usd}.{explorer_link}"
                                 )
-                                msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                    f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to "\
-                                    f"`{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}"
-                                await ctx.edit_original_message(content=msg)
                             elif "code" in send_tx and "message" in send_tx:
                                 code = send_tx['code']
                                 message = send_tx['message']
                                 await log_to_channel(
                                     "withdraw",
-                                    f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                    f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                    f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"failed to withdraw {num_format_coin(amount)} "\
                                     f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
                                 )
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
@@ -12318,8 +12694,8 @@ class Wallet(commands.Cog):
                             else:
                                 await log_to_channel(
                                     "withdraw",
-                                    f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                    f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                    f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"failed to withdraw {num_format_coin(amount)} "\
                                     f"{token_display}{equivalent_usd}."
                                 )
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
@@ -12334,7 +12710,7 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "XTZ":
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         url = self.bot.erc_node_list['XTZ']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "XTZ"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "XTZ"), "MainAddress")
@@ -12359,27 +12735,28 @@ class Wallet(commands.Cog):
                                 coin_decimal, NetFee, type_coin, contract, token_id, token_type, SERVER_BOT
                             )
                         if send_tx:
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                                num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
+                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"successfully withdrew {num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
@@ -12392,7 +12769,7 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "ZIL":
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "ZIL"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "ZIL"), "MainAddress")
                         if address == main_address:
@@ -12414,33 +12791,34 @@ class Wallet(commands.Cog):
                                 address, coin_name, coin_decimal, NetFee, type_coin, SERVER_BOT
                             )
                         if send_tx:
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                                num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
+                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"successfully withdrew {num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
                         # reject and tell to wait
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
-                            "Please wait it to finish.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
+                            "Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
                     try:
@@ -12448,7 +12826,7 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "VET":
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "VET"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "VET"), "MainAddress")
                         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
@@ -12468,33 +12846,34 @@ class Wallet(commands.Cog):
                                 str(ctx.author.id), amount, address, coin_name, contract,
                                 coin_decimal, NetFee, send_tx, type_coin, SERVER_BOT
                             )
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                                num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} "\
-                                f"to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} "\
+                                f"to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"successfully withdrew {num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to "\
-                                f"withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
                         # reject and tell to wait
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
-                            "Please wait it to finish.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
+                            "Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
                     try:
@@ -12502,7 +12881,7 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "XRP":
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         url = self.bot.erc_node_list['XRP']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "XRP"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "XRP"), "MainAddress")
@@ -12519,27 +12898,28 @@ class Wallet(commands.Cog):
                             currency_code, coin_decimal, SERVER_BOT
                         )
                         if send_tx:
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                                num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
+                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"successfully withdrew {num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
@@ -12552,7 +12932,7 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "NEAR":
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         url = self.bot.erc_node_list['NEAR']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "NEAR"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "NEAR"), "MainAddress")
@@ -12568,31 +12948,32 @@ class Wallet(commands.Cog):
                             address, coin_name, coin_decimal, NetFee, SERVER_BOT
                         )
                         if send_tx:
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                                num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                f"{num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"successfully withdrew {num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`."
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
                         # reject and tell to wait
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
                     try:
@@ -12600,7 +12981,7 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "SOL" or type_coin == "SPL":
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         tx_fee = getattr(getattr(self.bot.coin_list, coin_name), "tx_fee")
                         send_tx = await self.wallet_api.send_external_sol(
@@ -12609,33 +12990,34 @@ class Wallet(commands.Cog):
                             coin_decimal, tx_fee, NetFee, SERVER_BOT
                         )
                         if send_tx:
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                                num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
+                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"successfully withdrew {num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
                         # reject and tell to wait
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
-                            "Please wait it to finish.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
+                            "Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
                     try:
@@ -12643,39 +13025,40 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "BTC":
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         send_tx = await self.wallet_api.send_external_doge(
                             str(ctx.author.id), amount, address, coin_name, 0, NetFee, SERVER_BOT
                         )  # tx_fee=0
                         if send_tx:
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                                num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
+                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"successfully withdrew {num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
                         # reject and tell to wait
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
-                            "Please wait it to finish.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
+                            "Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
                     try:
@@ -12683,39 +13066,40 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "NEO":
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                         send_tx = await self.wallet_api.send_external_neo(
                             str(ctx.author.id), coin_decimal, contract, amount, address, coin_name, NetFee, SERVER_BOT
                         )
                         if send_tx:
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name
+                                num_format_coin(NetFee), coin_name
                             )
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`.\n"\
-                                f"Transaction hash: `{send_tx}`{fee_txt}"
+                                f"Transaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} successfully "\
-                                f"withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd}."
+                                f"withdrew {num_format_coin(amount)} {token_display}{equivalent_usd}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to `{address}`."
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
                         # reject and tell to wait
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
                     try:
@@ -12723,7 +13107,7 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "XMR" or type_coin == "TRTL-API" or type_coin == "TRTL-SERVICE" or type_coin == "BCN":
-                    if str(ctx.author.id) not in self.bot.tx_in_progress:
+                    if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                         mixin = getattr(getattr(self.bot.coin_list, coin_name), "mixin")
@@ -12738,33 +13122,34 @@ class Wallet(commands.Cog):
                             None
                         )  # paymentId: None (end)
                         if send_tx:
+                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                                num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
+                                num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} "\
-                                f"to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} "\
+                                f"to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully executed withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"successfully executed withdraw {num_format_coin(amount)} "\
+                                f"{token_display}{equivalent_usd}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"{num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd} to `{address}`."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"failed to execute to withdraw {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                f"failed to execute to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
                     else:
                         # reject and tell to wait
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
-                            "Please wait it to finish.'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have another tx in process. "\
+                            "Please wait it to finish."
                         await ctx.edit_original_message(content=msg)
                         return
                     try:
@@ -12811,6 +13196,19 @@ class Wallet(commands.Cog):
         token: str
     ):
         type_coin = getattr(getattr(self.bot.coin_list, token.upper()), "type")
+
+        # check lock
+        try:
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    "Please contact bot dev by /about link."
+                )
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # end check lock
+
         # Waits until the user submits the modal.
         try:
             await ctx.response.send_modal(
@@ -13050,10 +13448,10 @@ class Wallet(commands.Cog):
                 if coin_name in get_game_stat:
                     sum_sub = float(get_game_stat[coin_name])
 
-                balance_actual = num_format_coin(actual_balance, coin_name, coin_decimal, False)
+                balance_actual = num_format_coin(actual_balance)
                 get_claimed_count = await store.sql_faucet_sum_count_claimed(coin_name)
                 sub_claim = num_format_coin(
-                        float(get_claimed_count['claimed']) + sum_sub, coin_name, coin_decimal, False
+                        float(get_claimed_count['claimed']) + sum_sub
                     ) if get_claimed_count['count'] > 0 else f"0.00{coin_name}"
                 if actual_balance != 0:
                     table_data.append([coin_name, balance_actual, sub_claim])
@@ -13093,7 +13491,8 @@ class Wallet(commands.Cog):
             return
 
         if str(ctx.author.id) in self.bot.tx_in_progress and \
-            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150 \
+                and ctx.author.id != self.bot.config['discord']['owner_id']:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
             await ctx.edit_original_message(content=msg)
             return
@@ -13122,7 +13521,7 @@ class Wallet(commands.Cog):
         if info and info.upper() == "INFO":
             remaining = await self.bot_faucet(ctx, self.bot.faucet_coins) or ''
             msg = f"{ctx.author.mention} /take balance:\n```{remaining}```Total user claims: **{total_claimed}** times. "\
-                f"Tip me if you want to feed these faucets. Use /claim to vote TipBot and get reward."
+                f"Tip me if you want to feed these faucets. Use `/claim` to vote TipBot and get reward."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -13153,28 +13552,29 @@ class Wallet(commands.Cog):
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} is the bot channel!{advert_txt}'
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
                     await ctx.edit_original_message(content=msg)
+                    # add penalty:
+                    try:
+                        key = self.bot.config['kv_db']['prefix_faucet_take_penalty'] + SERVER_BOT + "_" + str(ctx.author.id)
+                        self.utils.set_cache_kv(
+                            "faucet",
+                            key,
+                            {
+                                'penalty_at': int(time.time())
+                            }
+                        )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                    return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                # add penalty:
-                try:
-                    key = self.bot.config['kv_db']['prefix_faucet_take_penalty'] + SERVER_BOT + "_" + str(ctx.author.id)
-                    self.utils.set_cache_kv(
-                        "faucet",
-                        key,
-                        {
-                            'penalty_at': int(time.time())
-                        }
-                    )
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-                return
+
             if serverinfo and serverinfo['enable_faucet'] == "NO":
                 if self.enable_logchan:
                     await self.botLogChan.send(
-                        f'{ctx.author.name} / {ctx.author.id} tried **take** in {ctx.guild.name} / {ctx.guild.id} which is disable.')
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **/take** in this guild is disable."
+                        f'{ctx.author.name} / {ctx.author.id} tried `/take` in {ctx.guild.name} / {ctx.guild.id} which is disable.')
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, `/take` in this guild is disable."
                 await ctx.edit_original_message(content=msg)
                 return
             elif serverinfo and serverinfo['enable_faucet'] == "YES" and serverinfo['faucet_channel'] is not None and \
@@ -13185,12 +13585,14 @@ class Wallet(commands.Cog):
                     vote_reward_coin = serverinfo['vote_reward_coin']
                     vote_coin_decimal = getattr(getattr(self.bot.coin_list, vote_reward_coin), "decimal")
                     vote_reward_amount = num_format_coin(
-                        serverinfo['vote_reward_amount'], vote_reward_coin,
-                        vote_coin_decimal, False
+                        serverinfo['vote_reward_amount']
                     )
 
-                    extra_take_text += "\n⚆ Vote {} at top.gg <https://top.gg/servers/{}/vote> for {} {} each time.".format(
+                    extra_take_text += "\n⚆ Vote {} at top.gg <https://top.gg/servers/{}/vote> for {} {} each vote.".format(
                         ctx.guild.name, ctx.guild.id, vote_reward_amount, serverinfo['vote_reward_coin'])
+                    if serverinfo['discadia_link']:
+                        extra_take_text += "\n⚆ Vote {} at discadia <{}> for {} {} each vote.".format(
+                            ctx.guild.name, serverinfo['discadia_link'], vote_reward_amount, serverinfo['vote_reward_coin'])
                 if serverinfo['rt_reward_amount'] and serverinfo['rt_reward_coin'] and serverinfo[
                     'rt_end_timestamp'] and serverinfo['rt_end_timestamp'] - 600 > int(time.time()) and serverinfo[
                     'rt_link']:
@@ -13199,7 +13601,7 @@ class Wallet(commands.Cog):
                     rt_reward_coin = serverinfo['rt_reward_coin']
                     rt_coin_decimal = getattr(getattr(self.bot.coin_list, rt_reward_coin), "decimal")
                     time_left = serverinfo['rt_end_timestamp'] - int(time.time()) - 600  # reserved.
-                    rt_amount = num_format_coin(serverinfo['rt_reward_amount'], rt_reward_coin, rt_coin_decimal, False)
+                    rt_amount = num_format_coin(serverinfo['rt_reward_amount'])
 
                     if time_left > 0:
                         extra_take_text += f"\n⚆ RT <{tweet_link}> and get {rt_amount} {rt_reward_coin} "\
@@ -13212,7 +13614,7 @@ class Wallet(commands.Cog):
         # check user claim:
         try:
             if info is None:
-                check_claimed = await store.sql_faucet_checkuser(str(ctx.author.id), SERVER_BOT)
+                check_claimed = await store.sql_faucet_checkuser(str(ctx.author.id), SERVER_BOT, "TAKE")
                 if check_claimed is not None:
                     if int(time.time()) - check_claimed['claimed_at'] <= claim_interval * 3600:
                         # time_waiting = seconds_str(
@@ -13228,7 +13630,7 @@ class Wallet(commands.Cog):
                             check_claimed['claimed_at'],
                             style='f'
                         )
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed on {last_claim_at}. "\
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /take on {last_claim_at}. "\
                             f"Waiting time {time_waiting} for next `/take`. Total user claims: **{total_claimed}** times. "\
                             f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. "\
                             f"Use /claim to vote TipBot and get reward.{extra_take_text}{advert_txt}"
@@ -13340,7 +13742,8 @@ class Wallet(commands.Cog):
 
         tip = None
         if str(ctx.author.id) in self.bot.tx_in_progress and \
-            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150 \
+                and ctx.author.id != self.bot.config['discord']['owner_id']:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
             await ctx.edit_original_message(content=msg)
             return
@@ -13380,17 +13783,17 @@ class Wallet(commands.Cog):
                     amount_in_usd, None
                 )
                 try:
-                    faucet_add = await store.sql_faucet_add(
+                    await store.sql_faucet_add(
                         str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
-                        coin_decimal, SERVER_BOT
+                        coin_decimal, SERVER_BOT, "TAKE"
                     )
                     msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random `/take` "\
-                        f"{coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
+                        f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
                         f"Use /claim to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(
                         f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
-                        f"claimed faucet {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}"\
+                        f"claimed faucet {num_format_coin(amount)} {coin_name}"\
                         f" in guild {ctx.guild.name}/{ctx.guild.id}"
                     )
                 except Exception:
@@ -13398,7 +13801,7 @@ class Wallet(commands.Cog):
                     await logchanbot("wallet /take_action " + str(traceback.format_exc()))
             else:
                 try:
-                    msg = f"Simulated faucet {coin_emoji}{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}. "\
+                    msg = f"Simulated faucet {coin_emoji}{num_format_coin(amount)} {coin_name}. "\
                         f"This is a test only. Use without **ticker** to do real faucet claim. Use /claim "\
                         f"to vote TipBot and get reward.{advert_txt}"
                     await ctx.edit_original_message(content=msg)
@@ -13417,6 +13820,507 @@ class Wallet(commands.Cog):
             del self.bot.tx_in_progress[str(ctx.author.id)]
         except Exception:
             pass
+
+    @commands.guild_only()
+    @commands.slash_command(
+        name="daily",
+        dm_permission=False,
+        usage="daily <coin>",
+        options=[
+            Option('coin', 'coin', OptionType.string, required=False)
+        ],
+        description="Daily claim for a available coin."
+    )
+    async def daily_take(
+        self,
+        ctx,
+        coin: str = None
+    ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /daily ...'
+        await ctx.response.send_message(msg)
+        await self.bot_log()
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/daily", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        # check if user create account less than 3 days
+        try:
+            # x 5 account_age_to_claim
+            account_created = ctx.author.created_at
+            if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']*5:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
+                    f"Wait a few days before using /hourly or /daily."
+                await ctx.edit_original_message(content=msg)
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        if str(ctx.author.id) in self.bot.tx_in_progress and \
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150 \
+                and ctx.author.id != self.bot.config['discord']['owner_id']:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
+            await ctx.edit_original_message(content=msg)
+            return
+
+        try:
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+                try:
+                    botChan = self.bot.get_channel(int(serverinfo['botchan']))
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
+                    await ctx.edit_original_message(content=msg)
+                    return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+
+            # check if account locked
+            account_lock = await alert_if_userlock(ctx, 'daily')
+            if account_lock:
+                msg = f"{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}"
+                await ctx.edit_original_message(content=msg)
+                return
+            # end of check if account locked
+
+            advert_txt = ""
+            # if advert enable
+            if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                try:
+                    random.shuffle(self.bot.advert_list)
+                    advert_txt = "\n__**Random Message:**__ [{}](<{}>)```{}```".format(
+                        self.bot.advert_list[0]['title'], self.bot.advert_list[0]['link'], self.bot.advert_list[0]['content']
+                    )
+                    await self.utils.advert_impress(
+                        self.bot.advert_list[0]['id'], str(ctx.author.id),
+                        str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            # end advert
+
+            if 'daily' not in self.bot.other_data:
+                self.bot.other_data['daily'] = {}
+                for each_coin in self.bot.coin_name_list:
+                    is_daily = getattr(getattr(self.bot.coin_list, each_coin), "enable_daily")
+                    amount_daily = getattr(getattr(self.bot.coin_list, each_coin), "daily_amount")
+                    if is_daily == 1 and amount_daily > 0:
+                        self.bot.other_data['daily'][each_coin] = amount_daily
+            if coin is None:
+                # show summary
+                embed = disnake.Embed(
+                    title=f'TipBot Daily Claim',
+                    description=f"You shall only claim one token per 24h. Decide which one you want to `/daily <token name>`.",
+                    timestamp=datetime.fromtimestamp(int(time.time()))
+                )
+                list_daily = []
+                for k, v in self.bot.other_data['daily'].items():
+                    coin_name = k
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    amount_str = str(v).rstrip('0').rstrip('.') if '.' in str(v) else v
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    list_daily.append("{} {} {}".format(
+                        coin_emoji, amount_str, coin_name
+                    ))
+                embed.add_field(
+                    name="Daily {} Coins".format(len(list_daily)),
+                    value="{}".format("\n".join(list_daily)),
+                    inline=False
+                )
+
+                # if advert enable
+                if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                    try:
+                        random.shuffle(self.bot.advert_list)
+                        embed.add_field(
+                            name="{}".format(self.bot.advert_list[0]['title']),
+                            value="```{}```👉 <{}>".format(self.bot.advert_list[0]['content'], self.bot.advert_list[0]['link']),
+                            inline=False
+                        )
+                        await self.utils.advert_impress(
+                            self.bot.advert_list[0]['id'], str(ctx.author.id),
+                            str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                        )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                # end advert
+
+                embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+                embed.set_thumbnail(url=self.bot.user.display_avatar)
+                await ctx.edit_original_message(content=None, embed=embed)
+            else:
+                # check user claim:
+                try:
+                    claim_interval = 24 # hours
+                    check_claimed = await store.sql_faucet_checkuser(str(ctx.author.id), SERVER_BOT, "DAILY")
+                    if check_claimed is not None:
+                        if int(time.time()) - check_claimed['claimed_at'] <= claim_interval * 3600:
+                            user_claims = await store.sql_faucet_count_user(str(ctx.author.id))
+                            number_user_claimed = '{:,.0f}'.format(user_claims)
+                            time_waiting = disnake.utils.format_dt(
+                                claim_interval * 3600 + check_claimed['claimed_at'],
+                                style='R'
+                            )
+                            last_claim_at = disnake.utils.format_dt(
+                                check_claimed['claimed_at'],
+                                style='f'
+                            )
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /daily on {last_claim_at}. "\
+                                f"Waiting time {time_waiting} for next `/daily`. "\
+                                f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
+                                f"{advert_txt}"
+                            await ctx.edit_original_message(content=msg)
+                            return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+
+                coin_name = coin.upper()
+                if coin_name not in self.bot.other_data['daily']:
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, `{coin_name}` is not available for `/daily`."
+                    )
+                    return
+                else:
+                    amount = self.bot.other_data['daily'][coin_name]
+                    net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                    type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                    contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    get_deposit = await self.sql_get_userwallet(
+                        str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
+                    if get_deposit is None:
+                        get_deposit = await self.sql_register_user(
+                            str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                        )
+
+                    wallet_address = get_deposit['balance_wallet_address']
+                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        wallet_address = get_deposit['paymentid']
+                    elif type_coin in ["XRP"]:
+                        wallet_address = get_deposit['destination_tag']
+
+                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    userdata_balance = await self.wallet_api.user_balance(
+                        str(self.bot.user.id), coin_name, wallet_address, type_coin, height,
+                        deposit_confirm_depth, SERVER_BOT
+                    )
+                    actual_balance = float(userdata_balance['adjust'])
+                    if actual_balance < amount:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Bot's balance is empyt! Try with other coin!"
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    else:
+                        equivalent_usd = ""
+                        amount_in_usd = 0.0
+                        if usd_equivalent_enable == 1:
+                            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                            coin_name_for_price = coin_name
+                            if native_token_name:
+                                coin_name_for_price = native_token_name
+                            if coin_name_for_price in self.bot.token_hints:
+                                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                            else:
+                                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                            if per_unit and per_unit > 0:
+                                amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                                if amount_in_usd > 0.0001:
+                                    equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
+                        await store.sql_user_balance_mv_single(
+                            str(self.bot.user.id), str(ctx.author.id),
+                            str(ctx.guild.id), str(ctx.channel.id), amount, coin_name,
+                            "DAILY", coin_decimal, SERVER_BOT, contract,
+                            amount_in_usd, None
+                        )
+                        try:
+                            del self.bot.tx_in_progress[str(ctx.author.id)]
+                        except Exception:
+                            pass
+                        try:
+                            await store.sql_faucet_add(
+                                str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
+                                coin_decimal, SERVER_BOT, "DAILY"
+                            )
+                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got `/daily` "\
+                                f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
+                                f"Use `/claim` to vote TipBot and get reward and more with `/hourly`.{advert_txt}"
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(
+                                f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
+                                f"claimed /daily {num_format_coin(amount)} {coin_name}"\
+                                f" in guild {ctx.guild.name}/{ctx.guild.id}"
+                            )
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot("wallet /daily " + str(traceback.format_exc()))
+        except disnake.errors.Forbidden:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I have no permission."
+            await ctx.edit_original_message(content=msg)
+            return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @daily_take.autocomplete("coin")
+    async def daily_coin_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.other_data['daily'].keys() if string in name.lower()][:10]
+
+    @commands.guild_only()
+    @commands.slash_command(
+        name="hourly",
+        dm_permission=False,
+        usage="hourly <coin>",
+        options=[
+            Option('coin', 'coin', OptionType.string, required=False)
+        ],
+        description="Claim every hour for a available coin."
+    )
+    async def hourly_take(
+        self,
+        ctx,
+        coin: str = None
+    ):
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /hourly ...'
+        await ctx.response.send_message(msg)
+        await self.bot_log()
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/hourly", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        # check if user create account less than 3 days
+        try:
+            account_created = ctx.author.created_at
+            if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
+                    f"Wait a few days before using /hourly or /daily."
+                await ctx.edit_original_message(content=msg)
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        if str(ctx.author.id) in self.bot.tx_in_progress and \
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150 \
+                and ctx.author.id != self.bot.config['discord']['owner_id']:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
+            await ctx.edit_original_message(content=msg)
+            return
+
+        try:
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
+                try:
+                    botChan = self.bot.get_channel(int(serverinfo['botchan']))
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
+                    await ctx.edit_original_message(content=msg)
+                    return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+
+            # check if account locked
+            account_lock = await alert_if_userlock(ctx, 'hourly')
+            if account_lock:
+                msg = f"{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}"
+                await ctx.edit_original_message(content=msg)
+                return
+            # end of check if account locked
+
+            advert_txt = ""
+            # if advert enable
+            if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                try:
+                    random.shuffle(self.bot.advert_list)
+                    advert_txt = "\n__**Random Message:**__ [{}](<{}>)```{}```".format(
+                        self.bot.advert_list[0]['title'], self.bot.advert_list[0]['link'], self.bot.advert_list[0]['content']
+                    )
+                    await self.utils.advert_impress(
+                        self.bot.advert_list[0]['id'], str(ctx.author.id),
+                        str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            # end advert
+
+            if 'hourly' not in self.bot.other_data:
+                self.bot.other_data['hourly'] = {}
+                for each_coin in self.bot.coin_name_list:
+                    is_hourly = getattr(getattr(self.bot.coin_list, each_coin), "enable_hourly")
+                    amount_hourly = getattr(getattr(self.bot.coin_list, each_coin), "hourly_amount")
+                    if is_hourly == 1 and amount_hourly > 0:
+                        self.bot.other_data['hourly'][each_coin] = amount_hourly
+            if coin is None:
+                # show summary
+                embed = disnake.Embed(
+                    title=f'TipBot Hourly Claim',
+                    description=f"You shall only claim one token every 1 hour. Decide which one you want to `/hourly <token name>`.",
+                    timestamp=datetime.fromtimestamp(int(time.time()))
+                )
+                list_hourly = []
+                for k, v in self.bot.other_data['hourly'].items():
+                    coin_name = k
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    amount_str = str(v).rstrip('0').rstrip('.') if '.' in str(v) else v
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    list_hourly.append("{} {} {}".format(
+                        coin_emoji, amount_str, coin_name
+                    ))
+                embed.add_field(
+                    name="Hourly {} Coins".format(len(list_hourly)),
+                    value="{}".format("\n".join(list_hourly)),
+                    inline=False
+                )
+
+                # if advert enable
+                if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                    try:
+                        random.shuffle(self.bot.advert_list)
+                        embed.add_field(
+                            name="{}".format(self.bot.advert_list[0]['title']),
+                            value="```{}```👉 <{}>".format(self.bot.advert_list[0]['content'], self.bot.advert_list[0]['link']),
+                            inline=False
+                        )
+                        await self.utils.advert_impress(
+                            self.bot.advert_list[0]['id'], str(ctx.author.id),
+                            str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM"
+                        )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                # end advert
+
+                embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+                embed.set_thumbnail(url=self.bot.user.display_avatar)
+                await ctx.edit_original_message(content=None, embed=embed)
+            else:
+                # check user claim:
+                try:
+                    claim_interval = 1 # hours
+                    check_claimed = await store.sql_faucet_checkuser(str(ctx.author.id), SERVER_BOT, "HOURLY")
+                    if check_claimed is not None:
+                        if int(time.time()) - check_claimed['claimed_at'] <= claim_interval * 3600:
+                            user_claims = await store.sql_faucet_count_user(str(ctx.author.id))
+                            number_user_claimed = '{:,.0f}'.format(user_claims)
+                            time_waiting = disnake.utils.format_dt(
+                                claim_interval * 3600 + check_claimed['claimed_at'],
+                                style='R'
+                            )
+                            last_claim_at = disnake.utils.format_dt(
+                                check_claimed['claimed_at'],
+                                style='f'
+                            )
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /hourly on {last_claim_at}. "\
+                                f"Waiting time {time_waiting} for next `/hourly`. "\
+                                f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
+                                f"{advert_txt}"
+                            await ctx.edit_original_message(content=msg)
+                            return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+
+                coin_name = coin.upper()
+                if coin_name not in self.bot.other_data['hourly']:
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, `{coin_name}` is not available for `/hourly`."
+                    )
+                    return
+                else:
+                    amount = self.bot.other_data['hourly'][coin_name]
+                    net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                    type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                    contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    get_deposit = await self.sql_get_userwallet(
+                        str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
+                    if get_deposit is None:
+                        get_deposit = await self.sql_register_user(
+                            str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                        )
+
+                    wallet_address = get_deposit['balance_wallet_address']
+                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        wallet_address = get_deposit['paymentid']
+                    elif type_coin in ["XRP"]:
+                        wallet_address = get_deposit['destination_tag']
+
+                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    userdata_balance = await self.wallet_api.user_balance(
+                        str(self.bot.user.id), coin_name, wallet_address, type_coin, height,
+                        deposit_confirm_depth, SERVER_BOT
+                    )
+                    actual_balance = float(userdata_balance['adjust'])
+                    if actual_balance < amount:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Bot's balance is empyt! Try with other coin!"
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    else:
+                        equivalent_usd = ""
+                        amount_in_usd = 0.0
+                        if usd_equivalent_enable == 1:
+                            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                            coin_name_for_price = coin_name
+                            if native_token_name:
+                                coin_name_for_price = native_token_name
+                            if coin_name_for_price in self.bot.token_hints:
+                                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                            else:
+                                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                            if per_unit and per_unit > 0:
+                                amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                                if amount_in_usd > 0.0001:
+                                    equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+                        self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
+                        await store.sql_user_balance_mv_single(
+                            str(self.bot.user.id), str(ctx.author.id),
+                            str(ctx.guild.id), str(ctx.channel.id), amount, coin_name,
+                            "HOURLY", coin_decimal, SERVER_BOT, contract,
+                            amount_in_usd, None
+                        )
+                        try:
+                            del self.bot.tx_in_progress[str(ctx.author.id)]
+                        except Exception:
+                            pass
+                        try:
+                            await store.sql_faucet_add(
+                                str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
+                                coin_decimal, SERVER_BOT, "HOURLY"
+                            )
+                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got `/hourly` "\
+                                f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
+                                f"Use `/claim` to vote TipBot and get reward and more with `/daily`.{advert_txt}"
+                            await ctx.edit_original_message(content=msg)
+                            await logchanbot(
+                                f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
+                                f"claimed /hourly {num_format_coin(amount)} {coin_name}"\
+                                f" in guild {ctx.guild.name}/{ctx.guild.id}"
+                            )
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                            await logchanbot("wallet /hourly " + str(traceback.format_exc()))
+        except disnake.errors.Forbidden:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I have no permission."
+            await ctx.edit_original_message(content=msg)
+            return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @hourly_take.autocomplete("coin")
+    async def hourly_coin_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.other_data['hourly'].keys() if string in name.lower()][:10]
 
     @commands.guild_only()
     @commands.slash_command(
@@ -13503,7 +14407,8 @@ class Wallet(commands.Cog):
                     
         # Check if tx in progress
         if str(ctx.author.id) in self.bot.tx_in_progress and \
-            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150 \
+                and ctx.author.id != self.bot.config['discord']['owner_id']:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
             await ctx.edit_original_message(content=msg)
             return
@@ -13563,19 +14468,20 @@ class Wallet(commands.Cog):
             return
         elif amount > max_tip * donate_factor or amount < min_tip / donate_factor:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions (donate) cannot be bigger than "\
-                f"**{num_format_coin(max_tip * donate_factor, coin_name, coin_decimal, False)} {token_display}** "\
-                f"or smaller than **{num_format_coin(min_tip / donate_factor, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(max_tip * donate_factor)} {token_display}** "\
+                f"or smaller than **{num_format_coin(min_tip / donate_factor)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
         elif amount > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to donate "\
-                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(amount)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
 
         # check queue
         if str(ctx.author.id) in self.bot.tx_in_progress and \
-            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
+            int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150 \
+                and ctx.author.id != self.bot.config['discord']['owner_id']:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
             await ctx.edit_original_message(content=msg)
             return
@@ -13597,7 +14503,7 @@ class Wallet(commands.Cog):
                 if amount_in_usd > 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
 
-        if str(ctx.author.id) not in self.bot.tx_in_progress:
+        if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
             self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
             try:
                 try:
@@ -13618,12 +14524,12 @@ class Wallet(commands.Cog):
                 )
                 if donate:
                     msg = f"{ctx.author.mention}, thank you for donate "\
-                        f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                        f"{num_format_coin(amount)} "\
                         f"{token_display}{equivalent_usd}."
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(
-                        f"[DONATE] A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                        f"donated {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                        f"[DONATE] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                        f"donated {num_format_coin(amount)} "\
                         f"{token_display}{equivalent_usd}."
                     )
             except Exception:
@@ -13785,8 +14691,8 @@ class Wallet(commands.Cog):
                 actual_balance = float(userdata_balance['adjust'])
                 if actual_balance < amount:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to /swaptokens "\
-                        f"**{num_format_coin(amount, from_coin, coin_decimal, False)} {token_display}**. "\
-                        f"Having {num_format_coin(actual_balance, from_coin, coin_decimal, False)} {token_display}."
+                        f"**{num_format_coin(amount)} {token_display}**. "\
+                        f"Having {num_format_coin(actual_balance)} {token_display}."
                     await ctx.edit_original_message(content=msg)
                     return
 
@@ -13816,13 +14722,13 @@ class Wallet(commands.Cog):
                 actual_balance = float(creditor_balance['adjust'])
                 if actual_balance < amount_swapped:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, creditor has insufficient balance to /swaptokens "\
-                        f"**{num_format_coin(amount_swapped, from_coin, coin_decimal, False)} {token_display}**. "\
-                        f"Remaining only {num_format_coin(actual_balance, to_coin, coin_decimal, False)} {token_display}."
+                        f"**{num_format_coin(amount_swapped)} {token_display}**. "\
+                        f"Remaining only {num_format_coin(actual_balance)} {token_display}."
                     await ctx.edit_original_message(content=msg)
                     try:
-                        msg_log = f"[SWAPTOKENS] - A user {ctx.author.name}#{ctx.author.discriminator} / "\
+                        msg_log = f"[SWAPTOKENS] - User {ctx.author.name}#{ctx.author.discriminator} / "\
                             f"{ctx.author.id}  /swaptokens failed! Shortage of creditor's balance. "\
-                            f"Remaining only {num_format_coin(actual_balance, to_coin, coin_decimal, False)} "\
+                            f"Remaining only {num_format_coin(actual_balance)} "\
                             f"{token_display}."
                         await logchanbot(msg_log)
                         if check_list['channel_log'] and check_list['channel_log'].isdigit():
@@ -13903,13 +14809,13 @@ class Wallet(commands.Cog):
                     if swap > 0:
                         # If there is a log channel for this.
                         try:
-                            msg_log = f"[SWAPTOKENS] - A user {ctx.author.name}#{ctx.author.discriminator} "\
+                            msg_log = f"[SWAPTOKENS] - User {ctx.author.name}#{ctx.author.discriminator} "\
                                 f"/ {ctx.author.id}  /swaptokens successfully from "\
-                                f"{num_format_coin(amount, from_coin, token_decimal_from, False)} {from_coin} "\
-                                f"to {num_format_coin(amount_swapped, to_coin, token_decimal_to, False)} {to_coin} "\
-                                f"[Fee: {num_format_coin(fee_to, to_coin, token_decimal_to, False)} {to_coin}].\n"\
+                                f"{num_format_coin(amount)} {from_coin} "\
+                                f"to {num_format_coin(amount_swapped)} {to_coin} "\
+                                f"[Fee: {num_format_coin(fee_to)} {to_coin}].\n"\
                                 f"CREDITOR ID: {creditor} NEW BALANCE: "\
-                                f"{num_format_coin(float(creditor_balance['adjust']) - amount_swapped, to_coin, token_decimal_to, False)}"\
+                                f"{num_format_coin(float(creditor_balance['adjust']) - amount_swapped)}"\
                                 f" {to_coin}."
                             await logchanbot(msg_log)
                             if check_list['channel_log'] and check_list['channel_log'].isdigit():
@@ -13918,9 +14824,9 @@ class Wallet(commands.Cog):
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully /swaptokens from "\
-                            f"**{num_format_coin(amount, from_coin, token_decimal_from, False)} {from_coin}** to "\
-                            f"**{num_format_coin(amount_swapped, to_coin, token_decimal_to, False)}** _{to_coin} "\
-                            f"[Fee: {num_format_coin(fee_to, to_coin, token_decimal_to, False)} {to_coin}]_. Thanks!"
+                            f"**{num_format_coin(amount)} {from_coin}** to "\
+                            f"**{num_format_coin(amount_swapped)}** _{to_coin} "\
+                            f"[Fee: {num_format_coin(fee_to)} {to_coin}]_. Thanks!"
                         await ctx.edit_original_message(content=msg)
                     else:
                         msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please report.'
@@ -14009,7 +14915,8 @@ class Wallet(commands.Cog):
 
                 # Check if tx in progress
                 if str(ctx.author.id) in self.bot.tx_in_progress and \
-                    int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150:
+                    int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150 \
+                        and ctx.author.id != self.bot.config['discord']['owner_id']:
                     msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
                     await ctx.edit_original_message(content=msg)
                     return
@@ -14023,13 +14930,13 @@ class Wallet(commands.Cog):
 
                 if amount > max_tip or amount < min_tip:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, swap cannot be bigger than "\
-                        f"**{num_format_coin(max_tip, from_coin, coin_decimal, False)} {token_display}** "\
-                        f"or smaller than **{num_format_coin(min_tip, from_coin, coin_decimal, False)} {token_display}**."
+                        f"**{num_format_coin(max_tip)} {token_display}** "\
+                        f"or smaller than **{num_format_coin(min_tip)} {token_display}**."
                     await ctx.edit_original_message(content=msg)
                     return
                 elif amount > actual_balance:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to swap "\
-                        f"**{num_format_coin(amount, from_coin, coin_decimal, False)} {token_display}**."
+                        f"**{num_format_coin(amount)} {token_display}**."
                     await ctx.edit_original_message(content=msg)
                     return
 
@@ -14038,22 +14945,22 @@ class Wallet(commands.Cog):
                     balance = await self.wallet_api.get_coin_balance(to_coin)
                     if balance / 5 < to_amount:  # We allow 20% to swap
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention} insufficient liquidity to swap "\
-                            f"**{num_format_coin(amount, from_coin, coin_decimal, False)} {token_display}** "\
+                            f"**{num_format_coin(amount)} {token_display}** "\
                             f"to {to_coin}. Try lower the amount of `{from_coin}`."
                         await ctx.edit_original_message(content=msg)
                         await logchanbot(
                             f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} wanted to "\
-                            f"swap from `{num_format_coin(amount, from_coin, coin_decimal, False)} {from_coin} "\
-                            f"to {num_format_coin(to_amount, to_coin, to_coin_decimal, False)} {to_coin}` "\
+                            f"swap from `{num_format_coin(amount)} {from_coin} "\
+                            f"to {num_format_coin(to_amount)} {to_coin}` "\
                             f"but shortage of liquidity. "\
-                            f"Having only `{num_format_coin(balance, to_coin, to_coin_decimal, False)} {to_coin}`."
+                            f"Having only `{num_format_coin(balance)} {to_coin}`."
                         )
                         return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot("wallet /swap " + str(traceback.format_exc()))
 
-                if str(ctx.author.id) not in self.bot.tx_in_progress:
+                if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                     self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
 
                     # Delete if has key
@@ -14075,13 +14982,13 @@ class Wallet(commands.Cog):
                         )
                         if swap:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, swapped from "\
-                                f"`{num_format_coin(amount, from_coin, coin_decimal, False)} "\
-                                f"{from_coin} to {num_format_coin(to_amount, to_coin, to_coin_decimal, False)} {to_coin}`."
+                                f"`{num_format_coin(amount)} "\
+                                f"{from_coin} to {num_format_coin(to_amount)} {to_coin}`."
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
-                                f"A user {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"swapped from `{num_format_coin(amount, from_coin, coin_decimal, False)} {from_coin} "\
-                                f"to {num_format_coin(to_amount, to_coin, to_coin_decimal, False)} {to_coin}`."
+                                f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"swapped from `{num_format_coin(amount)} {from_coin} "\
+                                f"to {num_format_coin(to_amount)} {to_coin}`."
                             )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
@@ -14106,7 +15013,7 @@ class Wallet(commands.Cog):
     @recent.sub_command(
         name="withdraw",
         usage="recent withdraw <token/coin>", 
-        description="Get list recent withdraws"
+        description="Get list recent withdraw(s)"
     )
     async def recent_withdraw(
         self, 
@@ -14196,7 +15103,7 @@ class Wallet(commands.Cog):
                     if explorer_tx_prefix:
                         tx = "[{}](<{}>)".format(tx[0:12]+"...", explorer_tx_prefix.replace("{tx_hash_here}", tx))
                     list_tx.append("{} {} {}\n{}\n".format(
-                        num_format_coin(amount, coin_name, coin_decimal, False),
+                        num_format_coin(amount),
                         coin_name,
                         disnake.utils.format_dt(each['date'], style='R'), tx)
                     )
@@ -14205,11 +15112,56 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @recent.sub_command(
+        name="cexswaplp",
+        usage="recent cexswaplp <token/coin>", 
+        description="Get list recent reward from CEXSwap LP"
+    )
+    async def recent_cexswap_lp(
+        self, 
+        ctx,
+        token: str
+    ):
+        coin_name = token.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            await ctx.response.send_message(msg)
+            return
+
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE}, checking recent CEXSwapLP..", ephemeral=True)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/recent deposit", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        try:
+            get_recent = await self.utils.recent_tips(str(ctx.author.id), SERVER_BOT, coin_name, coin_family, "cexswaplp", 20)
+            if len(get_recent) == 0:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, you do not CEXSwap reward for {coin_name}.")
+            else:
+                list_tx = []
+                for each in get_recent:
+                    list_tx.append("From `{}` {}, amount {} {}".format(
+                        each['pairs'],
+                        disnake.utils.format_dt(each['date'], style='R'),
+                        num_format_coin(each['distributed_amount']), each['got_ticker']
+                        )
+                    )
+                list_tx_str = "\n".join(list_tx)
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, last receive of {coin_name}:\n{list_tx_str}")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @recent.sub_command(
         name="deposit",
         usage="recent deposit <token/coin>", 
-        description="Get list recent withdraws"
+        description="Get list recent deposit(s)"
     )
     async def recent_deposit(
         self, 
@@ -14301,7 +15253,7 @@ class Wallet(commands.Cog):
 
                     if explorer_tx_prefix:
                         tx = "[{}](<{}>)".format(tx[0:12]+"...", explorer_tx_prefix.replace("{tx_hash_here}", tx))
-                    list_tx.append("{} {} {}\n{}\n".format(num_format_coin(amount, coin_name, coin_decimal, False), coin_name, disnake.utils.format_dt(time_insert, style='R'), tx))
+                    list_tx.append("{} {} {}\n{}\n".format(num_format_coin(amount), coin_name, disnake.utils.format_dt(time_insert, style='R'), tx))
                 list_tx_str = "\n".join(list_tx)
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, last deposit of {coin_name}:\n{list_tx_str}")
         except Exception:
@@ -14311,7 +15263,7 @@ class Wallet(commands.Cog):
     @recent.sub_command(
         name="receive",
         usage="recent receive <token/coin>", 
-        description="Get list recent withdraws"
+        description="Get list recent receipt(s)"
     )
     async def recent_receive(
         self, 
@@ -14342,8 +15294,8 @@ class Wallet(commands.Cog):
             else:
                 list_tx = []
                 for each in get_recent:
-                    list_tx.append("From `{}` {}, amount {} {} - {}".format(each['from_userid'], disnake.utils.format_dt(each['date'], style='R'), num_format_coin(each['real_amount'], each['token_name'], each['token_decimal'], False), each['token_name'], each['type']))
-                list_tx_str = "\n\n".join(list_tx)
+                    list_tx.append("From `{}` {}, amount {} {} - {}".format(each['from_userid'], disnake.utils.format_dt(each['date'], style='R'), num_format_coin(each['real_amount']), each['token_name'], each['type']))
+                list_tx_str = "\n".join(list_tx)
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, last receive of {coin_name}:\n{list_tx_str}")
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -14351,7 +15303,7 @@ class Wallet(commands.Cog):
     @recent.sub_command(
         name="expense",
         usage="recent expense <token/coin>", 
-        description="Get list recent withdraws"
+        description="Get list recent expense"
     )
     async def recent_expense(
         self, 
@@ -14382,8 +15334,16 @@ class Wallet(commands.Cog):
             else:
                 list_tx = []
                 for each in get_recent:
-                    list_tx.append("To `{}` {}, amount {} {} - {}".format(each['to_userid'], disnake.utils.format_dt(each['date'], style='R'), num_format_coin(each['real_amount'], each['token_name'], each['token_decimal'], False), each['token_name'], each['type']))
-                list_tx_str = "\n\n".join(list_tx)
+                    list_tx.append(
+                        "To `{}` {}, amount {} {} - {}".format(
+                            each['to_userid'],
+                            disnake.utils.format_dt(each['date'], style='R'),
+                            num_format_coin(each['real_amount']),
+                            each['token_name'],
+                            each['type']
+                        )
+                    )
+                list_tx_str = "\n".join(list_tx)
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, last expense of {coin_name}:\n{list_tx_str}")
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -14459,6 +15419,8 @@ class Wallet(commands.Cog):
                 self.update_balance_cosmos.start()
             if not self.update_balance_osmo.is_running():
                 self.update_balance_osmo.start()
+            if not self.update_balance_juno.is_running():
+                self.update_balance_juno.start()
             if not self.notify_new_confirmed_cosmos.is_running():
                 self.notify_new_confirmed_cosmos.start()
 
@@ -14599,6 +15561,8 @@ class Wallet(commands.Cog):
                 self.update_balance_cosmos.start()
             if not self.update_balance_osmo.is_running():
                 self.update_balance_osmo.start()
+            if not self.update_balance_juno.is_running():
+                self.update_balance_juno.start()
             if not self.notify_new_confirmed_cosmos.is_running():
                 self.notify_new_confirmed_cosmos.start()
 
@@ -14716,6 +15680,7 @@ class Wallet(commands.Cog):
         # COSMOS
         self.update_balance_cosmos.cancel()
         self.update_balance_osmo.cancel()
+        self.update_balance_juno.cancel()
         self.notify_new_confirmed_cosmos.cancel()
 
         # VITE

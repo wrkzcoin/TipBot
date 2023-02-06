@@ -10,7 +10,8 @@ from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
 import store
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
+
 
 class Stats(commands.Cog):
     def __init__(self, bot):
@@ -77,9 +78,10 @@ class Stats(commands.Cog):
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                 explorer_link = getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")
                 display_name = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 embed.add_field(
-                    name="WALLET **{}**".format(display_name),
-                    value="`{} {}`".format(simple_number(balance), coin_name),
+                    name="BALANCE {}".format(display_name),
+                    value=num_format_coin(balance),
                     inline=True
                 )
                 try:
@@ -87,14 +89,17 @@ class Stats(commands.Cog):
                     if get_tip_stats is not None:
                         embed.add_field(
                             name="Tip/DB Records: {:,.0f}".format(get_tip_stats['numb_tip']),
-                            value="`{}`".format(simple_number(get_tip_stats['amount_tip'])),
+                            value=num_format_coin(get_tip_stats['amount_tip']),
                             inline=True
                         )
                         embed.add_field(
-                            name="Last Tip",
+                            name="Last Activity",
                             value=disnake.utils.format_dt(get_tip_stats['last_tip'], style='R'),
                             inline=True
                         )
+                    coin_emoji = self.utils.get_coin_emoji(coin_name, get_link=True)
+                    embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+                    embed.set_thumbnail(url=coin_emoji)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 try:

@@ -1,10 +1,11 @@
 import sys
 import traceback
-
-import store
-from Bot import logchanbot
+import itertools
 from attrdict import AttrDict
 from disnake.ext import commands
+
+from Bot import logchanbot
+import store
 
 
 class CoinSetting(commands.Cog):
@@ -127,6 +128,29 @@ class CoinSetting(commands.Cog):
             await logchanbot(traceback.format_exc())
         return None
 
+    async def cexswap_get_list_enable_pairs(self):
+        list_pairs = []
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * 
+                    FROM `coin_settings` 
+                    WHERE `enable`=1 AND `cexswap_enable`=1 """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        list_coins = sorted([i['coin_name'] for i in result])
+                        self.bot.cexswap_coins = list_coins
+                        for pair in itertools.combinations(list_coins, 2):
+                            list_pairs.append("{}/{}".format(pair[0], pair[1]))
+                        if len(list_pairs) > 0:
+                            self.bot.cexswap_pairs = list_pairs
+                            return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
     @commands.command(
         hidden=True,
         usage="config",
@@ -140,7 +164,7 @@ class CoinSetting(commands.Cog):
 
         try:
             if cmd is None:
-                await ctx.reply(f"{ctx.author.mention}, available for reload `coinlist`")
+                await ctx.reply(f"{ctx.author.mention}, available for reload `coinlist, advertlist`")
             elif cmd.lower() == "coinlist":
                 coin_list = await self.get_coin_setting()
                 if coin_list:
@@ -153,12 +177,31 @@ class CoinSetting(commands.Cog):
                 if faucet_coins:
                     self.bot.faucet_coins = faucet_coins
 
-                await ctx.reply(f"{ctx.author.mention}, coin list, name reloaded...")
-                await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")
-            elif cmd.lower() == "coinalias":
+                await self.cexswap_get_list_enable_pairs()
                 await self.get_token_hints()
                 await self.get_coin_alias_name()
-                await ctx.reply(f"{ctx.author.mention}, coin aliases reloaded...")
+
+                # check daily
+                # reset
+                self.bot.other_data['daily'] = {}
+                for each_coin in self.bot.coin_name_list:
+                    is_daily = getattr(getattr(self.bot.coin_list, each_coin), "enable_daily")
+                    amount_daily = getattr(getattr(self.bot.coin_list, each_coin), "daily_amount")
+                    if is_daily == 1 and amount_daily > 0:
+                        self.bot.other_data['daily'][each_coin] = amount_daily
+                # end of daily
+
+                # check hourly
+                # reset
+                self.bot.other_data['hourly'] = {}
+                for each_coin in self.bot.coin_name_list:
+                    is_hourly = getattr(getattr(self.bot.coin_list, each_coin), "enable_hourly")
+                    amount_hourly = getattr(getattr(self.bot.coin_list, each_coin), "hourly_amount")
+                    if is_hourly == 1 and amount_hourly > 0:
+                        self.bot.other_data['hourly'][each_coin] = amount_hourly
+                # end of hourly
+
+                await ctx.reply(f"{ctx.author.mention}, cexswap list, coin list, name, coin aliases, daily, hourly reloaded...")
                 await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")
             elif cmd.lower() == "advertlist":
                 await self.get_advert_list()

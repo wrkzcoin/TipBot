@@ -22,9 +22,9 @@ import json
 import store
 
 from cogs.utils import MenuPage
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
-from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, num_format_coin, seconds_str, \
+from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, seconds_str, \
     RowButtonRowCloseAnyMessage, SERVER_BOT, EMOJI_HOURGLASS_NOT_DONE, DEFAULT_TICKER, text_to_num
 from cogs.wallet import WalletAPI
 
@@ -287,13 +287,13 @@ class TipOtherCoin(disnake.ui.Modal):
             return
         elif amount > actual_balance:
             msg = f"{EMOJI_RED_NO} {self.ctx.author.mention}, insufficient balance to give meme tip of "\
-                f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(amount)} {token_display}**."
             await interaction.edit_original_message(content=msg)
             return
         elif amount > max_tip or amount < min_tip:
             msg = f"{EMOJI_RED_NO} {self.ctx.author.mention}, tipping cannot be bigger than "\
-                f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than "\
-                f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
+                f"**{num_format_coin(min_tip)} {token_display}**."
             await interaction.edit_original_message(content=msg)
             return
         equivalent_usd = ""
@@ -341,12 +341,15 @@ class TipOtherCoin(disnake.ui.Modal):
                     await get_meme_owner.send(content=msg)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
                     f"{token_display}** to meme `{self.meme_id}`."
                 await interaction.edit_original_message(content=msg)
                 try:
-                    embed = disnake.Embed(title="A meme got tipped!", description=f"Share your meme and get tipped!",
-                                          timestamp=datetime.now())
+                    embed = disnake.Embed(
+                        title="A meme got tipped!",
+                        description=f"Share your meme and get tipped!",
+                        timestamp=datetime.now()
+                    )
                     embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=False)
                     embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
                     embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
@@ -449,13 +452,13 @@ class MemeTip_Button(disnake.ui.View):
                 return
             elif amount > actual_balance:
                 msg = f"{EMOJI_RED_NO} {interaction.author.mention}, insufficient balance to give meme tip of "\
-                    f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                    f"**{num_format_coin(amount)} {token_display}**."
                 await interaction.edit_original_message(content=msg)
                 return
             elif amount > max_tip or amount < min_tip:
                 msg = f"{EMOJI_RED_NO} {interaction.author.mention}, tipping cannot be bigger than "\
-                    f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than "\
-                    f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                    f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
+                    f"**{num_format_coin(min_tip)} {token_display}**."
                 await interaction.edit_original_message(content=msg)
                 return
             equivalent_usd = ""
@@ -504,12 +507,15 @@ class MemeTip_Button(disnake.ui.View):
                         await get_meme_owner.send(content=msg)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                    msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                    msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
                         f"{token_display}** to meme `{self.meme_id}`."
                     await interaction.edit_original_message(content=msg)
                     try:
-                        embed = disnake.Embed(title="A meme got tipped!",
-                                              description=f"Share your meme and get tipped!", timestamp=datetime.now())
+                        embed = disnake.Embed(
+                            title="A meme got tipped!",
+                            description=f"Share your meme and get tipped!",
+                            timestamp=datetime.now()
+                        )
                         embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=False)
                         embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
                         embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
@@ -592,13 +598,13 @@ class MemeTip_Button(disnake.ui.View):
                 return
             elif amount > actual_balance:
                 msg = f"{EMOJI_RED_NO} {interaction.author.mention}, insufficient balance to give meme tip of "\
-                    f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                    f"**{num_format_coin(amount)} {token_display}**."
                 await interaction.edit_original_message(content=msg)
                 return
             elif amount > max_tip or amount < min_tip:
                 msg = f"{EMOJI_RED_NO} {interaction.author.mention}, tipping cannot be bigger than "\
-                    f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than "\
-                    f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                    f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
+                    f"**{num_format_coin(min_tip)} {token_display}**."
                 await interaction.edit_original_message(content=msg)
                 return
             equivalent_usd = ""
@@ -647,7 +653,7 @@ class MemeTip_Button(disnake.ui.View):
                         await get_meme_owner.send(content=msg)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                    msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                    msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
                         f"{token_display}** to meme `{self.meme_id}`."
                     await interaction.edit_original_message(content=msg)
                     try:
@@ -738,13 +744,13 @@ class MemeTip_Button(disnake.ui.View):
                 return
             elif amount > actual_balance:
                 msg = f"{EMOJI_RED_NO} {self.ctx.author.mention}, insufficient balance to give meme tip of "\
-                    f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                    f"**{num_format_coin(amount)} {token_display}**."
                 await interaction.edit_original_message(content=msg)
                 return
             elif amount > max_tip or amount < min_tip:
                 msg = f"{EMOJI_RED_NO} {self.ctx.author.mention}, tipping cannot be bigger than "\
-                    f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than "\
-                    f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                    f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
+                    f"**{num_format_coin(min_tip)} {token_display}**."
                 await interaction.edit_original_message(content=msg)
                 return
             equivalent_usd = ""
@@ -793,12 +799,15 @@ class MemeTip_Button(disnake.ui.View):
                         await get_meme_owner.send(content=msg)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                    msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                    msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
                         f"{token_display}** to meme `{self.meme_id}`."
                     await interaction.edit_original_message(content=msg)
                     try:
-                        embed = disnake.Embed(title="A meme got tipped!",
-                                              description=f"Share your meme and get tipped!", timestamp=datetime.now())
+                        embed = disnake.Embed(
+                            title="A meme got tipped!",
+                            description=f"Share your meme and get tipped!",
+                            timestamp=datetime.now()
+                        )
                         embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=False)
                         embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
                         embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
@@ -881,13 +890,13 @@ class MemeTip_Button(disnake.ui.View):
                 return
             elif amount > actual_balance:
                 msg = f"{EMOJI_RED_NO} {interaction.author.mention}, insufficient balance to give meme tip of "\
-                    f"**{num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}**."
+                    f"**{num_format_coin(amount)} {token_display}**."
                 await interaction.edit_original_message(content=msg)
                 return
             elif amount > max_tip or amount < min_tip:
                 msg = f"{EMOJI_RED_NO} {interaction.author.mention}, tipping cannot be bigger than "\
-                    f"**{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}** or smaller than "\
-                    f"**{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                    f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
+                    f"**{num_format_coin(min_tip)} {token_display}**."
                 await interaction.edit_original_message(content=msg)
                 return
             equivalent_usd = ""
@@ -936,7 +945,7 @@ class MemeTip_Button(disnake.ui.View):
                         await get_meme_owner.send(content=msg)
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                    msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                    msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
                         f"{token_display}** to meme `{self.meme_id}`."
                     await interaction.edit_original_message(content=msg)
                     try:

@@ -9,13 +9,13 @@ import random
 
 import disnake
 import store
-from Bot import SERVER_BOT, num_format_coin, log_to_channel
+from Bot import SERVER_BOT, log_to_channel
 from aiohttp import web
 from cogs.wallet import Faucet
 from cogs.wallet import WalletAPI
 from discord_webhook import DiscordWebhook
 from disnake.ext import commands
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 
 class DiscordBotList(commands.Cog):
@@ -229,7 +229,7 @@ class DiscordBotList(commands.Cog):
                                                         # end advert
                                                         msg = f"Thank you for voting for our TipBot at "\
                                                             f"<{self.bot.config['bot_vote_link']['discordbotlist']}>. "\
-                                                            f"You got a reward {num_format_coin(amount, coin_name, coin_decimal, False)} "\
+                                                            f"You got a reward {num_format_coin(amount)} "\
                                                             f"{coin_name}. Check with `/claim` for voting list at other websites.{advert_txt}"
                                                         try:
                                                             await member.send(msg)
@@ -260,7 +260,7 @@ class DiscordBotList(commands.Cog):
                                                             embed.add_field(
                                                                 name=f"{coin_emoji}Reward",
                                                                 value="{} {}".format(
-                                                                    num_format_coin(amount, coin_name, coin_decimal, False), coin_name),
+                                                                    num_format_coin(amount), coin_name),
                                                                 inline=True)
                                                             embed.add_field(
                                                                 name="Link",

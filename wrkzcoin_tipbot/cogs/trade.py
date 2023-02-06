@@ -12,13 +12,13 @@ from disnake.app_commands import Option, OptionChoice
 # ascii table
 from terminaltables import AsciiTable
 import store
-from Bot import get_token_list, num_format_coin, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, \
+from Bot import get_token_list, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, \
     EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, RowButtonCloseMessage, RowButtonRowCloseAnyMessage, human_format, \
     text_to_num, truncate, seconds_str, EMOJI_HOURGLASS_NOT_DONE, EMOJI_INFORMATION
 
 from cogs.utils import MenuPage
 from cogs.wallet import WalletAPI
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 
 class Trade(commands.Cog):
@@ -28,6 +28,7 @@ class Trade(commands.Cog):
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
         self.min_ratio = 0.0000000001
+        self.message_cexswap = "Try our TipBot's feature with /cexswap for more advanced trading!"
 
         self.botLogChan = None
         self.enable_logchan = True
@@ -91,22 +92,14 @@ class Trade(commands.Cog):
                 else:
                     rate = '{:.2f}'.format(round(order_item['amount_sell'] / order_item['amount_get'], 2))
                 table_data.append([order_item['pair_name'],
-                                   num_format_coin(order_item['amount_sell_after_fee'], order_item['coin_sell'],
-                                                   getattr(getattr(self.bot.coin_list, order_item['coin_sell']),
-                                                           "decimal"), False) + order_item['coin_sell'],
-                                   num_format_coin(order_item['amount_get'], order_item['coin_get'],
-                                                   getattr(getattr(self.bot.coin_list, order_item['coin_get']),
-                                                           "decimal"), False) + order_item['coin_get'],
+                                   num_format_coin(order_item['amount_sell_after_fee']) + order_item['coin_sell'],
+                                   num_format_coin(order_item['amount_get']) + order_item['coin_get'],
                                    '{:.8f}'.format(round(order_item['amount_sell'] / order_item['amount_get'], 8)),
                                    order_item['order_id']])
                 item_selling_list.append({
                     "pair": order_item['pair_name'],
-                    "selling": num_format_coin(order_item['amount_sell_after_fee'], order_item['coin_sell'],
-                                               getattr(getattr(self.bot.coin_list, order_item['coin_sell']), "decimal"),
-                                               False) + " " + order_item['coin_sell'],
-                    "for": num_format_coin(order_item['amount_get'], order_item['coin_get'],
-                                           getattr(getattr(self.bot.coin_list, order_item['coin_get']), "decimal"),
-                                           False) + " " + order_item['coin_get'],
+                    "selling": num_format_coin(order_item['amount_sell_after_fee']) + " " + order_item['coin_sell'],
+                    "for": num_format_coin(order_item['amount_get']) + " " + order_item['coin_get'],
                     "rate": rate,
                     "order_number": order_item['order_id']
                 })
@@ -216,8 +209,8 @@ class Trade(commands.Cog):
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
         if sell_amount < min_tx or sell_amount > max_tx:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, trade for {coin_name} cannot be smaller than "\
-                f"{num_format_coin(min_tx, coin_name, coin_decimal_sell, False)} {token_display} or bigger than "\
-                f"{num_format_coin(max_tx, coin_name, coin_decimal_sell, False)} {token_display}."
+                f"{num_format_coin(min_tx)} {token_display} or bigger than "\
+                f"{num_format_coin(max_tx)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
         # Get balance user
@@ -242,7 +235,8 @@ class Trade(commands.Cog):
         )
         actual_balance = float(userdata_balance['adjust'])
         if sell_amount > actual_balance:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance of {coin_name} to trade. Having {num_format_coin(actual_balance, coin_name, coin_decimal_sell, False)} {coin_name} and needed {num_format_coin(sell_amount, coin_name, coin_decimal_sell, False)} {coin_name}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance of {coin_name} to trade. "\
+                f"Having {num_format_coin(actual_balance)} {coin_name} and needed {num_format_coin(sell_amount)} {coin_name}."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -256,7 +250,9 @@ class Trade(commands.Cog):
         max_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_max_buysell")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
         if buy_amount < min_tx or buy_amount > max_tx:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, trade for {coin_name} cannot be smaller than {num_format_coin(min_tx, coin_name, coin_decimal_buy, False)} {token_display} or bigger than {num_format_coin(max_tx, coin_name, coin_decimal_buy, False)} {token_display}.'
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, trade for {coin_name} cannot be smaller than "\
+                f"{num_format_coin(min_tx)} {token_display} or bigger than "\
+                f"{num_format_coin(max_tx)} {token_display}."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -269,6 +265,13 @@ class Trade(commands.Cog):
             fee_buy = round(self.bot.config['trade']['Trade_Margin'] * buy_amount, 8)
             if fee_sell == 0: fee_sell = 0.00000010
             if fee_buy == 0: fee_buy = 0.00000010
+            if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 30:
+                msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
+                await ctx.edit_original_message(content=msg)
+                return
+            else:
+                self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
             order_add = await store.sql_store_openorder(
                 sell_ticker, coin_decimal_sell, sell_amount,
                 sell_amount - fee_sell, str(ctx.author.id), buy_ticker,
@@ -285,19 +288,22 @@ class Trade(commands.Cog):
                         del self.bot.user_balance_cache[key_coin]
                 except Exception:
                     pass
-
+                try:
+                    del self.bot.tipping_in_progress[str(self.ctx.author.id)]
+                except Exception:
+                    pass
                 buy_msg = "You can buy with `/market buy ref_number:{}`.".format(order_add)
                 additional_message = " You will sell {} {} and you can get {} {}.".format(
-                    num_format_coin(buy_amount, buy_ticker, coin_decimal_buy, False), buy_ticker,
-                    num_format_coin(sell_amount-fee_sell, sell_ticker, coin_decimal_sell, False), sell_ticker,
+                    num_format_coin(buy_amount), buy_ticker,
+                    num_format_coin(sell_amount-fee_sell), sell_ticker,
                 )
-                get_message = "New p2p open order created: #**{}**```Selling: {} {}\nFor: {} {}\nFee: {} {}```".format(
+                get_message = "[P2P] New order created: #**{}**```Selling: {} {}\nFor: {} {}\nFee: {} {}```".format(
                     order_add,
-                    num_format_coin(sell_amount, sell_ticker, coin_decimal_sell, False), sell_ticker,
-                    num_format_coin(buy_amount, buy_ticker, coin_decimal_buy, False), buy_ticker,
-                    num_format_coin(fee_sell, sell_ticker, coin_decimal_sell, False), sell_ticker
+                    num_format_coin(sell_amount), sell_ticker,
+                    num_format_coin(buy_amount), buy_ticker,
+                    num_format_coin(fee_sell), sell_ticker
                 )
-                await ctx.edit_original_message(content=get_message)
+                await ctx.edit_original_message(content="{}{}".format(get_message, self.message_cexswap))
                 # Find guild where there is trade channel assign
                 get_guilds = await self.utils.get_trade_channel_list()
                 if len(get_guilds) > 0:
@@ -306,7 +312,9 @@ class Trade(commands.Cog):
                             get_guild = self.bot.get_guild(int(item['serverid']))
                             if get_guild:
                                 channel = self.bot.get_channel(int(item['trade_channel']))
-                                if channel:
+                                if channel is None:
+                                    continue
+                                else:
                                     await channel.send(get_message+buy_msg+additional_message)
                                     if channel.id == ctx.channel.id:
                                         await ctx.edit_original_message(content=f"{ctx.author.mention}, sell order posted!")
@@ -369,6 +377,18 @@ class Trade(commands.Cog):
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+        # check lock
+        try:
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    "Please contact bot dev by /about link."
+                )
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # end check lock
 
         await self.bot_log()
         await self.make_open_order(ctx, sell_amount, sell_ticker, buy_amount, buy_ticker)
@@ -441,10 +461,8 @@ class Trade(commands.Cog):
                         ]
                         for order_item in get_open_order:
                             table_data.append([
-                                order_item['pair_name'], num_format_coin(order_item['amount_sell'], order_item['coin_sell'],
-                                getattr(getattr(self.bot.coin_list, order_item['coin_sell']), "decimal"), False) + order_item['coin_sell'],
-                                num_format_coin(order_item['amount_get_after_fee'], order_item['coin_get'],
-                                getattr(getattr(self.bot.coin_list, order_item['coin_get']), "decimal"), False) + order_item['coin_get'],
+                                order_item['pair_name'], num_format_coin(order_item['amount_sell']) + order_item['coin_sell'],
+                                num_format_coin(order_item['amount_get_after_fee']) + order_item['coin_get'],
                                 order_item['order_id']
                             ])
                         table = AsciiTable(table_data)
@@ -473,14 +491,8 @@ class Trade(commands.Cog):
                     # check if own order
                     response_text = "```"
                     response_text += "Order #: " + ref_number + "\n"
-                    response_text += "Sell (After Fee): " + num_format_coin(get_order_num['amount_sell_after_fee'],
-                                                                            get_order_num['coin_sell'], getattr(
-                            getattr(self.bot.coin_list, get_order_num['coin_sell']), "decimal"), False) + get_order_num[
-                                         'coin_sell'] + "\n"
-                    response_text += "For (After Fee): " + num_format_coin(get_order_num['amount_get_after_fee'],
-                                                                           get_order_num['coin_get'], getattr(
-                            getattr(self.bot.coin_list, get_order_num['coin_get']), "decimal"), False) + get_order_num[
-                                         'coin_get'] + "\n"
+                    response_text += "Sell (After Fee): " + num_format_coin(get_order_num['amount_sell_after_fee']) + get_order_num['coin_sell'] + "\n"
+                    response_text += "For (After Fee): " + num_format_coin(get_order_num['amount_get_after_fee']) + get_order_num['coin_get'] + "\n"
                     if get_order_num['status'] == "COMPLETE":
                         response_text = response_text.replace("Sell", "Sold")
                         response_text += "Status: COMPLETED"
@@ -514,14 +526,12 @@ class Trade(commands.Cog):
                     ['PAIR', 'Selling', 'For', 'Order #']
                 ]
                 for order_item in get_open_order:
-                    table_data.append([order_item['pair_name'],
-                                       num_format_coin(order_item['amount_sell'], order_item['coin_sell'],
-                                                       getattr(getattr(self.bot.coin_list, order_item['coin_sell']),
-                                                               "decimal"), False) + order_item['coin_sell'],
-                                       num_format_coin(order_item['amount_get_after_fee'], order_item['coin_get'],
-                                                       getattr(getattr(self.bot.coin_list, order_item['coin_get']),
-                                                               "decimal"), False) + order_item['coin_get'],
-                                       order_item['order_id']])
+                    table_data.append([
+                        order_item['pair_name'],
+                        num_format_coin(order_item['amount_sell']) + order_item['coin_sell'],
+                        num_format_coin(order_item['amount_get_after_fee']) + order_item['coin_get'],
+                        order_item['order_id']
+                    ])
                 table = AsciiTable(table_data)
                 # table.inner_column_border = False
                 # table.outer_border = False
@@ -653,6 +663,18 @@ class Trade(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # check lock
+        try:
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    "Please contact bot dev by /about link."
+                )
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # end check lock
+
         await self.bot_log()
         # check if the argument is ref or ticker by length
         if len(ref_number) < 6:
@@ -690,14 +712,12 @@ class Trade(commands.Cog):
                         rate = '{:.4f}'.format(round(order_item['amount_sell'] / order_item['amount_get'], 4))
                     else:
                         rate = '{:.2f}'.format(round(order_item['amount_sell'] / order_item['amount_get'], 2))
-                    table_data.append([order_item['pair_name'],
-                                       num_format_coin(order_item['amount_sell_after_fee'], order_item['coin_sell'],
-                                                       getattr(getattr(self.bot.coin_list, order_item['coin_sell']),
-                                                               "decimal"), False) + order_item['coin_sell'],
-                                       num_format_coin(order_item['amount_get_after_fee'], order_item['coin_get'],
-                                                       getattr(getattr(self.bot.coin_list, order_item['coin_get']),
-                                                               "decimal"), False) + order_item['coin_get'], rate,
-                                       order_item['order_id']])
+                    table_data.append([
+                        order_item['pair_name'],
+                        num_format_coin(order_item['amount_sell_after_fee']) + order_item['coin_sell'],
+                        num_format_coin(order_item['amount_get_after_fee']) + order_item['coin_get'], rate,
+                        order_item['order_id']
+                    ])
                     list_numb += 1
                     if list_numb > 20:
                         break
@@ -752,14 +772,12 @@ class Trade(commands.Cog):
                     actual_balance = float(userdata_balance['adjust'])
 
                     if actual_balance < get_order_num['amount_get_after_fee']:
-                        msg = '{} {} You do not have sufficient balance. ```Needed: {}{}\nHave:   {}{}```'.format(
+                        msg = '{} {} You do not have sufficient balance. ```Needed: {} {}\nHave:   {} {}```'.format(
                             EMOJI_RED_NO, ctx.author.mention,
-                            num_format_coin(get_order_num['amount_get'], get_order_num['coin_get'],
-                                            getattr(getattr(self.bot.coin_list, coin_name), "decimal"), False),
-                            get_order_num['coin_get'], num_format_coin(actual_balance, get_order_num['coin_get'],
-                                                                       getattr(getattr(self.bot.coin_list, coin_name),
-                                                                               "decimal"), False),
-                            get_order_num['coin_get'])
+                            num_format_coin(get_order_num['amount_get']),
+                            get_order_num['coin_get'], num_format_coin(actual_balance),
+                            get_order_num['coin_get']
+                        )
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
@@ -781,6 +799,13 @@ class Trade(commands.Cog):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
+                        if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 30:
+                            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                        else:
+                            self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                         # let's make order update
                         match_order = await store.sql_match_order_by_sellerid(
                             str(ctx.author.id), ref_number,
@@ -790,19 +815,17 @@ class Trade(commands.Cog):
                         )
                         if match_order:
                             try:
+                                del self.bot.tipping_in_progress[str(self.ctx.author.id)]
+                            except Exception:
+                                pass
+                            try:
                                 got_amount = num_format_coin(
-                                    get_order_num['amount_sell_after_fee'],
-                                    get_order_num['coin_sell'],
-                                    getattr(getattr(self.bot.coin_list, get_order_num['coin_sell']), "decimal"),
-                                    False
+                                    get_order_num['amount_sell_after_fee']
                                 )
                                 from_selling = num_format_coin(
-                                    get_order_num['amount_get'],
-                                    get_order_num['coin_get'],
-                                    getattr(getattr(self.bot.coin_list, get_order_num['coin_get']), "decimal"),
-                                    False
+                                    get_order_num['amount_get']
                                 )
-                                msg = '**{}** Order completed! ```Get: {}{}\nFrom selling: {}{}```'.format(
+                                msg = "[P2P] Order num.: **{}** completed! ```Get: {} {}\nFrom selling: {} {}```".format(
                                     ref_number,
                                     got_amount,
                                     get_order_num['coin_sell'],
@@ -818,24 +841,18 @@ class Trade(commands.Cog):
                                             get_guild = self.bot.get_guild(int(item['serverid']))
                                             if get_guild:
                                                 channel = self.bot.get_channel(int(item['trade_channel']))
-                                                if channel and ctx.channel.id != channel.id:
+                                                if channel is None:
+                                                    continue
+                                                elif ctx.channel.id != channel.id:
                                                     await channel.send(msg)
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
                                 try:
-                                    sold = num_format_coin(get_order_num['amount_sell'], get_order_num['coin_sell'],
-                                                           getattr(
-                                                               getattr(self.bot.coin_list, get_order_num['coin_sell']),
-                                                               "decimal"), False) + get_order_num['coin_sell']
-                                    bought = num_format_coin(get_order_num['amount_get_after_fee'],
-                                                             get_order_num['coin_get'], getattr(
-                                            getattr(self.bot.coin_list, get_order_num['coin_get']), "decimal"), False) + \
-                                             get_order_num['coin_get']
-                                    fee = str(num_format_coin(
-                                        get_order_num['amount_get'] - get_order_num['amount_get_after_fee'],
-                                        get_order_num['coin_get'],
-                                        getattr(getattr(self.bot.coin_list, get_order_num['coin_get']), "decimal"),
-                                        False))
+                                    sold = num_format_coin(get_order_num['amount_sell']) + get_order_num['coin_sell']
+                                    bought = num_format_coin(get_order_num['amount_get_after_fee']) + get_order_num['coin_get']
+                                    fee = num_format_coin(
+                                        get_order_num['amount_get'] - get_order_num['amount_get_after_fee']
+                                    )
                                     fee += get_order_num['coin_get']
                                     if get_order_num['sell_user_server'] == SERVER_BOT:
                                         member = self.bot.get_user(int(get_order_num['userid_sell']))

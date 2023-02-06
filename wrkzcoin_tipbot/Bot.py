@@ -29,6 +29,8 @@ from disnake.ext.commands import AutoShardedBot, when_mentioned
 # cache
 from cachetools import TTLCache
 
+import warnings
+
 import store
 # linedraw
 from linedraw.linedraw import *
@@ -39,6 +41,8 @@ from config import load_config
 # For hash file in case already have
 # ascii table
 
+# warnings.filterwarnings(action='once')
+warnings.filterwarnings("ignore")
 
 async def get_token_list():
     return await store.get_all_token()
@@ -119,15 +123,17 @@ def openRedis():
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-async def log_to_channel(log_type: str, content: str) -> None:
+async def log_to_channel(log_type: str, content: str, webhook: str=None) -> None:
     # log_type: withdraw, other: general
     try:
-        url = bot.config['discord']['webhook_default_url']
-        if log_type == "withdraw":
-            url = bot.config['discord']['withdraw_webhook']
-        elif log_type == "vote":
-            url = bot.config['discord']['vote_webhook']
-
+        if webhook is None:
+            url = bot.config['discord']['webhook_default_url']
+            if log_type == "withdraw":
+                url = bot.config['discord']['withdraw_webhook']
+            elif log_type == "vote":
+                url = bot.config['discord']['vote_webhook']
+        else:
+            url = webhook
         webhook = DiscordWebhook(
             url=url,
             content=f'{disnake.utils.escape_markdown(content)}'
@@ -166,6 +172,11 @@ bot.token_hint_names = None
 bot.coin_name_list = None
 bot.faucet_coins = None
 bot.advert_list = []
+bot.cexswap_pairs = []
+bot.cexswap_coins = []
+
+# in case for other data
+bot.other_data = {}
 
 # messages
 bot.message_list = []

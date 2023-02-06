@@ -3,7 +3,7 @@ import datetime
 import sys
 import time
 import traceback
-
+import itertools
 import disnake
 from disnake.ext import commands, tasks
 from decimal import Decimal
@@ -1021,6 +1021,29 @@ class Events(commands.Cog):
             await logchanbot("events " +str(traceback.format_exc()))
         return None
 
+    async def cexswap_get_list_enable_pairs(self):
+        list_pairs = []
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * 
+                    FROM `coin_settings` 
+                    WHERE `enable`=1 AND `cexswap_enable`=1 """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        list_coins = sorted([i['coin_name'] for i in result])
+                        self.bot.cexswap_coins = list_coins
+                        for pair in itertools.combinations(list_coins, 2):
+                            list_pairs.append("{}/{}".format(pair[0], pair[1]))
+                        if len(list_pairs) > 0:
+                            self.bot.cexswap_pairs = list_pairs
+                            return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
     @commands.Cog.listener()
     async def on_shard_ready(shard_id):
         print(f"Shard {shard_id} connected")
@@ -1042,6 +1065,8 @@ class Events(commands.Cog):
             if faucet_coins:
                 self.bot.faucet_coins = faucet_coins
                 print("faucet_coins loaded...")
+            await self.cexswap_get_list_enable_pairs()
+            print("cexswap coinlist loaded...")
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

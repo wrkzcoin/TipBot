@@ -4,12 +4,14 @@ from datetime import datetime
 import time
 
 import disnake
-from Bot import num_format_coin, SERVER_BOT
+from Bot import SERVER_BOT
 from cogs.utils import Utils
 from cogs.wallet import WalletAPI
 from disnake.app_commands import Option
 from disnake.enums import OptionType
 from disnake.ext import commands
+from cogs.utils import num_format_coin
+
 
 class Coininfo(commands.Cog):
 
@@ -40,13 +42,11 @@ class Coininfo(commands.Cog):
             return
 
         confim_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-
-        Min_Tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        Max_Tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-        Min_Tx = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tx")
-        Max_Tx = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tx")
-        Fee_Tx = getattr(getattr(self.bot.coin_list, coin_name), "real_withdraw_fee")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+        min_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tx")
+        max_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tx")
+        fee_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_withdraw_fee")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         deposit_fee = getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee")
@@ -66,17 +66,31 @@ class Coininfo(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
                     response_text += "Height: N/A (*)" + "\n"
             response_text += "Confirmation: {} Blocks".format(confim_depth) + "\n"
-            tip_deposit_withdraw_stat = ["ON", "ON", "ON"]
+            tip_deposit_withdraw_stat = ["✅ON", "✅ON", "✅ON"]
             if  getattr(getattr(self.bot.coin_list, coin_name), "enable_tip") == 0:
-                tip_deposit_withdraw_stat[0] = "OFF"
+                tip_deposit_withdraw_stat[0] = "🔴OFF"
             if  getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
-                tip_deposit_withdraw_stat[1] = "OFF"
+                tip_deposit_withdraw_stat[1] = "🔴OFF"
             if  getattr(getattr(self.bot.coin_list, coin_name), "enable_withdraw") == 0:
-                tip_deposit_withdraw_stat[2] = "OFF"
-            response_text += "Tipping / Depositing / Withdraw:\n   {} / {} / {}\n".format(tip_deposit_withdraw_stat[0], tip_deposit_withdraw_stat[1], tip_deposit_withdraw_stat[2])
-            get_tip_min_max = "Tip Min/Max:\n   " + num_format_coin(Min_Tip, coin_name, coin_decimal, False) + " / " + num_format_coin(Max_Tip, coin_name, coin_decimal, False) + " " + coin_name
+                tip_deposit_withdraw_stat[2] = "🔴OFF"
+            response_text += "Tipping / Depositing / Withdraw:\n   {} / {} / {}\n".format(
+                tip_deposit_withdraw_stat[0], tip_deposit_withdraw_stat[1], tip_deposit_withdraw_stat[2]
+            )
+            get_tip_min_max = "Tip Min/Max:\n   " + num_format_coin(min_tip) + " / " + num_format_coin(max_tip) + " " + coin_name
             response_text += get_tip_min_max + "\n"
-            get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(Min_Tx, coin_name, coin_decimal, False) + " / " + num_format_coin(Max_Tx, coin_name, coin_decimal, False) + " " + coin_name
+            if coin_name in self.bot.cexswap_coins:
+                response_text += "\nCEXSwap:\n   ✅ON\n"
+                min_initialized_liq_1 = getattr(getattr(self.bot.coin_list, coin_name), "cexswap_min_initialized_liq")
+                min_add_liq = getattr(getattr(self.bot.coin_list, coin_name), "cexswap_min_add_liq")
+                cexswap_min = getattr(getattr(self.bot.coin_list, coin_name), "cexswap_min")
+                min_initialized_liq_1 = num_format_coin(min_initialized_liq_1)
+                min_add_liq = num_format_coin(min_add_liq)
+                cexswap_min = num_format_coin(cexswap_min)
+                response_text += "Mininimum:\n   " + f"Sell: {cexswap_min} {coin_name}\n" + f"   Add: {min_add_liq} {coin_name}\n" \
+                    + f"   Init. LP: {min_initialized_liq_1} {coin_name}\n\n"
+
+
+            get_tx_min_max = "Withdraw Min/Max:\n   " + num_format_coin(min_tx) + " / " + num_format_coin(max_tx) + " " + coin_name
             response_text += get_tx_min_max + "\n"
 
             gas_coin_msg = ""
@@ -86,11 +100,11 @@ class Coininfo(commands.Cog):
                 if GAS_COIN and fee_limit > 0:
                     gas_coin_msg = " and a reserved {} {} (actual tx fee is less).".format(fee_limit, GAS_COIN)
             if coin_name == "ADA":
-                response_text += "Withdraw Tx reserved Node Fee: {} {} (actual tx fee is less).\n".format(num_format_coin(Fee_Tx, coin_name, coin_decimal, False), coin_name)
+                response_text += "Withdraw Tx reserved Node Fee: {} {} (actual tx fee is less).\n".format(num_format_coin(fee_tx), coin_name)
             else:
-                response_text += "Withdraw Tx Node Fee: {} {}{}\n".format(num_format_coin(Fee_Tx, coin_name, coin_decimal, False), coin_name, gas_coin_msg)
+                response_text += "Withdraw Tx Node Fee: {} {}{}\n".format(num_format_coin(fee_tx), coin_name, gas_coin_msg)
             if deposit_fee > 0:
-                response_text += "Deposit Tx Fee: {} {}\n".format(num_format_coin(deposit_fee, coin_name, coin_decimal, False), coin_name)
+                response_text += "Deposit Tx Fee: {} {}\n".format(num_format_coin(deposit_fee), coin_name)
 
             if type_coin in ["TRC-10", "TRC-20", "ERC-20"]:
                 if contract and len(contract) == 42:

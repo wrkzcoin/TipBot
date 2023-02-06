@@ -7,11 +7,14 @@ First of all, you need to get a unique API key from TipBot by doing Direct Messa
 #### Example with curl:
   * get_balance
 
-  ```curl -H "Content-Type: application/json" -H "Authorization: xxxx" https://tipbot-private-api.cexswap.cc/get_balance/wrkz```
+  ```
+  curl -H "Content-Type: application/json" -H "Authorization: xxxx" https://tipbot-private-api.cexswap.cc/get_balance/wrkz
+  ```
 
   * sell
 
-  ```curl --header "Authorization: xxx" \
+  ```
+  curl --header "Authorization: xxx" \
   --request POST \
   --data '{"method": "sell", "params": [{"amount": "10k", "sell_token": "wrkz", "for_token": "dego"}], "id": 99}' \
   https://tipbot-private-api.cexswap.cc

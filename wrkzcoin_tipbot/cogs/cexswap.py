@@ -6,7 +6,7 @@ import json
 import asyncio
 
 import disnake
-from disnake.ext import commands
+from disnake.ext import commands, tasks
 from typing import Optional
 from disnake import TextInputStyle
 from decimal import Decimal
@@ -1044,13 +1044,17 @@ async def cexswap_sold_by_api(
                         pool_amount_get = liq_pair['pool']['amount_ticker_1']
                         pool_amount_sell = liq_pair['pool']['amount_ticker_2']
 
+                    api_message = "[CEXSWAP API]: A user sold {} {} for {} {}.".format(
+                        user_amount_sell, sell_token, user_amount_get, for_token
+                    )
                     selling = await cexswap_sold(
                         ref_log, liq_pair['pool']['pool_id'], truncate(amount_sell, 12), sell_token, 
                         truncate(amount_get, 12), for_token, user_id, user_server,
                         guild_id,
                         truncate(got_fee_dev, 12), truncate(got_fee_liquidators, 12), truncate(got_fee_guild, 12),
                         liq_users, contract, coin_decimal, channel_id, per_unit_sell, per_unit_get,
-                        pool_amount_sell, pool_amount_get
+                        pool_amount_sell, pool_amount_get,
+                        1, api_message
                     )
                     if selling is True:
                         msg = f"Successfully traded! "\
@@ -1088,7 +1092,8 @@ async def cexswap_sold(
     got_fee_dev: float, got_fee_liquidators: float,
     got_fee_guild: float, liquidators, contract: str, coin_decimal: int,
     channel_id: str, per_unit_sell: float, per_unit_get: float,
-    pool_amount_sell: float, pool_amount_get: float
+    pool_amount_sell: float, pool_amount_get: float,
+    api: int=0, api_message: str=None
 ):
     try:
         await store.openConnection()
@@ -1196,14 +1201,14 @@ async def cexswap_sold(
                 (`pool_id`, `pairs`, `ref_log`, `sold_ticker`, `total_sold_amount`, `total_sold_amount_usd`,
                 `guild_id`, `got_total_amount`, `got_total_amount_usd`,
                 `got_fee_dev`, `got_fee_liquidators`, `got_fee_guild`, `got_ticker`,
-                `sell_user_id`, `user_server`, `time`)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                `sell_user_id`, `user_server`, `api`, `api_messsage`, `time`)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 """
                 data_rows += [
                     pool_id, "{}->{}".format(sell_ticker, got_ticker), ref_log, sell_ticker, float(amount_sell),
                     float(amount_sell)*float(per_unit_sell), guild_id, float(amount_get),float(amount_get)*float(per_unit_get),
                     float(got_fee_dev), float(got_fee_liquidators), float(got_fee_guild), got_ticker, user_id,
-                    user_server, int(time.time())
+                    user_server, api, api_message, int(time.time())
                 ]
                 await cur.execute(sql, tuple(data_rows))
                 await conn.commit()
@@ -2918,7 +2923,8 @@ class Cexswap(commands.Cog):
                             guild_id,
                             truncate(got_fee_dev, 12), truncate(got_fee_liquidators, 12), truncate(got_fee_guild, 12),
                             liq_users, contract, coin_decimal, channel_id, per_unit_sell, per_unit_get,
-                            pool_amount_sell, pool_amount_get
+                            pool_amount_sell, pool_amount_get,
+                            0, None
                         )
                         try:
                             del self.bot.tipping_in_progress[str(ctx.author.id)]
@@ -4910,18 +4916,81 @@ class Cexswap(commands.Cog):
         await self.bot.wait_until_ready()
         await self.site.start()
 
+    @tasks.loop(seconds=60.0)
+    async def api_trade_announce(self):
+        time_lap = 20  # seconds
+        await self.bot.wait_until_ready()
+        # Check if task recently run @bot_task_logs
+        task_name = "api_trade_announce"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        await asyncio.sleep(time_lap)
+        try:
+            lap = int(time.time()) - 600 # not later than 10mn
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `cexswap_sell_logs` 
+                        WHERE `api`=1 AND `is_api_announced`=0 AND `time`>%s
+                        """
+                    await cur.execute(sql, lap)
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        get_guilds = await self.utils.get_trade_channel_list()
+                        if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0 and \
+                            self.bot.config['cexswap_api']['api_trade_announcement'] == 1:
+                            for each_ann in result:
+                                try:
+                                    list_guild_ids = [i.id for i in self.bot.guilds]
+                                    for item in get_guilds:
+                                        if int(item['serverid']) not in list_guild_ids:
+                                            continue
+                                        try:
+                                            get_guild = self.bot.get_guild(int(item['serverid']))
+                                            if get_guild:
+                                                channel = get_guild.get_channel(int(item['trade_channel']))
+                                                if channel is None:
+                                                    continue
+                                                else:
+                                                    await channel.send(each_ann['api_messsage'])
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
+                                    # Update announcement
+                                    try:
+                                        sql = """ UPDATE `cexswap_sell_logs` 
+                                            SET `is_api_announced`=1
+                                            WHERE `log_id`=%s LIMIT 1;
+                                            """
+                                        await cur.execute(sql, each_ann['log_id'])
+                                        await conn.commit()
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(time_lap)
+
     @commands.Cog.listener()
     async def on_ready(self):
         if len(self.bot.cexswap_coins) == 0:
             await self.cexswap_get_list_enable_pairs()
+        if not self.api_trade_announce.is_running():
+            self.api_trade_announce.start()
 
     async def cog_load(self):
         if len(self.bot.cexswap_coins) == 0:
             await self.cexswap_get_list_enable_pairs()
         await self.bot.wait_until_ready()
+        if not self.api_trade_announce.is_running():
+            self.api_trade_announce.start()
 
     def cog_unload(self):
         asyncio.ensure_future(self.site.stop())
+        self.api_trade_announce.cancel()
 
 def setup(bot):
     cex = Cexswap(bot)

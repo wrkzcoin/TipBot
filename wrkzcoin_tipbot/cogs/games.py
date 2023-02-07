@@ -32,15 +32,16 @@ from cogs.utils import Utils, num_format_coin
 
 
 class DatabaseGames:
-
     async def sql_game_reward_random(self, game_name: str):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `coin_bot_reward_games` 
-                              WHERE `game_name`=%s 
-                              ORDER BY RAND() LIMIT 1 """
+                    sql = """
+                    SELECT * FROM `coin_bot_reward_games` 
+                    WHERE `game_name`=%s 
+                    ORDER BY RAND() LIMIT 1
+                    """
                     await cur.execute(sql, (game_name))
                     result = await cur.fetchone()
                     if result is not None:
@@ -60,11 +61,15 @@ class DatabaseGames:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_game (`played_user`, `coin_name`, `win_lose`, 
-                              `won_amount`, `decimal`, `played_server`, `played_at`, `game_type`, `user_server`, `game_result`, `duration`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                    await cur.execute(sql, (played_user, coin_name, win_lose, won_amount, decimal, played_server,
-                                            int(time.time()), game_type, user_server, game_result, duration))
+                    sql = """ 
+                    INSERT INTO discord_game (`played_user`, `coin_name`, `win_lose`, 
+                    `won_amount`, `decimal`, `played_server`, `played_at`, `game_type`, `user_server`, `game_result`, `duration`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (
+                        played_user, coin_name, win_lose, won_amount, decimal, played_server,
+                        int(time.time()), game_type, user_server, game_result, duration
+                    ))
                     await conn.commit()
                     return True
         except Exception:
@@ -81,8 +86,11 @@ class DatabaseGames:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_game_free (`played_user`, `win_lose`, `played_server`, `played_at`, `game_type`, `user_server`, `game_result`, `duration`) 
-                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
+                    sql = """
+                    INSERT INTO discord_game_free (`played_user`, `win_lose`, `played_server`, `played_at`, 
+                    `game_type`, `user_server`, `game_result`, `duration`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (
                     played_user, win_lose, played_server, int(time.time()), game_type, user_server, game_result,
                     duration))
@@ -99,7 +107,9 @@ class DatabaseGames:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_game """
+                    sql = """
+                    SELECT * FROM discord_game
+                    """
                     await cur.execute(sql, )
                     result_game = await cur.fetchall()
                     if result_game and len(result_game) > 0:
@@ -134,11 +144,15 @@ class DatabaseGames:
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if free is False:
-                        sql = """ SELECT COUNT(*) FROM discord_game WHERE `played_user` = %s AND `user_server`=%s 
-                                  AND `played_at`>%s """
+                        sql = """
+                        SELECT COUNT(*) FROM `discord_game` WHERE `played_user` = %s AND `user_server`=%s 
+                        AND `played_at`>%s
+                        """
                     else:
-                        sql = """ SELECT COUNT(*) FROM discord_game_free WHERE `played_user` = %s AND `user_server`=%s 
-                                  AND `played_at`>%s """
+                        sql = """
+                        SELECT COUNT(*) FROM `discord_game_free` WHERE `played_user` = %s AND `user_server`=%s 
+                        AND `played_at`>%s
+                        """
                     await cur.execute(sql, (user_id, user_server, lap_duration))
                     result = await cur.fetchone()
                     return int(result['COUNT(*)']) if 'COUNT(*)' in result else 0
@@ -152,8 +166,10 @@ class DatabaseGames:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_game WHERE `played_user`=%s 
-                              AND `game_type`=%s AND `win_lose`=%s ORDER BY `played_at` DESC LIMIT 1 """
+                    sql = """
+                    SELECT * FROM `discord_game` WHERE `played_user`=%s 
+                    AND `game_type`=%s AND `win_lose`=%s ORDER BY `played_at` DESC LIMIT 1
+                    """
                     await cur.execute(sql, (userid, game_name.upper(), 'WIN'))
                     result = await cur.fetchone()
                     if result and len(result) > 0:
@@ -162,8 +178,10 @@ class DatabaseGames:
                         except Exception:
                             await logchanbot(traceback.format_exc())
 
-                    sql = """ SELECT * FROM discord_game_free WHERE `played_user`=%s 
-                              AND `game_type`=%s AND `win_lose`=%s ORDER BY `played_at` DESC LIMIT 1 """
+                    sql = """
+                    SELECT * FROM `discord_game_free` WHERE `played_user`=%s 
+                    AND `game_type`=%s AND `win_lose`=%s ORDER BY `played_at` DESC LIMIT 1
+                    """
                     await cur.execute(sql, (userid, game_name.upper(), 'WIN'))
                     result = await cur.fetchone()
                     if result and len(result) > 0:
@@ -182,8 +200,10 @@ class DatabaseGames:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM discord_game_level_tpl WHERE `level`=%s 
-                              AND `game_name`=%s LIMIT 1 """
+                    sql = """
+                    SELECT * FROM discord_game_level_tpl WHERE `level`=%s 
+                    AND `game_name`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (level, game_name.upper()))
                     result = await cur.fetchone()
                     if result and len(result) > 0:
@@ -394,10 +414,12 @@ class BlackJackButtons(disnake.ui.View):
                         await logchanbot(traceback.format_exc())
             else:
                 try:
-                    await self.db.sql_game_free_add('BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue),
-                                                    str(interaction.author.id), 'WIN' if won else 'LOSE',
-                                                    str(interaction.guild.id), 'BLACKJACK',
-                                                    int(time.time()) - self.time_start, SERVER_BOT)
+                    await self.db.sql_game_free_add(
+                        'BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue),
+                        str(interaction.author.id), 'WIN' if won else 'LOSE',
+                        str(interaction.guild.id), 'BLACKJACK',
+                        int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -511,11 +533,11 @@ class BlackJackButtons(disnake.ui.View):
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(
+                    await self.db.sql_game_add(
                         'BLACKJACK: PLAYER={}, DEALER={}'.format(playerValue, dealerValue), str(interaction.author.id),
                         coin_name, 'WIN' if won else 'LOSE', amount, coin_decimal, str(interaction.guild.id),
-                        'BLACKJACK', int(time.time()) - self.time_start, SERVER_BOT)
-
+                        'BLACKJACK', int(time.time()) - self.time_start, SERVER_BOT
+                    )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(traceback.format_exc())
@@ -594,6 +616,7 @@ class Maze_Buttons(disnake.ui.View):
         self.db = DatabaseGames()
 
         self.WALL = '#'
+        random.seed(datetime.now())
         self.WIDTH = random.choice([25, 27, 29, 31, 33, 35])
         self.HEIGHT = random.choice([15, 17, 19, 21, 23, 25])
         self.SEED = random.randint(25, 50)
@@ -1040,7 +1063,7 @@ class Maze_Buttons(disnake.ui.View):
             # Start reward
             if self.free_game is False:
                 try:
-                    reward = await self.db.sql_game_add(
+                    await self.db.sql_game_add(
                         json.dumps(remap_keys(self.maze_data)),
                         str(interaction.author.id), coin_name, 'WIN' if won else 'LOSE',
                         amount, coin_decimal, str(interaction.guild.id), 'MAZE',
@@ -1514,7 +1537,7 @@ class g2048_Buttons(disnake.ui.View):
                     child.disabled = True
 
             await self.message.edit(
-                content=f"**{self.ctx.author.mention} Game Over**```{self.board}```"\
+                content=f"{self.ctx.author.mention} **Game Over**```{self.board}```"\
                     f"Your score: **{self.score}**\nYou have spent time: **{duration}**\n{result}",
                 view=None
             )
@@ -1640,6 +1663,7 @@ class Sokoban_Buttons(disnake.ui.View):
 
         # How objects should be displayed on the screen:
         # WALL_DISPLAY = random.choice([':red_square:', ':orange_square:', ':yellow_square:', ':blue_square:', ':purple_square:']) # '#' # chr(9617)   # Character 9617 is '░'
+        random.seed(datetime.now())
         self.WALL_DISPLAY = random.choice(['🟥', '🟧', '🟨', '🟦', '🟪'])
         self.FACE_DISPLAY = ':zany_face:'  # '<:smiling_face:700888455877754991>' some guild not support having this
 
@@ -1650,10 +1674,15 @@ class Sokoban_Buttons(disnake.ui.View):
         # EMPTY_DISPLAY = ':black_large_square:'
         self.EMPTY_DISPLAY = '⬛'  # already initial
 
-        self.CHAR_MAP = {self.WALL: self.WALL_DISPLAY, self.FACE: self.FACE_DISPLAY,
-                         self.CRATE: self.crate_display, self.PLAYER_ON_GOAL: self.PLAYER_ON_GOAL_DISPLAY,
-                         self.GOAL: self.goal_display, self.CRATE_ON_GOAL: self.CRATE_ON_GOAL_DISPLAY,
-                         self.EMPTY: self.EMPTY_DISPLAY}
+        self.CHAR_MAP = {
+            self.WALL: self.WALL_DISPLAY,
+            self.FACE: self.FACE_DISPLAY,
+            self.CRATE: self.crate_display,
+            self.PLAYER_ON_GOAL: self.PLAYER_ON_GOAL_DISPLAY,
+            self.GOAL: self.goal_display,
+            self.CRATE_ON_GOAL: self.CRATE_ON_GOAL_DISPLAY,
+            self.EMPTY: self.EMPTY_DISPLAY
+        }
 
     def load_level(self, level_str: str):
         self.currentLevel = {self.WIDTH: 0, self.HEIGHT: 0}
@@ -1817,7 +1846,7 @@ class Sokoban_Buttons(disnake.ui.View):
                         int(time.time()) - self.time_start, SERVER_BOT
                     )
                 else:
-                    reward = await self.db.sql_game_add(
+                    await self.db.sql_game_add(
                         str(self.level), str(self.ctx.author.id), coin_name, 'WIN',
                         amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN',
                         int(time.time()) - self.time_start, SERVER_BOT
@@ -1970,7 +1999,7 @@ class Sokoban_Buttons(disnake.ui.View):
                         int(time.time()) - self.time_start, SERVER_BOT
                     )
                 else:
-                    reward = await self.db.sql_game_add(
+                    await self.db.sql_game_add(
                         str(self.level), str(self.ctx.author.id), coin_name, 'WIN',
                         amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN',
                         int(time.time()) - self.time_start, SERVER_BOT
@@ -2123,7 +2152,7 @@ class Sokoban_Buttons(disnake.ui.View):
                         int(time.time()) - self.time_start, SERVER_BOT
                     )
                 else:
-                    reward = await self.db.sql_game_add(
+                    await self.db.sql_game_add(
                         str(self.level), str(self.ctx.author.id), coin_name, 'WIN',
                         amount, coin_decimal, str(self.ctx.guild.id), 'SOKOBAN',
                         int(time.time()) - self.time_start, SERVER_BOT
@@ -2467,7 +2496,8 @@ class Games(commands.Cog):
                     f"{ctx.author.name} / {ctx.author.id} tried **/game** in {ctx.guild.name} / {ctx.guild.id} "\
                     f"which is not ENABLE."
                 )
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. "\
+                f"Please request Guild owner to enable by `/SETTING GAME`"
             await ctx.edit_original_message(content=msg)
             return
         try:
@@ -2527,6 +2557,7 @@ class Games(commands.Cog):
 
         # Portion from https://github.com/MitchellAW/Discord-Bot/blob/master/features/rng.py
         slots = ['chocolate_bar', 'bell', 'tangerine', 'apple', 'cherries', 'seven']
+        random.seed(datetime.now())
         slot1 = slots[random.randint(0, 5)]
         slot2 = slots[random.randint(0, 5)]
         slot3 = slots[random.randint(0, 5)]
@@ -2536,8 +2567,9 @@ class Games(commands.Cog):
 
         if str(ctx.author.id) not in self.bot.queue_game_slot:
             self.bot.queue_game_slot[str(ctx.author.id)] = int(time.time())
-        else:
-            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
+        elif str(ctx.author.id) in self.bot.queue_game_slot and \
+            int(time.time()) - self.bot.queue_game_slot[str(ctx.author.id)] < 30:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game slot in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -2554,10 +2586,6 @@ class Games(commands.Cog):
         get_random_reward = await self.db.sql_game_reward_random("SLOT")
         amount = get_random_reward['reward_amount']
         coin_name = get_random_reward['coin_name']
-        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
         result = f"You got reward of {num_format_coin(amount)} {coin_name} "\
             "to Tip balance!"
@@ -2571,8 +2599,10 @@ class Games(commands.Cog):
             if not won:
                 result = "You lose! Good luck later!"
 
-        embed = disnake.Embed(title="TIPBOT FREE SLOT ({} REWARD)".format("WITHOUT" if free_game else "WITH"),
-                              description="Anyone can freely play!", color=0x00ff00)
+        embed = disnake.Embed(
+            title="TIPBOT FREE SLOT ({} REWARD)".format("WITHOUT" if free_game else "WITH"),
+            description="Anyone can freely play!"
+        )
         embed.add_field(name="Player", value="{}#{}".format(ctx.author.name, ctx.author.discriminator), inline=False)
         embed.add_field(name="Last 24h you played", value=str(count_played_free + count_played + 1), inline=False)
         embed.add_field(name="Result", value=slotOutput, inline=False)
@@ -2618,7 +2648,8 @@ class Games(commands.Cog):
                     f"{ctx.author.name} / {ctx.author.id} tried **/game** in "\
                     f"{ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
                 )
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. "\
+                "Please request Guild owner to enable by `/SETTING GAME`"
             await ctx.edit_original_message(content=msg)
             return
         try:
@@ -2661,7 +2692,8 @@ class Games(commands.Cog):
 
         if str(ctx.author.id) not in self.bot.queue_game_interactive:
             self.bot.queue_game_interactive[str(ctx.author.id)] = int(time.time())
-        else:
+        elif str(ctx.author.id) in self.bot.queue_game_interactive and \
+            int(time.time()) - self.bot.queue_game_interactive[str(ctx.author.id)] < 30:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
             await ctx.edit_original_message(content=msg)
             return
@@ -2705,7 +2737,8 @@ class Games(commands.Cog):
                     f"{ctx.author.name} / {ctx.author.id} tried **/game** in "\
                     f"{ctx.guild.name} / {ctx.guild.id} which is not ENABLE."
                 )
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. Please request Guild owner to enable by `/SETTING GAME`"
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention} Game is not ENABLE yet in this guild. "\
+                "Please request Guild owner to enable by `/SETTING GAME`"
             await ctx.edit_original_message(content=msg)
             return
         try:
@@ -2745,13 +2778,6 @@ class Games(commands.Cog):
         free_game = False
         won = False
 
-        if str(ctx.author.id) not in self.bot.queue_game_interactive:
-            self.bot.queue_game_interactive[str(ctx.author.id)] = int(time.time())
-        else:
-            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
-            await ctx.edit_original_message(content=msg)
-            return
-
         count_played = await self.db.sql_game_count_user(
             str(ctx.author.id), self.bot.config['game']['duration_24h'], SERVER_BOT, False
         )
@@ -2773,8 +2799,9 @@ class Games(commands.Cog):
 
         if str(ctx.author.id) not in self.bot.queue_game_dice:
             self.bot.queue_game_dice[str(ctx.author.id)] = int(time.time())
-        else:
-            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
+        elif str(ctx.author.id) in self.bot.queue_game_dice and \
+            int(time.time()) - self.bot.queue_game_dice[str(ctx.author.id)] < 30:
+            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game dice in progress."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -2784,6 +2811,7 @@ class Games(commands.Cog):
             sum_dice = 0
             dice_time = 0
             while not game_over:
+                random.seed(datetime.now())
                 dice1 = random.randint(1, 6)
                 dice2 = random.randint(1, 6)
                 dice_time += 1
@@ -2822,7 +2850,7 @@ class Games(commands.Cog):
                     f"{coin_name} to tip balance!"
                 if free_game is True:
                     if won:
-                        result = "You won! but this is a free game without **reward**! "\
+                        result = "You won! but this is a free game without reward! "\
                             "Waiting to refresh your paid plays (24h max)."
                     else:
                         result = "You lose!"
@@ -2832,7 +2860,7 @@ class Games(commands.Cog):
                 # Start reward
                 if free_game is False:
                     try:
-                        reward = await self.db.sql_game_add('{}:{}:{}:{}'.format(
+                        await self.db.sql_game_add('{}:{}:{}:{}'.format(
                             dice_time, sum_dice, dice1, dice2),
                             str(ctx.author.id), coin_name, 'WIN' if won else 'LOSE',
                             amount, coin_decimal, str(ctx.guild.id), 'DICE',
@@ -2867,7 +2895,7 @@ class Games(commands.Cog):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tip = await store.sql_user_balance_mv_single(
+                        await store.sql_user_balance_mv_single(
                             self.bot.user.id, str(ctx.user.id),
                             str(ctx.guild.id), str(ctx.channel.id), amount,
                             coin_name, "GAME", coin_decimal, SERVER_BOT,
@@ -2888,6 +2916,10 @@ class Games(commands.Cog):
                         await logchanbot(traceback.format_exc())
                 # End reward
                 await msg.reply(f"{ctx.author.mention} **Dice: ** You threw dices **{dice_time}** times. {result}")
+                try:
+                    del self.bot.queue_game_dice[str(ctx.author.id)]
+                except Exception:
+                    pass
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         except (disnake.Forbidden, disnake.errors.Forbidden, disnake.errors.HTTPException) as e:
@@ -2967,7 +2999,8 @@ class Games(commands.Cog):
 
         if str(ctx.author.id) not in self.bot.queue_game_interactive:
             self.bot.queue_game_interactive[str(ctx.author.id)] = int(time.time())
-        else:
+        elif str(ctx.author.id) in self.bot.queue_game_interactive and \
+            int(time.time()) - self.bot.queue_game_interactive[str(ctx.author.id)] < 30:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
             await ctx.edit_original_message(content=msg)
             return
@@ -3050,6 +3083,7 @@ class Games(commands.Cog):
 
                 while not game_over:
                     # Pick random snails to move forward:
+                    random.seed(datetime.now())
                     for i in range(random.randint(1, MAX_NUM_SNAILS // 2)):
                         randomSnailName = random.choice(snailNames)
                         snailProgress[randomSnailName] += 1
@@ -3067,8 +3101,7 @@ class Games(commands.Cog):
                                 coin_name = get_random_reward['coin_name']
                                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                "usd_equivalent_enable")
+                                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                                 native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
 
                                 result = ''
@@ -3252,7 +3285,8 @@ class Games(commands.Cog):
 
         if str(ctx.author.id) not in self.bot.queue_game_interactive:
             self.bot.queue_game_interactive[str(ctx.author.id)] = int(time.time())
-        else:
+        elif str(ctx.author.id) in self.bot.queue_game_interactive and \
+            int(time.time()) - self.bot.queue_game_interactive[str(ctx.author.id)] < 30:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
             await ctx.edit_original_message(content=msg)
             return
@@ -3338,7 +3372,8 @@ class Games(commands.Cog):
 
         if str(ctx.author.id) not in self.bot.queue_game_interactive:
             self.bot.queue_game_interactive[str(ctx.author.id)] = int(time.time())
-        else:
+        elif str(ctx.author.id) in self.bot.queue_game_interactive and \
+            int(time.time()) - self.bot.queue_game_interactive[str(ctx.author.id)] < 30:
             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another game in progress."
             await ctx.edit_original_message(content=msg)
             return

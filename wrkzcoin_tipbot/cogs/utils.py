@@ -766,6 +766,357 @@ class Utils(commands.Cog):
         return []
     # End of recent activity
 
+    # bidding
+    async def get_all_bids(self, status: str="ONGOING"):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `discord_bidding_list` 
+                    WHERE `status`=%s
+                    """
+                    await cur.execute(sql, status)
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def get_bid_id(self, message_id: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `discord_bidding_list` 
+                    WHERE `message_id`=%s LIMIT 1
+                    """
+                    await cur.execute(sql, message_id)
+                    result = await cur.fetchone()
+                    if result:
+                        return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def get_bid_attendant(self, message_id: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ SELECT * FROM `discord_bidding_joined` 
+                    WHERE `message_id`=%s ORDER BY `bid_amount` DESC
+                    """
+                    await cur.execute(sql, message_id)
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def discord_bid_ongoing(self, guild_id: str, status: str = "ONGOING"):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT COUNT(*) AS numb FROM `discord_bidding_list` 
+                    WHERE `guild_id`=%s AND `status`=%s
+                    """
+                    await cur.execute(sql, (
+                        guild_id, status
+                        )
+                    )
+                    result = await cur.fetchone()
+                    if result:
+                        return result['numb']
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return 0
+    
+    async def discord_bid_cancel(
+        self, message_id: str,
+        user_id: str, guild_id: str, channel_id: str
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    UPDATE `discord_bidding_list` 
+                    SET `status`=%s
+                    WHERE `message_id`=%s LIMIT 1;
+
+                    UPDATE `discord_bidding_joined` 
+                    SET `status`=%s
+                    WHERE `message_id`=%s;
+
+                    INSERT INTO `discord_bidding_logs`
+                    (`type`, `message_id`, `user_id`, `guild_id`, `channel_id`, `time`, `other`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s);
+                    """
+                    await cur.execute(sql, (
+                        "CANCELLED", message_id, "CANCELLED", message_id,
+                        "CANCELLED", message_id, user_id, guild_id, channel_id, int(time.time()), message_id
+                    ))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def bid_add_new(
+        self, title: str, token_name: str, contract: str, token_decimal: str,
+        user_id: str, username: str, message_id: str, channel_id: str, guild_id: str,
+        guild_name: str, minimum_amount: float, step_amount: float, message_time: int, 
+        bid_open_time: int, status: str, original_name: str, 
+        saved_name: str, file_type: str, sha256: str
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    INSERT INTO `discord_bidding_list`
+                    (`title`, `token_name`, `contract`, `token_decimal`,
+                    `user_id`, `username`, `message_id`, `channel_id`, `guild_id`,
+                    `guild_name`, `minimum_amount`, `step_amount`, `message_time`, 
+                    `bid_open_time`, `status`, `original_name`, 
+                    `saved_name`, `file_type`, `sha256`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                    """
+                    data_rows = [
+                        title, token_name, contract, token_decimal,
+                        user_id, username, message_id, channel_id, guild_id,
+                        guild_name, minimum_amount, step_amount, message_time, 
+                        bid_open_time, status, original_name, 
+                        saved_name, file_type, sha256
+                    ]
+                    sql += """
+                    INSERT INTO `discord_bidding_logs`
+                    (`type`, `user_id`, `guild_id`, `channel_id`, `amount`, `token_name`, `time`, `other`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+                    """
+                    data_rows += [
+                        "CREATE", user_id, guild_id, channel_id, minimum_amount, token_name, int(time.time()), title
+                    ]
+                    await cur.execute(sql, tuple(data_rows))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def update_bid_failed(self, message_id: str, turn_off: bool=False):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    if turn_off is False:
+                        sql = """ UPDATE `discord_bidding_list` 
+                        SET `failed_check`=`failed_check`+1 
+                        WHERE `message_id`=%s 
+                        LIMIT 1
+                        """
+                        await cur.execute(sql, message_id)
+                        await conn.commit()
+                        return True
+                    else:
+                        # Change status
+                        sql = """ UPDATE `discord_bidding_list` 
+                        SET `status`=%s 
+                        WHERE `message_id`=%s 
+                        LIMIT 1
+                        """
+                        await cur.execute(sql, ("CANCELLED", message_id))
+                        await conn.commit()
+                        return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def update_bid_no_winning(self, message_id: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ UPDATE `discord_bidding_list` 
+                    SET `status`=%s 
+                    WHERE `message_id`=%s 
+                    LIMIT 1;
+                    """
+                    await cur.execute(sql, ("COMPLETED", message_id))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def update_bid_with_winner(
+        self, message_id: str, winner_user_id: str, winner_amount: float
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """ UPDATE `discord_bidding_list` 
+                    SET `status`=%s, `winner_user_id`=%s, `winner_amount`=%s, `winning_date`=%s
+                    WHERE `message_id`=%s 
+                    LIMIT 1;
+                    """
+                    data_rows = [
+                        "COMPLETED", winner_user_id, winner_amount, int(time.time()), message_id
+                    ]
+
+                    sql += """
+                    UPDATE `discord_bidding_joined`
+                    SET `status`=%s WHERE `message_id`=%s AND `user_id`<>%s;
+                    """
+                    data_rows += [
+                        "LOSE", message_id, winner_user_id
+                    ]
+
+                    sql += """
+                    UPDATE `discord_bidding_joined`
+                    SET `status`=%s WHERE `message_id`=%s AND `user_id`=%s;
+                    """
+                    data_rows += [
+                        "WIN", message_id, winner_user_id
+                    ]
+                    await cur.execute(sql, tuple(data_rows))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def update_bid_winner_instruction(
+        self, message_id: str, instruction: str, method_for: str
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    if method_for == "winner":
+                        sql = """ UPDATE `discord_bidding_list` 
+                        SET `winner_instruction`=%s, `winner_instruction_date`=%s
+                        WHERE `message_id`=%s 
+                        LIMIT 1;
+                        """
+                        data_rows = [
+                            instruction, int(time.time()), message_id
+                        ]
+                    elif method_for == "owner":
+                        sql = """ UPDATE `discord_bidding_list` 
+                        SET `owner_respond`=%s, `owner_respond_date`=%s
+                        WHERE `message_id`=%s 
+                        LIMIT 1;
+                        """
+                        data_rows = [
+                            instruction, int(time.time()), message_id
+                        ]
+                    elif method_for == "final":
+                        sql = """ UPDATE `discord_bidding_list` 
+                        SET `winner_confirmation_date`=%s
+                        WHERE `message_id`=%s 
+                        LIMIT 1;
+                        """
+                        data_rows = [
+                            int(time.time()), message_id
+                        ]
+                    else:
+                        return False
+                    await cur.execute(sql, tuple(data_rows))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def discord_bid_max_bid(self, message_id: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `discord_bidding_joined` 
+                    WHERE `message_id`=%s ORDER BY `bid_amount` DESC LIMIT 1
+                    """
+                    await cur.execute(sql, (message_id))
+                    result = await cur.fetchone()
+                    if result:
+                        return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def bid_new_join(
+        self, message_id: str, user_id: str, username: str,
+        bid_amount: float, bid_coin: str, guild_id: str, channel_id: str
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    INSERT INTO `discord_bidding_joined` 
+                    (`message_id`, `user_id`, `username`, `bid_amount`, `bid_coin`, `bid_time`, `status`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        `bid_amount`=VALUES(`bid_amount`),
+                        `status`=%s,
+                        `bid_time`=VALUES(`bid_time`);
+                    """
+                    data_rows = [
+                        message_id, user_id, username, bid_amount, bid_coin, int(time.time()), "BID", "REBID"
+                    ]
+                    sql += """
+                    INSERT INTO `discord_bidding_logs`
+                    (`type`, `message_id`, `user_id`, `guild_id`, `channel_id`, `time`, `other`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s);
+                    """
+                    data_rows += [
+                        "BID", message_id, user_id, guild_id, channel_id, int(time.time()), message_id
+                    ]
+                    await cur.execute(sql, tuple(data_rows))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def bid_update_desc(
+        self, message_id: str, user_id: str,
+        description: str, guild_id: str, channel_id: str
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    UPDATE `discord_bidding_list`
+                    SET `description`=%s
+                    WHERE `message_id`=%s LIMIT 1;
+                    """
+                    data_rows = [description, message_id]
+
+                    sql += """
+                    INSERT INTO `discord_bidding_logs`
+                    (`type`, `message_id`, `user_id`, `guild_id`, `channel_id`, `time`, `other`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s);
+                    """
+                    data_rows += [
+                        "UPDATE DESC", message_id, user_id, guild_id, channel_id, int(time.time()), description
+                    ]
+                    await cur.execute(sql, tuple(data_rows))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+    # end of bidding
+
     # Check if a user lock
     def is_locked_user(self, user_id: str, user_server: str="DISCORD"):
         try:

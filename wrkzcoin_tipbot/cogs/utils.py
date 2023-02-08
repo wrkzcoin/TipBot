@@ -244,6 +244,7 @@ class Utils(commands.Cog):
         self.cache_kv_db_faucet = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="faucet", autocommit=True)
         self.cache_kv_db_market_guild = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="market_guild", autocommit=True)
         self.cache_kv_db_user_disable = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="user_disable", autocommit=True)
+        self.cache_kv_db_bidding_amount = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="bidding_amount", autocommit=True)
 
     async def get_bot_settings(self):
         try:
@@ -837,7 +838,8 @@ class Utils(commands.Cog):
     
     async def discord_bid_cancel(
         self, message_id: str,
-        user_id: str, guild_id: str, channel_id: str
+        user_id: str, guild_id: str, channel_id: str,
+        list_balance_updates, payment_logs
     ):
         try:
             await store.openConnection()
@@ -861,6 +863,26 @@ class Utils(commands.Cog):
                         "CANCELLED", message_id, user_id, guild_id, channel_id, int(time.time()), message_id
                     ))
                     await conn.commit()
+                    # refund
+                    if len(list_balance_updates) > 0:
+                        sql = """
+                        INSERT INTO `user_balance_mv_data`
+                        (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                            `balance`=`balance`+VALUES(`balance`),
+                            `update_date`=VALUES(`update_date`);
+                        """
+                        await cur.executemany(sql, list_balance_updates)
+                        await conn.commit()
+                    if payment_logs is not None and len(payment_logs) > 0:
+                        sql = """
+                        INSERT INTO `discord_bidding_logs`
+                        (`type`, `message_id`, `user_id`, `guild_id`, `channel_id`, `time`, `other`)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s);
+                        """
+                        await cur.executemany(sql, payment_logs)
+                        await conn.commit()
                     return True
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -954,7 +976,8 @@ class Utils(commands.Cog):
         return False
 
     async def update_bid_with_winner(
-        self, message_id: str, winner_user_id: str, winner_amount: float
+        self, message_id: str, winner_user_id: str, winner_amount: float,
+        list_balance_updates, payment_logs
     ):
         try:
             await store.openConnection()
@@ -986,13 +1009,34 @@ class Utils(commands.Cog):
                     ]
                     await cur.execute(sql, tuple(data_rows))
                     await conn.commit()
+                    # refund to losers
+                    if len(list_balance_updates) > 0:
+                        sql = """
+                        INSERT INTO `user_balance_mv_data`
+                        (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                            `balance`=`balance`+VALUES(`balance`),
+                            `update_date`=VALUES(`update_date`);
+                        """
+                        await cur.executemany(sql, list_balance_updates)
+                        await conn.commit()
+                    if payment_logs is not None and len(payment_logs) > 0:
+                        sql = """
+                        INSERT INTO `discord_bidding_logs`
+                        (`type`, `message_id`, `user_id`, `guild_id`, `channel_id`, `time`, `other`)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s);
+                        """
+                        await cur.executemany(sql, payment_logs)
+                        await conn.commit()
                     return True
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return False
 
     async def update_bid_winner_instruction(
-        self, message_id: str, instruction: str, method_for: str
+        self, message_id: str, instruction: str, method_for: str,
+        list_balance_updates, payment_logs
     ):
         try:
             await store.openConnection()
@@ -1007,6 +1051,8 @@ class Utils(commands.Cog):
                         data_rows = [
                             instruction, int(time.time()), message_id
                         ]
+                        await cur.execute(sql, tuple(data_rows))
+                        await conn.commit()
                     elif method_for == "owner":
                         sql = """ UPDATE `discord_bidding_list` 
                         SET `owner_respond`=%s, `owner_respond_date`=%s
@@ -1016,6 +1062,8 @@ class Utils(commands.Cog):
                         data_rows = [
                             instruction, int(time.time()), message_id
                         ]
+                        await cur.execute(sql, tuple(data_rows))
+                        await conn.commit()
                     elif method_for == "final":
                         sql = """ UPDATE `discord_bidding_list` 
                         SET `winner_confirmation_date`=%s
@@ -1025,10 +1073,29 @@ class Utils(commands.Cog):
                         data_rows = [
                             int(time.time()), message_id
                         ]
+                        if list_balance_updates is not None and len(list_balance_updates) > 0:
+                            # update balance
+                            sql = """
+                            INSERT INTO `user_balance_mv_data`
+                            (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                            VALUES (%s, %s, %s, %s, %s)
+                            ON DUPLICATE KEY UPDATE
+                                `balance`=`balance`+VALUES(`balance`),
+                                `update_date`=VALUES(`update_date`);
+                            """
+                            await cur.executemany(sql, list_balance_updates)
+                            await conn.commit()
+
+                            # update logs
+                            sql = """
+                            INSERT INTO `discord_bidding_logs`
+                            (`type`, `message_id`, `user_id`, `guild_id`, `channel_id`, `time`, `other`)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s);
+                            """
+                            await cur.executemany(sql, payment_logs)
+                            await conn.commit()
                     else:
                         return False
-                    await cur.execute(sql, tuple(data_rows))
-                    await conn.commit()
                     return True
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
@@ -1053,7 +1120,8 @@ class Utils(commands.Cog):
 
     async def bid_new_join(
         self, message_id: str, user_id: str, username: str,
-        bid_amount: float, bid_coin: str, guild_id: str, channel_id: str
+        bid_amount: float, bid_coin: str, guild_id: str, channel_id: str,
+        user_server: str, additional_amount: float
     ):
         try:
             await store.openConnection()
@@ -1077,8 +1145,21 @@ class Utils(commands.Cog):
                     VALUES (%s, %s, %s, %s, %s, %s, %s);
                     """
                     data_rows += [
-                        "BID", message_id, user_id, guild_id, channel_id, int(time.time()), message_id
+                        "BID", message_id, user_id, guild_id, channel_id, int(time.time()), num_format_coin(bid_amount)
                     ]
+
+                    if additional_amount > 0:
+                        sql += """
+                        INSERT INTO `user_balance_mv_data`
+                        (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                            `balance`=`balance`+VALUES(`balance`),
+                            `update_date`=VALUES(`update_date`);
+                        """
+                        data_rows += [
+                            user_id , bid_coin, user_server, -additional_amount, int(time.time())
+                        ]
                     await cur.execute(sql, tuple(data_rows))
                     await conn.commit()
                     return True
@@ -1204,6 +1285,8 @@ class Utils(commands.Cog):
                 return True
             elif table.lower() == "user_disable":
                 self.cache_kv_db_user_disable[key.upper()] = value
+            elif table.lower() == "bidding_amount":
+                self.cache_kv_db_bidding_amount[key.upper()] = value
                 return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -1227,6 +1310,8 @@ class Utils(commands.Cog):
                 return self.cache_kv_db_market_guild[key.upper()]
             elif table.lower() == "user_disable":
                 return self.cache_kv_db_user_disable[key.upper()]
+            elif table.lower() == "bidding_amount":
+                return self.cache_kv_db_bidding_amount[key.upper()]
         except KeyError:
             pass
         return None
@@ -1257,6 +1342,9 @@ class Utils(commands.Cog):
             elif table.lower() == "user_disable":
                 del self.cache_kv_db_user_disable[key.upper()]
                 return True
+            elif table.lower() == "bidding_amount":
+                del self.cache_kv_db_bidding_amount[key.upper()]
+                return True
         except KeyError:
             pass
         return False
@@ -1279,6 +1367,8 @@ class Utils(commands.Cog):
                 return self.cache_kv_db_market_guild
             elif table.lower() == "user_disable":
                 return self.cache_kv_db_user_disable
+            elif table.lower() == "bidding_amount":
+                return self.cache_kv_db_bidding_amount
         except KeyError:
             pass
         return None
@@ -1301,6 +1391,8 @@ class Utils(commands.Cog):
             self.cache_kv_db_market_guild = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="market_guild", autocommit=True)
         if self.cache_kv_db_user_disable is None:
             self.cache_kv_db_user_disable = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="user_disable", autocommit=True)
+        if self.cache_kv_db_bidding_amount is None:
+            self.cache_kv_db_bidding_amount = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="bidding_amount", autocommit=True)
 
     def cog_unload(self):
         self.cache_kv_db_test.close()
@@ -1311,6 +1403,7 @@ class Utils(commands.Cog):
         self.cache_kv_db_faucet.close()
         self.cache_kv_db_market_guild.close()
         self.cache_kv_db_user_disable.close()
+        self.cache_kv_db_bidding_amount.close()
 
 def setup(bot):
     bot.add_cog(Utils(bot))

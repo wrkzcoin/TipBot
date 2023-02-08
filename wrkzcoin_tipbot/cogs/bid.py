@@ -194,12 +194,41 @@ class PlaceBid(disnake.ui.Modal):
                 return
 
             try:
+                # get his previous bid amount
+                previous_bid = 0.0
+                additional_bid_amount = amount
+                try:
+                    key = str(self.message_id) + "_" + str(interaction.author.id)
+                    previous_bid = self.utils.get_cache_kv(
+                        "bidding_amount",
+                        key
+                    )
+                    if previous_bid and previous_bid > 0:
+                        additional_bid_amount = amount - previous_bid
+                    self.utils.set_cache_kv(
+                        "bidding_amount",
+                        key,
+                        amount
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                if additional_bid_amount < 0:
+                    msg = f"{EMOJI_INFORMATION} {self.ctx.author.mention}, internal error with a new amount {num_format_coin(amount)} {coin_name}!"
+                    await interaction.edit_original_message(content=msg)
+                    return
                 adding_bid = await self.utils.bid_new_join(
                     str(self.message_id), str(interaction.author.id), "{}#{}".format(interaction.author.name, interaction.author.discriminator),
-                    amount, coin_name, str(interaction.guild.id), str(interaction.channel.id)
+                    amount, coin_name, str(interaction.guild.id), str(interaction.channel.id), SERVER_BOT, additional_bid_amount
                 )
+                # remove cache
+                try:
+                    key = str(interaction.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                    if key in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key]
+                except Exception:
+                    pass
                 if adding_bid:
-                    msg = f"{EMOJI_INFORMATION} {self.ctx.author.mention}, successfully placing a bid!"
+                    msg = f"{EMOJI_INFORMATION} {self.ctx.author.mention}, successfully placing a bid with a new amount {num_format_coin(amount)} {coin_name}!"
                     await interaction.edit_original_message(content=msg)
                     try:
                         get_message = await self.utils.get_bid_id(str(self.message_id))
@@ -230,11 +259,23 @@ class PlaceBid(disnake.ui.Modal):
                                     list_joined = []
                             if len(list_joined) > 0:
                                 embed.add_field(name='Bidder(s)', value="\n".join(list_joined), inline=False)
+
+                        bid_note = self.bot.config['bidding']['bid_note']
+                        if self.bot.config['bidding']['bid_collecting_fee'] > 0:
+                            bid_note += " There will be {:,.2f}{} charged for each successful bid.".format(
+                                self.bot.config['bidding']['bid_collecting_fee']*100, "%"
+                            )
+
+                        embed.add_field(
+                            name='Note',
+                            value=bid_note,
+                            inline=False
+                        )
                         await _msg.edit(content=None, embed=embed)
                         await log_to_channel(
                             "bid",
-                            f"[NEW BID]: User {interaction.author.mention} joined/updated a bid in Guild ID: {interaction.guild.id}.\n"\
-                            f"Ref: {self.message.id} / Guild name: {interaction.guild.name} / Amount {num_format_coin(amount)} {coin_name}.",
+                            f"[NEW BID]: User {interaction.author.mention} joined/updated a bid in Guild ID: {interaction.guild.name} / {interaction.guild.id}. "\
+                            f"Ref: {self.message_id} and new amount {num_format_coin(amount)} {coin_name}.",
                             self.bot.config['discord']['bid_webhook']
                         )
                     except Exception:
@@ -300,7 +341,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
                 return
             elif get_message['winner_instruction'] is None and self.method_for == "winner":
                 await self.utils.update_bid_winner_instruction(
-                    str(self.message_id), instruction, self.method_for
+                    str(self.message_id), instruction, self.method_for, None, None
                 )
                 # find owner to message
                 try:
@@ -331,7 +372,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
                 await log_to_channel(
                     "bid",
                     f"[WINNER INFO]: User {interaction.author.mention} updated delivery info. "\
-                    f"Ref: {self.bid_info['message_id']} / Guild name: {self.bid_info['guild_name']}!",
+                    f"Ref: {self.bid_info['message_id']} and at Guild {interaction.guild.name} / {interaction.guild.id}!",
                     self.bot.config['discord']['bid_webhook']
                 )
                 return
@@ -341,7 +382,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
             # owner
             elif get_message['owner_respond'] is None and self.method_for == "owner":
                 await self.utils.update_bid_winner_instruction(
-                    str(self.message_id), instruction, self.method_for
+                    str(self.message_id), instruction, self.method_for, None, None
                 )
                 # find winner to message
                 try:
@@ -372,7 +413,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
                 await log_to_channel(
                     "bid",
                     f"[OWNER UPDATE INFO]: User {interaction.author.mention} updated delivery info. "\
-                    f"Ref: {self.bid_info['message_id']} / Guild name: {self.bid_info['guild_name']}!",
+                    f"Ref: {self.bid_info['message_id']} and at Guild {interaction.guild.name} / {interaction.guild.id}!",
                     self.bot.config['discord']['bid_webhook']
                 )
                 return
@@ -467,21 +508,69 @@ class ClearButton(disnake.ui.View):
             await interaction.response.send_message(f"{interaction.author.mention}, that's not yours!", ephemeral=True)
         else:
             try:
-                await interaction.response.send_message(f"{interaction.author.mention}, Completed! Thank you!", ephemeral=True)
+                await interaction.response.send_message(f"{interaction.author.mention}, in progress...", ephemeral=True)
                 for child in self.children:
                     if isinstance(child, disnake.ui.Button):
                         child.disabled = True
-                # TODO: update balance and charge fee?
+
+                # take balance from owner 100%
+                # deduct fee to system if set
+                # pay remaining balance to bid owner
+                payment_list = []
+                payment_list_msg = []
+                payment_logs = []
+                # We already deducted previously during bidding, no need to deduct one more time.
+                payment_logs.append((
+                    "PAYMENT", self.bid_info['message_id'], str(self.winner_id),
+                    self.bid_info['guild_id'], self.bid_info['channel_id'], int(time.time()),
+                    "-" + num_format_coin(self.winner_amount)
+                ))
+                remaining = self.winner_amount
+                payment_list_msg.append(f"Processing deduct from winner (Done during bidding): {num_format_coin(self.winner_amount)} {self.bid_info['token_name']}")
+                if self.bot.config['bidding']['bid_collecting_fee'] > 0:
+                    payment_list.append((
+                        "SYSTEM", self.bid_info['token_name'], SERVER_BOT, 
+                        self.bot.config['bidding']['bid_collecting_fee']*self.winner_amount, int(time.time())
+                    ))
+                    remaining -= self.bot.config['bidding']['bid_collecting_fee']*self.winner_amount
+                    payment_list_msg.append(f"Processing to SYSTEM: "\
+                        f"{num_format_coin(self.bot.config['bidding']['bid_collecting_fee']*self.winner_amount)} "\
+                        f"{self.bid_info['token_name']} from winner"
+                    )
+                    payment_logs.append((
+                        "PAYMENT", self.bid_info['message_id'], "SYSTEM",
+                        self.bid_info['guild_id'], self.bid_info['channel_id'], int(time.time()),
+                        num_format_coin(self.bot.config['bidding']['bid_collecting_fee']*self.winner_amount)
+                    ))
+                payment_list.append((
+                    self.bid_info['user_id'], self.bid_info['token_name'], SERVER_BOT, remaining, int(time.time())
+                ))
+                payment_logs.append((
+                    "PAYMENT", self.bid_info['message_id'], self.bid_info['user_id'],
+                    self.bid_info['guild_id'], self.bid_info['channel_id'], int(time.time()),
+                    num_format_coin(remaining)
+                ))
+                payment_list_msg.append(f"Processing to bid owner: {num_format_coin(remaining)} {self.bid_info['token_name']}")
                 await self.utils.update_bid_winner_instruction(
-                    str(self.bid_info['message_id']), "placeholder", "final"
+                    str(self.bid_info['message_id']), "placeholder", "final",
+                    payment_list, payment_logs
                 )
+                payment_list_msg = "\n".join(payment_list_msg)
+                for i in [self.bid_info['user_id'], str(self.winner_id)]:
+                    key = i + "_" + self.bid_info['token_name'] + "_" + SERVER_BOT
+                    try:
+                        if i in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[i]
+                    except Exception:
+                        pass
                 await self.message.edit(view=self)
                 await log_to_channel(
                     "bid",
-                    f"[COMPLETED]: User {interaction.author.mention} marked the bid as completed. "\
-                    f"Ref: {self.bid_info['message_id']} / Guild name: {self.bid_info['guild_name']}!",
+                    f"[BID COMPLETED]: User {interaction.author.mention} marked the bid as completed. "\
+                    f"Ref: {self.bid_info['message_id']} and at Guild name: {self.bid_info['guild_name']} / {self.bid_info['guild_id']}!\n{payment_list_msg}",
                     self.bot.config['discord']['bid_webhook']
                 )
+                await interaction.edit_original_message(f"{interaction.author.mention}, Completed!")
             except disnake.errors.NotFound:
                 await interaction.response.send_message(
                     f"{interaction.author.mention}, failed to retreive bidding information! Try again later!", ephemeral=True)
@@ -566,14 +655,38 @@ class BidButton(disnake.ui.View):
         if interaction.author.id != self.owner_id:
             await interaction.response.send_message(f"{interaction.author.mention}, that's not your listing!", ephemeral=True)
         else:
+            await interaction.response.send_message(f"{interaction.author.mention}, checking cancellation!", ephemeral=True)
             # set status to cancelled, log, refund to all bidders.
             try:
+                # get list bidders and amounts
+                attend_list = await self.utils.get_bid_attendant(str(self.message.id))
+                refund_list = []
+                list_key_update = []
+                payment_logs = []
+                if len(attend_list) > 0:
+                    for i in attend_list:
+                        refund_list.append((
+                            i['user_id'], i['bid_coin'], SERVER_BOT, i['bid_amount'], int(time.time())
+                        ))
+                        list_key_update.append(i['user_id'] + "_" + i['bid_coin'] + "_" + SERVER_BOT)
+                        payment_logs.append((
+                            "REFUND", str(self.message.id), i['user_id'],
+                            str(interaction.guild.id), str(interaction.channel.id), int(time.time()),
+                            num_format_coin(i['bid_amount'])
+                        ))
                 cancelling = await self.utils.discord_bid_cancel(
                     str(self.message.id), str(interaction.author.id),
-                    str(interaction.guild.id), str(interaction.channel.id)
+                    str(interaction.guild.id), str(interaction.channel.id),
+                    refund_list, payment_logs
                 )
                 if cancelling is True:
-                    await interaction.response.send_message(f"{interaction.author.mention}, successfully cancelled!", ephemeral=True)
+                    if len(list_key_update) > 0:
+                        for i in list_key_update:
+                            try:
+                                if i in self.bot.user_balance_cache:
+                                    del self.bot.user_balance_cache[i]
+                            except Exception:
+                                pass
                     ## Update content
                     try:
                         for child in self.children:
@@ -581,7 +694,6 @@ class BidButton(disnake.ui.View):
                                 child.disabled = True
                         _msg: disnake.Message = await interaction.channel.fetch_message(self.message.id)
                         await _msg.edit(content=None, view=self)
-                        # TODO: refund all bidders
                         await log_to_channel(
                             "bid",
                             f"[BID CANCELLED]: User {interaction.author.mention} cancelled a bid in Guild ID {interaction.guild.id}.\n"\
@@ -590,10 +702,11 @@ class BidButton(disnake.ui.View):
                         )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
+                    await interaction.edit_original_message(f"{interaction.author.mention}, successfully cancelled!")
                 else:
-                    await interaction.response.send_message(f"{interaction.author.mention}, internal error!", ephemeral=True)
+                    await interaction.edit_original_message(f"{interaction.author.mention}, internal error!")
             except disnake.errors.NotFound:
-                await interaction.response.send_message(f"{interaction.author.mention}, failed to retreive bidding information! Try again later!", ephemeral=True)
+                await interaction.edit_original_message(f"{interaction.author.mention}, failed to retreive bidding information! Try again later!", ephemeral=True)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
 
@@ -624,9 +737,10 @@ class Bidding(commands.Cog):
             if len(get_list_bids) > 0:
                 for each_bid in get_list_bids:
                     await self.bot.wait_until_ready()
+                    _msg = None
+                    get_message = await self.utils.get_bid_id(each_bid['message_id'])
+                    attend_list = await self.utils.get_bid_attendant(each_bid['message_id'])
                     try:
-                        get_message = await self.utils.get_bid_id(each_bid['message_id'])
-                        attend_list = await self.utils.get_bid_attendant(each_bid['message_id'])
                         # Update view
                         owner_displayname = get_message['username']
                         coin_name = get_message['token_name']
@@ -680,12 +794,69 @@ class Bidding(commands.Cog):
                                             list_joined = []
                                     if len(list_joined) > 0:
                                         embed.add_field(name='Bidder(s)', value="\n".join(list_joined), inline=False)
+                                bid_note = self.bot.config['bidding']['bid_note']
+                                if self.bot.config['bidding']['bid_collecting_fee'] > 0:
+                                    bid_note += " There will be {:,.2f}{} charged for each successful bid.".format(
+                                        self.bot.config['bidding']['bid_collecting_fee']*100, "%"
+                                    )
+
+                                embed.add_field(
+                                    name='Note',
+                                    value=bid_note,
+                                    inline=False
+                                )
                         except disnake.errors.NotFound:
-                                await logchanbot("[BIDDING]: can not find message ID: {} of channel {} in guild: {}. Set that to FAILED.".format(
-                                    each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id']
-                                ))
-                                await self.utils.update_bid_failed(each_bid['message_id'], True)
-                                await asyncio.sleep(1.0)
+                                await log_to_channel(
+                                    "bid",
+                                    "[NOT FOUND BIDDING]: can not find message ID: {} of channel {} in guild: {}.".format(
+                                        each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id']
+                                    ),
+                                    self.bot.config['discord']['bid_webhook']
+                                )
+                                # add fail check
+                                if each_bid['failed_check'] <= 3:
+                                    await self.utils.update_bid_failed(each_bid['message_id'], False)
+                                elif len(attend_list) == 0:
+                                    # nothing to refund
+                                    await self.utils.update_bid_failed(each_bid['message_id'], True)
+                                elif len(attend_list) > 0:
+                                    try:
+                                        # refund
+                                        refund_list = []
+                                        list_key_update = []
+                                        payment_logs = []
+                                        for i in attend_list:
+                                            refund_list.append((
+                                                i['user_id'], i['bid_coin'], SERVER_BOT, i['bid_amount'], int(time.time())
+                                            ))
+                                            list_key_update.append(i['user_id'] + "_" + i['bid_coin'] + "_" + SERVER_BOT)
+                                            payment_logs.append((
+                                                "REFUND", each_bid['message_id'], i['user_id'],
+                                                each_bid['guild_id'], each_bid['channel_id'], int(time.time()),
+                                                num_format_coin(i['bid_amount'])
+                                            ))
+                                        for i in list_key_update:
+                                            try:
+                                                if i in self.bot.user_balance_cache:
+                                                    del self.bot.user_balance_cache[i]
+                                            except Exception:
+                                                pass
+                                        await self.utils.discord_bid_cancel(
+                                            each_bid['message_id'], each_bid['user_id'],
+                                            each_bid['guild_id'], each_bid['channel_id'],
+                                            refund_list, payment_logs
+                                        )
+                                        await log_to_channel(
+                                            "bid",
+                                            "[REFUND]: can not find message ID: {} of channel {} in guild: {}. Refund to {} user(s).".format(
+                                                each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id'],
+                                                len(refund_list)
+                                            ),
+                                            self.bot.config['discord']['bid_webhook']
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                continue
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
 
@@ -698,7 +869,33 @@ class Bidding(commands.Cog):
                                     # notify owner, no winner
                                     msg_owner = "One of your bidding is completed! "\
                                         "There is no winner for bidding `{}` in guild `{}`.".format(each_bid['message_id'], each_bid['guild_name'])
+                                    await log_to_channel(
+                                        "bid",
+                                        f"[BIDDING CLOSED]: Guild {each_bid['guild_name']} / {each_bid['guild_id']} closed a bid {each_bid['message_id']} and no on bid.",
+                                        self.bot.config['discord']['bid_webhook']
+                                    )
                                 else:
+                                    refund_list = []
+                                    list_key_update = []
+                                    payment_logs = []
+                                    if len(attend_list) > 1:
+                                        for i in attend_list[:1]: # starting from 2nd one
+                                            refund_list.append((
+                                                i['user_id'], i['bid_coin'], SERVER_BOT, i['bid_amount'], int(time.time())
+                                            ))
+                                            list_key_update.append(i['user_id'] + "_" + i['bid_coin'] + "_" + SERVER_BOT)
+                                            payment_logs.append((
+                                                "REFUND", self.bid_info['message_id'], i['user_id'],
+                                                self.bid_info['guild_id'], self.bid_info['channel_id'], int(time.time()),
+                                                num_format_coin(i['bid_amount'])
+                                            ))
+                                    if len(list_key_update) > 0:
+                                        for i in list_key_update:
+                                            try:
+                                                if i in self.bot.user_balance_cache:
+                                                    del self.bot.user_balance_cache[i]
+                                            except Exception:
+                                                pass
                                     # check if there is winner or no one join
                                     view = ClearButton(
                                         self.bot.coin_list, self.bot,
@@ -711,11 +908,18 @@ class Bidding(commands.Cog):
                                     await _msg.edit(content=None, embed=embed, view=view)
                                     # update winner and status
                                     await self.utils.update_bid_with_winner(
-                                        each_bid['message_id'], attend_list[0]['user_id'], attend_list[0]['bid_amount']
+                                        each_bid['message_id'], attend_list[0]['user_id'], attend_list[0]['bid_amount'],
+                                        refund_list, payment_logs
                                     )
                                     msg_owner = "One of your bidding is completed! "\
                                         "User `{}` is the winner for bidding `{}` in guild `{}`.".format(
                                         attend_list[0]['user_id'], each_bid['message_id'], each_bid['guild_name']
+                                    )
+                                    await log_to_channel(
+                                        "bid",
+                                        f"[BIDDING CLOSED]: {each_bid['guild_name']} / {each_bid['guild_id']} closed a bid {each_bid['message_id']}. "\
+                                        f"Winner <@{attend_list[0]['user_id']}>, amount {attend_list[0]['bid_amount']} {each_bid['token_name']}",
+                                        self.bot.config['discord']['bid_webhook']
                                     )
                                 try:
                                     get_owner = self.bot.get_user(int(each_bid['user_id']))
@@ -727,7 +931,8 @@ class Bidding(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
                         else:
                             try:
-                                await _msg.edit(content=None, embed=embed)
+                                if _msg is not None:
+                                    await _msg.edit(content=None, embed=embed)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                     except Exception as e:
@@ -978,6 +1183,17 @@ class Bidding(commands.Cog):
                     name='Step amount',
                     value=num_format_coin(step_amount) + " " + coin_name,
                     inline=True
+                )
+                bid_note = self.bot.config['bidding']['bid_note']
+                if self.bot.config['bidding']['bid_collecting_fee'] > 0:
+                    bid_note += " There will be {:,.2f}{} charged for each successful bid.".format(
+                        self.bot.config['bidding']['bid_collecting_fee']*100, "%"
+                    )
+
+                embed.add_field(
+                    name='Note',
+                    value=bid_note,
+                    inline=False
                 )
                 time_left = seconds_str_days(duration)
                 link = self.bot.config['bidding']['web_path'] + saved_name

@@ -876,7 +876,7 @@ class Bidding(commands.Cog):
                                         "There is no winner for bidding `{}` in guild `{}`.".format(each_bid['message_id'], each_bid['guild_name'])
                                     await log_to_channel(
                                         "bid",
-                                        f"[BIDDING CLOSED]: Guild {each_bid['guild_name']} / {each_bid['guild_id']} closed a bid {each_bid['message_id']} and no on bid.",
+                                        f"[BIDDING CLOSED]: Guild {each_bid['guild_name']} / {each_bid['guild_id']} closed a bid {each_bid['message_id']} because no one bid.",
                                         self.bot.config['discord']['bid_webhook']
                                     )
                                 else:
@@ -955,8 +955,11 @@ class Bidding(commands.Cog):
         description="Various bid's commands."
     )
     async def bid(self, ctx):
-        if self.bot.config['bidding']['enable'] == 0 and ctx.author.id not in self.bot.config['bidding']['testers']:
-            await ctx.response.send_message(content=f"{ctx.author.mention}, create public bidding is not enable yet!")
+        if self.bot.config['bidding']['enable'] == 0 and ctx.author.id != self.bot.config['discord']['owner_id']:
+            await ctx.response.send_message(content=f"{ctx.author.mention}, this command is currently disable!")
+            return
+        if self.bot.config['bidding']['enable'] == 1 and self.bot.config['bidding']['is_private'] == 1 and ctx.author.id not in self.bot.config['bidding']['testers']:
+            await ctx.response.send_message(content=f"{ctx.author.mention}, this command is still restricted! Try again later!")
             return
 
     @bid.sub_command(
@@ -1277,26 +1280,74 @@ class Bidding(commands.Cog):
     @bid.sub_command(
         name="myrecents",
         usage="bid myrecents", 
+        options=[
+            Option('member_id', 'Admin check', OptionType.string, required=False),
+        ],
         description="Check your recent bid placing."
     )
     async def bid_myrecents(
         self, 
-        ctx, 
+        ctx,
+        member_id: str=None
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
-        await ctx.response.send_message(msg)
+        await ctx.response.send_message(msg, ephemeral=True)
+        if member_id is None:
+            member_id = str(ctx.author.id)
 
+        others = ""
+        if member_id != str(ctx.author.id):
+            others = " (Other's)"
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/bid myrecents", int(time.time())))
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-
-        try:
-            pass
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
+        
+        if member_id != str(ctx.author.id) and ctx.author.id != self.bot.config['discord']['owner_id']:
+            await ctx.edit_original_message(content="Permission denied!")
+            return
+        else:
+            try:
+                user_bids = await self.utils.bidding_joined_by_userid(member_id, limit=25)
+                user_logs = await self.utils.bidding_logs_by_userid(member_id, limit=25)
+                embed = disnake.Embed(
+                    title="TipBot's Bidding System",
+                    description="Please join our Discord for support and other request.",
+                    timestamp=datetime.now(),
+                )
+                embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+                embed.set_thumbnail(url=self.bot.user.display_avatar)
+                if len(user_bids):
+                    list_bid_items = []
+                    for i in user_bids:
+                        list_bid_items.append("⚆ <t:{}:f>-{}/{}\namount {} {}".format(
+                            i['bid_time'], i['message_id'], i['status'], num_format_coin(i['bid_amount']), i['bid_coin']
+                        ))
+                    embed.add_field(
+                        name="Recent Bids {}{}".format(member_id, others),
+                        value="{}".format(
+                            "\n".join(list_bid_items)[:1000]
+                        ),
+                        inline=False
+                    )
+                if len(user_logs) > 0:
+                    list_logs_items = []
+                    for i in user_logs:
+                        list_logs_items.append("⚆ <t:{}:f>\n{}/{}".format(
+                            i['time'], i['message_id'] if i['message_id'] else "N/A", i['type']
+                        ))
+                    embed.add_field(
+                        name="Recent Activities {}{}".format(member_id, others),
+                        value="{}".format(
+                            "\n".join(list_logs_items)[:1000]
+                        ),
+                        inline=False
+                    )
+                await ctx.edit_original_message(content=None, embed=embed)
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
 
     @bid.sub_command(
         name="list",
@@ -1312,7 +1363,9 @@ class Bidding(commands.Cog):
         guild_id: str=None
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
-        await ctx.response.send_message(msg)
+        await ctx.response.send_message(msg, ephemeral=True)
+        if guild_id is None:
+            guild_id = str(ctx.guild.id)
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -1323,8 +1376,18 @@ class Bidding(commands.Cog):
 
         try:
             if ctx.author.id != self.bot.config['discord']['owner_id']:
-                await ctx.response.send_message(content=f"{ctx.author.mention}, permission denied!")
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, permission denied!")
                 return
+            list_bids = await self.utils.bidding_list_by_guildid(guild_id)
+            if len(list_bids) > 0:
+                list_bid_items = []
+                for i in list_bids:
+                    list_bid_items.append("⚆ <t:{}:f>-{}/{}\nMin. amount {} {}".format(
+                        i['message_time'], i['message_id'], i['status'], num_format_coin(i['minimum_amount']), i['token_name']
+                    ))
+                await ctx.edit_original_message(content="\n".join(list_bid_items))
+            else:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, there is not any listing!")
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

@@ -1198,6 +1198,57 @@ class Utils(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return False
+
+    async def bidding_joined_by_userid(self, user_id: str, limit: int=25):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `discord_bidding_joined` 
+                    WHERE `user_id`=%s ORDER BY `bid_time` DESC LIMIT %s
+                    """
+                    await cur.execute(sql, (user_id, limit))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def bidding_logs_by_userid(self, user_id: str, limit: int=50):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `discord_bidding_logs` 
+                    WHERE `user_id`=%s ORDER BY `time` DESC LIMIT %s
+                    """
+                    await cur.execute(sql, (user_id, limit))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def bidding_list_by_guildid(self, guild_id: str, limit: int=25):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `discord_bidding_list` 
+                    WHERE `guild_id`=%s ORDER BY `message_time` DESC LIMIT %s
+                    """
+                    await cur.execute(sql, (guild_id, limit))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
     # end of bidding
 
     # Check if a user lock

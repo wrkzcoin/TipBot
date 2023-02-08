@@ -165,13 +165,6 @@ class PlaceBid(disnake.ui.Modal):
                 current_max = get_max_bid['bid_amount'] + step_amount
             current_max = max(self.min_amount, min_bid_start, current_max)
 
-            # Check if tx in progress
-            if str(interaction.author.id) in self.bot.tipping_in_progress and \
-                int(time.time()) - self.bot.tipping_in_progress[str(interaction.author.id)] < 150:
-                msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another transaction in progress."
-                await interaction.edit_original_message(content=msg)
-                return
-
             height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             userdata_balance = await store.sql_user_balance_single(
                 str(interaction.author.id), coin_name, wallet_address,
@@ -215,11 +208,38 @@ class PlaceBid(disnake.ui.Modal):
                 if additional_bid_amount < 0:
                     msg = f"{EMOJI_INFORMATION} {self.ctx.author.mention}, internal error with a new amount {num_format_coin(amount)} {coin_name}!"
                     await interaction.edit_original_message(content=msg)
+
+                # Check if tx in progress
+                if str(interaction.author.id) in self.bot.tipping_in_progress and \
+                    int(time.time()) - self.bot.tipping_in_progress[str(interaction.author.id)] < 150:
+                    msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another transaction in progress."
+                    await interaction.edit_original_message(content=msg)
                     return
+                else:
+                    self.bot.tipping_in_progress[str(interaction.author.id)] = int(time.time())
+
+                get_message = await self.utils.get_bid_id(str(self.message_id))
+                current_closed_time = get_message['bid_open_time']
+                is_extending = False
+                num_extension = get_message['number_extension']
+                if get_message['bid_extended_time'] is not None:
+                    current_closed_time = get_message['bid_extended_time'] 
+                
+                if current_closed_time < int(time.time()):
+                    msg = f"{EMOJI_INFORMATION} {self.ctx.author.mention}, that bidding is closed!"
+                    await interaction.edit_original_message(content=msg)
+                    return
+                elif current_closed_time - 90 < int(time.time()):
+                    current_closed_time += 120
+                    is_extending = True
+                    num_extension += 1
+                
                 adding_bid = await self.utils.bid_new_join(
                     str(self.message_id), str(interaction.author.id), "{}#{}".format(interaction.author.name, interaction.author.discriminator),
-                    amount, coin_name, str(interaction.guild.id), str(interaction.channel.id), SERVER_BOT, additional_bid_amount
+                    amount, coin_name, str(interaction.guild.id), str(interaction.channel.id), SERVER_BOT, additional_bid_amount,
+                    is_extending, current_closed_time
                 )
+
                 # remove cache
                 try:
                     key = str(interaction.author.id) + "_" + coin_name + "_" + SERVER_BOT
@@ -227,11 +247,14 @@ class PlaceBid(disnake.ui.Modal):
                         del self.bot.user_balance_cache[key]
                 except Exception:
                     pass
+                try:
+                    del self.bot.tipping_in_progress[str(interaction.author.id)]
+                except Exception:
+                    pass
                 if adding_bid:
                     msg = f"{EMOJI_INFORMATION} {self.ctx.author.mention}, successfully placing a bid with a new amount {num_format_coin(amount)} {coin_name}!"
                     await interaction.edit_original_message(content=msg)
                     try:
-                        get_message = await self.utils.get_bid_id(str(self.message_id))
                         _msg: disnake.Message = await interaction.channel.fetch_message(self.message_id)
                         embed = _msg.embeds[0] # embeds is list, we take 0
                         embed.clear_fields()
@@ -259,7 +282,8 @@ class PlaceBid(disnake.ui.Modal):
                                     list_joined = []
                             if len(list_joined) > 0:
                                 embed.add_field(name='Bidder(s)', value="\n".join(list_joined), inline=False)
-
+                        if num_extension > 0:
+                            embed.add_field(name='Number of Extension', value="{}".format(num_extension), inline=True)
                         bid_note = self.bot.config['bidding']['bid_note']
                         if self.bot.config['bidding']['bid_collecting_fee'] > 0:
                             bid_note += " There will be {:,.2f}{} charged for each successful bid.".format(
@@ -799,6 +823,8 @@ class Bidding(commands.Cog):
                                             list_joined = []
                                     if len(list_joined) > 0:
                                         embed.add_field(name='Bidder(s)', value="\n".join(list_joined), inline=False)
+                                if each_bid['number_extension'] > 0:
+                                    embed.add_field(name='Number of Extension', value="{}".format(each_bid['number_extension']), inline=True)
                                 bid_note = self.bot.config['bidding']['bid_note']
                                 if self.bot.config['bidding']['bid_collecting_fee'] > 0:
                                     bid_note += " There will be {:,.2f}{} charged for each successful bid.".format(
@@ -890,8 +916,8 @@ class Bidding(commands.Cog):
                                             ))
                                             list_key_update.append(i['user_id'] + "_" + i['bid_coin'] + "_" + SERVER_BOT)
                                             payment_logs.append((
-                                                "REFUND", self.bid_info['message_id'], i['user_id'],
-                                                self.bid_info['guild_id'], self.bid_info['channel_id'], int(time.time()),
+                                                "REFUND", each_bid['message_id'], i['user_id'],
+                                                each_bid['guild_id'], each_bid['channel_id'], int(time.time()),
                                                 num_format_coin(i['bid_amount'])
                                             ))
                                     if len(list_key_update) > 0:

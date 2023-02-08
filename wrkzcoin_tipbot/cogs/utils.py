@@ -1123,7 +1123,8 @@ class Utils(commands.Cog):
     async def bid_new_join(
         self, message_id: str, user_id: str, username: str,
         bid_amount: float, bid_coin: str, guild_id: str, channel_id: str,
-        user_server: str, additional_amount: float
+        user_server: str, additional_amount: float,
+        is_extending: bool=False, current_closed_time: int=None
     ):
         try:
             await store.openConnection()
@@ -1161,6 +1162,15 @@ class Utils(commands.Cog):
                         """
                         data_rows += [
                             user_id , bid_coin, user_server, -additional_amount, int(time.time())
+                        ]
+                    if is_extending is True and current_closed_time is not None:
+                        sql += """
+                        UPDATE `discord_bidding_list`
+                        SET `bid_extended_time`=%s, `number_extension`=`number_extension`+1
+                        WHERE `message_id`=%s LIMIT 1;
+                        """
+                        data_rows += [
+                            current_closed_time, message_id
                         ]
                     await cur.execute(sql, tuple(data_rows))
                     await conn.commit()

@@ -351,6 +351,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
             await interaction.edit_original_message(f"{interaction.author.mention}, instruction is empty!")
             return
         try:
+            get_message = await self.utils.get_bid_id(str(self.message_id))
             if get_message['winner_instruction'] is None and self.method_for == "winner" and interaction.author.id != self.winner_user_id:
                 await interaction.edit_original_message(f"{interaction.author.mention}, you clicked on wrong button!")
                 return
@@ -364,7 +365,6 @@ class OwnerWinnerInput(disnake.ui.Modal):
                 await interaction.edit_original_message(f"{interaction.author.mention}, owner's input:\n\n{get_message['owner_respond']}")
                 return
             # check if input already
-            get_message = await self.utils.get_bid_id(str(self.message_id))
             if get_message['winner_instruction'] is None and self.method_for == "owner":
                 await interaction.edit_original_message(f"{interaction.author.mention}, please inform to winner to update his delivery method first!")
                 return
@@ -630,15 +630,21 @@ class BidButton(disnake.ui.View):
         self.caption_new = title
 
     async def on_timeout(self):
-        for child in self.children:
-            if isinstance(child, disnake.ui.Button):
-                child.disabled = True
+        try:
+            self.bid_place.disabled = True
+            self.bid_edit.disabled = True
+            self.bid_cancel.disabled = True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # for child in self.children:
+        #     if isinstance(child, disnake.ui.Button):
+        #         child.disabled = True
 
         ## Update content
         try:
             channel = self.bot.get_channel(self.channel_interact)
             _msg: disnake.Message = await channel.fetch_message(self.message.id)
-            await _msg.edit(content=None, view=None)
+            await _msg.edit(content=None, view=self)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -763,6 +769,122 @@ class Bidding(commands.Cog):
             return
         try:
             get_list_bids = await self.utils.get_all_bids("ONGOING")
+            # For some reason, the clear button menu is gone
+            get_list_bid_complete = await self.utils.get_all_bids("COMPLETED")
+            list_complete_gone = []
+            for i in get_list_bid_complete:
+                if i['winner_confirmation_date'] is None and i['owner_respond'] is None:
+                    list_complete_gone.append(i)
+            # COMPLETE BUT NOT PAID
+            if len(list_complete_gone) > 0:
+                for each_bid in list_complete_gone:
+                    await self.bot.wait_until_ready()
+                    _msg = None
+                    get_message = await self.utils.get_bid_id(each_bid['message_id'])
+                    attend_list = await self.utils.get_bid_attendant(each_bid['message_id'])
+                    if len(attend_list) == 0:
+                        await self.utils.update_bid_failed(each_bid['message_id'], True)
+                        await log_to_channel(
+                            "bid",
+                            "[BIDDING STATUS CANCELLED]: message ID: {} of channel {}/guild: {} completed but no attendee(s).".format(
+                                each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id']
+                            ),
+                            self.bot.config['discord']['bid_webhook']
+                        )
+                        continue
+                    try:
+                        # Update view
+                        owner_displayname = get_message['username']
+                        coin_name = get_message['token_name']
+                        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                        coin_emoji = coin_emoji + " " if coin_emoji else ""
+                        min_amount = get_message['minimum_amount']
+
+                        list_joined = []
+                        list_joined_key = []
+                        try:
+                            channel = self.bot.get_channel(int(get_message['channel_id']))
+                            if channel is None:
+                                await logchanbot("bidding_check: can not find channel ID: {}".format(each_bid['channel_id']))
+                                await asyncio.sleep(2.0)
+                                continue
+                            else:
+                                _msg: disnake.Message = await channel.fetch_message(int(each_bid['message_id']))
+                                embed = _msg.embeds[0] # embeds is list, we take 0
+                                embed.clear_fields()
+                                embed.add_field(
+                                    name='Started amount',
+                                    value=num_format_coin(min_amount) + " " + coin_name,
+                                    inline=True
+                                )
+                                # min_bid_lap
+                                step_amount = get_message['step_amount']
+                                if step_amount is None:
+                                    step_amount = getattr(getattr(self.bot.coin_list, coin_name), "min_bid_lap")
+                                embed.add_field(
+                                    name='Step amount',
+                                    value=num_format_coin(step_amount) + " " + coin_name,
+                                    inline=True
+                                )
+                                if len(attend_list) > 0:
+                                    for i in attend_list:
+                                        if i['user_id'] not in list_joined_key:
+                                            list_joined_key.append(i['user_id'])
+                                            list_joined.append("<@{}>: {} {}".format(i['user_id'], num_format_coin(i['bid_amount']), coin_name))
+                                        if len(list_joined) > 0 and len(list_joined) % 15 == 0:
+                                            embed.add_field(name='Bidder(s)', value="\n".join(list_joined), inline=False)
+                                            list_joined = []
+                                    if len(list_joined) > 0:
+                                        embed.add_field(name='Bidder(s)', value="\n".join(list_joined), inline=False)
+                                if each_bid['number_extension'] > 0:
+                                    embed.add_field(name='Number of Extension', value="{}".format(each_bid['number_extension']), inline=True)
+                                bid_note = self.bot.config['bidding']['bid_note']
+                                if self.bot.config['bidding']['bid_collecting_fee'] > 0:
+                                    bid_note += " There will be {:,.2f}{} charged for each successful bid.".format(
+                                        self.bot.config['bidding']['bid_collecting_fee']*100, "%"
+                                    )
+                                embed.add_field(
+                                    name='Note',
+                                    value=bid_note,
+                                    inline=False
+                                )
+                                if _msg is not None and (_msg.components is None or len(_msg.components)==0):
+                                    print("BID {} complete but not paid..".format(each_bid['message_id']))
+                                    # no compoents, Add view
+                                    winner_btn = False if each_bid['winner_instruction'] is None else True
+                                    owner_btn = False if each_bid['owner_respond'] is None else True
+                                    complete_btn = False if each_bid['winner_confirmation_date'] is None else True
+                                    view = ClearButton(
+                                        self.bot.coin_list, self.bot,
+                                        channel.id, int(each_bid['user_id']), int(attend_list[0]['user_id']),
+                                        attend_list[0]['bid_amount'], each_bid,
+                                        winner_btn, owner_btn, complete_btn
+                                    )
+                                    view.message = _msg
+                                    view.channel_interact = channel.id
+                                    await _msg.edit(content=None, embed=embed, view=view)
+                                    # update winner and status
+                                    await log_to_channel(
+                                        "bid",
+                                        f"[ADD MENU BACK]: {each_bid['guild_name']} / {each_bid['guild_id']} ref: {each_bid['message_id']}. "\
+                                        f"Winner <@{attend_list[0]['user_id']}>, amount {attend_list[0]['bid_amount']} {each_bid['token_name']}",
+                                        self.bot.config['discord']['bid_webhook']
+                                    )
+                                continue
+                        except disnake.errors.NotFound:
+                            await log_to_channel(
+                                "bid",
+                                "[NOT FOUND BIDDING]: can not find message ID: {} of channel {} in guild: {}.".format(
+                                    each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id']
+                                ),
+                                self.bot.config['discord']['bid_webhook']
+                            )
+                            continue
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                    except Exception as e:
+                        traceback.print_exc(file=sys.stdout)
+            # ONGOING
             if len(get_list_bids) > 0:
                 for each_bid in get_list_bids:
                     await self.bot.wait_until_ready()
@@ -837,57 +959,57 @@ class Bidding(commands.Cog):
                                     inline=False
                                 )
                         except disnake.errors.NotFound:
-                                await log_to_channel(
-                                    "bid",
-                                    "[NOT FOUND BIDDING]: can not find message ID: {} of channel {} in guild: {}.".format(
-                                        each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id']
-                                    ),
-                                    self.bot.config['discord']['bid_webhook']
-                                )
-                                # add fail check
-                                if each_bid['failed_check'] <= 3:
-                                    await self.utils.update_bid_failed(each_bid['message_id'], False)
-                                elif len(attend_list) == 0:
-                                    # nothing to refund
-                                    await self.utils.update_bid_failed(each_bid['message_id'], True)
-                                elif len(attend_list) > 0:
-                                    try:
-                                        # refund
-                                        refund_list = []
-                                        list_key_update = []
-                                        payment_logs = []
-                                        for i in attend_list:
-                                            refund_list.append((
-                                                i['user_id'], i['bid_coin'], SERVER_BOT, i['bid_amount'], int(time.time())
-                                            ))
-                                            list_key_update.append(i['user_id'] + "_" + i['bid_coin'] + "_" + SERVER_BOT)
-                                            payment_logs.append((
-                                                "REFUND", each_bid['message_id'], i['user_id'],
-                                                each_bid['guild_id'], each_bid['channel_id'], int(time.time()),
-                                                num_format_coin(i['bid_amount'])
-                                            ))
-                                        for i in list_key_update:
-                                            try:
-                                                if i in self.bot.user_balance_cache:
-                                                    del self.bot.user_balance_cache[i]
-                                            except Exception:
-                                                pass
-                                        await self.utils.discord_bid_cancel(
-                                            each_bid['message_id'], each_bid['user_id'],
-                                            each_bid['guild_id'], each_bid['channel_id'],
-                                            refund_list, payment_logs
-                                        )
-                                        await log_to_channel(
-                                            "bid",
-                                            "[REFUND]: can not find message ID: {} of channel {} in guild: {}. Refund to {} user(s).".format(
-                                                each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id'],
-                                                len(refund_list)
-                                            ),
-                                            self.bot.config['discord']['bid_webhook']
-                                        )
-                                    except Exception:
-                                        traceback.print_exc(file=sys.stdout)
-                                continue
+                            await log_to_channel(
+                                "bid",
+                                "[NOT FOUND BIDDING]: can not find message ID: {} of channel {} in guild: {}.".format(
+                                    each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id']
+                                ),
+                                self.bot.config['discord']['bid_webhook']
+                            )
+                            # add fail check
+                            if each_bid['failed_check'] <= 3:
+                                await self.utils.update_bid_failed(each_bid['message_id'], False)
+                            elif len(attend_list) == 0:
+                                # nothing to refund
+                                await self.utils.update_bid_failed(each_bid['message_id'], True)
+                            elif len(attend_list) > 0:
+                                try:
+                                    # refund
+                                    refund_list = []
+                                    list_key_update = []
+                                    payment_logs = []
+                                    for i in attend_list:
+                                        refund_list.append((
+                                            i['user_id'], i['bid_coin'], SERVER_BOT, i['bid_amount'], int(time.time())
+                                        ))
+                                        list_key_update.append(i['user_id'] + "_" + i['bid_coin'] + "_" + SERVER_BOT)
+                                        payment_logs.append((
+                                            "REFUND", each_bid['message_id'], i['user_id'],
+                                            each_bid['guild_id'], each_bid['channel_id'], int(time.time()),
+                                            num_format_coin(i['bid_amount'])
+                                        ))
+                                    for i in list_key_update:
+                                        try:
+                                            if i in self.bot.user_balance_cache:
+                                                del self.bot.user_balance_cache[i]
+                                        except Exception:
+                                            pass
+                                    await self.utils.discord_bid_cancel(
+                                        each_bid['message_id'], each_bid['user_id'],
+                                        each_bid['guild_id'], each_bid['channel_id'],
+                                        refund_list, payment_logs
+                                    )
+                                    await log_to_channel(
+                                        "bid",
+                                        "[REFUND]: can not find message ID: {} of channel {} in guild: {}. Refund to {} user(s).".format(
+                                            each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id'],
+                                            len(refund_list)
+                                        ),
+                                        self.bot.config['discord']['bid_webhook']
+                                    )
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                            continue
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
 
@@ -1300,6 +1422,65 @@ class Bidding(commands.Cog):
 
         try:
             pass
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @bid.sub_command(
+        name="clearwinmenu",
+        usage="bid clearwinmenu", 
+        options=[
+            Option('msg_id', 'Admin check', OptionType.string, required=True),
+        ],
+        description="Admin to clear a bid where there is a bug with menu."
+    )
+    async def bid_clear_win_menu(
+        self, 
+        ctx,
+        msg_id: str
+    ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/bid clearwinmenu", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await ctx.edit_original_message(content="Permission denied!")
+            return
+        try:
+            get_message = await self.utils.get_bid_id(msg_id)
+            if get_message is None:
+                await ctx.edit_original_message(content=f"I can't find message ID: {msg_id}")
+                return
+            elif get_message['status'] == "ONGOING":
+                await ctx.edit_original_message(content="That bidding is still ONGOING.")
+                return
+            elif get_message['status'] == "CANCELLED":
+                await ctx.edit_original_message(content="That bidding is already CANCELLED.")
+                return
+            elif get_message['status'] == "COMPLETED" and get_message['owner_respond'] is not None and get_message['winner_confirmation_date'] is not None:
+                await ctx.edit_original_message(content="That bidding is already SETTLE and paid.")
+                return
+            elif get_message['status'] == "COMPLETED" and get_message['winner_confirmation_date'] is None:
+                get_guild = self.bot.get_guild(int(get_message['guild_id']))
+                if get_guild is None:
+                    await ctx.edit_original_message(content=f"I can't find guild {get_message['guild_id']}.")
+                    return
+                else:
+                    channel = get_guild.get_channel(int(get_message['channel_id']))
+                    if channel is None:
+                        await ctx.edit_original_message(content=f"I can't find guild {get_message['channel_id']}.")
+                    else:
+                        _msg: disnake.Message = await channel.fetch_message(int(get_message['message_id']))
+                        if _msg:
+                            await _msg.edit(view=None)
+                            await ctx.edit_original_message(content=f"Done. Removed win menu fo {get_message['message_id']}.")
+                        else:
+                            await ctx.edit_original_message(content=f"Failed to fetch message {get_message['channel_id']}.")
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

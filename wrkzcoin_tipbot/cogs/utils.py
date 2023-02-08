@@ -1073,6 +1073,8 @@ class Utils(commands.Cog):
                         data_rows = [
                             int(time.time()), message_id
                         ]
+                        await cur.execute(sql, tuple(data_rows))
+                        await conn.commit()
                         if list_balance_updates is not None and len(list_balance_updates) > 0:
                             # update balance
                             sql = """

@@ -327,13 +327,18 @@ class OwnerWinnerInput(disnake.ui.Modal):
             await interaction.edit_original_message(f"{interaction.author.mention}, instruction is empty!")
             return
         try:
-            if self.method_for == "winner" and interaction.author.id != self.winner_user_id:
+            if get_message['winner_instruction'] is None and self.method_for == "winner" and interaction.author.id != self.winner_user_id:
                 await interaction.edit_original_message(f"{interaction.author.mention}, you clicked on wrong button!")
                 return
-            elif self.method_for == "owner" and interaction.author.id != self.owner_userid:
+            elif get_message['owner_respond'] is None and self.method_for == "owner" and interaction.author.id != self.owner_userid:
                 await interaction.edit_original_message(f"{interaction.author.mention}, you clicked on wrong button!")
                 return
-
+            elif get_message['winner_instruction'] is not None and self.method_for == "winner" and interaction.author.id in [self.owner_userid, self.winner_user_id, self.bot.config['discord']['owner_id']]:
+                await interaction.edit_original_message(f"{interaction.author.mention}, winner's input:\n\n{get_message['winner_instruction']}")
+                return
+            elif get_message['owner_respond'] is not None and self.method_for == "owner" and interaction.author.id in [self.owner_userid, self.winner_user_id, self.bot.config['discord']['owner_id']]:
+                await interaction.edit_original_message(f"{interaction.author.mention}, owner's input:\n\n{get_message['owner_respond']}")
+                return
             # check if input already
             get_message = await self.utils.get_bid_id(str(self.message_id))
             if get_message['winner_instruction'] is None and self.method_for == "owner":
@@ -386,7 +391,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
                 )
                 # find winner to message
                 try:
-                    winner_user = self.bot.get_user(self.owner_userid)
+                    winner_user = self.bot.get_user(self.winner_user_id)
                     if winner_user is not None:
                         await winner_user.send(
                             f"You win one of bidding id `{str(self.message_id)}` at guild `{get_message['guild_name']}`. Owner just updated "\
@@ -950,8 +955,8 @@ class Bidding(commands.Cog):
         description="Various bid's commands."
     )
     async def bid(self, ctx):
-        if self.bot.config['bidding']['enable'] == 0 and ctx.author.id != self.bot.config['discord']['owner_id']:
-            await ctx.response.send_message(content=f"{ctx.author.mention}, bidding is not enable!")
+        if self.bot.config['bidding']['enable'] == 0 and ctx.author.id not in self.bot.config['bidding']['testers']:
+            await ctx.response.send_message(content=f"{ctx.author.mention}, create public bidding is not enable yet!")
             return
 
     @bid.sub_command(
@@ -963,6 +968,8 @@ class Bidding(commands.Cog):
             Option('step_amount', 'step amount', OptionType.string, required=True),
             Option('coin', 'coin', OptionType.string, required=True),
             Option('duration', 'duration', OptionType.string, required=True, choices=[
+                OptionChoice("1 Hour", "1H"),
+                OptionChoice("2 Hours", "2H"),
                 OptionChoice("6 Hours", "6H"),
                 OptionChoice("12 Hours", "12H"),
                 OptionChoice("1 Day", "24H"),

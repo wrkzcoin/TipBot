@@ -1635,7 +1635,7 @@ class Bidding(commands.Cog):
         bid_id: str
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
-        await ctx.response.send_message(msg)
+        await ctx.response.send_message(msg, ephemeral=True)
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -1644,8 +1644,109 @@ class Bidding(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await ctx.edit_original_message(content="Permission denied or currently unavailable!")
+            return
+
         try:
-            pass
+            get_message = await self.utils.get_bid_id(bid_id)
+            if get_message is None:
+                await ctx.edit_original_message(content=f"I can't find bid message ID: {bid_id}")
+                return
+            get_message = await self.utils.get_bid_id(get_message['message_id'])
+            attend_list = await self.utils.get_bid_attendant(get_message['message_id'])
+            owner_displayname = get_message['username']
+            coin_name = get_message['token_name']
+            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+            coin_emoji = coin_emoji + " " if coin_emoji else ""
+            min_amount = get_message['minimum_amount']
+
+            duration = get_message['bid_open_time'] - int(time.time())
+            if get_message['bid_extended_time'] is not None:
+                duration = get_message['bid_extended_time'] - int(time.time())
+            if duration < 0:
+                duration = 0
+
+            time_left = seconds_str_days(duration)
+            list_joined = []
+            list_joined_key = []
+            try:
+                channel = self.bot.get_channel(int(get_message['channel_id']))
+                if channel is None:
+                    await ctx.edit_original_message(content="Currently unavailable!")
+                    return
+                else:
+                    _msg: disnake.Message = await channel.fetch_message(int(get_message['message_id']))
+                    embed = _msg.embeds[0] # embeds is list, we take 0
+                    embed.clear_fields()
+                    embed.add_field(
+                        name='Started amount',
+                        value=num_format_coin(min_amount) + " " + coin_name,
+                        inline=True
+                    )
+                    # min_bid_lap
+                    step_amount = get_message['step_amount']
+                    if step_amount is None:
+                        step_amount = getattr(getattr(self.bot.coin_list, coin_name), "min_bid_lap")
+                    embed.add_field(
+                        name='Step amount',
+                        value=num_format_coin(step_amount) + " " + coin_name,
+                        inline=True
+                    )
+                    link = self.bot.config['bidding']['web_path'] + get_message['saved_name']
+                    embed.set_image(url=link)
+                    embed.set_footer(text=f"Created by {owner_displayname} | /bid add | Time left: {time_left}")
+                    if duration <= 0:
+                        embed.set_footer(text=f"Created by {owner_displayname} | /bid add | Ended!")
+                    if len(attend_list) > 0:
+                        for i in attend_list:
+                            if i['user_id'] not in list_joined_key:
+                                list_joined_key.append(i['user_id'])
+                                list_joined.append("<@{}>: {} {}".format(i['user_id'], num_format_coin(i['bid_amount']), coin_name))
+                            if len(list_joined) > 0 and len(list_joined) % 15 == 0:
+                                embed.add_field(name='Bidder(s)', value="\n".join(list_joined), inline=False)
+                                list_joined = []
+                        if len(list_joined) > 0:
+                            embed.add_field(name='Bidder(s)', value="\n".join(list_joined), inline=False)
+                    if get_message['number_extension'] > 0:
+                        embed.add_field(name='Number of Extension', value="{}".format(get_message['number_extension']), inline=True)
+                    bid_note = self.bot.config['bidding']['bid_note']
+                    if self.bot.config['bidding']['bid_collecting_fee'] > 0:
+                        bid_note += " There will be {:,.2f}{} charged for each successful bid.".format(
+                            self.bot.config['bidding']['bid_collecting_fee']*100, "%"
+                        )
+
+                    status_msg = "ONGOING"
+                    if get_message['status'] == "CANCELLED":
+                        status_msg = "CANCELLED"
+                    elif get_message['winner_user_id'] is not None and get_message['winner_instruction'] is None:
+                        status_msg = "Waiting for winner's information."
+                    elif get_message['winner_user_id'] is not None and get_message['owner_respond'] is None:
+                        status_msg = "Waiting for owner's update."
+                    elif get_message['winner_user_id'] is not None and get_message['winner_confirmation_date'] is None:
+                        status_msg = "Waiting for winner's final confirmation."
+                    elif get_message['winner_confirmation_date'] is not None:
+                        status_msg = "COMPLETED"
+                    elif get_message['winner_user_id'] is not None:
+                        status_msg = "UNKNOWN"
+                    embed.add_field(
+                        name='Status',
+                        value=status_msg + " and created <t:{}:f>".format(get_message['message_time']),
+                        inline=False
+                    )
+                    embed.add_field(
+                        name='Guild {}/{}'.format(get_message['guild_name'], get_message['guild_id']),
+                        value="Bid created by <@{}>".format(get_message['user_id']),
+                        inline=False
+                    )
+                    embed.add_field(
+                        name='Note',
+                        value=bid_note,
+                        inline=False
+                    )
+                    await ctx.edit_original_message(content=None, embed=embed)
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

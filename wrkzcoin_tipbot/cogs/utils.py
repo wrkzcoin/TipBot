@@ -1259,6 +1259,59 @@ class Utils(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return []
+
+    async def bid_add_report(
+        self, user_id: str, username: str, list_message_id: str,
+        owner_id: str, channel_id: str, guild_id: str, guild_name: str,
+        reported_content: str, how_to_contact: str
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    INSERT INTO `discord_bidding_reports`
+                    (`user_id`, `username`, `list_message_id`, `owner_id`, `channel_id`,
+                    `guild_id`, `guild_name`, `reported_content`, `how_to_contact`, `time`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                    """
+                    data_rows = [
+                        user_id, username, list_message_id, owner_id, channel_id, 
+                        guild_id, guild_name, reported_content, how_to_contact,
+                        int(time.time())
+                    ]
+                    await cur.execute(sql, tuple(data_rows))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def bid_get_report(self, report_id: int=None):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `discord_bidding_reports`
+                    """
+                    data_rows = []
+                    if report_id is not None:
+                        sql += """
+                        WHERE `report_id`=%s LIMIT 1
+                        """
+                        data_rows += [report_id]
+                    else:
+                        sql += """
+                        ORDER BY `time` DESC LIMIT 25
+                        """
+                    await cur.execute(sql, tuple(data_rows))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
     # end of bidding
 
     # Check if a user lock

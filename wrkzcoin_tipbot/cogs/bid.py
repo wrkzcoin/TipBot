@@ -29,6 +29,69 @@ from disnake.ext import commands, tasks
 from cogs.utils import Utils, num_format_coin
 
 
+class ReportBid(disnake.ui.Modal):
+    def __init__(self, ctx, bot, message_id: str, owner_userid: str) -> None:
+        self.ctx = ctx
+        self.bot = bot
+        self.utils = Utils(self.bot)
+        self.message_id = message_id
+        self.owner_userid = owner_userid
+
+        components = [
+            disnake.ui.TextInput(
+                label="Report content",
+                placeholder="Describe about it.",
+                custom_id="desc_id",
+                style=TextInputStyle.paragraph
+            ),
+            disnake.ui.TextInput(
+                label="Your contact",
+                placeholder="How we contact your, like Discord ID/name? Better you join our Discord guild.",
+                custom_id="contact_id",
+                style=TextInputStyle.paragraph
+            )
+        ]
+        super().__init__(title="Report bid ID: {}".format(self.message_id), custom_id="modal_bidding_report", components=components)
+
+    async def callback(self, interaction: disnake.ModalInteraction) -> None:
+        # Check if type of question is bool or multipe
+        await interaction.response.send_message(content=f"{interaction.author.mention}, checking bidding report...", ephemeral=True)
+        desc_id = interaction.text_values['desc_id'].strip()
+        if desc_id == "":
+            await interaction.edit_original_message(f"{interaction.author.mention}, report content can't be empty!")
+            return
+
+        contact_id = interaction.text_values['contact_id'].strip()
+        if contact_id == "":
+            await interaction.edit_original_message(f"{interaction.author.mention}, contact field can't be empty!")
+            return
+
+        try:
+            adding_report = await self.utils.bid_add_report(
+                str(interaction.author.id), "{}#{}".format(interaction.author.name, interaction.author.discriminator), 
+                str(self.message_id), str(self.owner_userid), str(interaction.channel.id), str(interaction.guild.id), 
+                str(interaction.guild.name), desc_id, contact_id
+            )
+            if adding_report is True:
+                msg = f"{EMOJI_INFORMATION} {self.ctx.author.mention}, we received your report! "\
+                    f"We suggest you to join in our Discord guild <http://chat.wrkz.work> as well for quick checking and reporting!"
+                await interaction.edit_original_message(content=msg)
+                await log_to_channel(
+                    "bid",
+                    f"[BID REPORT]: User {interaction.author.mention} submitted a report in Guild "\
+                    f"{interaction.guild.name} / {interaction.guild.id} for bid id: {str(self.message_id)} owner <@{str(self.owner_userid)}>. Content:\n\n"\
+                    f"{desc_id[:1000]}"\
+                    "\n\n"\
+                    f"How to contact: {contact_id[:200]}",
+                    self.bot.config['discord']['general_report_webhook']
+                )
+            else:
+                msg = f"{EMOJI_INFORMATION} {self.ctx.author.mention}, internal error!"
+                await interaction.edit_original_message(content=msg)
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
 class EditBid(disnake.ui.Modal):
     def __init__(self, ctx, bot, message_id: str, owner_userid: str, title: str) -> None:
         self.ctx = ctx
@@ -562,6 +625,12 @@ class ClearButton(disnake.ui.View):
                     if isinstance(child, disnake.ui.Button):
                         child.disabled = True
 
+                # check if that was processed already which may not happen?
+                get_message = await self.utils.get_bid_id(str(self.message.id))
+                if get_message['winner_confirmation_date'] is not None:
+                    await interaction.edit_original_message(f"{interaction.author.mention}, that was already paid and processed!")
+                    return
+
                 # take balance from owner 100%
                 # deduct fee to system if set
                 # pay remaining balance to bid owner
@@ -608,8 +677,8 @@ class ClearButton(disnake.ui.View):
                 for i in [self.bid_info['user_id'], str(self.winner_id)]:
                     key = i + "_" + self.bid_info['token_name'] + "_" + SERVER_BOT
                     try:
-                        if i in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[i]
+                        if key in self.bot.user_balance_cache:
+                            del self.bot.user_balance_cache[key]
                     except Exception:
                         pass
                 await self.message.edit(view=self)
@@ -619,12 +688,34 @@ class ClearButton(disnake.ui.View):
                     f"Ref: {self.bid_info['message_id']} and at Guild name: {self.bid_info['guild_name']} / {self.bid_info['guild_id']}!\n{payment_list_msg}",
                     self.bot.config['discord']['bid_webhook']
                 )
-                await interaction.edit_original_message(f"{interaction.author.mention}, Completed!")
+                await interaction.edit_original_message(f"{interaction.author.mention}, Completed! Payment also paid to the Owner!")
+                get_owner = self.bot.get_user(int(self.bid_info['user_id']))
+                if get_owner is not None:
+                    await get_owner.send(f"{interaction.author.mention} marked your bid as completed. "\
+                                         f"You got paid {num_format_coin(self.bid_info['winner_amount']*(1-self.bot.config['bidding']['bid_collecting_fee']))} "\
+                                         f"{self.bid_info['token_name']} to your balance!")
             except disnake.errors.NotFound:
                 await interaction.response.send_message(
                     f"{interaction.author.mention}, failed to retreive bidding information! Try again later!", ephemeral=True)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+
+    @disnake.ui.button(label="⚠️Report", style=ButtonStyle.red, custom_id="bidding_report_clear")
+    async def clear_bid_report(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        try:
+            await interaction.response.send_modal(
+                modal=ReportBid(
+                    interaction, self.bot, self.bid_info['message_id'], int(self.bid_info['user_id'])
+                )
+            )
+        except disnake.errors.NotFound:
+            await interaction.response.send_message(
+                f"{interaction.author.mention}, failed to retreive bidding information! Try again later!", ephemeral=True)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 class BidButton(disnake.ui.View):
     message: disnake.Message
@@ -632,7 +723,7 @@ class BidButton(disnake.ui.View):
     coin_list: Dict
 
     def __init__(
-        self, ctx, timeout, coin_list, bot, channel_interact,
+        self, timeout, coin_list, bot, channel_interact,
         owner_id: int, coin_name: str, min_amount: float, step_amount: float,
         title: str
     ):
@@ -641,7 +732,6 @@ class BidButton(disnake.ui.View):
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
         self.coin_list = coin_list
-        self.ctx = ctx
         self.channel_interact = channel_interact
         self.owner_id = owner_id
         self.coin_name = coin_name
@@ -764,6 +854,23 @@ class BidButton(disnake.ui.View):
                 await interaction.edit_original_message(f"{interaction.author.mention}, failed to retreive bidding information! Try again later!", ephemeral=True)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+
+    @disnake.ui.button(label="⚠️Report", style=ButtonStyle.red, custom_id="bidding_report")
+    async def bid_report(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        try:
+            await interaction.response.send_modal(
+                modal=ReportBid(
+                    interaction, self.bot, self.message.id, self.owner_id
+                )
+            )
+        except disnake.errors.NotFound:
+            await interaction.response.send_message(
+                f"{interaction.author.mention}, failed to retreive bidding information! Try again later!", ephemeral=True)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
 
 class Bidding(commands.Cog):
     def __init__(self, bot):
@@ -909,7 +1016,7 @@ class Bidding(commands.Cog):
                                         f"Winner <@{attend_list[0]['user_id']}>, amount {attend_list[0]['bid_amount']} {each_bid['token_name']}",
                                         self.bot.config['discord']['bid_webhook']
                                     )
-                                elif _msg is not None and len(_msg.components) > 0 and int(time.time()) - int(_msg.edited_at.timestamp()) > 5*60:
+                                elif _msg is not None and len(_msg.components) > 0 and int(time.time()) - int(_msg.edited_at.timestamp()) > 2*60:
                                     # re-edit if bigger than 10mn
                                     # no compoents, Add view
                                     winner_btn = False if each_bid['winner_confirmation_date'] is None else True
@@ -1187,7 +1294,17 @@ class Bidding(commands.Cog):
                             try:
                                 # not too rush to edit
                                 if _msg is not None and int(time.time()) - int(_msg.edited_at.timestamp()) > 60:
-                                    await _msg.edit(content=None, embed=embed)
+                                    # If we don't need to update view
+                                    # await _msg.edit(content=None, embed=embed)
+                                    # If we need to update view
+                                    view = BidButton(
+                                        duration, self.bot.coin_list, self.bot,
+                                        each_bid['channel_id'], each_bid['user_id'], each_bid['token_name'],
+                                        each_bid['minimum_amount'], each_bid['step_amount'], each_bid['title']
+                                    )
+                                    view.message = _msg
+                                    view.channel_interact = int(each_bid['channel_id'])
+                                    await _msg.edit(content=None, embed=embed, view=view)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                     except Exception as e:
@@ -1468,7 +1585,7 @@ class Bidding(commands.Cog):
                 embed.set_footer(text=f"Created by {owner_displayname} | /bid add | Time left: {time_left}")
                 # Add embed. If adding embed is failed, Turn discord_bidding_list to cancel
                 view = BidButton(
-                    ctx, duration, self.bot.coin_list, self.bot,
+                    duration, self.bot.coin_list, self.bot,
                     ctx.channel.id, ctx.author.id, coin_name, min_amount, step_amount,
                     title
                 )
@@ -1702,6 +1819,58 @@ class Bidding(commands.Cog):
                 await ctx.edit_original_message(content="\n".join(list_bid_items))
             else:
                 await ctx.edit_original_message(content=f"{ctx.author.mention}, there is not any listing!")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @bid.sub_command(
+        name="viewreport",
+        usage="bid viewreport [report id]", 
+        options=[
+            Option('report_id', 'Select report ID', OptionType.number, required=False),
+        ],
+        description="Admin to check report"
+    )
+    async def bid_report_list(
+        self, 
+        ctx,
+        report_id: int=None
+    ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
+        await ctx.response.send_message(msg, ephemeral=True)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/bid viewreport", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        try:
+            if ctx.author.id != self.bot.config['discord']['owner_id']:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, permission denied!")
+                return
+            list_reps = await self.utils.bid_get_report(report_id)
+            if report_id is None and len(list_reps) > 0:
+                list_items = []
+                for i in list_reps:
+                    list_items.append("⚆ rep: {}/ref: {} <t:{}:f>".format(
+                        i['report_id'], i['list_message_id'], i['time']
+                    ))
+                await ctx.edit_original_message(content="\n".join(list_items))
+            elif report_id is not None and len(list_reps) > 0:
+                report = list_reps[0]
+                await ctx.edit_original_message(
+                    content="Rep ID: {}/ID: {}\nTime: <t:{}:f>\nContent:\n{}\n-----------\n"\
+                        "Contact:\n{}\n-----------\nReporter: <@{}>\nGuild Name: {}/{}".format(
+                            report['report_id'], report['list_message_id'], report['time'],
+                            report['reported_content'], report['how_to_contact'], report['user_id'],
+                            report['guild_name'], report['guild_id']
+                    )
+                )
+            elif report_id is not None:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, there is no such report id!")
+            else:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, no report found!")
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

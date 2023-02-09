@@ -282,7 +282,7 @@ class PartyDrop(commands.Cog):
                                 else:
                                     try:
                                         _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
-                                        if _msg is not None and int(time.time()) - int(_msg.edited_at.timestamp()) > 60:
+                                        if _msg is not None and _msg.edited_at and int(time.time()) - int(_msg.edited_at.timestamp()) > 60:
                                             await _msg.edit(content=None, embed=embed)
                                     except disnake.errors.NotFound:
                                         # add fail check

@@ -1299,7 +1299,7 @@ class Bidding(commands.Cog):
                                     # If we need to update view
                                     view = BidButton(
                                         duration, self.bot.coin_list, self.bot,
-                                        each_bid['channel_id'], each_bid['user_id'], each_bid['token_name'],
+                                        int(each_bid['channel_id']), int(each_bid['user_id']), each_bid['token_name'],
                                         each_bid['minimum_amount'], each_bid['step_amount'], each_bid['title']
                                     )
                                     view.message = _msg

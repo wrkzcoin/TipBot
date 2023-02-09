@@ -179,6 +179,7 @@ class PartyDrop(commands.Cog):
                                 if channel is None:
                                     await logchanbot("party_check: can not find channel ID: {}".format(each_party['channel_id']))
                                     await asyncio.sleep(2.0)
+                                    continue
                                 _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
                                 await _msg.edit(content=None, embed=embed, view=None)
                                 # Update balance
@@ -204,6 +205,12 @@ class PartyDrop(commands.Cog):
                                     ))
                                     await store.update_party_failed(each_party['message_id'], True)
                                     await asyncio.sleep(1.0)
+                            except disnake.errors.DiscordServerError:
+                                    await logchanbot("[PARTYDROP]: DiscordServerError message ID: {} of channel {} in guild: {}.".format(
+                                        each_party['message_id'], each_party['channel_id'], each_party['guild_id']
+                                    ))
+                                    await asyncio.sleep(1.0)
+                                    continue
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                         else:
@@ -275,7 +282,8 @@ class PartyDrop(commands.Cog):
                                 else:
                                     try:
                                         _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
-                                        await _msg.edit(content=None, embed=embed)
+                                        if _msg is not None and int(time.time()) - int(_msg.edited_at.timestamp()) > 60:
+                                            await _msg.edit(content=None, embed=embed)
                                     except disnake.errors.NotFound:
                                         # add fail check
                                         turn_off = False

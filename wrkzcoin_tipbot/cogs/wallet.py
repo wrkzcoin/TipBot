@@ -12015,15 +12015,18 @@ class Wallet(commands.Cog):
 
                 try:
                     key_withdraw = str(ctx.author.id) + "_" + coin_name
-                    if key_withdraw in self.withdraw_tx and ctx.author.id != self.bot.owner_id:
+                    if key_withdraw not in self.withdraw_tx:
+                        self.withdraw_tx[key_withdraw] = int(time.time())
+                    elif key_withdraw in self.withdraw_tx and \
+                        int(time.time()) - self.withdraw_tx[key_withdraw] < 120:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you recently executed a withdraw of "\
-                            f"this coin/token **{coin_name}**. Waiting a few seconds more and re-try."
+                            f"this coin/token **{coin_name}**. Waiting till <t:{self.withdraw_tx[key_withdraw]+120}:f>."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
                         self.withdraw_tx[key_withdraw] = int(time.time())
                 except Exception:
-                    pass
+                    traceback.print_exc(file=sys.stdout)
 
                 equivalent_usd = ""
                 total_in_usd = 0.0

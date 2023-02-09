@@ -17,7 +17,7 @@ import uuid
 import disnake
 import store
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, SERVER_BOT, text_to_num, \
-    truncate, seconds_str_days, log_to_channel
+    truncate, seconds_str_days, log_to_channel, RowButtonRowCloseAnyMessage
 from cogs.wallet import WalletAPI
 from disnake.app_commands import Option
 from disnake.enums import ButtonStyle
@@ -289,7 +289,12 @@ class PlaceBid(disnake.ui.Modal):
                             bid_note += " There will be {:,.2f}{} charged for each successful bid.".format(
                                 self.bot.config['bidding']['bid_collecting_fee']*100, "%"
                             )
-
+                        status_msg = "ONGOING"
+                        embed.add_field(
+                            name='Status',
+                            value=status_msg,
+                            inline=False
+                        )
                         embed.add_field(
                             name='Note',
                             value=bid_note,
@@ -377,7 +382,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
                     owner_user = self.bot.get_user(self.owner_userid)
                     if owner_user is not None:
                         await owner_user.send(
-                            f"One of your bidding winner for `{str(self.message_id)}` at guild `{get_message['guild_name']}` updated an "\
+                            f"One of your bidding winner <@{str(self.winner_user_id)}> for `{str(self.message_id)}` at guild `{get_message['guild_name']}` updated an "\
                             f"instruction/information as the following:\n\n{instruction}"
                         )
                         await interaction.edit_original_message(f"{interaction.author.mention}, we updated your input and notified the bidding owner.")
@@ -418,12 +423,13 @@ class OwnerWinnerInput(disnake.ui.Modal):
                     winner_user = self.bot.get_user(self.winner_user_id)
                     if winner_user is not None:
                         await winner_user.send(
-                            f"You win one of bidding id `{str(self.message_id)}` at guild `{get_message['guild_name']}`. Owner just updated "\
-                            f"instruction/information as the following:\n\n{instruction}"
+                            f"Updated: Your bidding id `{str(self.message_id)}` at guild `{get_message['guild_name']}`: <@{str(self.owner_userid)}> just updated "\
+                            f"instruction/information as the following:\n\n{instruction}\n\n. Please Tap on **Complete** button if you confirm you get the item. "\
+                            "You bidding amount will be transferred to him/her after completion and can't be undone."
                         )
-                        await interaction.edit_original_message(f"{interaction.author.mention}, we updated your input and notified the winner.")
+                        await interaction.edit_original_message(f"{interaction.author.mention}, we updated your input and notified the winner <@{str(self.winner_user_id)}>.")
                     else:
-                        await interaction.edit_original_message(f"{interaction.author.mention}, we updated your input and but we failed to find the winner user!")
+                        await interaction.edit_original_message(f"{interaction.author.mention}, we updated your input and but we failed to find the winner <@{str(self.winner_user_id)}>!")
                 except disnake.errors.Forbidden:
                     await interaction.edit_original_message(f"{interaction.author.mention}, we updated your input but we failed "\
                                                             f"to message to the winner. Please inform him/her.")
@@ -488,7 +494,14 @@ class ClearButton(disnake.ui.View):
         self, button: disnake.ui.Button,
         interaction: disnake.MessageInteraction
     ):
-        if interaction.author.id != self.winner_id:
+        if interaction.author.id == self.owner_id:
+            await interaction.response.send_message(f"{interaction.author.mention}, checking <@{str(self.winner_id)}> 's message...", ephemeral=True)
+            get_message = await self.utils.get_bid_id(str(self.message.id))
+            if get_message['winner_instruction'] is not None:
+                await interaction.edit_original_message(f"{interaction.author.mention}, winner <@{str(self.winner_id)}> input information as below:\n\n{get_message['winner_instruction']}")
+            else:
+                await interaction.edit_original_message(f"{interaction.author.mention}, winner <@{str(self.winner_id)}> hasn't input anything yet!")
+        elif interaction.author.id != self.winner_id:
             await interaction.response.send_message(f"{interaction.author.mention}, that's not yours!", ephemeral=True)
         else:
             try:
@@ -510,7 +523,14 @@ class ClearButton(disnake.ui.View):
         self, button: disnake.ui.Button,
         interaction: disnake.MessageInteraction
     ):
-        if interaction.author.id != self.owner_id:
+        if interaction.author.id == self.winner_id:
+            await interaction.response.send_message(f"{interaction.author.mention}, checking <@{str(self.owner_id)}>'s respond...", ephemeral=True)
+            get_message = await self.utils.get_bid_id(str(self.message.id))
+            if get_message['owner_respond'] is not None:
+                await interaction.edit_original_message(f"{interaction.author.mention}, <@{str(self.owner_id)}> updates information as below:\n\n{get_message['owner_respond']}")
+            else:
+                await interaction.edit_original_message(f"{interaction.author.mention}, <@{str(self.owner_id)}> hasn't update anything yet!")
+        elif interaction.author.id != self.owner_id:
             await interaction.response.send_message(f"{interaction.author.mention}, that's not yours!", ephemeral=True)
         else:
             try:
@@ -759,7 +779,7 @@ class Bidding(commands.Cog):
         self.bid_web_path = self.bot.config['bidding']['web_path']
         self.bid_channel_upload = self.bot.config['bidding']['upload_channel_log']
 
-    @tasks.loop(seconds=15.0)
+    @tasks.loop(seconds=30.0)
     async def bidding_check(self):
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
@@ -773,7 +793,7 @@ class Bidding(commands.Cog):
             get_list_bid_complete = await self.utils.get_all_bids("COMPLETED")
             list_complete_gone = []
             for i in get_list_bid_complete:
-                if i['winner_confirmation_date'] is None and i['owner_respond'] is None:
+                if i['winner_confirmation_date'] is None:
                     list_complete_gone.append(i)
             # COMPLETE BUT NOT PAID
             if len(list_complete_gone) > 0:
@@ -843,17 +863,36 @@ class Bidding(commands.Cog):
                                     bid_note += " There will be {:,.2f}{} charged for each successful bid.".format(
                                         self.bot.config['bidding']['bid_collecting_fee']*100, "%"
                                     )
+
+                                status_msg = "ONGOING"
+                                if each_bid['status'] == "CANCELLED":
+                                    status_msg = "CANCELLED"
+                                elif each_bid['winner_user_id'] is not None and each_bid['winner_instruction'] is None:
+                                    status_msg = "Waiting for winner's information."
+                                elif each_bid['winner_user_id'] is not None and each_bid['owner_respond'] is None:
+                                    status_msg = "Waiting for owner's update."
+                                elif each_bid['winner_user_id'] is not None and each_bid['winner_confirmation_date'] is None:
+                                    status_msg = "Waiting for winner's final confirmation."
+                                elif each_bid['winner_user_id'] is not None:
+                                    status_msg = "UNKNOWN"
+                                embed.add_field(
+                                    name='Status',
+                                    value=status_msg,
+                                    inline=False
+                                )
                                 embed.add_field(
                                     name='Note',
                                     value=bid_note,
                                     inline=False
                                 )
-                                if _msg is not None and (_msg.components is None or len(_msg.components)==0):
+                                if _msg is not None and len(_msg.components) == 0:
                                     print("BID {} complete but not paid..".format(each_bid['message_id']))
                                     # no compoents, Add view
-                                    winner_btn = False if each_bid['winner_instruction'] is None else True
-                                    owner_btn = False if each_bid['owner_respond'] is None else True
+                                    winner_btn = False if each_bid['winner_confirmation_date'] is None else True
+                                    owner_btn = False if each_bid['winner_confirmation_date'] is None else True
                                     complete_btn = False if each_bid['winner_confirmation_date'] is None else True
+                                    if each_bid['owner_respond'] is None:
+                                       complete_btn = True 
                                     view = ClearButton(
                                         self.bot.coin_list, self.bot,
                                         channel.id, int(each_bid['user_id']), int(attend_list[0]['user_id']),
@@ -870,6 +909,30 @@ class Bidding(commands.Cog):
                                         f"Winner <@{attend_list[0]['user_id']}>, amount {attend_list[0]['bid_amount']} {each_bid['token_name']}",
                                         self.bot.config['discord']['bid_webhook']
                                     )
+                                elif _msg is not None and len(_msg.components) > 0 and int(time.time()) - int(_msg.edited_at.timestamp()) > 5*60:
+                                    # re-edit if bigger than 10mn
+                                    # no compoents, Add view
+                                    winner_btn = False if each_bid['winner_confirmation_date'] is None else True
+                                    owner_btn = False if each_bid['winner_confirmation_date'] is None else True
+                                    complete_btn = False if each_bid['winner_confirmation_date'] is None else True
+                                    if each_bid['owner_respond'] is None:
+                                       complete_btn = True 
+                                    view = ClearButton(
+                                        self.bot.coin_list, self.bot,
+                                        channel.id, int(each_bid['user_id']), int(attend_list[0]['user_id']),
+                                        attend_list[0]['bid_amount'], each_bid,
+                                        winner_btn, owner_btn, complete_btn
+                                    )
+                                    view.message = _msg
+                                    view.channel_interact = channel.id
+                                    await _msg.edit(content=None, embed=embed, view=view)
+                                    # update winner and status
+                                    # await log_to_channel(
+                                    #     "bid",
+                                    #     f"[EDIT MENU]: {each_bid['guild_name']} / {each_bid['guild_id']} ref: {each_bid['message_id']}. "\
+                                    #     f"Winner <@{attend_list[0]['user_id']}>, amount {attend_list[0]['bid_amount']} {each_bid['token_name']}",
+                                    #     self.bot.config['discord']['bid_webhook']
+                                    # )
                                 continue
                         except disnake.errors.NotFound:
                             await log_to_channel(
@@ -879,6 +942,16 @@ class Bidding(commands.Cog):
                                 ),
                                 self.bot.config['discord']['bid_webhook']
                             )
+                            continue
+                        except disnake.errors.DiscordServerError:
+                            await log_to_channel(
+                                "bid",
+                                "[BIDDING]: DiscordServerError message ID: {} of channel {} in guild: {}/{}.".format(
+                                    each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id'], each_bid['guild_name']
+                                ),
+                                self.bot.config['discord']['bid_webhook']
+                            )
+                            await asyncio.sleep(1.0)
                             continue
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -900,6 +973,8 @@ class Bidding(commands.Cog):
                         min_amount = get_message['minimum_amount']
 
                         duration = each_bid['bid_open_time'] - int(time.time())
+                        if each_bid['bid_extended_time'] is not None:
+                            duration = each_bid['bid_extended_time'] - int(time.time())
                         if duration < 0:
                             duration = 0
 
@@ -953,6 +1028,22 @@ class Bidding(commands.Cog):
                                         self.bot.config['bidding']['bid_collecting_fee']*100, "%"
                                     )
 
+                                status_msg = "ONGOING"
+                                if each_bid['status'] == "CANCELLED":
+                                    status_msg = "CANCELLED"
+                                elif each_bid['winner_user_id'] is not None and each_bid['winner_instruction'] is None:
+                                    status_msg = "Waiting for winner's information."
+                                elif each_bid['winner_user_id'] is not None and each_bid['owner_respond'] is None:
+                                    status_msg = "Waiting for owner's update."
+                                elif each_bid['winner_user_id'] is not None and each_bid['winner_confirmation_date'] is None:
+                                    status_msg = "Waiting for winner's final confirmation."
+                                elif each_bid['winner_user_id'] is not None:
+                                    status_msg = "UNKNOWN"
+                                embed.add_field(
+                                    name='Status',
+                                    value=status_msg,
+                                    inline=False
+                                )
                                 embed.add_field(
                                     name='Note',
                                     value=bid_note,
@@ -1009,6 +1100,16 @@ class Bidding(commands.Cog):
                                     )
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
+                            continue
+                        except disnake.errors.DiscordServerError:
+                            await log_to_channel(
+                                "bid",
+                                "[BIDDING]: DiscordServerError message ID: {} of channel {} in guild: {}/{}.".format(
+                                    each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id'], each_bid['guild_name'],
+                                ),
+                                self.bot.config['discord']['bid_webhook']
+                            )
+                            await asyncio.sleep(1.0)
                             continue
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -1084,7 +1185,8 @@ class Bidding(commands.Cog):
                                 traceback.print_exc(file=sys.stdout)
                         else:
                             try:
-                                if _msg is not None:
+                                # not too rush to edit
+                                if _msg is not None and int(time.time()) - int(_msg.edited_at.timestamp()) > 60:
                                     await _msg.edit(content=None, embed=embed)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -1162,11 +1264,11 @@ class Bidding(commands.Cog):
             # Check max if set in guild
             if serverinfo and count_ongoing >= serverinfo['max_ongoing_bid'] and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing bids in this guild. Please wait for them to complete first!'
-                await ctx.edit_original_message(content=msg)
+                await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                 return
             elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing bids in this guild. Please wait for them to complete first!'
-                await ctx.edit_original_message(content=msg)
+                await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                 await logchanbot(f"[BIDDING] server {str(ctx.guild.id)} has no data in discord_server.")
                 return
         except Exception:
@@ -1177,6 +1279,11 @@ class Bidding(commands.Cog):
         contract = None
         coin_decimal = 0
         try:
+            get_perms = dict(ctx.guild.get_member(ctx.author.id).guild_permissions)
+            if get_perms[self.bot.config['bidding']['perm_bid_add']] is False:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you don't have permission here. At least `{self.bot.config['bidding']['perm_bid_add']}` in this guild!"
+                await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
+                return
             guild_id = str(ctx.guild.id)
             channel_id = (ctx.channel.id)
             file_saved = False
@@ -1187,12 +1294,12 @@ class Bidding(commands.Cog):
                 
                 if not hasattr(self.bot.coin_list, coin_name):
                     msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                     return
                 bid_enable = getattr(getattr(self.bot.coin_list, coin_name), "bid_enable")
                 if bid_enable != 1:
                     msg = f"{ctx.author.mention}, **{coin_name}** not enable with bidding. Contact TipBot dev"
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                     return
                 min_bid_start = getattr(getattr(self.bot.coin_list, coin_name), "min_bid_start")
                 min_bid_lap = getattr(getattr(self.bot.coin_list, coin_name), "min_bid_lap")
@@ -1205,7 +1312,7 @@ class Bidding(commands.Cog):
                     min_amount = min_amount.replace(",", "").replace("$", "")
                     if usd_equivalent_enable == 0:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
-                        await ctx.edit_original_message(content=msg)
+                        await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                         return
                     else:
                         native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
@@ -1223,7 +1330,7 @@ class Bidding(commands.Cog):
                         else:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\
                                 "Try with different method."
-                            await ctx.edit_original_message(content=msg)
+                            await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                             return
                 else:
                     min_amount = min_amount.replace(",", "")
@@ -1231,7 +1338,7 @@ class Bidding(commands.Cog):
                     min_amount = truncate(float(min_amount), 12)
                     if min_amount is None:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid given minimum amount."
-                        await ctx.edit_original_message(content=msg)
+                        await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                         return
                 min_amount = float(min_amount)
                 # step_amount
@@ -1240,7 +1347,7 @@ class Bidding(commands.Cog):
                     step_amount = step_amount.replace(",", "").replace("$", "")
                     if usd_equivalent_enable == 0:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
-                        await ctx.edit_original_message(content=msg)
+                        await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                         return
                     else:
                         native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
@@ -1258,7 +1365,7 @@ class Bidding(commands.Cog):
                         else:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\
                                 "Try with different method."
-                            await ctx.edit_original_message(content=msg)
+                            await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                             return
                 else:
                     step_amount = step_amount.replace(",", "")
@@ -1266,30 +1373,30 @@ class Bidding(commands.Cog):
                     step_amount = truncate(float(step_amount), 12)
                     if step_amount is None:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid given minimum amount."
-                        await ctx.edit_original_message(content=msg)
+                        await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                         return
                 step_amount = float(step_amount)
 
                 if min_amount < min_bid_start:
                     msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, you need to set minimum amount at least {num_format_coin(min_bid_start)} {coin_name}.'
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                     return
 
                 if step_amount < min_bid_lap:
                     msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, you need to set minimum step amount at least {num_format_coin(min_bid_lap)} {coin_name}.'
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                     return
 
                 if step_amount > min_amount:
                     msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, minimum amount must be bigger than step amount.'
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                     return
 
                 title = title.strip()
                 if len(title) <= 3 or len(title) > 128:
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, the title is too short or too long. "\
                         "You need more than 3 chars and less than 128 chars."
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                     return
                 duration = int(duration.replace("H", ""))*3600 # in seconds
                 try:
@@ -1305,7 +1412,7 @@ class Bidding(commands.Cog):
                                     mime_type = magic.from_buffer(res_data, mime=True)
                                     if mime_type not in self.file_accept:
                                         msg = f"{ctx.author.mention}, the uploaded media is not a supported file."
-                                        await ctx.edit_original_message(content=msg)
+                                        await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                                         return
                                     else:
                                         # Write the stuff
@@ -1385,10 +1492,10 @@ class Bidding(commands.Cog):
                 )
             else:
                 msg = f"{ctx.author.mention}, internal error."
-                await ctx.edit_original_message(content=msg)
+                await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                 return
         except disnake.errors.Forbidden:
-            await ctx.edit_original_message(content="Missing permission! Or failed to send embed message.")
+            await ctx.edit_original_message(content="Missing permission! Or failed to send embed message.", view=RowButtonRowCloseAnyMessage())
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

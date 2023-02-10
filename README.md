@@ -3,6 +3,8 @@
   <h1 align="center">Cryptocurrency TipBot</h1>
 </p>
 
+[![GitHub contributors](https://img.shields.io/github/contributors-anon/wrkzcoin/TipBot?label=Contributors)](https://github.com/wrkzcoin/TipBot/graphs/contributors) [![GitHub issues](https://img.shields.io/github/issues/wrkzcoin/TipBot?label=Issues)](https://github.com/wrkzcoin/TipBot/issues) [![Discord](https://img.shields.io/discord/460755304863498250?label=WrkzCoin%20Discord)](http://chat.wrkz.work) [![Discord Bots](https://top.gg/api/widget/upvotes/474841349968101386.svg)](https://top.gg/bot/474841349968101386)
+
 <!-- Table of Contents -->
 
 <summary><h2 style="display: inline-block">Table of Contents</h2></summary>

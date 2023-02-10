@@ -67,7 +67,7 @@ class ReportBid(disnake.ui.Modal):
         components = [
             disnake.ui.TextInput(
                 label="Report content",
-                placeholder="Describe about it.",
+                placeholder="Describe ...",
                 custom_id="desc_id",
                 style=TextInputStyle.paragraph
             ),
@@ -120,18 +120,20 @@ class ReportBid(disnake.ui.Modal):
             traceback.print_exc(file=sys.stdout)
 
 class EditBid(disnake.ui.Modal):
-    def __init__(self, ctx, bot, message_id: str, owner_userid: str, title: str) -> None:
+    def __init__(self, ctx, bot, message_id: str, owner_userid: str, title: str, desc: str=None) -> None:
         self.ctx = ctx
         self.bot = bot
         self.utils = Utils(self.bot)
         self.message_id = message_id
         self.owner_userid = owner_userid
         self.caption_new = title
+        self.desc = desc
 
         components = [
             disnake.ui.TextInput(
                 label="Description",
-                placeholder="Describe about it.",
+                placeholder="Describe ...",
+                value=self.desc,
                 custom_id="desc_id",
                 style=TextInputStyle.paragraph
             )
@@ -752,7 +754,7 @@ class BidButton(disnake.ui.View):
     def __init__(
         self, timeout, coin_list, bot, channel_interact,
         owner_id: int, coin_name: str, min_amount: float, step_amount: float,
-        title: str
+        title: str, desc: str = None
     ):
         super().__init__(timeout=timeout)
         self.bot = bot
@@ -765,6 +767,7 @@ class BidButton(disnake.ui.View):
         self.min_amount = min_amount
         self.step_amount = step_amount
         self.caption_new = title
+        self.desc = desc
 
     async def on_timeout(self):
         try:
@@ -811,7 +814,7 @@ class BidButton(disnake.ui.View):
         else:
             try:
                 await interaction.response.send_modal(
-                    modal=EditBid(interaction, self.bot, self.message.id, self.owner_id, self.caption_new))
+                    modal=EditBid(interaction, self.bot, self.message.id, self.owner_id, self.caption_new, self.desc))
             except disnake.errors.NotFound:
                 await interaction.response.send_message(f"{interaction.author.mention}, failed to retreive bidding information! Try again later!", ephemeral=True)
             except Exception as e:
@@ -1392,14 +1395,14 @@ class Bidding(commands.Cog):
                         else:
                             try:
                                 # not too rush to edit
-                                if _msg is not None and int(time.time()) - int(_msg.edited_at.timestamp()) > 60:
+                                if _msg is not None and _msg.edited_at and int(time.time()) - int(_msg.edited_at.timestamp()) > 60:
                                     # If we don't need to update view
                                     # await _msg.edit(content=None, embed=embed)
                                     # If we need to update view
                                     view = BidButton(
                                         duration, self.bot.coin_list, self.bot,
                                         int(each_bid['channel_id']), int(each_bid['user_id']), each_bid['token_name'],
-                                        each_bid['minimum_amount'], each_bid['step_amount'], each_bid['title']
+                                        each_bid['minimum_amount'], each_bid['step_amount'], each_bid['title'], each_bid['description']
                                     )
                                     view.message = _msg
                                     view.channel_interact = int(each_bid['channel_id'])
@@ -1686,7 +1689,7 @@ class Bidding(commands.Cog):
                 view = BidButton(
                     duration, self.bot.coin_list, self.bot,
                     ctx.channel.id, ctx.author.id, coin_name, min_amount, step_amount,
-                    title
+                    title, None
                 )
                 msg = await ctx.channel.send(content=None, embed=embed, view=view)
                 view.message = msg

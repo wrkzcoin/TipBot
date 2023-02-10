@@ -891,7 +891,7 @@ class BidButton(disnake.ui.View):
                                 )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
-                            await interaction.edit_original_message(f"{interaction.author.mention}, successfully cancelled!")
+                            await interaction.edit_original_message(f"{interaction.author.mention}, successfully cancelled!", view=None)
                             # DM refund
                             for i in refund_list:
                                 try:
@@ -903,7 +903,7 @@ class BidButton(disnake.ui.View):
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
                         else:
-                            await interaction.edit_original_message(f"{interaction.author.mention}, internal error!")
+                            await interaction.edit_original_message(f"{interaction.author.mention}, internal error!", view=None)
                     except disnake.errors.NotFound:
                         await interaction.edit_original_message(f"{interaction.author.mention}, failed to retreive bidding information! Try again later!", ephemeral=True)
                     except Exception as e:

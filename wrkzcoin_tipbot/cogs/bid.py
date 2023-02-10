@@ -13,6 +13,7 @@ import hashlib
 import magic
 from io import BytesIO
 import uuid
+from typing import Optional
 
 import disnake
 import store
@@ -28,6 +29,32 @@ from disnake.app_commands import Option, OptionChoice
 from disnake.ext import commands, tasks
 from cogs.utils import Utils, num_format_coin
 
+
+class ConfirmName(disnake.ui.View):
+    def __init__(self, bot, owner_id: int, topic_name: str):
+        super().__init__(timeout=10.0)
+        self.value: Optional[bool] = None
+        self.bot = bot
+        self.owner_id = owner_id
+        self.topic_name = topic_name
+
+    @disnake.ui.button(label="Yes, please!", style=disnake.ButtonStyle.green)
+    async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, confirming...", delete_after=3.0)
+            self.value = True
+            self.stop()
+
+    @disnake.ui.button(label="No", style=disnake.ButtonStyle.grey)
+    async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, cancelling...", delete_after=3.0)
+            self.value = False
+            self.stop()
 
 class ReportBid(disnake.ui.Modal):
     def __init__(self, ctx, bot, message_id: str, owner_userid: str) -> None:
@@ -700,7 +727,7 @@ class ClearButton(disnake.ui.View):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
 
-    @disnake.ui.button(label="⚠️Report", style=ButtonStyle.red, custom_id="bidding_report_clear")
+    @disnake.ui.button(label="⚠️Report", style=ButtonStyle.gray, custom_id="bidding_report_clear")
     async def clear_bid_report(
         self, button: disnake.ui.Button,
         interaction: disnake.MessageInteraction
@@ -790,7 +817,7 @@ class BidButton(disnake.ui.View):
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
 
-    @disnake.ui.button(label="Cancel", style=ButtonStyle.danger, custom_id="bidding_cancel")
+    @disnake.ui.button(label="🔴 Cancel", style=ButtonStyle.danger, custom_id="bidding_cancel")
     async def bid_cancel(
         self, button: disnake.ui.Button,
         interaction: disnake.MessageInteraction
@@ -799,71 +826,89 @@ class BidButton(disnake.ui.View):
             await interaction.response.send_message(f"{interaction.author.mention}, that's not your listing!", ephemeral=True)
         else:
             await interaction.response.send_message(f"{interaction.author.mention}, checking cancellation!", ephemeral=True)
-            # set status to cancelled, log, refund to all bidders.
             try:
-                # get list bidders and amounts
-                attend_list = await self.utils.get_bid_attendant(str(self.message.id))
-                refund_list = []
-                list_key_update = []
-                payment_logs = []
-                if len(attend_list) > 0:
-                    for i in attend_list:
-                        refund_list.append((
-                            i['user_id'], i['bid_coin'], SERVER_BOT, i['bid_amount'], int(time.time())
-                        ))
-                        list_key_update.append(i['user_id'] + "_" + i['bid_coin'] + "_" + SERVER_BOT)
-                        payment_logs.append((
-                            "REFUND", str(self.message.id), i['user_id'],
-                            str(interaction.guild.id), str(interaction.channel.id), int(time.time()),
-                            num_format_coin(i['bid_amount'])
-                        ))
-                cancelling = await self.utils.discord_bid_cancel(
-                    str(self.message.id), str(interaction.author.id),
-                    str(interaction.guild.id), str(interaction.channel.id),
-                    refund_list, payment_logs
-                )
-                if cancelling is True:
-                    if len(list_key_update) > 0:
-                        for i in list_key_update:
-                            try:
-                                if i in self.bot.user_balance_cache:
-                                    del self.bot.user_balance_cache[i]
-                            except Exception:
-                                pass
-                    ## Update content
+                # add for confirmation
+                view = ConfirmName(self.bot, interaction.author.id, "Cancel Bid")
+                msg = f"{EMOJI_INFORMATION} {interaction.author.mention}, Do you want to cancel this bidding for {self.caption_new}? And all bidders will get their refund."
+                await interaction.edit_original_message(content=msg, view=view)
+
+                # Wait for the View to stop listening for input...
+                await view.wait()
+
+                # Check the value to determine which button was pressed, if any.
+                if view.value is None:
+                    await interaction.edit_original_message(
+                        content=msg + "\n**Timeout!**",
+                        view=None
+                    )
+                elif view.value:
+                    # set status to cancelled, log, refund to all bidders.
                     try:
-                        for child in self.children:
-                            if isinstance(child, disnake.ui.Button):
-                                child.disabled = True
-                        _msg: disnake.Message = await interaction.channel.fetch_message(self.message.id)
-                        await _msg.edit(content=None, view=self)
-                        await log_to_channel(
-                            "bid",
-                            f"[BID CANCELLED]: User {interaction.author.mention} cancelled a bid in Guild ID {interaction.guild.id}.\n"\
-                            f"Ref: {self.message.id} / Guild name: {interaction.guild.name}!",
-                            self.bot.config['discord']['bid_webhook']
+                        # get list bidders and amounts
+                        attend_list = await self.utils.get_bid_attendant(str(self.message.id))
+                        refund_list = []
+                        list_key_update = []
+                        payment_logs = []
+                        if len(attend_list) > 0:
+                            for i in attend_list:
+                                refund_list.append((
+                                    i['user_id'], i['bid_coin'], SERVER_BOT, i['bid_amount'], int(time.time())
+                                ))
+                                list_key_update.append(i['user_id'] + "_" + i['bid_coin'] + "_" + SERVER_BOT)
+                                payment_logs.append((
+                                    "REFUND", str(self.message.id), i['user_id'],
+                                    str(interaction.guild.id), str(interaction.channel.id), int(time.time()),
+                                    num_format_coin(i['bid_amount'])
+                                ))
+                        cancelling = await self.utils.discord_bid_cancel(
+                            str(self.message.id), str(interaction.author.id),
+                            str(interaction.guild.id), str(interaction.channel.id),
+                            refund_list, payment_logs
                         )
-                    except Exception:
+                        if cancelling is True:
+                            if len(list_key_update) > 0:
+                                for i in list_key_update:
+                                    try:
+                                        if i in self.bot.user_balance_cache:
+                                            del self.bot.user_balance_cache[i]
+                                    except Exception:
+                                        pass
+                            ## Update content
+                            try:
+                                for child in self.children:
+                                    if isinstance(child, disnake.ui.Button):
+                                        child.disabled = True
+                                _msg: disnake.Message = await interaction.channel.fetch_message(self.message.id)
+                                await _msg.edit(content=None, view=self)
+                                await log_to_channel(
+                                    "bid",
+                                    f"[BID CANCELLED]: User {interaction.author.mention} cancelled a bid in Guild ID {interaction.guild.id}.\n"\
+                                    f"Ref: {self.message.id} / Guild name: {interaction.guild.name}!",
+                                    self.bot.config['discord']['bid_webhook']
+                                )
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            await interaction.edit_original_message(f"{interaction.author.mention}, successfully cancelled!")
+                            # DM refund
+                            for i in refund_list:
+                                try:
+                                    get_u = self.bot.get_user(int(i[0]))
+                                    if get_u is not None:
+                                        await get_u.send(f"Bid `{str(self.message.id)}` cancelled in guild {interaction.guild.name}/{interaction.guild.id}!"\
+                                                        " You get a refund of "\
+                                                        f"{num_format_coin(i[3])} {self.coin_name}.")
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                        else:
+                            await interaction.edit_original_message(f"{interaction.author.mention}, internal error!")
+                    except disnake.errors.NotFound:
+                        await interaction.edit_original_message(f"{interaction.author.mention}, failed to retreive bidding information! Try again later!", ephemeral=True)
+                    except Exception as e:
                         traceback.print_exc(file=sys.stdout)
-                    await interaction.edit_original_message(f"{interaction.author.mention}, successfully cancelled!")
-                    # DM refund
-                    for i in refund_list:
-                        try:
-                            get_u = self.bot.get_user(int(i[0]))
-                            if get_u is not None:
-                                await get_u.send(f"Bid `{str(self.message.id)}` cancelled in guild {interaction.guild.name}/{interaction.guild.id}!"\
-                                                 " You get a refund of "\
-                                                f"{num_format_coin(i[3])} {self.coin_name}.")
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                else:
-                    await interaction.edit_original_message(f"{interaction.author.mention}, internal error!")
-            except disnake.errors.NotFound:
-                await interaction.edit_original_message(f"{interaction.author.mention}, failed to retreive bidding information! Try again later!", ephemeral=True)
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
 
-    @disnake.ui.button(label="⚠️Report", style=ButtonStyle.red, custom_id="bidding_report")
+    @disnake.ui.button(label="⚠️Report", style=ButtonStyle.gray, custom_id="bidding_report")
     async def bid_report(
         self, button: disnake.ui.Button,
         interaction: disnake.MessageInteraction

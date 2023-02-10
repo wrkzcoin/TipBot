@@ -766,7 +766,6 @@ class BidButton(disnake.ui.View):
         if interaction.author.id == self.owner_id and self.bot.config['bidding']['allow_own_bid'] != 1:
             await interaction.response.send_message(f"{interaction.author.mention}, you can't bid on your own!", delete_after=5.0)
         else:
-            # set status to cancelled, log, refund to all bidders.
             try:
                 await interaction.response.send_modal(
                     modal=PlaceBid(interaction, self.bot, self.message.id, self.owner_id, self.coin_name, self.min_amount, self.step_amount))
@@ -783,7 +782,6 @@ class BidButton(disnake.ui.View):
         if interaction.author.id != self.owner_id:
             await interaction.response.send_message(f"{interaction.author.mention}, that's not your listing!", ephemeral=True)
         else:
-            # set status to cancelled, log, refund to all bidders.
             try:
                 await interaction.response.send_modal(
                     modal=EditBid(interaction, self.bot, self.message.id, self.owner_id, self.caption_new))
@@ -848,6 +846,16 @@ class BidButton(disnake.ui.View):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     await interaction.edit_original_message(f"{interaction.author.mention}, successfully cancelled!")
+                    # DM refund
+                    for i in refund_list:
+                        try:
+                            get_u = self.bot.get_user(int(i[0]))
+                            if get_u is not None:
+                                await get_u.send(f"Bid `{str(self.message.id)}` cancelled in guild {interaction.guild.name}/{interaction.guild.id}!"\
+                                                 " You get a refund of "\
+                                                f"{num_format_coin(i[3])} {self.coin_name}.")
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
                 else:
                     await interaction.edit_original_message(f"{interaction.author.mention}, internal error!")
             except disnake.errors.NotFound:
@@ -1205,6 +1213,16 @@ class Bidding(commands.Cog):
                                         ),
                                         self.bot.config['discord']['bid_webhook']
                                     )
+                                    for i in refund_list:
+                                        # DM all people to refund
+                                        try:
+                                            get_u = self.bot.get_user(int(i[0]))
+                                            if get_u is not None:
+                                                await get_u.send(f"You get a refund of "\
+                                                                 f"{num_format_coin(i[3])} {each_bid['coin_name']} "\
+                                                                 f"from bidding no. `{each_bid['message_id']}` in guild {each_bid['guild_name']}/{each_bid['guild_id']}.")
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
                             continue
@@ -1224,6 +1242,7 @@ class Bidding(commands.Cog):
                         if each_bid['bid_open_time'] < int(time.time()):
                             try:
                                 msg_owner = ""
+                                msg_winner = ""
                                 if len(attend_list) == 0:
                                     await _msg.edit(content=None, embed=embed, view=None)
                                     await self.utils.update_bid_no_winning(each_bid['message_id'])
@@ -1273,8 +1292,12 @@ class Bidding(commands.Cog):
                                         refund_list, payment_logs
                                     )
                                     msg_owner = "One of your bidding is completed! "\
-                                        "User `{}` is the winner for bidding `{}` in guild `{}`.".format(
+                                        "User <@{}> is the winner for bidding `{}` in guild `{}`.".format(
                                         attend_list[0]['user_id'], each_bid['message_id'], each_bid['guild_name']
+                                    )
+                                    msg_winner = "Congratulation! You win bid `{}` in guild {}/{}. "\
+                                        "Kindly check the new button and input necessary information and tap on Complete once's done.".format(
+                                        each_bid['message_id'], each_bid['guild_name'], each_bid['guild_id']
                                     )
                                     await log_to_channel(
                                         "bid",
@@ -1282,12 +1305,43 @@ class Bidding(commands.Cog):
                                         f"Winner <@{attend_list[0]['user_id']}>, amount {attend_list[0]['bid_amount']} {each_bid['token_name']}",
                                         self.bot.config['discord']['bid_webhook']
                                     )
+                                # notify bid owner
                                 try:
                                     get_owner = self.bot.get_user(int(each_bid['user_id']))
                                     if get_owner is not None and len(msg_owner) > 0:
                                         await get_owner.send(msg_owner)
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
+                                    await log_to_channel(
+                                        "bid",
+                                        f"[BIDDING FAILED MSG]: failed to DM owner user <@{each_bid['user_id']}>. "\
+                                        f"Bid `{each_bid['message_id']}` at Guild {each_bid['guiild_name']}/{each_bid['guild_id']}.",
+                                        self.bot.config['discord']['bid_webhook']
+                                    )
+                                # notify bid winner
+                                try:
+                                    get_winner = self.bot.get_user(int(attend_list[0]['user_id']))
+                                    if get_winner is not None and len(msg_winner) > 0:
+                                        await get_winner.send(msg_winner)
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                                    await log_to_channel(
+                                        "bid",
+                                        f"[BIDDING FAILED MSG]: failed to DM winner user <@{attend_list[0]['user_id']}>. "\
+                                        f"Bid `{each_bid['message_id']}` at Guild {each_bid['guiild_name']}/{each_bid['guild_id']}.",
+                                        self.bot.config['discord']['bid_webhook']
+                                    )
+                                # DM refund
+                                for i in refund_list:
+                                    try:
+                                        get_u = self.bot.get_user(int(i[0]))
+                                        if get_u is not None:
+                                            await get_u.send(f"You didn't win for bidding `{str(each_bid['message_id'])}` in Guild "\
+                                                             f"{each_bid['guild_name']}/{each_bid['guild_id']}!"\
+                                                             " You get a refund of full amount "\
+                                                             f"{num_format_coin(i[3])} {self.coin_name}.")
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                         else:

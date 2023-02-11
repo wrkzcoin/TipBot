@@ -1707,7 +1707,7 @@ class add_liqudity(disnake.ui.Modal):
                 type_coin = getattr(getattr(self.bot.coin_list, self.ticker_1), "type")
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, self.ticker_1), "deposit_confirm_depth")
                 contract = getattr(getattr(self.bot.coin_list, self.ticker_1), "contract")
-                height = self.wallet_api.get_block_height(type_coin, self.ticker_1, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, self.ticker_1, net_name)
                 get_deposit = await self.wallet_api.sql_get_userwallet(
                     str(interaction.author.id), self.ticker_1, net_name, type_coin, SERVER_BOT, 0
                 )
@@ -1722,7 +1722,7 @@ class add_liqudity(disnake.ui.Modal):
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
 
-                height = self.wallet_api.get_block_height(type_coin, self.ticker_1, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, self.ticker_1, net_name)
                 userdata_balance = await self.wallet_api.user_balance(
                     str(interaction.author.id), self.ticker_1, wallet_address, 
                     type_coin, height, deposit_confirm_depth, SERVER_BOT
@@ -1737,7 +1737,7 @@ class add_liqudity(disnake.ui.Modal):
                 type_coin = getattr(getattr(self.bot.coin_list, self.ticker_2), "type")
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, self.ticker_2), "deposit_confirm_depth")
                 contract = getattr(getattr(self.bot.coin_list, self.ticker_2), "contract")
-                height = self.wallet_api.get_block_height(type_coin, self.ticker_2, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, self.ticker_2, net_name)
                 get_deposit = await self.wallet_api.sql_get_userwallet(
                     str(interaction.author.id), self.ticker_2, net_name, type_coin, SERVER_BOT, 0
                 )
@@ -1752,7 +1752,7 @@ class add_liqudity(disnake.ui.Modal):
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
 
-                height = self.wallet_api.get_block_height(type_coin, self.ticker_2, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, self.ticker_2, net_name)
                 userdata_balance = await self.wallet_api.user_balance(
                     str(interaction.author.id), self.ticker_2, wallet_address, 
                     type_coin, height, deposit_confirm_depth, SERVER_BOT
@@ -1983,7 +1983,7 @@ class add_liquidity_btn(disnake.ui.View):
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
 
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
@@ -2018,7 +2018,7 @@ class add_liquidity_btn(disnake.ui.View):
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
 
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
@@ -2660,7 +2660,7 @@ class Cexswap(commands.Cog):
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
 
-                height = self.wallet_api.get_block_height(type_coin, sell_token, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, sell_token, net_name)
                 get_deposit = await self.wallet_api.sql_get_userwallet(
                     str(ctx.author.id), sell_token, net_name, type_coin, SERVER_BOT, 0
                 )
@@ -2669,7 +2669,7 @@ class Cexswap(commands.Cog):
                         str(ctx.author.id), sell_token, net_name, type_coin, SERVER_BOT, 0, 0
                     )
 
-                height = self.wallet_api.get_block_height(type_coin, sell_token, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, sell_token, net_name)
                 userdata_balance = await self.wallet_api.user_balance(
                     str(ctx.author.id), sell_token, wallet_address, 
                     type_coin, height, deposit_confirm_depth, SERVER_BOT
@@ -2915,7 +2915,7 @@ class Cexswap(commands.Cog):
                         # end of re-check rate
 
                         # re-check balance
-                        height = self.wallet_api.get_block_height(type_coin, sell_token, net_name)
+                        height = await self.wallet_api.get_block_height(type_coin, sell_token, net_name)
                         userdata_balance = await self.wallet_api.user_balance(
                             str(ctx.author.id), sell_token, wallet_address, 
                             type_coin, height, deposit_confirm_depth, SERVER_BOT
@@ -3573,7 +3573,7 @@ class Cexswap(commands.Cog):
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
 
-                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 get_deposit = await self.wallet_api.sql_get_userwallet(
                     str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
                 )
@@ -3582,7 +3582,7 @@ class Cexswap(commands.Cog):
                         str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
                     )
 
-                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 userdata_balance = await self.wallet_api.user_balance(
                     str(ctx.author.id), coin_name, wallet_address, 
                     type_coin, height, deposit_confirm_depth, SERVER_BOT
@@ -4217,7 +4217,7 @@ class Cexswap(commands.Cog):
             elif type_coin in ["XRP"]:
                 wallet_address = get_deposit['destination_tag']
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             userdata_balance = await self.wallet_api.user_balance(
                 str(ctx.author.id), coin_name, wallet_address, type_coin,
                 height, deposit_confirm_depth, SERVER_BOT
@@ -4689,7 +4689,7 @@ class Cexswap(commands.Cog):
                                 elif type_coin in ["XRP"]:
                                     wallet_address = get_deposit['destination_tag']
 
-                                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                                 userdata_balance = await self.wallet_api.user_balance(
                                     user_id, coin_name, wallet_address, type_coin,
                                     height, deposit_confirm_depth, user_server
@@ -4891,7 +4891,7 @@ class Cexswap(commands.Cog):
                                     ref_log = ''.join(random.choice(ascii_uppercase) for i in range(16))
                                     net_name = getattr(getattr(self.bot.coin_list, sell_param['sell_token']), "net_name")
                                     type_coin = getattr(getattr(self.bot.coin_list, sell_param['sell_token']), "type")
-                                    height = self.wallet_api.get_block_height(type_coin, sell_param['sell_token'], net_name)
+                                    height = await self.wallet_api.get_block_height(type_coin, sell_param['sell_token'], net_name)
                                     deposit_confirm_depth = getattr(getattr(self.bot.coin_list, sell_param['sell_token']), "deposit_confirm_depth")
                                     get_deposit = await self.wallet_api.sql_get_userwallet(
                                         find_user['user_id'], sell_param['sell_token'], net_name, type_coin, find_user['user_server'], 0

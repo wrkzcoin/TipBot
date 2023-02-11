@@ -1632,22 +1632,22 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("wallet user_balance " +str(traceback.format_exc()))
 
-    def get_block_height(self, type_coin: str, coin: str, net_name: str = None):
+    async def get_block_height(self, type_coin: str, coin: str, net_name: str = None):
         height = None
         coin_name = coin.upper()
         try:
             if type_coin in ["ERC-20", "TRC-20"]:
-                height = self.utils.get_cache_kv(
+                height = await self.utils.async_get_cache_kv(
                     "block",
                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{net_name}"
                 )
             elif type_coin in ["XLM", "NEO", "VITE"]:
-                height = self.utils.get_cache_kv(
+                height = await self.utils.async_get_cache_kv(
                     "block",
                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{type_coin}"
                 )
             else:
-                height = self.utils.get_cache_kv(
+                height = await self.utils.async_get_cache_kv(
                     "block",
                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}"
                 )
@@ -2476,6 +2476,8 @@ class WalletAPI(commands.Cog):
     async def call_neo(self, method_name: str, payload) -> Dict:
         timeout = 64
         coin_name = "NEO"
+        if not hasattr(self.bot.coin_list, coin_name):
+            return None
         try:
             headers = {
                 'Content-Type': 'application/json'
@@ -4959,7 +4961,7 @@ class Wallet(commands.Cog):
                                             wallet_address = get_deposit['paymentid']
                                         elif type_coin in ["XRP"]:
                                             wallet_address = get_deposit['destination_tag']
-                                        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                                         userdata_balance = await store.sql_user_balance_single(
                                             str(each_resp['twitter_user_id']), coin_name, wallet_address, type_coin,
                                             height, deposit_confirm_depth, "TWITTER")
@@ -5185,7 +5187,7 @@ class Wallet(commands.Cog):
                                                 wallet_address = get_deposit['paymentid']
                                             elif type_coin in ["XRP"]:
                                                 wallet_address = get_deposit['destination_tag']
-                                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                                         userdata_balance = await self.wallet_api.user_balance(
                                             each_msg['sender_id'], coin_name,
                                             wallet_address, type_coin, height,
@@ -5276,7 +5278,7 @@ class Wallet(commands.Cog):
                                             elif type_coin in ["XRP"]:
                                                 wallet_address = get_deposit['destination_tag']
 
-                                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                                             if height is None:
                                                 # can not pull height, continue
                                                 await logchanbot(
@@ -5909,7 +5911,7 @@ class Wallet(commands.Cog):
                                         wallet_address = user_from['balance_wallet_address']
                                         if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                             wallet_address = user_from['paymentid']
-                                        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
 
                                         # height can be None
                                         userdata_balance = await store.sql_user_balance_single(
@@ -6282,7 +6284,7 @@ class Wallet(commands.Cog):
                                 if 'result' in decoded_data:
                                     height = int(decoded_data['result'])
                                     try:
-                                        self.utils.set_cache_kv(
+                                        await self.utils.async_set_cache_kv(
                                             "block",
                                             f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                                             height
@@ -6527,7 +6529,7 @@ class Wallet(commands.Cog):
             coin_family = getattr(getattr(self.bot.coin_list, coin_name), "type")
             if height and height > 0:
                 try:
-                    self.utils.set_cache_kv(
+                    await self.utils.async_set_cache_kv(
                         "block",
                         f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                         height
@@ -6709,7 +6711,7 @@ class Wallet(commands.Cog):
             return
         else:
             try:
-                self.utils.set_cache_kv(
+                await self.utils.async_set_cache_kv(
                     "block",
                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                     net_height
@@ -6791,7 +6793,7 @@ class Wallet(commands.Cog):
                                                     continue
                                                 coin_name = get_denom['coin_name']
                                                 try:
-                                                    self.utils.set_cache_kv(
+                                                    await self.utils.async_set_cache_kv(
                                                         "block",
                                                         f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                                                         net_height
@@ -6857,7 +6859,7 @@ class Wallet(commands.Cog):
             return
         else:
             try:
-                self.utils.set_cache_kv(
+                await self.utils.async_set_cache_kv(
                     "block",
                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                     net_height
@@ -6935,7 +6937,7 @@ class Wallet(commands.Cog):
                                                     continue
                                                 coin_name = get_denom['coin_name']
                                                 try:
-                                                    self.utils.set_cache_kv(
+                                                    await self.utils.async_set_cache_kv(
                                                         "block",
                                                         f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                                                         net_height
@@ -7001,7 +7003,7 @@ class Wallet(commands.Cog):
             return
         else:
             try:
-                self.utils.set_cache_kv(
+                await self.utils.async_set_cache_kv(
                     "block",
                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                     height
@@ -7245,7 +7247,7 @@ class Wallet(commands.Cog):
                                 if 'history_latest_ledger' in decoded_data:
                                     height = decoded_data['history_latest_ledger']
                                     try:
-                                        self.utils.set_cache_kv(
+                                        await self.utils.async_set_cache_kv(
                                             "block",
                                             f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                                             height
@@ -7483,7 +7485,7 @@ class Wallet(commands.Cog):
             if getEpochInfo:
                 height = getEpochInfo['absoluteSlot']
                 try:
-                    self.utils.set_cache_kv(
+                    await self.utils.async_set_cache_kv(
                         "block",
                         f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                         height
@@ -7613,7 +7615,7 @@ class Wallet(commands.Cog):
                             if fetch_tx:
                                 get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name),
                                                             "deposit_confirm_depth")
-                                net_height = self.utils.get_cache_kv(
+                                net_height = await self.utils.async_get_cache_kv(
                                     "block",
                                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}"
                                 )
@@ -7728,7 +7730,7 @@ class Wallet(commands.Cog):
                                             height = int(fetch_wallet['tip']['height']['quantity'])
                                             for each_coin in self.bot.coin_name_list:
                                                 if getattr(getattr(self.bot.coin_list, each_coin), "type") == "ADA":
-                                                    self.utils.set_cache_kv(
+                                                    await self.utils.async_set_cache_kv(
                                                         "block",
                                                         f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{each_coin.upper()}",
                                                         height
@@ -7880,7 +7882,7 @@ class Wallet(commands.Cog):
             return
         height = int(gettopblock['block_header']['height'])
         try:
-            self.utils.set_cache_kv(
+            await self.utils.async_set_cache_kv(
                 "block",
                 f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                 height
@@ -8075,7 +8077,7 @@ class Wallet(commands.Cog):
             return
         height = int(gettopblock['block_header']['height'])
         try:
-            self.utils.set_cache_kv(
+            await self.utils.async_set_cache_kv(
                 "block",
                 f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                 height
@@ -8196,7 +8198,7 @@ class Wallet(commands.Cog):
             return
         height = int(gettopblock['block_header']['height'])
         try:
-            self.utils.set_cache_kv(
+            await self.utils.async_set_cache_kv(
                 "block",
                 f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                 height
@@ -8395,7 +8397,7 @@ class Wallet(commands.Cog):
             return False
         height = int(gettopblock['blocks'])
         try:
-            self.utils.set_cache_kv(
+            await self.utils.async_set_cache_kv(
                 "block",
                 f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                 height
@@ -8532,10 +8534,12 @@ class Wallet(commands.Cog):
         await asyncio.sleep(time_lap)
         coin_name = "NEO"
         try:
-            gettopblock = await self.wallet_api.call_neo('getblockcount', payload=[]) 
+            gettopblock = await self.wallet_api.call_neo('getblockcount', payload=[])
+            if gettopblock is None:
+                return
             try:
                 height = int(gettopblock['result'])
-                self.utils.set_cache_kv(
+                await self.utils.async_set_cache_kv(
                     "block",
                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                     height
@@ -8765,7 +8769,7 @@ class Wallet(commands.Cog):
             return False
         height = int(gettopblock['height'])
         try:
-            self.utils.set_cache_kv(
+            await self.utils.async_set_cache_kv(
                 "block",
                 f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                 height
@@ -8976,7 +8980,7 @@ class Wallet(commands.Cog):
                             height = int(gettopblock['count'])
                             # store in kv
                             try:
-                                self.utils.set_cache_kv(
+                                await self.utils.async_set_cache_kv(
                                     "block",
                                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                                     height
@@ -9124,7 +9128,7 @@ class Wallet(commands.Cog):
                     return
                 for each_coin in self.bot.coin_name_list:
                     if getattr(getattr(self.bot.coin_list, each_coin), "type") == "XRP":
-                        self.utils.set_cache_kv(
+                        await self.utils.async_set_cache_kv(
                             "block",
                             f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{each_coin.upper()}",
                             height
@@ -9279,7 +9283,7 @@ class Wallet(commands.Cog):
             try:
                 if get_head:
                     height = get_head['result']['sync_info']['latest_block_height']
-                    self.utils.set_cache_kv(
+                    await self.utils.async_set_cache_kv(
                         "block",
                         f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                         height
@@ -9288,7 +9292,7 @@ class Wallet(commands.Cog):
                         for each_coin in near_contracts:
                             name = each_coin['coin_name']
                             try:
-                                self.utils.set_cache_kv(
+                                await self.utils.async_set_cache_kv(
                                     "block",
                                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{name}",
                                     height
@@ -9449,7 +9453,7 @@ class Wallet(commands.Cog):
                     try:
                         check_tx = await near_get_tx(rpchost, each_tx['txn'], 32)
                         if check_tx is not None:
-                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             if height and height - check_tx['height'] > get_confirm_depth:
                                 number_conf = height - check_tx['height']
                                 await self.wallet_api.near_update_mv_deposit_pending(
@@ -9638,7 +9642,7 @@ class Wallet(commands.Cog):
                         # vet_get_tx(url: str, tx_hash: str, timeout: int=16)
                         check_tx = await vet_get_tx(self.bot.erc_node_list['VET'], each_tx['txn'], 12)
                         if check_tx is not None:
-                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             if height and height - int(check_tx['meta']['blockNumber']) > get_confirm_depth:
                                 number_conf = height - int(check_tx['meta']['blockNumber'])
                                 await self.wallet_api.vet_update_mv_deposit_pending(
@@ -9671,7 +9675,7 @@ class Wallet(commands.Cog):
             get_status = await vet_get_status(self.bot.erc_node_list['VET'], 16)
             if get_status:
                 height = int(get_status['number'])
-                self.utils.set_cache_kv(
+                await self.utils.async_set_cache_kv(
                     "block",
                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                     height
@@ -9680,7 +9684,7 @@ class Wallet(commands.Cog):
                     for each_coin in vet_contracts:
                         name = each_coin['coin_name']
                         try:
-                            self.utils.set_cache_kv(
+                            await self.utils.async_set_cache_kv(
                                 "block",
                                 f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{name}",
                                 height
@@ -9890,6 +9894,8 @@ class Wallet(commands.Cog):
             return
         await asyncio.sleep(time_lap)
         coin_name = "ZIL"
+        if not hasattr(self.bot.coin_list, coin_name):
+            return
         get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -9900,7 +9906,7 @@ class Wallet(commands.Cog):
                     try:
                         check_tx = await zil_get_tx(self.bot.erc_node_list['ZIL'], each_tx['txn'], 12)
                         if check_tx is not None:
-                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             if height and height - int(check_tx['result']['receipt']['epoch_num']) > get_confirm_depth:
                                 number_conf = height - int(check_tx['result']['receipt']['epoch_num'])
                                 await self.wallet_api.zil_update_mv_deposit_pending(
@@ -9929,10 +9935,12 @@ class Wallet(commands.Cog):
             zil_contracts = await self.get_all_contracts("ZIL", False)
             # Check native
             coin_name = "ZIL"
+            if not hasattr(self.bot.coin_list, coin_name):
+                return
             get_status = await zil_get_status(self.bot.erc_node_list['ZIL'], 16)
             if get_status:
                 height = int(get_status['result']['NumTxBlocks'])
-                self.utils.set_cache_kv(
+                await self.utils.async_set_cache_kv(
                     "block",
                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                     height
@@ -9941,7 +9949,7 @@ class Wallet(commands.Cog):
                     for each_coin in zil_contracts:
                         name = each_coin['coin_name']
                         try:
-                            self.utils.set_cache_kv(
+                            await self.utils.async_set_cache_kv(
                                 "block",
                                 f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{name}",
                                 height
@@ -10078,7 +10086,7 @@ class Wallet(commands.Cog):
             try:
                 if get_head:
                     height = get_head['level']
-                    self.utils.set_cache_kv(
+                    await self.utils.async_set_cache_kv(
                         "block",
                         f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
                         height
@@ -10087,7 +10095,7 @@ class Wallet(commands.Cog):
                         for each_coin in xtz_contracts:
                             name = each_coin['coin_name']
                             try:
-                                self.utils.set_cache_kv(
+                                await self.utils.async_set_cache_kv(
                                     "block",
                                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{name}",
                                     height
@@ -10467,7 +10475,7 @@ class Wallet(commands.Cog):
                     try:
                         check_tx = await tezos_get_tx(rpchost, each_tx['txn'], 32)
                         if check_tx is not None:
-                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             if height and height - check_tx['level'] > get_confirm_depth:
                                 number_conf = height - check_tx['level']
                                 await self.wallet_api.tezos_update_mv_deposit_pending(each_tx['txn'], check_tx['level'], number_conf)
@@ -11441,7 +11449,7 @@ class Wallet(commands.Cog):
             elif type_coin in ["XRP"]:
                 wallet_address = get_deposit['destination_tag']
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             description = ""
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             embed = disnake.Embed(
@@ -11664,7 +11672,7 @@ class Wallet(commands.Cog):
                     elif type_coin in ["XRP"]:
                         wallet_address = get_deposit['destination_tag']
 
-                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     try:
                         # Add update for future call
                         await self.utils.update_user_balance_call(str(ctx.author.id), type_coin)
@@ -11929,7 +11937,7 @@ class Wallet(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             if height is None:
                 msg = f"{ctx.author.mention}, **{coin_name}** cannot pull information from network. Try again later."
                 await ctx.edit_original_message(content=msg)
@@ -13441,7 +13449,7 @@ class Wallet(commands.Cog):
             elif type_coin in ["XRP"]:
                 wallet_address = get_deposit['destination_tag']
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             try:
                 userdata_balance = await self.wallet_api.user_balance(
                     str(self.bot.user.id), coin_name, wallet_address, type_coin,
@@ -13560,7 +13568,7 @@ class Wallet(commands.Cog):
                     # add penalty:
                     try:
                         key = self.bot.config['kv_db']['prefix_faucet_take_penalty'] + SERVER_BOT + "_" + str(ctx.author.id)
-                        self.utils.set_cache_kv(
+                        await self.utils.async_set_cache_kv(
                             "faucet",
                             key,
                             {
@@ -13665,7 +13673,7 @@ class Wallet(commands.Cog):
             # check penalty:
             try:
                 key = self.bot.config['kv_db']['prefix_faucet_take_penalty'] + SERVER_BOT + "_" + str(ctx.author.id)
-                faucet_penalty = self.utils.get_cache_kv("faucet",  key)
+                faucet_penalty = await self.utils.async_get_cache_kv("faucet",  key)
                 if faucet_penalty is not None and not info:
                     if half_claim_interval * 3600 - int(time.time()) + faucet_penalty['penalty_at'] > 0:
                         time_waiting = "<t:{}:R>".format(half_claim_interval * 3600 + faucet_penalty['penalty_at'])
@@ -13710,7 +13718,7 @@ class Wallet(commands.Cog):
         elif type_coin in ["XRP"]:
             wallet_address = get_deposit['destination_tag']
 
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         userdata_balance = await self.wallet_api.user_balance(
             str(self.bot.user.id), coin_name, wallet_address, type_coin, height,
             deposit_confirm_depth, SERVER_BOT
@@ -14008,7 +14016,7 @@ class Wallet(commands.Cog):
                     elif type_coin in ["XRP"]:
                         wallet_address = get_deposit['destination_tag']
 
-                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     userdata_balance = await self.wallet_api.user_balance(
                         str(self.bot.user.id), coin_name, wallet_address, type_coin, height,
                         deposit_confirm_depth, SERVER_BOT
@@ -14258,7 +14266,7 @@ class Wallet(commands.Cog):
                     elif type_coin in ["XRP"]:
                         wallet_address = get_deposit['destination_tag']
 
-                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     userdata_balance = await self.wallet_api.user_balance(
                         str(self.bot.user.id), coin_name, wallet_address, type_coin, height,
                         deposit_confirm_depth, SERVER_BOT
@@ -14416,7 +14424,7 @@ class Wallet(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         # check if amount is all
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
@@ -14686,7 +14694,7 @@ class Wallet(commands.Cog):
                     wallet_address = get_deposit['paymentid']
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
-                height = self.wallet_api.get_block_height(type_coin, from_coin, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, from_coin, net_name)
                 userdata_balance = await store.sql_user_balance_single(
                     str(ctx.author.id), from_coin, wallet_address,
                     type_coin, height, deposit_confirm_depth, SERVER_BOT
@@ -14718,7 +14726,7 @@ class Wallet(commands.Cog):
                     wallet_address = get_deposit['paymentid']
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
-                height = self.wallet_api.get_block_height(type_coin, to_coin, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, to_coin, net_name)
                 creditor_balance = await store.sql_user_balance_single(
                     creditor, to_coin, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
                 )
@@ -14924,7 +14932,7 @@ class Wallet(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     return
 
-                height = self.wallet_api.get_block_height(type_coin, from_coin, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, from_coin, net_name)
                 userdata_balance = await self.wallet_api.user_balance(
                     str(ctx.author.id), from_coin, wallet_address, type_coin,
                     height, deposit_confirm_depth, SERVER_BOT

@@ -153,7 +153,7 @@ class DiscordBotList(commands.Cog):
                                             elif type_coin in ["XRP"]:
                                                 wallet_address = user_from['destination_tag']
 
-                                            height = self.wallet_api.get_block_height(
+                                            height = await self.wallet_api.get_block_height(
                                                 type_coin, coin_name, net_name
                                             )
                                             # height can be None

@@ -426,7 +426,7 @@ class Events(commands.Cog):
             elif type_coin in ["XRP"]:
                 wallet_address = get_deposit['destination_tag']
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             userdata_balance = await store.sql_user_balance_single(
                 str(message.author.id), coin_name, wallet_address, type_coin, height,
                 deposit_confirm_depth, SERVER_BOT
@@ -1578,7 +1578,7 @@ class Events(commands.Cog):
                     elif type_coin in ["XRP"]:
                         wallet_address = get_deposit['destination_tag']
 
-                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     userdata_balance = await store.sql_user_balance_single(
                         str(inter.author.id), coin_name, wallet_address, type_coin,
                         height, deposit_confirm_depth, SERVER_BOT
@@ -1902,7 +1902,7 @@ class Events(commands.Cog):
                 else:
                     wallet_address = get_deposit['balance_wallet_address']
 
-                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 # height can be None
                 userdata_balance = await store.sql_user_balance_single(
                     str(inter.author.id), coin_name, wallet_address,

@@ -60,7 +60,7 @@ class Coininfo(commands.Cog):
         try:
             if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") != 1:
                 try:
-                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     if height: response_text += "Height: {:,.0f}".format(height) + "\n"
                 except Exception:
                     traceback.print_exc(file=sys.stdout)

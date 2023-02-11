@@ -118,7 +118,7 @@ class Price(commands.Cog):
                 id = self.bot.token_hints[coin_name]['ticker_name']
                 per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
                 try:
-                    cache_pap_coin = self.utils.get_cache_kv("paprika", id)
+                    cache_pap_coin = await self.utils.async_get_cache_kv("paprika", id)
                     if cache_pap_coin is not None and cache_pap_coin['fetched_time'] + self.bot.config['kv_db']['paprika_ttl_coin_id'] > int(time.time()):
                         print(f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S} get paprika used cache for coin id [{id}]...")
                         per_unit = cache_pap_coin['price']
@@ -134,7 +134,7 @@ class Price(commands.Cog):
             else:
                 per_unit = self.bot.coin_paprika_symbol_list[coin_name]['price_usd']
                 try:
-                    cache_pap_coin = self.utils.get_cache_kv("paprika", coin_name)
+                    cache_pap_coin = await self.utils.async_get_cache_kv("paprika", coin_name)
                     if cache_pap_coin is not None and cache_pap_coin['fetched_time'] + self.bot.config['kv_db']['paprika_ttl_coin_id'] > int(time.time()):
                         print(f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S} get paprika used cache for coin id [{coin_name}]...")
                         per_unit = cache_pap_coin['price']

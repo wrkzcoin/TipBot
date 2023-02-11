@@ -275,7 +275,7 @@ class TipOtherCoin(disnake.ui.Modal):
             await interaction.edit_original_message(content=msg)
             return
 
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         userdata_balance = await store.sql_user_balance_single(
             str(interaction.author.id), coin_name, wallet_address,
             type_coin, height, deposit_confirm_depth, SERVER_BOT
@@ -440,7 +440,7 @@ class MemeTip_Button(disnake.ui.View):
                 await interaction.edit_original_message(content=msg)
                 return
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             userdata_balance = await store.sql_user_balance_single(
                 str(interaction.author.id), coin_name, wallet_address,
                 type_coin, height, deposit_confirm_depth, SERVER_BOT
@@ -586,7 +586,7 @@ class MemeTip_Button(disnake.ui.View):
                 await interaction.edit_original_message(content=msg)
                 return
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             userdata_balance = await store.sql_user_balance_single(
                 str(interaction.author.id), coin_name, wallet_address, 
                 type_coin, height, deposit_confirm_depth, SERVER_BOT
@@ -732,7 +732,7 @@ class MemeTip_Button(disnake.ui.View):
                 await interaction.edit_original_message(content=msg)
                 return
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             userdata_balance = await store.sql_user_balance_single(
                 str(interaction.author.id), coin_name, wallet_address, type_coin, height,
                 deposit_confirm_depth, SERVER_BOT
@@ -878,7 +878,7 @@ class MemeTip_Button(disnake.ui.View):
                 await interaction.edit_original_message(content=msg)
                 return
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             userdata_balance = await store.sql_user_balance_single(
                 str(interaction.author.id), coin_name, wallet_address,
                 type_coin, height, deposit_confirm_depth, SERVER_BOT

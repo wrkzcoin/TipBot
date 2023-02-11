@@ -4,6 +4,7 @@ from typing import List
 import time
 from cachetools import TTLCache
 from sqlitedict import SqliteDict
+import functools
 
 import disnake
 from disnake.ext import commands
@@ -230,21 +231,25 @@ class MenuPage(disnake.ui.View):
 
         await interaction.response.edit_message(embed=embed, view=self)
 
+class DBPlace():
+    pass
 
 class Utils(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.commanding_save = 10
         self.adding_commands = False
-        self.cache_kv_db_test = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="test", autocommit=True)
-        self.cache_kv_db_general = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="general", autocommit=True)
-        self.cache_kv_db_block = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="block", autocommit=True)
-        self.cache_kv_db_pools = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="pools", autocommit=True)
-        self.cache_kv_db_paprika = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="paprika", autocommit=True)
-        self.cache_kv_db_faucet = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="faucet", autocommit=True)
-        self.cache_kv_db_market_guild = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="market_guild", autocommit=True)
-        self.cache_kv_db_user_disable = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="user_disable", autocommit=True)
-        self.cache_kv_db_bidding_amount = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="bidding_amount", autocommit=True)
+        self.cache_pdb = DBPlace()
+        self.cache_db_ttl = TTLCache(maxsize=10000, ttl=60.0)
+        try:
+            for i in ["test", "general", "block", "pools", "paprika", "faucet", "market_guild", "user_disable", "bidding_amount"]:
+                try:
+                    setattr(self.cache_pdb, i, SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename=i, autocommit=True))
+                except Exception:
+                    # traceback.print_exc(file=sys.stdout)
+                    print(f"Failed to load db: {i}")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     async def get_bot_settings(self):
         try:
@@ -261,7 +266,6 @@ class Utils(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
-
 
     async def update_user_balance_call(self, user_id: str, type_coin: str):
         try:
@@ -1376,150 +1380,78 @@ class Utils(commands.Cog):
         else:
             return 0
 
+    # TODO: remove
     def set_cache_kv(self, table: str, key: str, value):
         try:
-            if table.lower() == "test":
-                self.cache_kv_db_test[key.upper()] = value
-                return True            
-            elif table.lower() == "general":
-                self.cache_kv_db_general[key.upper()] = value
-                return True
-            elif table.lower() == "block":
-                self.cache_kv_db_block[key.upper()] = value
-                return True
-            elif table.lower() == "pools":
-                self.cache_kv_db_pools[key.upper()] = value
-                return True
-            elif table.lower() == "paprika":
-                self.cache_kv_db_paprika[key.upper()] = value
-                return True
-            elif table.lower() == "faucet":
-                self.cache_kv_db_faucet[key.upper()] = value
-                return True
-            elif table.lower() == "market_guild":
-                self.cache_kv_db_market_guild[key.upper()] = value
-                return True
-            elif table.lower() == "user_disable":
-                self.cache_kv_db_user_disable[key.upper()] = value
-            elif table.lower() == "bidding_amount":
-                self.cache_kv_db_bidding_amount[key.upper()] = value
-                return True
+            getattr(self.cache_pdb, table)[key.upper()] = value
+            return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return False
 
+    async def async_set_cache_kv(self, table: str, key: str, value):
+        try:
+            def set_value(table, key, value):
+                db = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename=table, autocommit=True)
+                db[key.upper()] = value
+                db.close()
+                del db
+            set_cache = functools.partial(set_value, table, key, value)
+            await self.bot.loop.run_in_executor(None, set_cache)
+            self.cache_db_ttl[table + "_" + key] = value
+            return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    # TODO: remove
     def get_cache_kv(self, table: str, key: str):
         try:
-            if table.lower() == "test":
-                return self.cache_kv_db_test[key.upper()]
-            elif table.lower() == "general":
-                return self.cache_kv_db_general[key.upper()]
-            elif table.lower() == "block":
-                return self.cache_kv_db_block[key.upper()]
-            elif table.lower() == "pools":
-                return self.cache_kv_db_pools[key.upper()]
-            elif table.lower() == "paprika":
-                return self.cache_kv_db_paprika[key.upper()]
-            elif table.lower() == "faucet":
-                return self.cache_kv_db_faucet[key.upper()]
-            elif table.lower() == "market_guild":
-                return self.cache_kv_db_market_guild[key.upper()]
-            elif table.lower() == "user_disable":
-                return self.cache_kv_db_user_disable[key.upper()]
-            elif table.lower() == "bidding_amount":
-                return self.cache_kv_db_bidding_amount[key.upper()]
+            return getattr(self.cache_pdb, table)[key.upper()]
+        except KeyError:
+            pass
+        return None
+
+    async def async_get_cache_kv(self, table: str, key: str):
+        try:
+            def get_value(table, key):
+                db = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename=table, autocommit=False)
+                value = db[key.upper()]
+                db.close()
+                del db
+                return value
+            if table + "_" + key in self.cache_db_ttl:
+                return self.cache_db_ttl[table + "_" + key]
+            else:
+                get_cache = functools.partial(get_value, table, key)
+                result = await self.bot.loop.run_in_executor(None, get_cache)
+                if result is not None:
+                    return result
         except KeyError:
             pass
         return None
 
     def del_cache_kv(self, table: str, key: str):
         try:
-            if table.lower() == "test":
-                del self.cache_kv_db_test[key.upper()]
-                return True
-            elif table.lower() == "general":
-                del self.cache_kv_db_general[key.upper()]
-                return True
-            elif table.lower() == "block":
-                del self.cache_kv_db_block[key.upper()]
-                return True
-            elif table.lower() == "pools":
-                del self.cache_kv_db_pools[key.upper()]
-                return True
-            elif table.lower() == "paprika":
-                del self.cache_kv_db_paprika[key.upper()]
-                return True
-            elif table.lower() == "faucet":
-                del self.cache_kv_db_faucet[key.upper()]
-                return True
-            elif table.lower() == "market_guild":
-                del self.cache_kv_db_market_guild[key.upper()]
-                return True
-            elif table.lower() == "user_disable":
-                del self.cache_kv_db_user_disable[key.upper()]
-                return True
-            elif table.lower() == "bidding_amount":
-                del self.cache_kv_db_bidding_amount[key.upper()]
-                return True
+            del getattr(self.cache_pdb, table)[key.upper()]
+            return True
         except KeyError:
             pass
         return False
 
-    def get_cache_kv_list(self, table: str):
-        try:
-            if table.lower() == "test":
-                return self.cache_kv_db_test
-            elif table.lower() == "general":
-                return self.cache_kv_db_general
-            elif table.lower() == "block":
-                return self.cache_kv_db_block
-            elif table.lower() == "pools":
-                return self.cache_kv_db_pools
-            elif table.lower() == "paprika":
-                return self.cache_kv_db_paprika
-            elif table.lower() == "faucet":
-                return self.cache_kv_db_faucet
-            elif table.lower() == "market_guild":
-                return self.cache_kv_db_market_guild
-            elif table.lower() == "user_disable":
-                return self.cache_kv_db_user_disable
-            elif table.lower() == "bidding_amount":
-                return self.cache_kv_db_bidding_amount
-        except KeyError:
-            pass
-        return None
-
     async def cog_load(self):
-        # for testing table
-        if self.cache_kv_db_test is None:
-            self.cache_kv_db_test = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="test", autocommit=True)
-        if self.cache_kv_db_general is None:
-            self.cache_kv_db_general = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="general", autocommit=True)
-        if self.cache_kv_db_block is None:
-            self.cache_kv_db_block = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="block", autocommit=True)
-        if self.cache_kv_db_pools is None:
-            self.cache_kv_db_pools = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="pools", autocommit=True)
-        if self.cache_kv_db_paprika is None:
-            self.cache_kv_db_paprika = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="paprika", autocommit=True)
-        if self.cache_kv_db_faucet is None:
-            self.cache_kv_db_faucet = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="faucet", autocommit=True)
-        if self.cache_kv_db_market_guild is None:
-            self.cache_kv_db_market_guild = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="market_guild", autocommit=True)
-        if self.cache_kv_db_user_disable is None:
-            self.cache_kv_db_user_disable = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="user_disable", autocommit=True)
-        if self.cache_kv_db_bidding_amount is None:
-            self.cache_kv_db_bidding_amount = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename="bidding_amount", autocommit=True)
+        pass
 
     def cog_unload(self):
-        self.cache_kv_db_test.close()
-        self.cache_kv_db_general.close()
-        self.cache_kv_db_block.close()
-        self.cache_kv_db_pools.close()
-        self.cache_kv_db_paprika.close()
-        self.cache_kv_db_faucet.close()
-        self.cache_kv_db_market_guild.close()
-        self.cache_kv_db_user_disable.close()
-        self.cache_kv_db_bidding_amount.close()
+        try:
+            for i in ["test", "general", "block", "pools", "paprika", "faucet", "market_guild", "user_disable", "bidding_amount"]:
+                try:
+                    getattr(self.cache_pdb, i).close()
+                except Exception:
+                    # traceback.print_exc(file=sys.stdout)
+                    print(f"Failed to load db: {i}")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
 def setup(bot):
     bot.add_cog(Utils(bot))

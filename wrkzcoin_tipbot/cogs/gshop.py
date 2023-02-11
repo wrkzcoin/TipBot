@@ -489,7 +489,7 @@ class GShop(commands.Cog):
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
 
-                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 member = ctx.guild.get_member(int(ctx.author.id))
                 try:
                     role = disnake.utils.get(ctx.guild.roles, id=int(item_info['role_id']))

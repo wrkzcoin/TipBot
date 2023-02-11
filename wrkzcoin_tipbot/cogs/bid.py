@@ -257,7 +257,7 @@ class PlaceBid(disnake.ui.Modal):
                 current_max = get_max_bid['bid_amount'] + step_amount
             current_max = max(self.min_amount, min_bid_start, current_max)
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             userdata_balance = await store.sql_user_balance_single(
                 str(interaction.author.id), coin_name, wallet_address,
                 type_coin, height, deposit_confirm_depth, SERVER_BOT
@@ -284,13 +284,13 @@ class PlaceBid(disnake.ui.Modal):
                 additional_bid_amount = amount
                 try:
                     key = str(self.message_id) + "_" + str(interaction.author.id)
-                    previous_bid = self.utils.get_cache_kv(
+                    previous_bid = await self.utils.async_get_cache_kv(
                         "bidding_amount",
                         key
                     )
                     if previous_bid and previous_bid > 0:
                         additional_bid_amount = amount - previous_bid
-                    self.utils.set_cache_kv(
+                    await self.utils.async_set_cache_kv(
                         "bidding_amount",
                         key,
                         amount
@@ -325,7 +325,17 @@ class PlaceBid(disnake.ui.Modal):
                     current_closed_time += 120
                     is_extending = True
                     num_extension += 1
-                
+
+                previous_user_id = None
+                # notify top previous bid that someone higher than him
+                try:
+                    if self.bot.config['bidding']['enable_bid_pass_notify'] == 1:
+                        attend_list = await self.utils.get_bid_attendant(str(self.message_id))
+                        if len(attend_list) > 0:
+                            previous_user_id = int(attend_list[0]['user_id'])
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+
                 adding_bid = await self.utils.bid_new_join(
                     str(self.message_id), str(interaction.author.id), "{}#{}".format(interaction.author.name, interaction.author.discriminator),
                     amount, coin_name, str(interaction.guild.id), str(interaction.channel.id), SERVER_BOT, additional_bid_amount,
@@ -344,8 +354,17 @@ class PlaceBid(disnake.ui.Modal):
                 except Exception:
                     pass
                 if adding_bid:
-                    msg = f"{EMOJI_INFORMATION} {self.ctx.author.mention}, successfully placing a bid with a new amount {num_format_coin(amount)} {coin_name}!"
+                    msg = f"{EMOJI_INFORMATION} {interaction.author.mention}, successfully placing a bid with a new amount {num_format_coin(amount)} {coin_name}!"
                     await interaction.edit_original_message(content=msg)
+                    if previous_user_id is not None and previous_user_id != interaction.author.id:
+                        try:
+                            get_user = self.bot.get_user(previous_user_id)
+                            if get_user is not None:
+                                await get_user.send(f"{EMOJI_INFORMATION} {interaction.author.mention} placed a higher bid than "\
+                                                    f"yours in guild {interaction.guild.name}/{interaction.guild.id} for item `{str(self.message_id)}`!")
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                    # update embed
                     try:
                         _msg: disnake.Message = await interaction.channel.fetch_message(self.message_id)
                         embed = _msg.embeds[0] # embeds is list, we take 0
@@ -516,7 +535,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
                     if winner_user is not None:
                         await winner_user.send(
                             f"Updated: Your bidding id `{str(self.message_id)}` at guild `{get_message['guild_name']}`: <@{str(self.owner_userid)}> just updated "\
-                            f"instruction/information as the following:\n\n{instruction}\n\n. Please Tap on **Complete** button if you confirm you get the item. "\
+                            f"instruction/information as the following:\n\n{instruction}\n\nPlease Tap on **Complete** button if you confirm you get the item. "\
                             "You bidding amount will be transferred to him/her after completion and can't be undone."
                         )
                         await interaction.edit_original_message(f"{interaction.author.mention}, we updated your input and notified the winner <@{str(self.winner_user_id)}>.")
@@ -1387,7 +1406,7 @@ class Bidding(commands.Cog):
                                             await get_u.send(f"You didn't win for bidding `{str(each_bid['message_id'])}` in Guild "\
                                                              f"{each_bid['guild_name']}/{each_bid['guild_id']}!"\
                                                              " You get a refund of full amount "\
-                                                             f"{num_format_coin(i[3])} {self.coin_name}.")
+                                                             f"{num_format_coin(i[3])} {coin_name}.")
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                             except Exception:

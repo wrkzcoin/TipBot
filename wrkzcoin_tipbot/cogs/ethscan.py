@@ -564,7 +564,7 @@ class EthScan(commands.Cog):
             else:
                 try:
                     net_name = "TRX"
-                    self.utils.set_cache_kv(
+                    await self.utils.async_set_cache_kv(
                         "block",
                         f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{net_name}",
                         local_height
@@ -618,7 +618,7 @@ class EthScan(commands.Cog):
                         local_height = await store.erc_get_block_number(self.bot.erc_node_list[k])
                         try:
                             if local_height and local_height > 0:
-                                self.utils.set_cache_kv(
+                                await self.utils.async_set_cache_kv(
                                     "block",
                                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{k}",
                                     local_height

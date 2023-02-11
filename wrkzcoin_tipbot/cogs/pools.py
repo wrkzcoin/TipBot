@@ -83,12 +83,12 @@ class Pools(commands.Cog):
                                 if not isinstance(cat, int) and not isinstance(cat, str):
                                     for k, v in cat.items():
                                         try:
-                                            self.utils.set_cache_kv(
+                                            await self.utils.async_set_cache_kv(
                                                 "pools",
                                                 (key + k).upper(),
                                                 v
                                             )
-                                            self.utils.set_cache_kv(
+                                            await self.utils.async_set_cache_kv(
                                                 "pools",
                                                 (key_hint + v['s']).upper(),
                                                 k.upper()
@@ -161,23 +161,26 @@ class Pools(commands.Cog):
             key = self.bot.config['kv_db']['prefix'] + ":MININGPOOL:" + coin_name
             key_hint = self.bot.config['kv_db']['prefix'] + ":MININGPOOL:SHORTNAME:" + coin_name
 
-            if self.utils.get_cache_kv("pools",  key) is None:
-                if self.utils.get_cache_kv("pools",  key_hint) is not None:
-                    coin_name = self.utils.get_cache_kv("pools",  key_hint).upper()
+            get_pool_k = await self.utils.async_get_cache_kv("pools",  key)
+            get_pool_k_h = await self.utils.async_get_cache_kv("pools",  key_hint)
+            if get_pool_k is None:
+                if get_pool_k_h is not None:
+                    coin_name = get_pool_k_h.upper()
                     key = self.bot.config['kv_db']['prefix'] + ":MININGPOOL:" + coin_name
                 else:
                     await ctx.edit_original_message(content=f'{ctx.author.mention}, unknown coin **{coin_name}**.')
                     return
 
-            if self.utils.get_cache_kv("pools",  key) is not None:
+            if get_pool_k is not None:
                 # check if already in kv_db
                 key_p = key + ":POOLS"  # self.bot.config['kv_db']['prefix'] + :MININGPOOL:coin_name:POOLS
                 key_data = self.bot.config['kv_db']['prefix'] + ":MININGPOOLDATA:" + coin_name
                 get_pool_data = None
                 is_cache = 'NO'
 
-                if self.utils.get_cache_kv("pools",  key_data) is not None:
-                    get_pool_data = self.utils.get_cache_kv("pools",  key_data)
+                get_pool_k_data = await self.utils.async_get_cache_kv("pools",  key_data)
+                if get_pool_k_data is not None:
+                    get_pool_data = get_pool_k_data
                     is_cache = 'YES'
                 else:
                     if str(ctx.author.id) not in self.bot.queue_miningpoolstats:

@@ -224,7 +224,7 @@ class Voucher(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
 
             # Numb voucher
             amount = amount.replace(",", "")

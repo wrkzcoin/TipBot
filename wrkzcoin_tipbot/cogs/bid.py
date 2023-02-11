@@ -31,12 +31,11 @@ from cogs.utils import Utils, num_format_coin
 
 
 class ConfirmName(disnake.ui.View):
-    def __init__(self, bot, owner_id: int, topic_name: str):
+    def __init__(self, bot, owner_id: int):
         super().__init__(timeout=10.0)
         self.value: Optional[bool] = None
         self.bot = bot
         self.owner_id = owner_id
-        self.topic_name = topic_name
 
     @disnake.ui.button(label="Yes, please!", style=disnake.ButtonStyle.green)
     async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
@@ -207,6 +206,36 @@ class PlaceBid(disnake.ui.Modal):
     async def callback(self, interaction: disnake.ModalInteraction) -> None:
         # Check if type of question is bool or multipe
         await interaction.response.send_message(content=f"{interaction.author.mention}, checking bidding amount...", ephemeral=True)
+        # Check if he is at the top and ask for confirmation
+        get_message = await self.utils.get_bid_id(str(self.message_id))
+        attend_list = await self.utils.get_bid_attendant(str(self.message_id))
+        previous_user_id = None
+        # notify top previous bid that someone higher than him
+        try:
+            if self.bot.config['bidding']['enable_bid_pass_notify'] == 1:
+                if len(attend_list) > 0:
+                    previous_user_id = int(attend_list[0]['user_id'])
+                    if previous_user_id == interaction.author.id:
+                        # add for confirmation
+                        view = ConfirmName(self.bot, interaction.author.id)
+                        msg = f"{EMOJI_INFORMATION} {interaction.author.mention}, you are the top bidder for this bid ({get_message['title']}). Do you still want to place a higher bid?"
+                        await interaction.edit_original_message(content=msg, view=view)
+                        # Wait for the View to stop listening for input...
+                        await view.wait()
+                        # Check the value to determine which button was pressed, if any.
+                        if view.value is None:
+                            await interaction.edit_original_message(
+                                content=msg + "\n**Timeout!**",
+                                view=None
+                            )
+                        elif view.value:
+                            await interaction.edit_original_message(
+                                content=f"{EMOJI_INFORMATION} {interaction.author.mention}, processing with a new bid amount...",
+                                view=None
+                            )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         amount = interaction.text_values['amount_id'].strip()
         if amount == "":
             await interaction.edit_original_message(f"{interaction.author.mention}, amount is empty!")
@@ -310,7 +339,6 @@ class PlaceBid(disnake.ui.Modal):
                 else:
                     self.bot.tipping_in_progress[str(interaction.author.id)] = int(time.time())
 
-                get_message = await self.utils.get_bid_id(str(self.message_id))
                 current_closed_time = get_message['bid_open_time']
                 is_extending = False
                 num_extension = get_message['number_extension']
@@ -325,16 +353,6 @@ class PlaceBid(disnake.ui.Modal):
                     current_closed_time += 120
                     is_extending = True
                     num_extension += 1
-
-                previous_user_id = None
-                # notify top previous bid that someone higher than him
-                try:
-                    if self.bot.config['bidding']['enable_bid_pass_notify'] == 1:
-                        attend_list = await self.utils.get_bid_attendant(str(self.message_id))
-                        if len(attend_list) > 0:
-                            previous_user_id = int(attend_list[0]['user_id'])
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
 
                 adding_bid = await self.utils.bid_new_join(
                     str(self.message_id), str(interaction.author.id), "{}#{}".format(interaction.author.name, interaction.author.discriminator),
@@ -850,7 +868,7 @@ class BidButton(disnake.ui.View):
             await interaction.response.send_message(f"{interaction.author.mention}, checking cancellation!", ephemeral=True)
             try:
                 # add for confirmation
-                view = ConfirmName(self.bot, interaction.author.id, "Cancel Bid")
+                view = ConfirmName(self.bot, interaction.author.id)
                 msg = f"{EMOJI_INFORMATION} {interaction.author.mention}, Do you want to cancel this bidding for {self.caption_new}? And all bidders will get their refund."
                 await interaction.edit_original_message(content=msg, view=view)
 
@@ -1326,7 +1344,7 @@ class Bidding(commands.Cog):
                                     list_key_update = []
                                     payment_logs = []
                                     if len(attend_list) > 1:
-                                        for i in attend_list[:1]: # starting from 2nd one
+                                        for i in attend_list[1:]: # starting from 2nd one
                                             refund_list.append((
                                                 i['user_id'], i['bid_coin'], SERVER_BOT, i['bid_amount'], int(time.time())
                                             ))
@@ -1382,7 +1400,7 @@ class Bidding(commands.Cog):
                                     await log_to_channel(
                                         "bid",
                                         f"[BIDDING FAILED MSG]: failed to DM owner user <@{each_bid['user_id']}>. "\
-                                        f"Bid `{each_bid['message_id']}` at Guild {each_bid['guiild_name']}/{each_bid['guild_id']}.",
+                                        f"Bid `{each_bid['message_id']}` at Guild {each_bid['guild_name']}/{each_bid['guild_id']}.",
                                         self.bot.config['discord']['bid_webhook']
                                     )
                                 # notify bid winner
@@ -1395,7 +1413,7 @@ class Bidding(commands.Cog):
                                     await log_to_channel(
                                         "bid",
                                         f"[BIDDING FAILED MSG]: failed to DM winner user <@{attend_list[0]['user_id']}>. "\
-                                        f"Bid `{each_bid['message_id']}` at Guild {each_bid['guiild_name']}/{each_bid['guild_id']}.",
+                                        f"Bid `{each_bid['message_id']}` at Guild {each_bid['guild_name']}/{each_bid['guild_id']}.",
                                         self.bot.config['discord']['bid_webhook']
                                     )
                                 # DM refund
@@ -1407,6 +1425,13 @@ class Bidding(commands.Cog):
                                                              f"{each_bid['guild_name']}/{each_bid['guild_id']}!"\
                                                              " You get a refund of full amount "\
                                                              f"{num_format_coin(i[3])} {coin_name}.")
+                                            await log_to_channel(
+                                                "bid",
+                                                f"[BIDDING REFUND]: sent refund DM to user <@{i[0]}>. "\
+                                                f"Bid `{each_bid['message_id']}` amount {num_format_coin(i[3])} {coin_name} "\
+                                                f"at Guild {each_bid['guild_name']}/{each_bid['guild_id']}.",
+                                                self.bot.config['discord']['bid_webhook']
+                                            )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                             except Exception:

@@ -4,7 +4,6 @@ import traceback, sys
 
 import disnake
 from disnake.ext import commands
-from discord_webhook import DiscordWebhook
 import json, time
 from decimal import Decimal
 import time

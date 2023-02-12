@@ -17,7 +17,7 @@ from cachetools import TTLCache
 
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
-from discord_webhook import DiscordWebhook
+from discord_webhook import AsyncDiscordWebhook
 
 import store
 from Bot import get_token_list, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_INFORMATION, \
@@ -999,8 +999,8 @@ class Guild(commands.Cog):
 
     async def vote_logchan(self, content: str):
         try:
-            webhook = DiscordWebhook(url=self.bot.config['topgg']['topgg_votehook'], content=content)
-            webhook.execute()
+            webhook = AsyncDiscordWebhook(url=self.bot.config['topgg']['topgg_votehook'], content=content)
+            await webhook.execute()
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

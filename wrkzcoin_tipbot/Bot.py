@@ -21,7 +21,8 @@ import disnake
 import redis
 # Encrypt
 from cryptography.fernet import Fernet
-from discord_webhook import DiscordWebhook
+from discord_webhook import AsyncDiscordWebhook
+
 from disnake.enums import ButtonStyle
 from disnake.ext import commands
 from disnake.ext.commands import AutoShardedBot, when_mentioned
@@ -134,11 +135,11 @@ async def log_to_channel(log_type: str, content: str, webhook: str=None) -> None
                 url = bot.config['discord']['vote_webhook']
         else:
             url = webhook
-        webhook = DiscordWebhook(
+        webhook = AsyncDiscordWebhook(
             url=url,
             content=f'{disnake.utils.escape_markdown(content)}'
         )
-        webhook.execute()
+        await webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -146,9 +147,10 @@ async def logchanbot(content: str):
     if "Requested object not found" in content:
         return
     try:
-        webhook = DiscordWebhook(url=bot.config['discord']['webhook_default_url'],
-                                 content=f'{disnake.utils.escape_markdown(content)}')
-        webhook.execute()
+        webhook = AsyncDiscordWebhook(
+            url=bot.config['discord']['webhook_default_url'],
+            content=f'{disnake.utils.escape_markdown(content)}')
+        await webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 

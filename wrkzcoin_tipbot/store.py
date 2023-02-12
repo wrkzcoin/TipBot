@@ -14,7 +14,7 @@ import pymysql.cursors
 
 from aiohttp import TCPConnector
 from aiomysql.cursors import DictCursor
-from discord_webhook import DiscordWebhook
+from discord_webhook import AsyncDiscordWebhook
 # For seed to key
 from eth_account import Account
 from ethtoken.abi import EIP20_ABI
@@ -65,11 +65,11 @@ async def openConnection_node_monitor():
 
 async def logchanbot(content: str):
     try:
-        webhook = DiscordWebhook(
+        webhook = AsyncDiscordWebhook(
             url=config['discord']['webhook_default_url'],
             content=disnake.utils.escape_markdown(content)
         )
-        webhook.execute()
+        await webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
@@ -3158,7 +3158,7 @@ async def insert_discord_freetip(
     token_name: str, contract: str, from_userid: str, from_name: str, message_id: str,
     airdrop_content: str, guild_id: str, channel_id: str, real_amount: float,
     real_amount_usd: float, real_amount_usd_text: str, unit_price_usd: float,
-    token_decimal: int, airdrop_time: int, status: str = "ONGOING"
+    token_decimal: int, airdrop_time: int, status: str = "ONGOING", verify_int: int=0
 ):
     global pool
     try:
@@ -3169,14 +3169,15 @@ async def insert_discord_freetip(
                 `from_userid`, `from_ownername`, `message_id`, `airdrop_content`, 
                 `guild_id`, `channel_id`, `real_amount`, `real_amount_usd`, 
                 `real_amount_usd_text`, `unit_price_usd`, `token_decimal`, 
-                `message_time`, `airdrop_time`, `status`) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+                `message_time`, `airdrop_time`, `status`, `verify`) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
                 await cur.execute(sql, (
                     token_name, contract, from_userid, from_name, message_id, 
                     airdrop_content, guild_id, channel_id, real_amount, 
                     real_amount_usd, real_amount_usd_text, unit_price_usd, 
                     token_decimal, int(time.time()),
-                airdrop_time, status))
+                    airdrop_time, status, verify_int
+                ))
                 await conn.commit()
                 return True
     except Exception as e:

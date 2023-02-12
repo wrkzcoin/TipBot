@@ -13,7 +13,6 @@ from Bot import SERVER_BOT, log_to_channel
 from aiohttp import web
 from cogs.wallet import Faucet
 from cogs.wallet import WalletAPI
-from discord_webhook import DiscordWebhook
 from disnake.ext import commands
 from cogs.utils import Utils, num_format_coin
 

@@ -167,6 +167,9 @@ class EditBid(disnake.ui.Modal):
                         f"Ref: {self.message_id} / Guild name: {interaction.guild.name}!",
                         self.bot.config['discord']['bid_webhook']
                     )
+                    if 'fetched_msg' not in self.bot.other_data:
+                        self.bot.other_data['fetched_msg'] = {}
+                    self.bot.other_data['fetched_msg'][str(self.message_id)] = int(time.time())
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 return
@@ -441,6 +444,9 @@ class PlaceBid(disnake.ui.Modal):
                             f"Ref: {self.message_id} and new amount {num_format_coin(amount)} {coin_name}.",
                             self.bot.config['discord']['bid_webhook']
                         )
+                        if 'fetched_msg' not in self.bot.other_data:
+                            self.bot.other_data['fetched_msg'] = {}
+                        self.bot.other_data['fetched_msg'][str(self.message_id)] = int(time.time())
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     return
@@ -946,6 +952,9 @@ class BidButton(disnake.ui.View):
                                     f"Ref: {self.message.id} / Guild name: {interaction.guild.name}!",
                                     self.bot.config['discord']['bid_webhook']
                                 )
+                                if 'fetched_msg' not in self.bot.other_data:
+                                    self.bot.other_data['fetched_msg'] = {}
+                                self.bot.other_data['fetched_msg'][str(self.message.id)] = int(time.time())
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             await interaction.edit_original_message(f"{interaction.author.mention}, successfully cancelled!\n{link_bid}", view=None)
@@ -1049,6 +1058,15 @@ class Bidding(commands.Cog):
                                 await asyncio.sleep(2.0)
                                 continue
                             else:
+                                # If time_left is too long
+                                if 'fetched_msg' not in self.bot.other_data:
+                                    self.bot.other_data['fetched_msg'] = {}
+                                else:
+                                    if each_bid['message_id'] in self.bot.other_data['fetched_msg']:
+                                        time_left = each_bid['bid_open_time'] - int(time.time())
+                                        last_fetched = self.bot.other_data['fetched_msg'][each_bid['message_id']]
+                                        if int(time.time()) - last_fetched < 90 and time_left > 10*3600:
+                                            continue
                                 _msg: disnake.Message = await channel.fetch_message(int(each_bid['message_id']))
                                 embed = _msg.embeds[0] # embeds is list, we take 0
                                 embed.clear_fields()
@@ -1211,6 +1229,13 @@ class Bidding(commands.Cog):
                                 await asyncio.sleep(2.0)
                                 continue
                             else:
+                                if 'fetched_msg' not in self.bot.other_data:
+                                    self.bot.other_data['fetched_msg'] = {}
+                                else:
+                                    if each_bid['message_id'] in self.bot.other_data['fetched_msg']:
+                                        last_fetched = self.bot.other_data['fetched_msg'][each_bid['message_id']]
+                                        if int(time.time()) - last_fetched < 90 and duration > 10*3600:
+                                            continue
                                 _msg: disnake.Message = await channel.fetch_message(int(each_bid['message_id']))
                                 embed = _msg.embeds[0] # embeds is list, we take 0
                                 embed.clear_fields()

@@ -114,7 +114,20 @@ class FreeTip_Verify(disnake.ui.Modal):
                                 value=f"{coin_emoji}{indiv_amount} {token_display}",
                                 inline=True
                             )
+                            try:
+                                time_left = get_freetip['airdrop_time'] - int(time.time())
+                                owner_displayname = ""
+                                get_owner = self.bot.get_user(int(get_freetip['from_userid']))
+                                if get_owner:
+                                    owner_displayname = f" by {get_owner.name}#{get_owner.discriminator}"
+                                embed.set_footer(
+                                    text=f"FreeTip {owner_displayname}, Time Left: {seconds_str_days(time_left)}")
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
                             await _msg.edit(embed=embed)
+                            if 'fetched_msg' not in self.bot.other_data:
+                                self.bot.other_data['fetched_msg'] = {}
+                            self.bot.other_data['fetched_msg'][str(self.message_id)] = int(time.time())
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 # nofity freetip owner
@@ -246,8 +259,7 @@ class FreeTip_Button(disnake.ui.View):
                                 check=lambda i: i.custom_id == "modal_freetip_verify" and i.author.id == interaction.author.id,
                                 timeout=30,
                             )
-                        except disnake.errors.NotFound:
-                            await interaction.response.defer()
+                        except (disnake.InteractionResponded, disnake.InteractionTimedOut, disnake.errors.NotFound) as e:
                             return
                         except asyncio.TimeoutError:
                             # The user didn't submit the modal in the specified period of time.
@@ -270,6 +282,16 @@ class FreeTip_Button(disnake.ui.View):
                             get_freetip = await store.get_discord_freetip_by_msgid(str(interaction.message.id))
                             if get_freetip is None:
                                 return
+                            try:
+                                time_left = get_freetip['airdrop_time'] - int(time.time())
+                                owner_displayname = ""
+                                get_owner = self.bot.get_user(int(get_freetip['from_userid']))
+                                if get_owner:
+                                    owner_displayname = f" by {get_owner.name}#{get_owner.discriminator}"
+                                embed.set_footer(
+                                    text=f"FreeTip {owner_displayname}, Time Left: {seconds_str_days(time_left)}")
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
                             amount = get_freetip['real_amount']
                             coin_name = get_freetip['token_name']
                             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
@@ -313,9 +335,12 @@ class FreeTip_Button(disnake.ui.View):
                                 inline=True
                             )
                             await _msg.edit(embed=embed)
+                            if 'fetched_msg' not in self.bot.other_data:
+                                self.bot.other_data['fetched_msg'] = {}
+                            self.bot.other_data['fetched_msg'][str(interaction.message.id)] = int(time.time())
                         return
         except (disnake.InteractionResponded, disnake.InteractionTimedOut, disnake.errors.NotFound) as e:
-            await interaction.response.defer()
+            return
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -362,6 +387,14 @@ class Tips(commands.Cog):
                     if get_owner:
                         owner_displayname = f" by {get_owner.name}#{get_owner.discriminator}"
 
+                    # If time_left is too long
+                    if 'fetched_msg' not in self.bot.other_data:
+                        self.bot.other_data['fetched_msg'] = {}
+                    else:
+                        if each_message_data['message_id'] in self.bot.other_data['fetched_msg']:
+                            last_fetched = self.bot.other_data['fetched_msg'][each_message_data['message_id']]
+                            if int(time.time()) - last_fetched < 90 and time_left > 10*3600:
+                                continue
                     _msg: disnake.Message = await channel.fetch_message(int(each_message_data['message_id']))
                     if _msg:
                         verify = "ON" if each_message_data['verify'] == 1 else "OFF"
@@ -419,10 +452,18 @@ class Tips(commands.Cog):
                                 inline=True
                             )
                             if time_left > 0:
+                                if 'fetched_msg' in self.bot.other_data and \
+                                    each_message_data['message_id'] in self.bot.other_data['fetched_msg']:
+                                    last_fetched = self.bot.other_data['fetched_msg'][each_message_data['message_id']]
+                                    if int(time.time()) - last_fetched < 30:
+                                        # skip
+                                        continue
                                 if int(time.time()) - int(_msg.edited_at.timestamp()) > 30:
                                     embed.set_footer(
                                         text=f"FreeTip {owner_displayname}, Time Left: {seconds_str_days(time_left)}")
                                     await _msg.edit(embed=embed, view=view)
+                                    if 'fetched_msg' in self.bot.other_data:
+                                        self.bot.other_data['fetched_msg'][each_message_data['message_id']] = int(time.time())
                             else:
                                 ## Update content
                                 if each_message_data['status'] == "ONGOING":

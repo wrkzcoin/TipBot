@@ -214,6 +214,15 @@ class PartyDrop(commands.Cog):
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                         else:
+                            # If time_left is too long
+                            if 'fetched_msg' not in self.bot.other_data:
+                                self.bot.other_data['fetched_msg'] = {}
+                            else:
+                                if each_party['message_id'] in self.bot.other_data['fetched_msg']:
+                                    duration = each_party['partydrop_time'] - int(time.time())
+                                    last_fetched = self.bot.other_data['fetched_msg'][each_party['message_id']]
+                                    if int(time.time()) - last_fetched < 90 and duration > 10*3600:
+                                        continue
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop 🎉",
                                 description="Each click will deduct from your TipBot's balance. Minimum entrance cost: {}`{} {}`. "\

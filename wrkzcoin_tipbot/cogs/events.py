@@ -1521,6 +1521,9 @@ class Events(commands.Cog):
                                     await asyncio.sleep(5.0)
                                 else:
                                     await _msg.edit(content=None, embed=embed)
+                                    if 'fetched_msg' not in self.bot.other_data:
+                                        self.bot.other_data['fetched_msg'] = {}
+                                    self.bot.other_data['fetched_msg'][get_message['message_id']] = int(time.time())
                                 await asyncio.sleep(5.0)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -1638,6 +1641,9 @@ class Events(commands.Cog):
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 _msg: disnake.Message = await channel.fetch_message(inter.message.id)
                                 await _msg.edit(content=None, embed=embed)
+                                if 'fetched_msg' not in self.bot.other_data:
+                                    self.bot.other_data['fetched_msg'] = {}
+                                self.bot.other_data['fetched_msg'][str(inter.message.id)] = int(time.time())
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             return
@@ -1722,6 +1728,9 @@ class Events(commands.Cog):
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 _msg: disnake.Message = await channel.fetch_message(inter.message.id)
                                 await _msg.edit(content=None, embed=embed)
+                                if 'fetched_msg' not in self.bot.other_data:
+                                    self.bot.other_data['fetched_msg'] = {}
+                                self.bot.other_data['fetched_msg'][str(inter.message.id)] = int(time.time())
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             return

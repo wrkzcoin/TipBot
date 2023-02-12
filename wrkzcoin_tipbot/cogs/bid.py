@@ -42,7 +42,7 @@ class ConfirmName(disnake.ui.View):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
         else:
-            await inter.response.send_message(f"{inter.author.mention}, confirming...", delete_after=3.0)
+            await inter.response.send_message(f"{inter.author.mention}, confirming to cancel ...", delete_after=3.0)
             self.value = True
             self.stop()
 
@@ -51,7 +51,7 @@ class ConfirmName(disnake.ui.View):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
         else:
-            await inter.response.send_message(f"{inter.author.mention}, cancelling...", delete_after=3.0)
+            await inter.response.send_message(f"{inter.author.mention}, rejected to cancel.", delete_after=3.0)
             self.value = False
             self.stop()
 
@@ -223,7 +223,12 @@ class PlaceBid(disnake.ui.Modal):
                         # Wait for the View to stop listening for input...
                         await view.wait()
                         # Check the value to determine which button was pressed, if any.
-                        if view.value is None:
+                        if view.value is False:
+                            await interaction.edit_original_message(
+                                content=f"{EMOJI_INFORMATION} {interaction.author.mention}, you rejected to place another bid.", view=None
+                            )
+                            return
+                        elif view.value is None:
                             await interaction.edit_original_message(
                                 content=msg + "\n**Timeout!**",
                                 view=None
@@ -508,11 +513,14 @@ class OwnerWinnerInput(disnake.ui.Modal):
                 )
                 # find owner to message
                 try:
+                    link_bid = "https://discord.com/channels/{}/{}/{}".format(
+                        get_message['guild_id'], get_message['channel_id'], get_message['message_id']
+                    )
                     owner_user = self.bot.get_user(self.owner_userid)
                     if owner_user is not None:
                         await owner_user.send(
                             f"One of your bidding winner <@{str(self.winner_user_id)}> for `{str(self.message_id)}` at guild `{get_message['guild_name']}` updated an "\
-                            f"instruction/information as the following:\n\n{instruction}"
+                            f"instruction/information as the following:\n\n{instruction}\n{link_bid}"
                         )
                         await interaction.edit_original_message(f"{interaction.author.mention}, we updated your input and notified the bidding owner.")
                     else:
@@ -544,6 +552,9 @@ class OwnerWinnerInput(disnake.ui.Modal):
                 return
             # owner
             elif get_message['owner_respond'] is None and self.method_for == "owner":
+                link_bid = "https://discord.com/channels/{}/{}/{}".format(
+                    get_message['guild_id'], get_message['channel_id'], get_message['message_id']
+                )
                 await self.utils.update_bid_winner_instruction(
                     str(self.message_id), instruction, self.method_for, None, None
                 )
@@ -554,7 +565,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
                         await winner_user.send(
                             f"Updated: Your bidding id `{str(self.message_id)}` at guild `{get_message['guild_name']}`: <@{str(self.owner_userid)}> just updated "\
                             f"instruction/information as the following:\n\n{instruction}\n\nPlease Tap on **Complete** button if you confirm you get the item. "\
-                            "You bidding amount will be transferred to him/her after completion and can't be undone."
+                            f"You bidding amount will be transferred to him/her after completion and can't be undone.\n{link_bid}"
                         )
                         await interaction.edit_original_message(f"{interaction.author.mention}, we updated your input and notified the winner <@{str(self.winner_user_id)}>.")
                     else:
@@ -710,7 +721,8 @@ class ClearButton(disnake.ui.View):
                     "-" + num_format_coin(self.winner_amount)
                 ))
                 remaining = self.winner_amount
-                payment_list_msg.append(f"Processing deduct from winner (Done during bidding): {num_format_coin(self.winner_amount)} {self.bid_info['token_name']}")
+                payment_list_msg.append(f"Processing deduct from winner <@{str(self.winner_id)}>: "\
+                                        f"{num_format_coin(self.winner_amount)} {self.bid_info['token_name']}")
                 if self.bot.config['bidding']['bid_collecting_fee'] > 0:
                     payment_list.append((
                         "SYSTEM", self.bid_info['token_name'], SERVER_BOT, 
@@ -734,7 +746,7 @@ class ClearButton(disnake.ui.View):
                     self.bid_info['guild_id'], self.bid_info['channel_id'], int(time.time()),
                     num_format_coin(remaining)
                 ))
-                payment_list_msg.append(f"Processing to bid owner: {num_format_coin(remaining)} {self.bid_info['token_name']}")
+                payment_list_msg.append(f"Processing to auction owner <@{str(self.owner_id)}>: {num_format_coin(remaining)} {self.bid_info['token_name']}")
                 await self.utils.update_bid_winner_instruction(
                     str(self.bid_info['message_id']), "placeholder", "final",
                     payment_list, payment_logs
@@ -876,7 +888,12 @@ class BidButton(disnake.ui.View):
                 await view.wait()
 
                 # Check the value to determine which button was pressed, if any.
-                if view.value is None:
+                if view.value is False:
+                    await interaction.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {interaction.author.mention}, the bid is not cancelled. Thank you!", view=None
+                    )
+                    return
+                elif view.value is None:
                     await interaction.edit_original_message(
                         content=msg + "\n**Timeout!**",
                         view=None
@@ -906,6 +923,9 @@ class BidButton(disnake.ui.View):
                             refund_list, payment_logs
                         )
                         if cancelling is True:
+                            link_bid = "https://discord.com/channels/{}/{}/{}".format(
+                                interaction.guild.id, interaction.channel.id, self.message.id
+                            )
                             if len(list_key_update) > 0:
                                 for i in list_key_update:
                                     try:
@@ -928,7 +948,7 @@ class BidButton(disnake.ui.View):
                                 )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
-                            await interaction.edit_original_message(f"{interaction.author.mention}, successfully cancelled!", view=None)
+                            await interaction.edit_original_message(f"{interaction.author.mention}, successfully cancelled!\n{link_bid}", view=None)
                             # DM refund
                             for i in refund_list:
                                 try:
@@ -936,7 +956,7 @@ class BidButton(disnake.ui.View):
                                     if get_u is not None:
                                         await get_u.send(f"Bid `{str(self.message.id)}` cancelled in guild {interaction.guild.name}/{interaction.guild.id}!"\
                                                         " You get a refund of "\
-                                                        f"{num_format_coin(i[3])} {self.coin_name}.")
+                                                        f"{num_format_coin(i[3])} {self.coin_name}.\n{link_bid}")
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
                         else:
@@ -1160,6 +1180,9 @@ class Bidding(commands.Cog):
             # ONGOING
             if len(get_list_bids) > 0:
                 for each_bid in get_list_bids:
+                    link_bid = "https://discord.com/channels/{}/{}/{}".format(
+                        each_bid['guild_id'], each_bid['channel_id'], each_bid['message_id']
+                    )
                     await self.bot.wait_until_ready()
                     _msg = None
                     get_message = await self.utils.get_bid_id(each_bid['message_id'])
@@ -1305,7 +1328,8 @@ class Bidding(commands.Cog):
                                             if get_u is not None:
                                                 await get_u.send(f"You get a refund of "\
                                                                  f"{num_format_coin(i[3])} {each_bid['coin_name']} "\
-                                                                 f"from bidding no. `{each_bid['message_id']}` in guild {each_bid['guild_name']}/{each_bid['guild_id']}.")
+                                                                 f"from bidding no. `{each_bid['message_id']}` in "\
+                                                                 f"guild {each_bid['guild_name']}/{each_bid['guild_id']}.\n{link_bid}")
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
                                 except Exception:
@@ -1325,6 +1349,9 @@ class Bidding(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
 
                         if each_bid['bid_open_time'] < int(time.time()):
+                            link_bid = "https://discord.com/channels/{}/{}/{}".format(
+                                each_bid['guild_id'], each_bid['channel_id'], each_bid['message_id']
+                            )
                             try:
                                 msg_owner = ""
                                 msg_winner = ""
@@ -1333,7 +1360,9 @@ class Bidding(commands.Cog):
                                     await self.utils.update_bid_no_winning(each_bid['message_id'])
                                     # notify owner, no winner
                                     msg_owner = "One of your bidding is completed! "\
-                                        "There is no winner for bidding `{}` in guild `{}`.".format(each_bid['message_id'], each_bid['guild_name'])
+                                        "There is no winner for bidding `{}` in guild `{}`.\n{}".format(
+                                            each_bid['message_id'], each_bid['guild_name'], link_bid
+                                        )
                                     await log_to_channel(
                                         "bid",
                                         f"[BIDDING CLOSED]: Guild {each_bid['guild_name']} / {each_bid['guild_id']} closed a bid {each_bid['message_id']} because no one bid.",
@@ -1377,12 +1406,12 @@ class Bidding(commands.Cog):
                                         refund_list, payment_logs
                                     )
                                     msg_owner = "One of your bidding is completed! "\
-                                        "User <@{}> is the winner for bidding `{}` in guild `{}`.".format(
-                                        attend_list[0]['user_id'], each_bid['message_id'], each_bid['guild_name']
+                                        "User <@{}> is the winner for bidding `{}` in guild `{}`.\n{}".format(
+                                            attend_list[0]['user_id'], each_bid['message_id'], each_bid['guild_name'], link_bid
                                     )
-                                    msg_winner = "Congratulation! You win bid `{}` in guild {}/{}. "\
-                                        "Kindly check the new button and input necessary information and tap on Complete once's done.".format(
-                                        each_bid['message_id'], each_bid['guild_name'], each_bid['guild_id']
+                                    msg_winner = "Congratulation! You won a bid `{}` in guild {}/{}. "\
+                                        "Kindly check the new button and input necessary information and tap on Complete once's done.\n{}".format(
+                                        each_bid['message_id'], each_bid['guild_name'], each_bid['guild_id'], link_bid
                                     )
                                     await log_to_channel(
                                         "bid",
@@ -1424,7 +1453,7 @@ class Bidding(commands.Cog):
                                             await get_u.send(f"You didn't win for bidding `{str(each_bid['message_id'])}` in Guild "\
                                                              f"{each_bid['guild_name']}/{each_bid['guild_id']}!"\
                                                              " You get a refund of full amount "\
-                                                             f"{num_format_coin(i[3])} {coin_name}.")
+                                                             f"{num_format_coin(i[3])} {coin_name}.\n{link_bid}")
                                             await log_to_channel(
                                                 "bid",
                                                 f"[BIDDING REFUND]: sent refund DM to user <@{i[0]}>. "\

@@ -503,7 +503,8 @@ class OwnerWinnerInput(disnake.ui.Modal):
             elif get_message['owner_respond'] is None and self.method_for == "owner" and interaction.author.id != self.owner_userid:
                 await interaction.edit_original_message(f"{interaction.author.mention}, you clicked on wrong button!")
                 return
-            elif get_message['winner_instruction'] is not None and self.method_for == "winner" and interaction.author.id in [self.owner_userid, self.winner_user_id, self.bot.config['discord']['owner_id']]:
+            elif get_message['winner_instruction'] is not None and get_message['owner_request_to_update'] == 0 and self.method_for == "winner" \
+                and interaction.author.id in [self.owner_userid, self.winner_user_id, self.bot.config['discord']['owner_id']]:
                 await interaction.edit_original_message(f"{interaction.author.mention}, winner's input:\n\n{get_message['winner_instruction']}")
                 return
             elif get_message['owner_respond'] is not None and self.method_for == "owner" and interaction.author.id in [self.owner_userid, self.winner_user_id, self.bot.config['discord']['owner_id']]:
@@ -513,9 +514,12 @@ class OwnerWinnerInput(disnake.ui.Modal):
             if get_message['winner_instruction'] is None and self.method_for == "owner":
                 await interaction.edit_original_message(f"{interaction.author.mention}, please inform to winner to update his delivery method first!")
                 return
-            elif get_message['winner_instruction'] is None and self.method_for == "winner":
+            elif (get_message['winner_instruction'] is None or (get_message['winner_instruction'] is not None \
+                                                                and get_message['owner_request_to_update'] == 1)) and \
+                                                                    self.method_for == "winner" and interaction.author.id == self.winner_user_id:
                 await self.utils.update_bid_winner_instruction(
-                    str(self.message_id), instruction, self.method_for, None, None
+                    str(self.message_id), instruction, self.method_for, None, None,
+                    str(interaction.author.id)
                 )
                 # find owner to message
                 try:
@@ -538,7 +542,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
                     self.bot.coin_list, self.bot,
                     interaction.channel.id, int(self.bid_info['user_id']), int(self.winner_user_id),
                     self.winner_amount, self.bid_info,
-                    False, False, True
+                    False, False, True, False
                 )
                 view.message = interaction.message
                 view.channel_interact = interaction.channel.id
@@ -562,7 +566,8 @@ class OwnerWinnerInput(disnake.ui.Modal):
                     get_message['guild_id'], get_message['channel_id'], get_message['message_id']
                 )
                 await self.utils.update_bid_winner_instruction(
-                    str(self.message_id), instruction, self.method_for, None, None
+                    str(self.message_id), instruction, self.method_for, None, None,
+                    str(interaction.author.id)
                 )
                 # find winner to message
                 try:
@@ -583,7 +588,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
                     self.bot.coin_list, self.bot,
                     interaction.channel.id, int(self.bid_info['user_id']), int(self.winner_user_id),
                     self.winner_amount, self.bid_info,
-                    False, False, False
+                    False, False, False, False
                 )
                 view.message = interaction.message
                 view.channel_interact = interaction.channel.id
@@ -617,7 +622,7 @@ class ClearButton(disnake.ui.View):
         owner_id: int, winner_id: int, winner_amount: float,
         bid_info,
         disable_winner_btn: bool=False, disable_owner_btn: bool=True,
-        complete_btn: bool=True
+        complete_btn: bool=True, owner_request_btn: bool=True
     ):
         super().__init__()
         self.bot = bot
@@ -633,6 +638,7 @@ class ClearButton(disnake.ui.View):
         self.winner_input.disabled = disable_winner_btn
         self.owner_input.disabled = disable_owner_btn
         self.complete_all.disabled = complete_btn
+        self.owner_request_update = owner_request_btn
 
 
     @disnake.ui.button(label="1️⃣ Winner Click", style=ButtonStyle.primary, custom_id="bidding_clearbtn_winner_input")
@@ -755,7 +761,8 @@ class ClearButton(disnake.ui.View):
                 payment_list_msg.append(f"Processing to auction owner <@{str(self.owner_id)}>: {num_format_coin(remaining)} {self.bid_info['token_name']}")
                 await self.utils.update_bid_winner_instruction(
                     str(self.bid_info['message_id']), "placeholder", "final",
-                    payment_list, payment_logs
+                    payment_list, payment_logs,
+                    str(interaction.author.id)
                 )
                 payment_list_msg = "\n".join(payment_list_msg)
                 for i in [self.bid_info['user_id'], str(self.winner_id)]:
@@ -781,6 +788,53 @@ class ClearButton(disnake.ui.View):
             except disnake.errors.NotFound:
                 await interaction.response.send_message(
                     f"{interaction.author.mention}, failed to retreive bidding information! Try again later!", ephemeral=True)
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+
+    @disnake.ui.button(label="📝 Owner Request Update", style=ButtonStyle.primary, custom_id="bidding_clearbtn_owner_request")
+    async def owner_request_update(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        if interaction.author.id != self.owner_id:
+            await interaction.response.send_message(f"{interaction.author.mention}, that's not yours!", ephemeral=True)
+        else:
+            try:
+                await interaction.response.send_message(f"{interaction.author.mention}, in progress...", ephemeral=True)
+                # check if that was processed already which may not happen?
+                get_message = await self.utils.get_bid_id(str(self.message.id))
+                if get_message['winner_confirmation_date'] is not None:
+                    await interaction.edit_original_message(f"{interaction.author.mention}, that was already paid and processed!")
+                    return
+                elif get_message['winner_instruction'] is None:
+                    await interaction.edit_original_message(f"{interaction.author.mention}, winner didn't input anything yet!")
+                    return
+                elif get_message['owner_request_to_update'] == 1:
+                    await interaction.edit_original_message(f"{interaction.author.mention}, this bid previously requested to update already!")
+                    return
+                elif get_message['owner_respond'] is not None:
+                    await interaction.edit_original_message(f"{interaction.author.mention}, you already updated your respond for this bid!")
+                    return
+                else:
+                    req = await self.utils.bid_req_winner_update(
+                        str(self.message.id), str(interaction.author), str(interaction.channel.id), str(interaction.guild.id)
+                    )
+                    if req is True:
+                        link_bid = "https://discord.com/channels/{}/{}/{}".format(
+                            interaction.guild.id, interaction.channel.id, self.message.id
+                        )
+                        get_winner = self.bot.get_user(int(get_message['winner_user_id']))
+                        if get_winner is not None:
+                            try:
+                                await get_winner.send(f"{interaction.author.mention} requested you to re-update the information for this {link_bid}!")
+                                await interaction.edit_original_message(f"{interaction.author.mention}, successfully requested him/her to updated!")
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                                await interaction.edit_original_message(f"{interaction.author.mention}, I failed to DM <@{get_message['winner_user_id']}> about requesting update!")
+                        else:
+                            await interaction.edit_original_message(f"{interaction.author.mention}, updated to request more "
+                                                                    f"information but I can't find the user <@{get_message['winner_user_id']}>.")
+                    return
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
 
@@ -1129,13 +1183,14 @@ class Bidding(commands.Cog):
                                     winner_btn = False if each_bid['winner_confirmation_date'] is None else True
                                     owner_btn = False if each_bid['winner_confirmation_date'] is None else True
                                     complete_btn = False if each_bid['winner_confirmation_date'] is None else True
+                                    owner_req_btn = False if each_bid['winner_instruction'] is not None else True
                                     if each_bid['owner_respond'] is None:
                                        complete_btn = True 
                                     view = ClearButton(
                                         self.bot.coin_list, self.bot,
                                         channel.id, int(each_bid['user_id']), int(attend_list[0]['user_id']),
                                         attend_list[0]['bid_amount'], each_bid,
-                                        winner_btn, owner_btn, complete_btn
+                                        winner_btn, owner_btn, complete_btn, owner_req_btn
                                     )
                                     view.message = _msg
                                     view.channel_interact = channel.id
@@ -1153,13 +1208,14 @@ class Bidding(commands.Cog):
                                     winner_btn = False if each_bid['winner_confirmation_date'] is None else True
                                     owner_btn = False if each_bid['winner_confirmation_date'] is None else True
                                     complete_btn = False if each_bid['winner_confirmation_date'] is None else True
+                                    owner_req_btn = False if each_bid['winner_instruction'] is not None else True
                                     if each_bid['owner_respond'] is None:
                                        complete_btn = True 
                                     view = ClearButton(
                                         self.bot.coin_list, self.bot,
                                         channel.id, int(each_bid['user_id']), int(attend_list[0]['user_id']),
                                         attend_list[0]['bid_amount'], each_bid,
-                                        winner_btn, owner_btn, complete_btn
+                                        winner_btn, owner_btn, complete_btn, owner_req_btn
                                     )
                                     view.message = _msg
                                     view.channel_interact = channel.id
@@ -1420,7 +1476,7 @@ class Bidding(commands.Cog):
                                         self.bot.coin_list, self.bot,
                                         channel.id, int(each_bid['user_id']), int(attend_list[0]['user_id']),
                                         attend_list[0]['bid_amount'], each_bid,
-                                        False, True, True
+                                        False, True, True, True
                                     )
                                     view.message = _msg
                                     view.channel_interact = channel.id

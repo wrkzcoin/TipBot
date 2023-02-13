@@ -1040,7 +1040,8 @@ class Utils(commands.Cog):
 
     async def update_bid_winner_instruction(
         self, message_id: str, instruction: str, method_for: str,
-        list_balance_updates, payment_logs
+        list_balance_updates, payment_logs,
+        user_id: str
     ):
         try:
             await store.openConnection()
@@ -1048,12 +1049,21 @@ class Utils(commands.Cog):
                 async with conn.cursor() as cur:
                     if method_for == "winner":
                         sql = """ UPDATE `discord_bidding_list` 
-                        SET `winner_instruction`=%s, `winner_instruction_date`=%s
+                        SET `winner_instruction`=%s, `winner_instruction_date`=%s, `owner_request_to_update`=%s
                         WHERE `message_id`=%s 
                         LIMIT 1;
                         """
                         data_rows = [
-                            instruction, int(time.time()), message_id
+                            instruction, int(time.time()), 0, message_id
+                        ]
+
+                        sql += """
+                        INSERT INTO `discord_bidding_logs`
+                        (`type`, `message_id`, `user_id`, `time`, `other`)
+                        VALUES (%s, %s, %s, %s, %s);
+                        """
+                        data_rows += [
+                            "UPDATE INPUT", message_id, user_id, int(time.time()), instruction
                         ]
                         await cur.execute(sql, tuple(data_rows))
                         await conn.commit()
@@ -1066,6 +1076,14 @@ class Utils(commands.Cog):
                         data_rows = [
                             instruction, int(time.time()), message_id
                         ]
+                        sql += """
+                        INSERT INTO `discord_bidding_logs`
+                        (`type`, `message_id`, `user_id`, `time`, `other`)
+                        VALUES (%s, %s, %s, %s, %s);
+                        """
+                        data_rows += [
+                            "UPDATE INPUT", message_id, user_id, int(time.time()), instruction
+                        ]
                         await cur.execute(sql, tuple(data_rows))
                         await conn.commit()
                     elif method_for == "final":
@@ -1076,6 +1094,14 @@ class Utils(commands.Cog):
                         """
                         data_rows = [
                             int(time.time()), message_id
+                        ]
+                        sql += """
+                        INSERT INTO `discord_bidding_logs`
+                        (`type`, `message_id`, `user_id`, `time`, `other`)
+                        VALUES (%s, %s, %s, %s, %s);
+                        """
+                        data_rows += [
+                            "UPDATE INPUT", message_id, user_id, int(time.time()), "COMPLETED"
                         ]
                         await cur.execute(sql, tuple(data_rows))
                         await conn.commit()
@@ -1316,6 +1342,37 @@ class Utils(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return []
+
+    async def bid_req_winner_update(
+        self, message_id: str, user_id: str,
+        channel_id: str, guild_id: str
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    UPDATE `discord_bidding_list`
+                    SET `owner_request_to_update`=%s, `request_to_date`=%s
+                    WHERE `message_id`=%s LIMIT 1;
+                    """
+                    data_rows = [
+                        1, int(time.time()), message_id
+                    ]
+                    sql += """
+                    INSERT INTO `discord_bidding_logs`
+                    (`type`, `message_id`, `user_id`, `guild_id`, `channel_id`, `time`)
+                    VALUES (%s, %s, %s, %s, %s, %s);
+                    """
+                    data_rows += [
+                        "OWNER REQUESTS UPDATE", message_id, user_id, guild_id, channel_id, int(time.time())
+                    ]
+                    await cur.execute(sql, tuple(data_rows))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
     # end of bidding
 
     # Check if a user lock

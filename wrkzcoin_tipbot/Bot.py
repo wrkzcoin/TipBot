@@ -137,7 +137,7 @@ async def log_to_channel(log_type: str, content: str, webhook: str=None) -> None
             url = webhook
         webhook = AsyncDiscordWebhook(
             url=url,
-            content=f'{disnake.utils.escape_markdown(content)}'
+            content=f'{disnake.utils.escape_markdown(content[:1000])}'
         )
         await webhook.execute()
     except Exception as e:
@@ -149,7 +149,7 @@ async def logchanbot(content: str):
     try:
         webhook = AsyncDiscordWebhook(
             url=bot.config['discord']['webhook_default_url'],
-            content=f'{disnake.utils.escape_markdown(content)}')
+            content=f'{disnake.utils.escape_markdown(content[:1000])}')
         await webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)

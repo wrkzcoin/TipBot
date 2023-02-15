@@ -95,9 +95,6 @@ class GShop(commands.Cog):
                             await logchanbot(f"[GSHOP] can not find role id {str(each_order['role_id'])} in Guild {str(each_order['guild_id'])}.")
                             continue
                         member = guild.get_member(int(each_order['ordered_by_uid']))
-                        if member is None:
-                            await logchanbot(f"[GSHOP] can not find member id {str(each_order['ordered_by_uid'])} in Guild {str(each_order['guild_id'])}.")
-                            continue
                         # We found guild and we found role and we found user
                         # Check if expired
                         if int(each_order['expired_date']) < int(time.time()):
@@ -106,7 +103,11 @@ class GShop(commands.Cog):
                             if not role.is_assignable():
                                 await logchanbot(f"[GSHOP] TipBot has no permission to assign role `{role.name}` for order `{each_order['item_id']}` in Guild `{each_order['guild_id']}`.")
                                 continue
-                            if member.roles and role in member.roles:
+                            if member is None:
+                                await logchanbot(f"[GSHOP] can not find member id {str(each_order['ordered_by_uid'])} in Guild {str(each_order['guild_id'])}. Set him/her to expired!")
+                                expiring = await self.set_expired_role_item(each_order['id'])
+                                continue
+                            elif member.roles and role in member.roles:
                                 try:
                                     await member.remove_roles(role)
                                     expiring = await self.set_expired_role_item(each_order['id'])

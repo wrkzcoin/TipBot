@@ -5,6 +5,7 @@ from disnake.ext import commands
 from decimal import Decimal
 from datetime import datetime
 import time
+from typing import Optional
 
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
@@ -21,8 +22,32 @@ from cogs.wallet import WalletAPI
 from cogs.utils import Utils, num_format_coin
 
 
-class Trade(commands.Cog):
+class ConfirmName(disnake.ui.View):
+    def __init__(self, bot, owner_id: int):
+        super().__init__(timeout=10.0)
+        self.value: Optional[bool] = None
+        self.bot = bot
+        self.owner_id = owner_id
 
+    @disnake.ui.button(label="Yes, please!", style=disnake.ButtonStyle.green)
+    async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, confirming ...", delete_after=3.0)
+            self.value = True
+            self.stop()
+
+    @disnake.ui.button(label="No", style=disnake.ButtonStyle.grey)
+    async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, Rejected.", delete_after=3.0)
+            self.value = False
+            self.stop()
+
+class Trade(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
@@ -654,7 +679,7 @@ class Trade(commands.Cog):
     ):
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, market loading..."
-        await ctx.response.send_message(msg)
+        await ctx.response.send_message(msg, ephemeral=True)
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -799,10 +824,48 @@ class Trade(commands.Cog):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
+
+                        got_amount = num_format_coin(
+                            get_order_num['amount_sell_after_fee']
+                        )
+                        from_selling = num_format_coin(
+                            get_order_num['amount_get']
+                        )
+
+                        # ask for confirmation
+                        view = ConfirmName(self.bot, ctx.author.id)
+                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, [P2P] Do you want to trade ref: `{ref_number}`?"\
+                            f" You will get {got_amount} {get_order_num['coin_sell']} from selling "\
+                            f"{from_selling} {get_order_num['coin_get']}."
+                        await ctx.edit_original_message(content=msg, view=view)
+
+                        # Wait for the View to stop listening for input...
+                        await view.wait()
+
+                        # Check the value to determine which button was pressed, if any.
+                        if view.value is False:
+                            await ctx.edit_original_message(
+                                content=f"{EMOJI_INFORMATION} {ctx.author.mention}, the order is not cancelled. Thank you!", view=None
+                            )
+                            return
+                        elif view.value is None:
+                            await ctx.edit_original_message(
+                                content=msg + "\nTimeout!",
+                                view=None
+                            )
+                            return
+
+                        # re-check order if already gone
+                        re_check_order_num = await store.sql_get_order_numb(ref_number)
+                        if re_check_order_num is None:
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** does not exist or already completed."
+                            await ctx.edit_original_message(content=msg, view=None)
+                            return
+
                         if str(ctx.author.id) in self.bot.tipping_in_progress and \
                             int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 30:
                             msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
-                            await ctx.edit_original_message(content=msg)
+                            await ctx.edit_original_message(content=msg, view=None)
                             return
                         else:
                             self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
@@ -819,12 +882,6 @@ class Trade(commands.Cog):
                             except Exception:
                                 pass
                             try:
-                                got_amount = num_format_coin(
-                                    get_order_num['amount_sell_after_fee']
-                                )
-                                from_selling = num_format_coin(
-                                    get_order_num['amount_get']
-                                )
                                 msg = "[P2P] Order num.: **{}** completed! ```Get: {} {}\nFrom selling: {} {}```".format(
                                     ref_number,
                                     got_amount,
@@ -833,7 +890,7 @@ class Trade(commands.Cog):
                                     get_order_num['coin_get']
                                 )
                                 # Find guild where there is trade channel assign
-                                await ctx.edit_original_message(content=msg)
+                                await ctx.edit_original_message(content=msg, view=None)
                                 get_guilds = await self.utils.get_trade_channel_list()
                                 if len(get_guilds) > 0:
                                     for item in get_guilds:
@@ -874,7 +931,7 @@ class Trade(commands.Cog):
                             return
                         else:
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention} **{ref_number}** internal error, please report.'
-                            await ctx.edit_original_message(content=msg)
+                            await ctx.edit_original_message(content=msg, view=None)
                             return
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** does not exist or already completed."

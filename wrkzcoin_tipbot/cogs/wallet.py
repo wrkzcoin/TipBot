@@ -9277,8 +9277,10 @@ class Wallet(commands.Cog):
 
         try:
             # Check main
-            near_contracts = await self.get_all_contracts("NEAR", False)
             coin_name = "NEAR"
+            near_contracts = await self.get_all_contracts(coin_name, False)
+            if not hasattr(self.bot.coin_list, coin_name):
+                return
             get_head = await near_get_status(self.bot.erc_node_list['NEAR'], 12)
             try:
                 if get_head:
@@ -9442,6 +9444,8 @@ class Wallet(commands.Cog):
             return
         await asyncio.sleep(time_lap)
         coin_name = "NEAR"
+        if not hasattr(self.bot.coin_list, coin_name):
+            return
         rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
         get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
@@ -13923,7 +13927,7 @@ class Wallet(commands.Cog):
                 # show summary
                 embed = disnake.Embed(
                     title=f'TipBot Daily Claim',
-                    description=f"You shall only claim one token per 24h. Decide which one you want to `/daily <token name>`.",
+                    description=f"You shall only claim one token per 24h. Decide which one you want to do `/daily <token name>`.",
                     timestamp=datetime.fromtimestamp(int(time.time()))
                 )
                 list_daily = []
@@ -14173,7 +14177,7 @@ class Wallet(commands.Cog):
                 # show summary
                 embed = disnake.Embed(
                     title=f'TipBot Hourly Claim',
-                    description=f"You shall only claim one token every 1 hour. Decide which one you want to `/hourly <token name>`.",
+                    description=f"You shall only claim one token every 1 hour. Decide which one you want to do `/hourly <token name>`.",
                     timestamp=datetime.fromtimestamp(int(time.time()))
                 )
                 list_hourly = []

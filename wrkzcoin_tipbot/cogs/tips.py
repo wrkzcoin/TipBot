@@ -511,7 +511,8 @@ class Tips(commands.Cog):
                                         )
                                         actual_balance = float(userdata_balance['adjust'])
 
-                                        if actual_balance < 0 or actual_balance < amount:
+                                        # We need only to check if balance > 0 his balance already pending.
+                                        if actual_balance < 0:
                                             embed.set_footer(text=f"FreeTip by {owner_displayname}, failed!")
                                             try:
                                                 await _msg.edit(embed=embed, view=None)

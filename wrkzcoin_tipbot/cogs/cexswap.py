@@ -417,7 +417,7 @@ async def get_cexswap_get_coin_sell_logs(coin_name: str=None, user_id: str=None,
         traceback.print_exc(file=sys.stdout)
     return []
 
-async def get_cexswap_earning(user_id: str=None, from_time: int=None, pool_id: int=None):
+async def get_cexswap_earning(user_id: str=None, from_time: int=None, pool_id: int=None, group_pool: bool=False):
     try:
         await store.openConnection()
         async with store.pool.acquire() as conn:
@@ -426,31 +426,37 @@ async def get_cexswap_earning(user_id: str=None, from_time: int=None, pool_id: i
                 pool_sql = ""
                 if user_id is None and from_time is not None:
                     extra_sql = """
-                    WHERE `date`>%s
+                    WHERE a.`date`>%s
                     """
                 elif from_time is not None:
                     extra_sql = """
-                    AND `date`>%s
+                    AND a.`date`>%s
                     """
                 if pool_id is not None:
                     if len(extra_sql) == "":
                         pool_sql = """
-                        WHERE `pool_id`=%s
+                        WHERE a.`pool_id`=%s
                         """
                     else:
                         pool_sql = """
-                        AND `pool_id`=%s
+                        AND a.`pool_id`=%s
                         """
                 
                 if user_id is not None:
                     sql = """
-                    SELECT `got_ticker`, `distributed_user_id`, `distributed_user_server`, 
-                        SUM(`distributed_amount`) AS collected_amount, SUM(`got_total_amount`) AS got_total_amount,
-                        COUNT(*) as total_swap
-                    FROM `cexswap_distributing_fee`
-                    WHERE `distributed_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
-                    GROUP BY `got_ticker`
+                    SELECT b.`pairs`, a.`pool_id`, a.`got_ticker`, a.`distributed_user_id`, a.`distributed_user_server`, 
+                        SUM(a.`distributed_amount`) AS collected_amount, SUM(a.`got_total_amount`) AS got_total_amount,
+                        COUNT(*) AS total_swap
+                    FROM `cexswap_distributing_fee` a
+                        INNER JOIN `cexswap_pools` b
+                            ON a.pool_id= b.pool_id
+                    WHERE a.`distributed_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
+                    GROUP BY a.`got_ticker`
                     """
+                    if group_pool is True:
+                        sql += """
+                        , a.`pool_id`
+                        """
                     data_rows = [user_id]
                     if len(extra_sql) > 0:
                         data_rows += [from_time]
@@ -1645,7 +1651,7 @@ class DropdownViewLP(disnake.ui.View):
 
 # Dropdown mypool
 class DropdownMyPool(disnake.ui.StringSelect):
-    def __init__(self, ctx, bot, list_chunks, list_pairs, total_liq, pool_share, add, remove, active_pair):
+    def __init__(self, ctx, bot, list_chunks, list_pairs, total_liq, pool_share, add, remove, gain_lose, list_earnings, active_pair):
         self.ctx = ctx
         self.bot = bot
         self.list_chunks = list_chunks
@@ -1654,6 +1660,8 @@ class DropdownMyPool(disnake.ui.StringSelect):
         self.pool_share = pool_share
         self.add = add
         self.remove = remove
+        self.gain_lose = gain_lose
+        self.list_earnings = list_earnings
         self.active_pair = active_pair
         self.utils = Utils(self.bot)
 
@@ -1709,9 +1717,27 @@ class DropdownMyPool(disnake.ui.StringSelect):
                     value=self.pool_share[self.values[0]],
                     inline=False
                 )
+            if self.values[0] in self.gain_lose:
+                embed.add_field(
+                    name="Inc./Decr.",
+                    value="\n".join(self.gain_lose[self.values[0]]),
+                    inline=False
+                )
+            if self.values[0] in self.list_earnings:
+                embed.add_field(
+                    name="Earning (LP Distribution Fee)",
+                    value="\n".join(self.list_earnings[self.values[0]]),
+                    inline=False
+                )
+                embed.add_field(
+                    name="Note",
+                    value="Earning from LP Distribution fee isn't added to the LP. "\
+                        "It always go to you balance from each successful trade. You can check with `/recent cexswaplp <tokenn>`.",
+                    inline=False
+                )
             view = DropdownViewMyPool(
                 self.ctx, self.bot, self.list_pairs, self.total_liq, self.pool_share,
-                self.add, self.remove, active_pair=self.values[0]
+                self.add, self.remove, self.gain_lose, self.list_earnings, active_pair=self.values[0]
             )
             # Create the view containing our dropdown
             await self.ctx.edit_original_message(
@@ -1722,17 +1748,22 @@ class DropdownMyPool(disnake.ui.StringSelect):
             await inter.response.defer()
 
 class DropdownViewMyPool(disnake.ui.View):
-    def __init__(self, ctx, bot, list_pairs, total_liq, pool_share, add, remove, active_pair: str):
+    def __init__(self, ctx, bot, list_pairs, total_liq, pool_share, add, remove, gain_lose, list_earnings, active_pair: str):
         super().__init__(timeout=300.0)
         self.ctx = ctx
         self.bot = bot
         self.list_pairs = list_pairs
         self.active_pair = active_pair
+        self.gain_lose = gain_lose
+        self.list_earnings = list_earnings
 
         # split to small chunks
         list_chunks = list(chunks(self.list_pairs, 20))
         for i in list_chunks:
-            self.add_item(DropdownMyPool(self.ctx, self.bot, i, self.list_pairs, total_liq, pool_share, add, remove, self.active_pair))
+            self.add_item(DropdownMyPool(
+                self.ctx, self.bot, i, self.list_pairs, total_liq, 
+                pool_share, add, remove, gain_lose, list_earnings, self.active_pair
+            ))
 
     async def on_timeout(self):
         original_message = await self.ctx.original_message()
@@ -3530,6 +3561,7 @@ class Cexswap(commands.Cog):
                     user_ar = await cexswap_get_add_remove_user(str(ctx.author.id), SERVER_BOT, None)
                     total_liq = {}
                     your_pool_share = {}
+                    your_pool_share_num = {}
                     for i in get_poolshare:
                         sub_1 = 0.0
                         sub_2 = 0.0
@@ -3563,18 +3595,29 @@ class Cexswap(commands.Cog):
                             your_pool_share[i['pairs']] = "{} {}{}\n{} {}{}".format(
                                     num_format_coin(i['amount_ticker_1']), i['ticker_1_name'], percent_1, 
                                     num_format_coin(i['amount_ticker_2']), i['ticker_2_name'], percent_2
-                                )                       
+                                )
+                            your_pool_share_num[i['pairs']] = {
+                                i['ticker_1_name']: i['amount_ticker_1'],
+                                i['ticker_2_name']: i['amount_ticker_2'],
+                            }
 
                     add_dict = {}
                     remove_dict = {}
                     list_add = {}
                     list_remove = {}
+                    adding_list_num = {}
+                    remove_list_num = {}
+                    gain_lose = {}
                     if len(user_ar) > 0:
                         for i in user_ar:
                             if i['pairs'] not in list_add:
                                 list_add[i['pairs']] = {}
                             if i['pairs'] not in list_remove:
                                 list_remove[i['pairs']] = {}
+                            if i['pairs'] not in adding_list_num:
+                                adding_list_num[i['pairs']] = {}
+                            if i['pairs'] not in remove_list_num:
+                                remove_list_num[i['pairs']] = {}
                             tickers = i['pairs'].split("/")
                             coin_1 = tickers[0]
                             coin_2 = tickers[1]
@@ -3596,36 +3639,68 @@ class Cexswap(commands.Cog):
                             if sum_add_1 > 0 or sum_add_2 > 0:
                                 if coin_1 not in list_add[i['pairs']]:
                                     list_add[i['pairs']][coin_1] = []
+                                    adding_list_num[i['pairs']][coin_1] = Decimal(0)
                                 if coin_2 not in list_add[i['pairs']]:
                                     list_add[i['pairs']][coin_2] = []
+                                    adding_list_num[i['pairs']][coin_2] = Decimal(0)
                                 if sum_add_1 > 0:
                                     list_add[i['pairs']][coin_1].append("+ {} {}".format(num_format_coin(sum_add_1), coin_1))
+                                    adding_list_num[i['pairs']][coin_1] += sum_add_1
                                 if sum_add_2 > 0:
                                     list_add[i['pairs']][coin_2].append("+ {} {}".format(num_format_coin(sum_add_2), coin_2))
+                                    adding_list_num[i['pairs']][coin_2] += sum_add_2
                             if sum_remove_1 > 0 or sum_remove_2 > 0:
                                 if coin_1 not in list_remove[i['pairs']]:
                                     list_remove[i['pairs']][coin_1] = []
+                                    remove_list_num[i['pairs']][coin_1] = Decimal(0)
                                 if coin_2 not in list_remove[i['pairs']]:
                                     list_remove[i['pairs']][coin_2] = []
+                                    remove_list_num[i['pairs']][coin_2] = Decimal(0)
                                 if sum_remove_1 > 0:
                                     list_remove[i['pairs']][coin_1].append("- {} {}".format(num_format_coin(sum_remove_1), coin_1))
+                                    remove_list_num[i['pairs']][coin_1] -= sum_remove_1
                                 if sum_remove_2 > 0:
                                     list_remove[i['pairs']][coin_2].append("- {} {}".format(num_format_coin(sum_remove_2), coin_2))
+                                    remove_list_num[i['pairs']][coin_2] -= sum_remove_2
                     # filter uniq tokens
                     list_pairs = list(set([i['pairs'] for i in get_poolshare]))
                     for i in list_pairs:
+                        tickers = i.split("/")
                         if i in list_add:
-                            tickers = i.split("/")
                             add_dict[i] = "{}".format("\n".join(list_add[i][tickers[0]] + list_add[i][tickers[1]]))
                         if i in list_remove:
-                            tickers = i.split("/")
                             if tickers[0] in list_remove[i]:
                                 remove_dict[i] = "{}".format("\n".join(list_remove[i][tickers[0]] + list_remove[i][tickers[1]]))
+                        if i in remove_list_num or i in your_pool_share_num:
+                            for coin_name in tickers:
+                                a_add = adding_list_num[i][coin_name] if coin_name in adding_list_num[i] else Decimal(0)
+                                a_remove = remove_list_num[i][coin_name] if coin_name in remove_list_num[i] else Decimal(0)
+                                a_share = your_pool_share_num[i][coin_name] if coin_name in your_pool_share_num[i] else Decimal(0)
+                                tmp_gain_lose = a_share - (a_add - a_remove)
+                                if abs(truncate(tmp_gain_lose, 4)) != 0:
+                                    if i not in gain_lose:
+                                        gain_lose[i] = []
+                                    gain_lose[i].append("{}{} {}".format(
+                                        "+" if tmp_gain_lose > 0 else "-",
+                                        num_format_coin(abs(tmp_gain_lose)),
+                                        coin_name
+                                    ))
+
+                    list_earnings = {}
+                    get_user_earning = await get_cexswap_earning(user_id=str(ctx.author.id), from_time=None, pool_id=None, group_pool=True)
+                    if len(get_user_earning) > 0:
+                        for i in get_user_earning:
+                            tickers = i['pairs'].split("/")
+                            if i['pairs'] not in list_earnings:
+                                list_earnings[i['pairs']] = []
+                            if i['got_ticker'] in tickers:
+                                list_earnings[i['pairs']].append("{} {}".format(num_format_coin(i['collected_amount']), i['got_ticker']))
+                            
                     # Create the view containing our dropdown
                     # list_pairs can be more than 25 - limit of Discord
                     view = DropdownViewMyPool(
                         ctx, self.bot, list_pairs, total_liq, your_pool_share,
-                        add_dict, remove_dict, active_pair=None
+                        add_dict, remove_dict, gain_lose, list_earnings, active_pair=None
                     )
                     testing = self.bot.config['cexswap']['testing_msg']
                     embed = disnake.Embed(

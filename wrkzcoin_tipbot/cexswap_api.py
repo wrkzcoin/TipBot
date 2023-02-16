@@ -195,6 +195,14 @@ async def estimate_amount_token_sell(
             "time": int(time.time())
         }
 
+    if config['cexswap_api']['disable_estimate_api'] == 1:
+        return {
+            "success": False,
+            "data": None,
+            "error": "Esimate through API is currently disable. Try again later!",
+            "time": int(time.time())
+        }
+
     user_id = "PUBLIC"
     user_server = "PUBLIC"
 

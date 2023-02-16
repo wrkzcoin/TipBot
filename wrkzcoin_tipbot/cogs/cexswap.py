@@ -214,6 +214,36 @@ async def cexswap_get_all_lp_pools():
         traceback.print_exc(file=sys.stdout)
     return []
 
+async def cexswap_get_add_remove_user(user_id: str, user_server: str, pool_id: int=None):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """
+                SELECT SUM(a.amount) AS amount, a.`token_name`, a.`user_id`, a.`action`, a.`pool_id`, b.`pairs`
+                FROM `cexswap_add_remove_logs` a
+                    INNER JOIN `cexswap_pools` b
+                        ON a.pool_id= b.pool_id
+                WHERE a.`user_id`=%s AND a.`user_server`=%s
+                """
+                data_rows = [user_id, user_server]
+                if pool_id is not None:
+                    sql += """ AND a.`pool_id`=%s"""
+                    data_rows += [pool_id]
+
+                sql +="""
+                GROUP BY a.`action`, a.`token_name`
+                """
+                if pool_id is None:
+                    sql += """, a.`pool_id`"""
+                await cur.execute(sql, tuple(data_rows))
+                result = await cur.fetchall()
+                if result:
+                    return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return []
+
 async def cexswap_get_pool_details(ticker_1: str, ticker_2: str, user_id: str=None):
     try:
         pool_detail = {}
@@ -258,9 +288,14 @@ async def cexswap_get_poolshare(user_id: str, user_server: str):
         await store.openConnection()
         async with store.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT * 
-                FROM `cexswap_pools_share` 
-                WHERE `user_id`=%s AND `user_server`=%s """
+                sql = """
+                SELECT a.pairs, a.amount_ticker_1 AS pool_amount_1,
+                a.amount_ticker_2 AS pool_amount_2, b.* 
+                FROM `cexswap_pools_share` b
+                INNER JOIN `cexswap_pools` a
+                    ON a.pool_id = b.pool_id
+                WHERE b.`user_id`=%s AND b.`user_server`=%s
+                """
                 await cur.execute(sql, (user_id, user_server))
                 result = await cur.fetchall()
                 if result:
@@ -1607,6 +1642,102 @@ class DropdownViewLP(disnake.ui.View):
         original_message = await self.ctx.original_message()
         await original_message.edit(view=None)
 # End of DropdownLP Viewer
+
+# Dropdown mypool
+class DropdownMyPool(disnake.ui.StringSelect):
+    def __init__(self, ctx, bot, list_chunks, list_pairs, total_liq, pool_share, add, remove, active_pair):
+        self.ctx = ctx
+        self.bot = bot
+        self.list_chunks = list_chunks
+        self.list_pairs = list_pairs
+        self.total_liq = total_liq
+        self.pool_share = pool_share
+        self.add = add
+        self.remove = remove
+        self.active_pair = active_pair
+        self.utils = Utils(self.bot)
+
+        options = [
+            disnake.SelectOption(
+                label=each,
+                description="Select {}".format(each),
+            ) for each in self.list_chunks
+        ]
+
+        super().__init__(
+            placeholder="Choose pairs..." if self.active_pair is None or self.active_pair not in self.list_chunks else "You selected {}".format(self.active_pair),
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
+
+    async def callback(self, inter: disnake.MessageInteraction):
+        if inter.author.id != self.ctx.user.id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=5.0)
+            return
+        else:
+            testing = self.bot.config['cexswap']['testing_msg']
+            embed = disnake.Embed(
+                title="Your LP Pool of TipBot's CEXSwap",
+                description=f"{self.ctx.author.mention}, {testing}Your Liquidity Pools.",
+                timestamp=datetime.now(),
+            )
+            embed.set_footer(text="Requested by: {}#{}".format(self.ctx.author.name, self.ctx.author.discriminator))
+            embed.set_thumbnail(url=self.bot.user.display_avatar)
+            # Add embed here
+            if self.values[0] in self.total_liq:
+                embed.add_field(
+                    name="Total liquidity",
+                    value=self.total_liq[self.values[0]],
+                    inline=False
+                )
+            if self.values[0] in self.add:
+                embed.add_field(
+                    name="You added (Original)",
+                    value=self.add[self.values[0]],
+                    inline=False
+                )
+            if self.values[0] in self.remove:
+                embed.add_field(
+                    name="You removed",
+                    value=self.remove[self.values[0]],
+                    inline=False
+                )
+            if self.values[0] in self.pool_share:
+                embed.add_field(
+                    name="Your current LP (Share %)",
+                    value=self.pool_share[self.values[0]],
+                    inline=False
+                )
+            view = DropdownViewMyPool(
+                self.ctx, self.bot, self.list_pairs, self.total_liq, self.pool_share,
+                self.add, self.remove, active_pair=self.values[0]
+            )
+            # Create the view containing our dropdown
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=embed,
+                view=view
+            )
+            await inter.response.defer()
+
+class DropdownViewMyPool(disnake.ui.View):
+    def __init__(self, ctx, bot, list_pairs, total_liq, pool_share, add, remove, active_pair: str):
+        super().__init__(timeout=300.0)
+        self.ctx = ctx
+        self.bot = bot
+        self.list_pairs = list_pairs
+        self.active_pair = active_pair
+
+        # split to small chunks
+        list_chunks = list(chunks(self.list_pairs, 20))
+        for i in list_chunks:
+            self.add_item(DropdownMyPool(self.ctx, self.bot, i, self.list_pairs, total_liq, pool_share, add, remove, self.active_pair))
+
+    async def on_timeout(self):
+        original_message = await self.ctx.original_message()
+        await original_message.edit(view=None)
+# End of dropdown mypool
 
 class ConfirmSell(disnake.ui.View):
     def __init__(self, bot, owner_id: int):
@@ -3351,7 +3482,7 @@ class Cexswap(commands.Cog):
                     )
                     embed.add_field(
                         name="NOTE",
-                        value="This pool LP doesn't exist yet!",
+                        value="This LP doesn't exist yet!",
                         inline=False
                     )
                 await ctx.edit_original_message(
@@ -3363,6 +3494,302 @@ class Cexswap(commands.Cog):
 
     @cexswap_selectpool.autocomplete("pool_name")
     async def cexswap_selectpool_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.cexswap_pairs if string in name.lower()][:12]
+
+    @cexswap.sub_command(
+        name="mypool",
+        usage="cexswap mypool",
+        options=[
+            Option("pool_name", "Choose pool's name", OptionType.string, required=False)
+        ],
+        description="Show your liquidated pool detail in cexswap."
+    )
+    async def cexswap_mypool(
+        self,
+        ctx,
+        pool_name: str=None,
+    ):
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap mypool loading..."
+        await ctx.response.send_message(msg, ephemeral=True)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/cexswap mypool", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        try:
+            if pool_name is None:
+                get_poolshare = await cexswap_get_poolshare(str(ctx.author.id), SERVER_BOT)
+                if len(get_poolshare) == 0:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, sorry! You don't have any liquidity in any pools."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                else:
+                    user_ar = await cexswap_get_add_remove_user(str(ctx.author.id), SERVER_BOT, None)
+                    total_liq = {}
+                    your_pool_share = {}
+                    for i in get_poolshare:
+                        sub_1 = 0.0
+                        sub_2 = 0.0
+                        single_pair_amount = 0.0
+                        pair_amount = 0.0
+                        per_unit = self.utils.get_usd_paprika(i['ticker_1_name'])
+                        if per_unit > 0:
+                            sub_1 = float(Decimal(i['amount_ticker_1']) * Decimal(per_unit))
+                        per_unit = self.utils.get_usd_paprika(i['ticker_2_name'])
+                        if per_unit > 0:
+                            sub_2 = float(Decimal(i['amount_ticker_2']) * Decimal(per_unit))
+                        # check max price
+                        if sub_1 >= 0.0 and sub_2 >= 0.0:
+                            single_pair_amount = max(sub_1, sub_2)
+                        if single_pair_amount > 0:
+                            pair_amount = 2 * single_pair_amount
+                        total_liq[i['pairs']] = "{} {}\n{} {}{}".format(
+                            num_format_coin(i['pool_amount_1']), i['ticker_1_name'],
+                            num_format_coin(i['pool_amount_2']), i['ticker_2_name'],
+                            "\n~{} {}".format(truncate(pair_amount, 2), "USD") if pair_amount > 0 else ""
+                        )
+                        if i['amount_ticker_1'] > 0 and i['amount_ticker_2'] > 0:
+                            # If a user has already some liq
+                            percent_1 = ""
+                            percent_2 = ""
+                            try:
+                                percent_1 = " - {:,.2f} {}".format(i['amount_ticker_1']/ i['pool_amount_1']*100, "%")
+                                percent_2 = " - {:,.2f} {}".format(i['amount_ticker_2']/ i['pool_amount_2']*100, "%")
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            your_pool_share[i['pairs']] = "{} {}{}\n{} {}{}".format(
+                                    num_format_coin(i['amount_ticker_1']), i['ticker_1_name'], percent_1, 
+                                    num_format_coin(i['amount_ticker_2']), i['ticker_2_name'], percent_2
+                                )                       
+
+                    add_dict = {}
+                    remove_dict = {}
+                    list_add = {}
+                    list_remove = {}
+                    if len(user_ar) > 0:
+                        for i in user_ar:
+                            if i['pairs'] not in list_add:
+                                list_add[i['pairs']] = {}
+                            if i['pairs'] not in list_remove:
+                                list_remove[i['pairs']] = {}
+                            tickers = i['pairs'].split("/")
+                            coin_1 = tickers[0]
+                            coin_2 = tickers[1]
+                            sum_add_1 = Decimal(0)
+                            sum_remove_1 = Decimal(0)
+                            sum_add_2 = Decimal(0)
+                            sum_remove_2 = Decimal(0)
+
+                            if coin_1 == i['token_name']:
+                                if i['action'] == "add":
+                                    sum_add_1 += i['amount']
+                                elif i['action'] in ['removepool', 'remove']:
+                                    sum_remove_1 += i['amount']
+                            elif coin_2 == i['token_name']:
+                                if i['action'] == "add":
+                                    sum_add_2 += i['amount']
+                                elif i['action'] in ['removepool', 'remove']:
+                                    sum_remove_2 += i['amount']
+                            if sum_add_1 > 0 or sum_add_2 > 0:
+                                if coin_1 not in list_add[i['pairs']]:
+                                    list_add[i['pairs']][coin_1] = []
+                                if coin_2 not in list_add[i['pairs']]:
+                                    list_add[i['pairs']][coin_2] = []
+                                if sum_add_1 > 0:
+                                    list_add[i['pairs']][coin_1].append("+ {} {}".format(num_format_coin(sum_add_1), coin_1))
+                                if sum_add_2 > 0:
+                                    list_add[i['pairs']][coin_2].append("+ {} {}".format(num_format_coin(sum_add_2), coin_2))
+                            if sum_remove_1 > 0 or sum_remove_2 > 0:
+                                if coin_1 not in list_remove[i['pairs']]:
+                                    list_remove[i['pairs']][coin_1] = []
+                                if coin_2 not in list_remove[i['pairs']]:
+                                    list_remove[i['pairs']][coin_2] = []
+                                if sum_remove_1 > 0:
+                                    list_remove[i['pairs']][coin_1].append("- {} {}".format(num_format_coin(sum_remove_1), coin_1))
+                                if sum_remove_2 > 0:
+                                    list_remove[i['pairs']][coin_2].append("- {} {}".format(num_format_coin(sum_remove_2), coin_2))
+                    # filter uniq tokens
+                    list_pairs = list(set([i['pairs'] for i in get_poolshare]))
+                    for i in list_pairs:
+                        if i in list_add:
+                            tickers = i.split("/")
+                            add_dict[i] = "{}".format("\n".join(list_add[i][tickers[0]] + list_add[i][tickers[1]]))
+                        if i in list_remove:
+                            tickers = i.split("/")
+                            if tickers[0] in list_remove[i]:
+                                remove_dict[i] = "{}".format("\n".join(list_remove[i][tickers[0]] + list_remove[i][tickers[1]]))
+                    # Create the view containing our dropdown
+                    # list_pairs can be more than 25 - limit of Discord
+                    view = DropdownViewMyPool(
+                        ctx, self.bot, list_pairs, total_liq, your_pool_share,
+                        add_dict, remove_dict, active_pair=None
+                    )
+                    testing = self.bot.config['cexswap']['testing_msg']
+                    embed = disnake.Embed(
+                        title="Your LP Pool in TipBot's CEXSwap",
+                        description=f"{ctx.author.mention}, {testing}Please select from list.",
+                        timestamp=datetime.now(),
+                    )
+                    embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+                    embed.set_thumbnail(url=ctx.author.display_avatar)
+
+                    await ctx.edit_original_message(
+                        content=None,
+                        embed=embed,
+                        view=view
+                    )
+            else:
+                # check if the given is a single coin/token
+                pool_name = pool_name.upper()
+                if pool_name not in self.bot.cexswap_pairs:
+                    # check if wrong order
+                    try:
+                        tickers = pool_name.upper().split("/")
+                        if len(tickers) == 2:
+                            pool_name = "{}/{}".format(tickers[1], tickers[0])
+                            if pool_name not in self.bot.cexswap_pairs:
+                                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                                    f"Invalid given `{pool_name}`."
+                                await ctx.edit_original_message(content=msg)
+                                return
+                        else:
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                                f"Invalid given `{pool_name}`."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                    except Exception:
+                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
+                            f"Invalid given `{pool_name}`."
+                        await ctx.edit_original_message(content=msg)
+                        traceback.print_exc(file=sys.stdout)
+                    # End checking wrong order
+
+                tickers = pool_name.upper().split("/")
+                coin_emoji_1 = getattr(getattr(self.bot.coin_list, tickers[0]), "coin_emoji_discord")
+                coin_emoji_1 = coin_emoji_1 + " " if coin_emoji_1 else ""
+                coin_emoji_2 = getattr(getattr(self.bot.coin_list, tickers[1]), "coin_emoji_discord")
+                coin_emoji_2 = coin_emoji_2 + " " if coin_emoji_2 else ""
+
+                testing = self.bot.config['cexswap']['testing_msg']
+                embed = disnake.Embed(
+                    title="LP Pool {} - {}/{} TipBot's CEXSwap".format(pool_name, coin_emoji_1, coin_emoji_2),
+                    description=f"{ctx.author.mention}, {testing}Summary.",
+                    timestamp=datetime.now(),
+                )
+                embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+                embed.set_thumbnail(url=ctx.author.display_avatar)
+                liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], str(ctx.author.id))
+                if liq_pair is not None:
+                    sub_1 = 0.0
+                    sub_2 = 0.0
+                    single_pair_amount = 0.0
+                    pair_amount = 0.0
+                    per_unit = self.utils.get_usd_paprika(liq_pair['pool']['ticker_1_name'])
+                    if per_unit > 0:
+                        sub_1 = float(Decimal(liq_pair['pool']['amount_ticker_1']) * Decimal(per_unit))
+                    per_unit = self.utils.get_usd_paprika(liq_pair['pool']['ticker_2_name'])
+                    if per_unit > 0:
+                        sub_2 = float(Decimal(liq_pair['pool']['amount_ticker_2']) * Decimal(per_unit))
+                    # check max price
+                    if sub_1 >= 0.0 and sub_2 >= 0.0:
+                        single_pair_amount = max(sub_1, sub_2)
+                    if single_pair_amount > 0:
+                        pair_amount = 2 * single_pair_amount
+
+                    # show total liq
+                    embed.add_field(
+                        name="Total liquidity",
+                        value="{} {}\n{} {}{}".format(
+                            num_format_coin(liq_pair['pool']['amount_ticker_1']), liq_pair['pool']['ticker_1_name'],
+                            num_format_coin(liq_pair['pool']['amount_ticker_2']), liq_pair['pool']['ticker_2_name'],
+                            "\n~{} {}".format(truncate(pair_amount, 2), "USD") if pair_amount > 0 else ""
+                        ),
+                        inline=False
+                    )
+
+                    # get activities sum
+                    user_ar = await cexswap_get_add_remove_user(str(ctx.author.id), SERVER_BOT, liq_pair['pool']['pool_id'])
+                    if len(user_ar) > 0:
+                        coin_1 = tickers[0]
+                        coin_2 = tickers[1]
+                        sum_add_1 = Decimal(0)
+                        sum_remove_1 = Decimal(0)
+                        sum_add_2 = Decimal(0)
+                        sum_remove_2 = Decimal(0)
+                        for i in user_ar:
+                            if coin_1 == i['token_name']:
+                                if i['action'] == "add":
+                                    sum_add_1 += i['amount']
+                                elif i['action'] in ['removepool', 'remove']:
+                                    sum_remove_1 += i['amount']
+                            elif coin_2 == i['token_name']:
+                                if i['action'] == "add":
+                                    sum_add_2 += i['amount']
+                                elif i['action'] in ['removepool', 'remove']:
+                                    sum_remove_2 += i['amount']
+                        if sum_add_1 > 0 or sum_add_2 > 0:
+                            list_act = []
+                            if sum_add_1 > 0:
+                                list_act.append("+ {} {}".format(num_format_coin(sum_add_1), coin_1))
+                            if sum_add_2 > 0:
+                                list_act.append("+ {} {}".format(num_format_coin(sum_add_2), coin_2))
+                            embed.add_field(
+                                name="You added (Original)",
+                                value="{}".format("\n".join(list_act)),
+                                inline=False
+                            )
+                        if sum_remove_1 > 0 or sum_remove_2 > 0:
+                            list_act = []
+                            if sum_remove_1 > 0:
+                                list_act.append("- {} {}".format(num_format_coin(sum_remove_1), coin_1))
+                            if sum_remove_2 > 0:
+                                list_act.append("- {} {}".format(num_format_coin(sum_remove_2), coin_2))
+                            embed.add_field(
+                                name="You removed",
+                                value="{}".format("\n".join(list_act)),
+                                inline=False
+                            )
+                    if liq_pair['pool_share'] is not None:
+                        # If a user has already some liq
+                        percent_1 = ""
+                        percent_2 = ""
+                        try:
+                            percent_1 = " - {:,.2f} {}".format(liq_pair['pool_share']['amount_ticker_1']/ liq_pair['pool']['amount_ticker_1']*100, "%")
+                            percent_2 = " - {:,.2f} {}".format(liq_pair['pool_share']['amount_ticker_1']/ liq_pair['pool']['amount_ticker_1']*100, "%")
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        embed.add_field(
+                            name="Your current LP (Share %)",
+                            value="{} {}{}\n{} {}{}".format(
+                                num_format_coin(liq_pair['pool_share']['amount_ticker_1']), liq_pair['pool_share']['ticker_1_name'], percent_1, 
+                                num_format_coin(liq_pair['pool_share']['amount_ticker_2']), liq_pair['pool_share']['ticker_2_name'], percent_2
+                            ),
+                            inline=False
+                        )
+                    else:
+                        embed.add_field(
+                            name="Your current LP (Share %)",
+                            value="N/A",
+                            inline=False
+                        )
+                else:
+                    embed.add_field(
+                        name="NOTE",
+                        value="This LP doesn't exist yet!",
+                        inline=False
+                    )
+                await ctx.edit_original_message(
+                    content=None,
+                    embed=embed
+                )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @cexswap_mypool.autocomplete("pool_name")
+    async def cexswap_mypool_autocomp(self, inter: disnake.CommandInteraction, string: str):
         string = string.lower()
         return [name for name in self.bot.cexswap_pairs if string in name.lower()][:12]
 

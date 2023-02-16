@@ -6885,6 +6885,8 @@ class Wallet(commands.Cog):
                                         decoded_data = json.loads(res_data)
                                         if len(decoded_data) > 0:
                                             return decoded_data
+                                    else:
+                                        print("update_balance_osmo return status: {}".format(response.status))
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                         return []
@@ -7029,6 +7031,8 @@ class Wallet(commands.Cog):
                                         decoded_data = json.loads(res_data)
                                         if len(decoded_data) > 0:
                                             return decoded_data
+                                    else:
+                                        print("update_balance_cosmos return status: {}".format(response.status))
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                         return []

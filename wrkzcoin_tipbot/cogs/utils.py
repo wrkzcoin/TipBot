@@ -3,8 +3,8 @@ import traceback
 from typing import List
 import time
 from cachetools import TTLCache
-from sqlitedict import SqliteDict
-import functools
+import pickle
+import redis
 
 import disnake
 from disnake.ext import commands
@@ -242,12 +242,8 @@ class Utils(commands.Cog):
         self.cache_pdb = DBPlace()
         self.cache_db_ttl = TTLCache(maxsize=10000, ttl=60.0)
         try:
-            for i in ["test", "general", "block", "pools", "paprika", "faucet", "market_guild", "user_disable", "bidding_amount"]:
-                try:
-                    setattr(self.cache_pdb, i, SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename=i, autocommit=True))
-                except Exception:
-                    # traceback.print_exc(file=sys.stdout)
-                    print(f"Failed to load db: {i}")
+            self.redis_pool = redis.ConnectionPool(host='localhost', port=6379, db=0)
+            self.r = redis.Redis(connection_pool=self.redis_pool)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1437,78 +1433,61 @@ class Utils(commands.Cog):
         else:
             return 0
 
-    # TODO: remove
-    def set_cache_kv(self, table: str, key: str, value):
+    def get_cache_kv(self, table: str, key: str):
         try:
-            getattr(self.cache_pdb, table)[key.upper()] = value
-            return True
+            if table + "_" + key in self.cache_db_ttl:
+                return self.cache_db_ttl[table + "_" + key]
+            else:
+                res = self.r.get(table + "_" + key)
+                result = pickle.loads(res)
+                if result is not None:
+                    self.cache_db_ttl[table + "_" + key] = result
+                    return result
+        except TypeError:
+            pass
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        return False
+        return None
 
     async def async_set_cache_kv(self, table: str, key: str, value):
         try:
-            def set_value(table, key, value):
-                db = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename=table, autocommit=True)
-                db[key.upper()] = value
-                db.close()
-                del db
-            set_cache = functools.partial(set_value, table, key, value)
-            await self.bot.loop.run_in_executor(None, set_cache)
+            p_mydict = pickle.dumps(value)
+            self.r.set(table + "_" + key, p_mydict)
             self.cache_db_ttl[table + "_" + key] = value
             return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return False
 
-    # TODO: remove
-    def get_cache_kv(self, table: str, key: str):
-        try:
-            return getattr(self.cache_pdb, table)[key.upper()]
-        except KeyError:
-            pass
-        return None
-
     async def async_get_cache_kv(self, table: str, key: str):
         try:
-            def get_value(table, key):
-                db = SqliteDict(self.bot.config['cache']['temp_leveldb_gen'], tablename=table, autocommit=False)
-                value = db[key.upper()]
-                db.close()
-                del db
-                return value
             if table + "_" + key in self.cache_db_ttl:
                 return self.cache_db_ttl[table + "_" + key]
             else:
-                get_cache = functools.partial(get_value, table, key)
-                result = await self.bot.loop.run_in_executor(None, get_cache)
+                res = self.r.get(table + "_" + key)
+                result = pickle.loads(res)
                 if result is not None:
+                    self.cache_db_ttl[table + "_" + key] = result
                     return result
-        except KeyError:
+        except TypeError:
             pass
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         return None
 
     def del_cache_kv(self, table: str, key: str):
         try:
-            del getattr(self.cache_pdb, table)[key.upper()]
+            self.r.delete(table + "_" + key)
             return True
-        except KeyError:
-            pass
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         return False
 
     async def cog_load(self):
         pass
 
     def cog_unload(self):
-        try:
-            for i in ["test", "general", "block", "pools", "paprika", "faucet", "market_guild", "user_disable", "bidding_amount"]:
-                try:
-                    getattr(self.cache_pdb, i).close()
-                except Exception:
-                    # traceback.print_exc(file=sys.stdout)
-                    print(f"Failed to load db: {i}")
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
+        pass
 
 def setup(bot):
     bot.add_cog(Utils(bot))

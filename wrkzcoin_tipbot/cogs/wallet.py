@@ -7023,8 +7023,12 @@ class Wallet(commands.Cog):
                                 'Content-Type': 'application/json',
                                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
                             }
+                            url = endpoint + "?pagination.limit=50&events=coin_received.receiver={}".format("%27" + account_addr + "%27")
                             async with aiohttp.ClientSession() as session:
-                                async with session.get(endpoint + account_addr + "?limit=50&from=0", headers=headers, timeout=32) as response:
+                                async with session.get(
+                                    url,
+                                    headers=headers, timeout=32
+                                ) as response:
                                     if response.status == 200:
                                         res_data = await response.read()
                                         res_data = res_data.decode('utf-8')
@@ -7032,6 +7036,7 @@ class Wallet(commands.Cog):
                                         if len(decoded_data) > 0:
                                             return decoded_data
                                     else:
+                                        print(url)
                                         print("update_balance_cosmos return status: {}".format(response.status))
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
@@ -7060,23 +7065,23 @@ class Wallet(commands.Cog):
                         list_existing_tx = []
                         if len(get_incoming_tx) > 0:
                             list_existing_tx = [each['txid'] for each in get_incoming_tx]
-                        for each_tx in get_transactions:
-                            if each_tx['data']['code'] != 0:
+                        for each_tx in get_transactions['tx_responses']:
+                            if each_tx['code'] != 0:
                                 # skip
                                 continue
                             try:
                                 amount = 0.0
-                                tx_hash = each_tx['data']['txhash']
-                                height = int(each_tx['data']['height'])
+                                tx_hash = each_tx['txhash']
+                                height = int(each_tx['height'])
                                 if tx_hash in list_existing_tx:
                                     # Skip
                                     continue
 
                                 user_id = None
-                                user_memo = each_tx['data']['tx']['body']['memo']
+                                user_memo = each_tx['tx']['body']['memo']
                                 get_user_memo = None
-                                if len(each_tx['data']['tx']['body']['messages']) > 0:
-                                    for each_from_to in each_tx['data']['tx']['body']['messages']:
+                                if len(each_tx['tx']['body']['messages']) > 0:
+                                    for each_from_to in each_tx['tx']['body']['messages']:
                                         from_addr = each_from_to['from_address']
                                         to_addr = each_from_to['to_address']
                                         if len(each_from_to['amount']) > 0:

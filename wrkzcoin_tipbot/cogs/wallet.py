@@ -6879,7 +6879,7 @@ class Wallet(commands.Cog):
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
                         url,
-                        headers=headers, timeout=32
+                        headers=headers, timeout=60
                     ) as response:
                         if response.status == 200:
                             res_data = await response.read()
@@ -7393,7 +7393,7 @@ class Wallet(commands.Cog):
         await asyncio.sleep(time_lap)
         # update Height
         try:
-            getEpochInfo = await fetch_getEpochInfo(self.bot.erc_node_list['SOL'], 32)
+            getEpochInfo = await fetch_getEpochInfo(self.bot.erc_node_list['SOL'], 60)
             if getEpochInfo:
                 height = getEpochInfo['absoluteSlot']
                 try:

@@ -92,7 +92,9 @@ class GShop(commands.Cog):
                             continue
                         role = disnake.utils.get(guild.roles, id=int(each_order['role_id']))
                         if role is None:
-                            await logchanbot(f"[GSHOP] can not find role id {str(each_order['role_id'])} in Guild {str(each_order['guild_id'])}.")
+                            await logchanbot(f"[GSHOP] can not find role id {str(each_order['role_id'])} in "\
+                                             f"Guild {str(each_order['guild_id'])} / {guild.name}. Set that order to expired!")
+                            expiring = await self.set_expired_role_item(each_order['id'])
                             continue
                         member = guild.get_member(int(each_order['ordered_by_uid']))
                         # We found guild and we found role and we found user

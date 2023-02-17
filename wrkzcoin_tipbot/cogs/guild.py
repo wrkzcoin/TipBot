@@ -92,6 +92,8 @@ class Guild(commands.Cog):
             if len(list_activedrop) > 0:
                 for each_drop in list_activedrop:
                     coin_name = each_drop['tiptallk_coin']
+                    if not hasattr(self.bot.coin_list, coin_name):
+                        continue
                     net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                     type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                     deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")

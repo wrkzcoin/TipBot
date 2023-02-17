@@ -191,7 +191,7 @@ async def estimate_amount_token_sell(
         return {
             "success": False,
             "data": None,
-            "error": "API is currently disable!",
+            "error": "API is currently disabled!",
             "time": int(time.time())
         }
 
@@ -199,7 +199,7 @@ async def estimate_amount_token_sell(
         return {
             "success": False,
             "data": None,
-            "error": "Esimate through API is currently disable. Try again later!",
+            "error": "Esimate through API is currently disabled. Try again later!",
             "time": int(time.time())
         }
 
@@ -455,7 +455,7 @@ async def get_paprika_price(
         return {
             "success": False,
             "data": None,
-            "error": "API is currently disable!",
+            "error": "API is currently disabled!",
             "time": int(time.time())
         }
     token = token.upper()
@@ -484,7 +484,7 @@ async def get_coingecko_price(
         return {
             "success": False,
             "data": None,
-            "error": "API is currently disable!",
+            "error": "API is currently disabled!",
             "time": int(time.time())
         }
     token = token.upper()
@@ -513,7 +513,7 @@ async def get_summary_detail(
         return {
             "success": False,
             "data": None,
-            "error": "API is currently disable!",
+            "error": "API is currently disabled!",
             "time": int(time.time())
         }
 
@@ -617,7 +617,7 @@ async def get_summary(
         return {
             "success": False,
             "data": None,
-            "error": "API is currently disable!",
+            "error": "API is currently disabled!",
             "time": int(time.time())
         }
 

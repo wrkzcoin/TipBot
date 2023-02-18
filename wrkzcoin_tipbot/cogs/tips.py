@@ -461,7 +461,21 @@ class Tips(commands.Cog):
                                 if int(time.time()) - int(_msg.edited_at.timestamp()) > 30:
                                     embed.set_footer(
                                         text=f"FreeTip {owner_displayname}, Time Left: {seconds_str_days(time_left)}")
-                                    await _msg.edit(embed=embed, view=view)
+                                    try:
+                                        await _msg.edit(embed=embed, view=view)
+                                    except disnake.errors.Forbidden:
+                                        change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                                        await logchanbot(
+                                            "Failed to edit message (Forbidden): msg id: {}, channel id: {}, guild: {}/{}. Set it to failed.".format(
+                                                each_message_data['message_id'], each_message_data['channel_id'],
+                                                guild.name, each_message_data['guild_id']
+                                            )
+                                        )
+                                        find_owner = self.bot.get_user(int(each_message_data['from_userid']))
+                                        if find_owner is not None:
+                                            await find_owner.send("I cancelled your /freetip id: {} in guild {} because I got no permission to edit embed message.".format(
+                                                each_message_data['message_id'], guild.name
+                                            ))
                                     if 'fetched_msg' in self.bot.other_data:
                                         self.bot.other_data['fetched_msg'][each_message_data['message_id']] = int(time.time())
                             else:
@@ -1297,7 +1311,14 @@ class Tips(commands.Cog):
                             coin_decimal, int(time.time()) + duration,
                             "ONGOING", verify_int
                         )
-                        await ctx.edit_original_message(content=None, embed=embed, view=view)
+                        try:
+                            await ctx.edit_original_message(content=None, embed=embed, view=view)
+                        except disnake.errors.Forbidden:
+                            # cancelled it
+                            change_status = await store.discord_freetip_update(str(view.message.id), "FAILED")
+                            await ctx.edit_original_message(
+                                content=f"{EMOJI_RED_NO} {ctx.author.mention}, failed to edit embed message (no permission)!"
+                            )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
             except Exception:

@@ -3270,7 +3270,7 @@ class Economy(commands.Cog):
                                 elif type_coin in ["XRP"]:
                                     wallet_address = get_deposit['destination_tag']
 
-                                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                                 # height can be None
                                 userdata_balance = await store.sql_user_balance_single(get_last_act['guild_id'], coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT)
                                 total_balance = userdata_balance['adjust']

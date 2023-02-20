@@ -92,12 +92,11 @@ class GShop(commands.Cog):
                             continue
                         role = disnake.utils.get(guild.roles, id=int(each_order['role_id']))
                         if role is None:
-                            await logchanbot(f"[GSHOP] can not find role id {str(each_order['role_id'])} in Guild {str(each_order['guild_id'])}.")
+                            await logchanbot(f"[GSHOP] can not find role id {str(each_order['role_id'])} in "\
+                                             f"Guild {str(each_order['guild_id'])} / {guild.name}. Set that order to expired!")
+                            expiring = await self.set_expired_role_item(each_order['id'])
                             continue
                         member = guild.get_member(int(each_order['ordered_by_uid']))
-                        if member is None:
-                            await logchanbot(f"[GSHOP] can not find member id {str(each_order['ordered_by_uid'])} in Guild {str(each_order['guild_id'])}.")
-                            continue
                         # We found guild and we found role and we found user
                         # Check if expired
                         if int(each_order['expired_date']) < int(time.time()):
@@ -106,7 +105,11 @@ class GShop(commands.Cog):
                             if not role.is_assignable():
                                 await logchanbot(f"[GSHOP] TipBot has no permission to assign role `{role.name}` for order `{each_order['item_id']}` in Guild `{each_order['guild_id']}`.")
                                 continue
-                            if member.roles and role in member.roles:
+                            if member is None:
+                                await logchanbot(f"[GSHOP] can not find member id {str(each_order['ordered_by_uid'])} in Guild {str(each_order['guild_id'])}. Set him/her to expired!")
+                                expiring = await self.set_expired_role_item(each_order['id'])
+                                continue
+                            elif member.roles and role in member.roles:
                                 try:
                                     await member.remove_roles(role)
                                     expiring = await self.set_expired_role_item(each_order['id'])
@@ -489,7 +492,7 @@ class GShop(commands.Cog):
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
 
-                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 member = ctx.guild.get_member(int(ctx.author.id))
                 try:
                     role = disnake.utils.get(ctx.guild.roles, id=int(item_info['role_id']))

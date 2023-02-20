@@ -20,19 +20,20 @@ from cachetools import TTLCache
 import store
 from Bot import logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, \
     EMOJI_MONEYFACE, NOTIFICATION_OFF_CMD, EMOJI_SPEAK, EMOJI_BELL, EMOJI_BELL_SLASH, EMOJI_HOURGLASS_NOT_DONE, \
-    EMOJI_INFORMATION, EMOJI_PARTY, SERVER_BOT, seconds_str, text_to_num, truncate
+    EMOJI_INFORMATION, EMOJI_PARTY, SERVER_BOT, seconds_str_days, text_to_num, truncate
 
 from cogs.wallet import WalletAPI
 from cogs.utils import Utils, num_format_coin
 
 # Verifying free tip
 class FreeTip_Verify(disnake.ui.Modal):
-    def __init__(self, ctx, bot, question, answer, from_user_id) -> None:
+    def __init__(self, ctx, bot, question, answer, from_user_id, message_id) -> None:
         self.ctx = ctx
         self.bot = bot
         self.question = question
         self.answer = answer
         self.from_user_id = from_user_id
+        self.message_id = message_id
         components = [
             disnake.ui.TextInput(
                 label="Type answer",
@@ -63,6 +64,72 @@ class FreeTip_Verify(disnake.ui.Modal):
                     self.from_user_id, str(interaction.author.id),
                     "{}#{}".format(interaction.author.name, interaction.author.discriminator)
                 )
+                try:
+                    # Update message
+                    _msg: disnake.Message = await interaction.channel.fetch_message(self.message_id)
+                    if _msg:
+                        embed = _msg.embeds[0] # embeds is list, we take 0
+                        embed.clear_fields()
+                        get_freetip = await store.get_discord_freetip_by_msgid(str(self.message_id))
+                        if get_freetip is not None:
+                            amount = get_freetip['real_amount']
+                            coin_name = get_freetip['token_name']
+                            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                            coin_emoji = coin_emoji + " " if coin_emoji else ""
+                            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                            collectors = await store.get_freetip_collector_by_id(
+                                get_freetip['message_id'], get_freetip['from_userid']
+                            )
+                            indiv_amount = num_format_coin(truncate(amount / len(collectors), 12)) \
+                                if len(collectors) > 0 else num_format_coin(truncate(amount, 12))
+                            if get_freetip['airdrop_content'] and \
+                                len(get_freetip['airdrop_content']) > 0:
+                                embed.add_field(
+                                    name="Comment",
+                                    value=get_freetip['airdrop_content'],
+                                    inline=False
+                                )
+                            if len(collectors) > 0:
+                                name_list = []
+                                for each_att in collectors:
+                                    name_list.append("<@{}>".format(each_att['collector_id']))
+                                    if len(name_list) > 0 and len(name_list) % 25 == 0:
+                                        embed.add_field(name='Attendees', value=" | ".join(name_list), inline=False)
+                                        name_list = []
+                                if len(name_list) > 0:
+                                    embed.add_field(name='Attendees', value=" | ".join(name_list), inline=False)
+                            else:
+                                embed.add_field(
+                                    name='Attendees',
+                                    value="N/A",
+                                    inline=False
+                                )
+                            embed.add_field(
+                                name="Num. Attendees",
+                                value=f"**{len(collectors)}** member(s)",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{coin_emoji}{indiv_amount} {token_display}",
+                                inline=True
+                            )
+                            try:
+                                time_left = get_freetip['airdrop_time'] - int(time.time())
+                                owner_displayname = ""
+                                get_owner = self.bot.get_user(int(get_freetip['from_userid']))
+                                if get_owner:
+                                    owner_displayname = f" by {get_owner.name}#{get_owner.discriminator}"
+                                embed.set_footer(
+                                    text=f"FreeTip {owner_displayname}, Time Left: {seconds_str_days(time_left)}")
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            await _msg.edit(embed=embed)
+                            if 'fetched_msg' not in self.bot.other_data:
+                                self.bot.other_data['fetched_msg'] = {}
+                            self.bot.other_data['fetched_msg'][str(self.message_id)] = int(time.time())
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
                 # nofity freetip owner
                 freetip_owner = self.bot.get_user(int(self.from_user_id))
                 try:
@@ -92,255 +159,26 @@ class FreeTip_Verify(disnake.ui.Modal):
 class FreeTip_Button(disnake.ui.View):
     message: disnake.Message
 
-    def __init__(self, ctx, bot, timeout: float, verify: str):
-        super().__init__(timeout=timeout)
+    def __init__(self, bot, verify: str, owner_id: int):
+        super().__init__()
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
         self.bot = bot
         self.verify = verify
         self.wallet_api = WalletAPI(self.bot)
-        self.ctx = ctx
+        self.owner_id = owner_id
 
     async def on_timeout(self):
-        for child in self.children:
-            if isinstance(child, disnake.ui.Button):
-                child.disabled = True
-
-        get_freetip = None
-        _channel = None
-        _msg = None
-        try:
-            original_message = await self.ctx.original_message()
-            get_freetip = await store.get_discord_freetip_by_msgid(str(original_message.id))
-            if int(get_freetip['message_time']) + 10 * 60 < int(time.time()):
-                _channel: disnake.TextChannel = await self.bot.fetch_channel(int(get_freetip['channel_id']))
-                _msg: disnake.Message = await _channel.fetch_message(int(get_freetip['message_id']))
-                if _msg is not None:
-                    original_message = _msg
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            return
-
-        if get_freetip is None:
-            await logchanbot(f"[ERROR FREETIP] Failed timeout in guild {self.ctx.guild.name} / {self.ctx.guild.id}!")
-            return
-
-        ## Update content
-        get_freetip = await store.get_discord_freetip_by_msgid(str(self.message.id))
-        if get_freetip['status'] == "ONGOING":
-            amount = get_freetip['real_amount']
-            coin_name = get_freetip['token_name']
-            equivalent_usd = get_freetip['real_amount_usd_text']
-            coin_emoji = ""
-            try:
-                if self.ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
-                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                    coin_emoji = coin_emoji + " " if coin_emoji else ""
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-
-            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-
-            found_owner = False
-            owner_displayname = "N/A"
-            get_owner = self.bot.get_user(int(get_freetip['from_userid']))
-            if get_owner:
-                owner_displayname = "{}#{}".format(get_owner.name, get_owner.discriminator)
-
-            attend_list = []
-            attend_list_id = []
-            attend_list_names = ""
-            collector_mentioned = []
-            collectors = await store.get_freetip_collector_by_id(str(self.message.id), get_freetip['from_userid'])
-            notifying_list = await store.sql_get_tipnotify()
-            if len(collectors) > 0:
-                # have some
-                attend_list = [i['collector_name'] for i in collectors]
-                attend_list_names = " | ".join(attend_list)
-                attend_list_id = [int(i['collector_id']) for i in collectors]
-                collector_mentioned = [i['collector_name'] for i in collectors if i['collector_id'] in notifying_list]
-                collector_mentioned += ["<@{}>".format(i['collector_id']) for i in collectors if
-                                        i['collector_id'] not in notifying_list]
-            else:
-                # No collector
-                print("FreeTip msg ID {} timeout..".format(str(self.message.id)))
-
-            if len(attend_list) == 0:
-                embed = disnake.Embed(
-                    title=f"FreeTip appears {coin_emoji}{num_format_coin(amount)} {token_display} {equivalent_usd}",
-                    description=f"Already expired", timestamp=datetime.fromtimestamp(get_freetip['airdrop_time']))
-                if get_freetip['airdrop_content'] and len(get_freetip['airdrop_content']) > 0:
-                    embed.add_field(name="Comment", value=get_freetip['airdrop_content'], inline=False)
-                embed.set_footer(text=f"FreeTip by {owner_displayname}, and no one collected!")
-                try:
-                    await original_message.edit(embed=embed, view=None)
-                    # update status
-                    change_status = await store.discord_freetip_update(str(self.message.id), "NOCOLLECT")
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-                link_to_msg = "https://discord.com/channels/{}/{}/{}".format(
-                    get_freetip['guild_id'], get_freetip['channel_id'],
-                    str(self.message.id)
-                )
-                # free tip shall always get DM. Ignore notifying list
-                try:
-                    if get_owner is not None:
-                        await get_owner.send(
-                            f"Free tip of {coin_emoji}{num_format_coin(amount)} "\
-                            f"{token_display} {equivalent_usd} expired and no one collected.\n{link_to_msg}"
-                        )
-                except (disnake.Forbidden, disnake.errors.Forbidden) as e:
-                    pass
-            elif len(attend_list) > 0:
-                # re-check balance
-                get_deposit = await self.wallet_api.sql_get_userwallet(
-                    get_freetip['from_userid'], coin_name, net_name, type_coin, SERVER_BOT, 0
-                )
-                if get_deposit is None:
-                    get_deposit = await self.wallet_api.sql_register_user(
-                        get_freetip['from_userid'], coin_name, net_name, type_coin, SERVER_BOT, 0, 0
-                    )
-
-                wallet_address = get_deposit['balance_wallet_address']
-                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                    wallet_address = get_deposit['paymentid']
-                elif type_coin in ["XRP"]:
-                    wallet_address = get_deposit['destination_tag']
-
-                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                userdata_balance = await store.sql_user_balance_single(
-                    get_freetip['from_userid'], coin_name, wallet_address, 
-                    type_coin, height, deposit_confirm_depth, SERVER_BOT
-                )
-                actual_balance = float(userdata_balance['adjust'])
-
-                if actual_balance < 0 and get_owner:
-                    await self.message.reply(
-                        f"{EMOJI_RED_NO} {get_owner.mention}, insufficient balance to do a "\
-                        f"free tip of {num_format_coin(amount)} {coin_name}."
-                    )
-                    change_status = await store.discord_freetip_update(str(self.message.id), "FAILED")
-                    # end of re-check balance
-                else:
-                    # Multiple tip here
-                    amount_div = truncate(amount / len(attend_list_id), 12)
-                    tips = None
-
-                    tipAmount = num_format_coin(amount)
-                    ActualSpend_str = num_format_coin(amount_div * len(attend_list_id))
-                    amountDiv_str = num_format_coin(amount_div)
-
-                    each_equivalent_usd = ""
-                    actual_spending_usd = ""
-                    amount_in_usd = 0.0
-                    per_unit = None
-                    if usd_equivalent_enable == 1:
-                        per_unit = get_freetip['unit_price_usd']
-                        if per_unit and per_unit > 0:
-                            amount_in_usd = per_unit * float(amount_div)
-                            if amount_in_usd > 0.0001:
-                                each_equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
-                                actual_spending_usd = " ~ {:,.4f} USD".format(amount_in_usd * len(attend_list_id))
-
-                    try:
-                        try:
-                            key_coin = get_freetip['from_userid'] + "_" + coin_name + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-
-                            for each in attend_list_id:
-                                key_coin = each + "_" + coin_name + "_" + SERVER_BOT
-                                if key_coin in self.bot.user_balance_cache:
-                                    del self.bot.user_balance_cache[key_coin]
-                        except Exception:
-                            pass
-                        tips = await store.sql_user_balance_mv_multiple(
-                            get_freetip['from_userid'], attend_list_id,
-                            get_freetip['guild_id'],
-                            get_freetip['channel_id'], float(amount_div),
-                            coin_name, "FREETIP", coin_decimal, SERVER_BOT,
-                            contract, float(amount_in_usd), None
-                        )
-                        # If tip, update status
-                        change_status = await store.discord_freetip_update(get_freetip['message_id'], "COMPLETED")
-                        # Edit embed
-                        try:
-                            embed = disnake.Embed(
-                                title=f"FreeTip appears {coin_emoji}{num_format_coin(amount)} {token_display} {equivalent_usd}",
-                                description=f"Click to collect",
-                                timestamp=datetime.fromtimestamp(get_freetip['airdrop_time']))
-                            if get_freetip['airdrop_content'] and len(get_freetip['airdrop_content']) > 0:
-                                embed.add_field(name="Comment", value=get_freetip['airdrop_content'], inline=False)
-                            if len(attend_list_names) >= 1000: attend_list_names = attend_list_names[:1000]
-                            try:
-                                if len(attend_list) > 0:
-                                    embed.add_field(
-                                        name='Attendees',
-                                        value=attend_list_names,
-                                        inline=False
-                                    )
-                                    embed.add_field(
-                                        name='Individual Tip amount',
-                                        value=f"{coin_emoji}{num_format_coin(truncate(amount / len(attend_list), 12))} "\
-                                            f"{token_display}",
-                                        inline=True
-                                    )
-                                    embed.add_field(
-                                        name="Num. Attendees",
-                                        value=f"{len(attend_list)} members",
-                                        inline=True
-                                    )
-                            except Exception:
-                                traceback.print_exc(file=sys.stdout)
-                            embed.set_footer(text=f"Completed! Collected by {len(attend_list_id)} member(s)")
-                            await original_message.edit(embed=embed, view=None)
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                        await logchanbot("tips " +str(traceback.format_exc()))
-                    if tips:
-                        link_to_msg = "https://discord.com/channels/{}/{}/{}".format(
-                            get_freetip['guild_id'], get_freetip['channel_id'],
-                            str(self.message.id)
-                        )
-                        # free tip shall always get DM. Ignore notifying list
-                        try:
-                            guild = self.bot.get_guild(int(get_freetip['guild_id']))
-                            if get_owner is not None:
-                                await get_owner.send(
-                                    f'{EMOJI_ARROW_RIGHTHOOK} Free tip of {coin_emoji}{tipAmount} {token_display} '
-                                    f'was sent to ({len(attend_list_id)}) members in server `{guild.name}`.\n'
-                                    f'Each member got: {coin_emoji}**{amountDiv_str} {token_display}**\n'
-                                    f'Actual spending: {coin_emoji}**{ActualSpend_str} {token_display}**\n{link_to_msg}'
-                                )
-                        except (disnake.Forbidden, disnake.errors.Forbidden) as e:
-                            pass
-                        # reply and ping user
-                        try:
-                            if len(collector_mentioned) > 0:
-                                list_mentioned = ", ".join(collector_mentioned)
-                                msg = f"{list_mentioned}, you collected a tip of {coin_emoji}{amountDiv_str} {token_display} "\
-                                    f"from {get_owner.name}#{get_owner.discriminator}!"
-                                await original_message.reply(content=msg)
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                    else:
-                        # If tip, update status
-                        await store.discord_freetip_update(str(self.message.id), "FAILED")
-        else:
-            await original_message.edit(view=None)
+        pass
 
     @disnake.ui.button(label="🎁 Collect", style=ButtonStyle.green, custom_id="collect_freetip")
     async def row_enter_airdrop(
             self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
         try:
+            if self.owner_id == interaction.author.id:
+                await interaction.response.send_message(content=f"{interaction.author.mention}, you can not join your own /freetip ...", ephemeral=True)
+                return
+
             msg = "Nothing to do!"
             get_message = None
             try:
@@ -352,7 +190,7 @@ class FreeTip_Button(disnake.ui.View):
                 get_message = await store.get_discord_freetip_by_msgid(str(original_message.id))
 
             if get_message is None:
-                await interaction.response.send_message(content="Failed to collect free tip!")
+                await interaction.response.send_message(content=f"{interaction.author.mention}, failed to collect /freetip!", ephemeral=True)
                 await logchanbot(
                     f"[ERROR FREETIP] Failed to join a free tip in guild "\
                     f"{interaction.guild.name} / {interaction.guild.id} by "\
@@ -360,13 +198,6 @@ class FreeTip_Button(disnake.ui.View):
                 )
                 return
 
-            if get_message and int(get_message['from_userid']) == interaction.author.id:
-                await interaction.response.send_message(
-                    content="You are the owner of airdrop id: {}".format(
-                        str(interaction.message.id)
-                    ),
-                    ephemeral=True)
-                return
             # Check if user in
             check_if_in = await store.check_if_freetip_collector_in(
                 str(interaction.message.id),
@@ -374,16 +205,12 @@ class FreeTip_Button(disnake.ui.View):
                 str(interaction.author.id)
             )
             if check_if_in:
-                # await interaction.response.send_message(content="You already joined this airdrop id: {}".format(
-                # str(interaction.message.id)), ephemeral=True)
-                await interaction.response.defer()
+                await interaction.response.send_message(content=f"{interaction.author.mention}, you're already in this /freetip!", ephemeral=True)
                 return
             else:
                 # If time already pass
                 if int(time.time()) > get_message['airdrop_time']:
-                    # await interaction.response.send_message(content="Airdrop id: {} passed already!".format(
-                    # str(interaction.message.id)), ephemeral=True)
-                    # await interaction.response.defer()
+                    await interaction.response.send_message(content=f"{interaction.author.mention}, this /freetip already passed!", ephemeral=True)
                     return
                 else:
                     key = "freetip_{}_{}".format(
@@ -422,17 +249,22 @@ class FreeTip_Button(disnake.ui.View):
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             await interaction.response.send_modal(
-                                modal=FreeTip_Verify(interaction, self.bot, question, answer, get_message['from_userid'])
+                                modal=FreeTip_Verify(
+                                    interaction, self.bot, question, answer,
+                                    get_message['from_userid'], int(get_message['message_id'])
+                                )
                             )
                             modal_inter: disnake.ModalInteraction = await self.bot.wait_for(
                                 "modal_submit",
                                 check=lambda i: i.custom_id == "modal_freetip_verify" and i.author.id == interaction.author.id,
                                 timeout=30,
                             )
+                        except (disnake.InteractionResponded, disnake.InteractionTimedOut, disnake.errors.NotFound) as e:
+                            return
                         except asyncio.TimeoutError:
                             # The user didn't submit the modal in the specified period of time.
                             # This is done since Discord doesn't dispatch any event for when a modal is closed/dismissed.
-                            await modal_inter.response.send_message("Timeout!", ephemeral=True)
+                            await interaction.response.send_message(f"{interaction.author.mention}, timeout to join /freetip!", ephemeral=True)
                             return
                     else:
                         await store.insert_freetip_collector(
@@ -441,14 +273,74 @@ class FreeTip_Button(disnake.ui.View):
                             "{}#{}".format(interaction.author.name, interaction.author.discriminator)
                         )
                         msg = "Sucessfully joined airdrop id: {}".format(str(interaction.message.id))
-                        await interaction.response.defer()
                         await interaction.response.send_message(content=msg, ephemeral=True)
+                        # Update message
+                        _msg: disnake.Message = await interaction.channel.fetch_message(int(interaction.message.id))
+                        if _msg:
+                            embed = _msg.embeds[0] # embeds is list, we take 0
+                            embed.clear_fields()
+                            get_freetip = await store.get_discord_freetip_by_msgid(str(interaction.message.id))
+                            if get_freetip is None:
+                                return
+                            try:
+                                time_left = get_freetip['airdrop_time'] - int(time.time())
+                                owner_displayname = ""
+                                get_owner = self.bot.get_user(int(get_freetip['from_userid']))
+                                if get_owner:
+                                    owner_displayname = f" by {get_owner.name}#{get_owner.discriminator}"
+                                embed.set_footer(
+                                    text=f"FreeTip {owner_displayname}, Time Left: {seconds_str_days(time_left)}")
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            amount = get_freetip['real_amount']
+                            coin_name = get_freetip['token_name']
+                            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                            coin_emoji = coin_emoji + " " if coin_emoji else ""
+                            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                            collectors = await store.get_freetip_collector_by_id(
+                                get_freetip['message_id'], get_freetip['from_userid']
+                            )
+                            indiv_amount = num_format_coin(truncate(amount / len(collectors), 12)) \
+                                if len(collectors) > 0 else num_format_coin(truncate(amount, 12))
+                            if get_freetip['airdrop_content'] and \
+                                len(get_freetip['airdrop_content']) > 0:
+                                embed.add_field(
+                                    name="Comment",
+                                    value=get_freetip['airdrop_content'],
+                                    inline=False
+                                )
+                            if len(collectors) > 0:
+                                name_list = []
+                                for each_att in collectors:
+                                    name_list.append("<@{}>".format(each_att['collector_id']))
+                                    if len(name_list) > 0 and len(name_list) % 25 == 0:
+                                        embed.add_field(name='Attendees', value=" | ".join(name_list), inline=False)
+                                        name_list = []
+                                if len(name_list) > 0:
+                                    embed.add_field(name='Attendees', value=" | ".join(name_list), inline=False)
+                            else:
+                                embed.add_field(
+                                    name='Attendees',
+                                    value="N/A",
+                                    inline=False
+                                )
+                            embed.add_field(
+                                name="Num. Attendees",
+                                value=f"**{len(collectors)}** member(s)",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{coin_emoji}{indiv_amount} {token_display}",
+                                inline=True
+                            )
+                            await _msg.edit(embed=embed)
+                            if 'fetched_msg' not in self.bot.other_data:
+                                self.bot.other_data['fetched_msg'] = {}
+                            self.bot.other_data['fetched_msg'][str(interaction.message.id)] = int(time.time())
                         return
-        except (disnake.InteractionResponded, disnake.InteractionTimedOut, disnake.NotFound) as e:
-            return await interaction.followup.send(
-                msg,
-                ephemeral=True,
-            )
+        except (disnake.InteractionResponded, disnake.InteractionTimedOut, disnake.errors.NotFound) as e:
+            return
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -457,24 +349,19 @@ class Tips(commands.Cog):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
-        self.freetip_duration_min = 5
-        self.freetip_duration_max = 600
-
         self.max_ongoing_by_user = 3
         self.max_ongoing_by_guild = 5
 
     @tasks.loop(seconds=30.0)
     async def freetip_check(self):
-        get_active_freetip = await store.get_active_discord_freetip(lap=120)
-        get_inactive_freetip = await store.get_inactive_discord_freetip(lap=1200)
+        get_active_freetip = await store.get_active_discord_freetip(lap=7*24*3600)
+        get_inactive_freetip = await store.get_inactive_discord_freetip(lap=7*24*3600)
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "tips_freetip_check"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
-
-        loop_next = 0
         if len(get_active_freetip) > 0:
             for each_message_data in get_active_freetip:
                 time_left = each_message_data['airdrop_time'] - int(time.time())
@@ -491,115 +378,221 @@ class Tips(commands.Cog):
                         await asyncio.sleep(1.0)
                         continue
                     get_owner = guild.get_member(int(each_message_data['from_userid']))
-                    found_owner = True
-                    owner_displayname = "N/A"
+                    owner_displayname = ""
                     if get_owner is None:
                         # In some case, user left the drop and we can't find them. Let tip process and ignore to DM them.
                         print("Airdroper None {}".format(each_message_data['from_userid']))
                         await asyncio.sleep(2.0)
                         get_owner = guild.get_member(int(each_message_data['from_userid']))
-                        if get_owner is None:
-                            found_owner = False
-                    _msg: disnake.Message = await channel.fetch_message(int(each_message_data['message_id']))
                     if get_owner:
-                        owner_displayname = f"{get_owner.name}#{get_owner.discriminator}"
-                    if _msg:
-                        try:
-                            amount = each_message_data['real_amount']
-                            equivalent_usd = each_message_data['real_amount_usd_text']
-                            coin_name = each_message_data['token_name']
-                            coin_emoji = ""
-                            try:
-                                if guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
-                                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                                    coin_emoji = coin_emoji + " " if coin_emoji else ""
-                            except Exception:
-                                traceback.print_exc(file=sys.stdout)
-                            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-                            embed = disnake.Embed(
-                                title=f"FreeTip appears {coin_emoji}{num_format_coin(amount)} "\
-                                    f"{token_display} {equivalent_usd}",
-                                description=f"FreeTip by {owner_displayname}",
-                                timestamp=datetime.fromtimestamp(each_message_data['airdrop_time'])
-                            )
-                            # Find reaction we're looking for
-                            attend_list = []
-                            attend_list_id = []
-                            attend_list_names = ""
+                        owner_displayname = f" by {get_owner.name}#{get_owner.discriminator}"
 
+                    # If time_left is too long
+                    if 'fetched_msg' not in self.bot.other_data:
+                        self.bot.other_data['fetched_msg'] = {}
+                    else:
+                        if each_message_data['message_id'] in self.bot.other_data['fetched_msg']:
+                            last_fetched = self.bot.other_data['fetched_msg'][each_message_data['message_id']]
+                            if int(time.time()) - last_fetched < 90 and time_left > 10*3600:
+                                continue
+                    _msg: disnake.Message = await channel.fetch_message(int(each_message_data['message_id']))
+                    if _msg:
+                        verify = "ON" if each_message_data['verify'] == 1 else "OFF"
+                        view = FreeTip_Button(self.bot, verify, int(each_message_data['from_userid']))
+                        try:
+                            embed = _msg.embeds[0] # embeds is list, we take 0
+                            embed.clear_fields()
+                            amount = each_message_data['real_amount']
+                            coin_name = each_message_data['token_name']
+                            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                            coin_emoji = coin_emoji + " " if coin_emoji else ""
+                            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
                             collectors = await store.get_freetip_collector_by_id(
                                 each_message_data['message_id'], each_message_data['from_userid']
                             )
-                            if len(collectors) > 0:
-                                # have some
-                                attend_list = [i['collector_name'] for i in collectors]
-                                attend_list_names = " | ".join(attend_list)
-                                attend_list_id = [int(i['collector_id']) for i in collectors]
-                            else:
-                                # No collector
-                                print("msg ID {} time left: {}".format(each_message_data['message_id'], time_left))
 
-                            if time_left > 0:
-                                if len(attend_list_names) >= 1000:
-                                    attend_list_names = attend_list_names[:1000]
-                                try:
-                                    indiv_amount = num_format_coin(truncate(amount / len(attend_list), 12)) \
-                                        if len(attend_list) > 0 else num_format_coin(truncate(amount, 12))
-                                    if each_message_data['airdrop_content'] and \
-                                        len(each_message_data['airdrop_content']) > 0:
-                                        embed.add_field(
-                                            name="Comment",
-                                            value=each_message_data['airdrop_content'],
-                                            inline=True
-                                        )
-                                    if len(attend_list_names) >= 0 and attend_list_names != "":
-                                        embed.add_field(
-                                            name='Attendees',
-                                            value=attend_list_names,
-                                            inline=False
-                                        )
-                                    embed.add_field(
-                                        name="Num. Attendees",
-                                        value=f"**{len(attend_list)}** members",
-                                        inline=True
-                                    )
-                                    embed.add_field(
-                                        name='Each Member Receives:',
-                                        value=f"{coin_emoji}{indiv_amount} {token_display}",
-                                        inline=True
-                                    )
-                                    embed.set_footer(
-                                        text=f"FreeTip by {owner_displayname}, Time Left: {seconds_str(time_left)}"
-                                    )
-                                    await _msg.edit(embed=embed)
-                                except Exception:
-                                    traceback.print_exc(file=sys.stdout)
+                            indiv_amount = num_format_coin(truncate(amount / len(collectors), 12)) \
+                                if len(collectors) > 0 else num_format_coin(truncate(amount, 12))
+                            if each_message_data['airdrop_content'] and \
+                                len(each_message_data['airdrop_content']) > 0:
+                                embed.add_field(
+                                    name="Comment",
+                                    value=each_message_data['airdrop_content'],
+                                    inline=False
+                                )
+                            if len(collectors) > 0:
+                                name_list = []
+                                for each_att in collectors:
+                                    name_list.append("<@{}>".format(each_att['collector_id']))
+                                    if len(name_list) > 0 and len(name_list) % 25 == 0:
+                                        embed.add_field(name='Attendees', value=" | ".join(name_list), inline=False)
+                                        name_list = []
+                                if len(name_list) > 0:
+                                    embed.add_field(name='Attendees', value=" | ".join(name_list), inline=False)
                             else:
-                                # End of time but sometimes, it stuck. Let's disable it.
-                                try:
-                                    indiv_amount = num_format_coin(truncate(amount / len(attend_list), 12)) if \
-                                        len(attend_list) > 0 else num_format_coin(truncate(amount, 12))
-                                    if each_message_data['airdrop_content'] and len(
-                                            each_message_data['airdrop_content']) > 0:
-                                        embed.add_field(
-                                            name="Comment",
-                                            value=each_message_data['airdrop_content'],
-                                            inline=True
+                                embed.add_field(
+                                    name='Attendees',
+                                    value="N/A",
+                                    inline=False
+                                )
+                            embed.add_field(
+                                name="Num. Attendees",
+                                value=f"**{len(collectors)}** member(s)",
+                                inline=True
+                            )
+                            embed.add_field(
+                                name='Each Member Receives:',
+                                value=f"{coin_emoji}{indiv_amount} {token_display}",
+                                inline=True
+                            )
+                            if time_left > 0:
+                                if 'fetched_msg' in self.bot.other_data and \
+                                    each_message_data['message_id'] in self.bot.other_data['fetched_msg']:
+                                    last_fetched = self.bot.other_data['fetched_msg'][each_message_data['message_id']]
+                                    if int(time.time()) - last_fetched < 30:
+                                        # skip
+                                        continue
+                                if int(time.time()) - int(_msg.edited_at.timestamp()) > 30:
+                                    embed.set_footer(
+                                        text=f"FreeTip {owner_displayname}, Time Left: {seconds_str_days(time_left)}")
+                                    try:
+                                        await _msg.edit(embed=embed, view=view)
+                                    except disnake.errors.Forbidden:
+                                        change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                                        await logchanbot(
+                                            "Failed to edit message (Forbidden): msg id: {}, channel id: {}, guild: {}/{}. Set it to failed.".format(
+                                                each_message_data['message_id'], each_message_data['channel_id'],
+                                                guild.name, each_message_data['guild_id']
+                                            )
                                         )
-                                    if len(attend_list_names) >= 0 and attend_list_names != "":
-                                        embed.add_field(name='Attendees', value=attend_list_names, inline=False)
-                                    embed.add_field(name="Num. Attendees", value=f"**{len(attend_list)}** members",
-                                                    inline=True)
-                                    embed.add_field(name='Each Member Receives:',
-                                                    value=f"{coin_emoji}{indiv_amount} {token_display}", inline=True)
-                                    embed.set_footer(text=f"FreeTip by {owner_displayname}, Already expired")
-                                    await _msg.edit(embed=embed, view=None)
-                                    # update status
-                                    # Do not change OR no one will credit after timeout
-                                    # change_status = await store.discord_freetip_update(each_message_data['message_id'], "NOCOLLECT" if len(attend_list) == 0 else "COMPLETED")
-                                except Exception:
-                                    traceback.print_exc(file=sys.stdout)
+                                        find_owner = self.bot.get_user(int(each_message_data['from_userid']))
+                                        if find_owner is not None:
+                                            await find_owner.send("I cancelled your /freetip id: {} in guild {} because I got no permission to edit embed message.".format(
+                                                each_message_data['message_id'], guild.name
+                                            ))
+                                    if 'fetched_msg' in self.bot.other_data:
+                                        self.bot.other_data['fetched_msg'][each_message_data['message_id']] = int(time.time())
+                            else:
+                                ## Update content
+                                if each_message_data['status'] == "ONGOING":
+                                    if len(collectors) == 0:
+                                        embed.set_footer(text=f"FreeTip by {owner_displayname}, and no one collected!")
+                                        try:
+                                            await _msg.edit(embed=embed, view=None)
+                                            # update status
+                                            change_status = await store.discord_freetip_update(each_message_data['message_id'], "NOCOLLECT")
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
+                                        link_to_msg = "https://discord.com/channels/{}/{}/{}".format(
+                                            each_message_data['guild_id'], each_message_data['channel_id'],
+                                            each_message_data['message_id']
+                                        )
+                                        # free tip shall always get DM. Ignore notifying list
+                                        try:
+                                            if get_owner is not None:
+                                                await get_owner.send(
+                                                    f"FreeTip of {coin_emoji}{num_format_coin(amount)} "\
+                                                    f"{token_display} expired and no one collected.\n{link_to_msg}"
+                                                )
+                                        except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                            pass
+                                    elif len(collectors) > 0:
+                                        # re-check balance
+                                        get_deposit = await self.wallet_api.sql_get_userwallet(
+                                            each_message_data['from_userid'], coin_name, net_name, type_coin, SERVER_BOT, 0
+                                        )
+                                        if get_deposit is None:
+                                            get_deposit = await self.wallet_api.sql_register_user(
+                                                each_message_data['from_userid'], coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                                            )
+
+                                        wallet_address = get_deposit['balance_wallet_address']
+                                        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                            wallet_address = get_deposit['paymentid']
+                                        elif type_coin in ["XRP"]:
+                                            wallet_address = get_deposit['destination_tag']
+
+                                        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                        userdata_balance = await store.sql_user_balance_single(
+                                            each_message_data['from_userid'], coin_name, wallet_address, 
+                                            type_coin, height, deposit_confirm_depth, SERVER_BOT
+                                        )
+                                        actual_balance = float(userdata_balance['adjust'])
+
+                                        # We need only to check if balance > 0 his balance already pending.
+                                        if actual_balance < 0:
+                                            embed.set_footer(text=f"FreeTip by {owner_displayname}, failed!")
+                                            try:
+                                                await _msg.edit(embed=embed, view=None)
+                                                # update status
+                                                change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                                            except Exception:
+                                                traceback.print_exc(file=sys.stdout)
+                                            # end of re-check balance
+                                        else:
+                                            # Multiple tip here
+                                            amount_div = truncate(amount / len(collectors), 12)
+                                            tipAmount = num_format_coin(amount)
+                                            ActualSpend_str = num_format_coin(amount_div * len(collectors))
+                                            amountDiv_str = num_format_coin(amount_div)
+                                            amount_in_usd = 0.0
+                                            per_unit = None
+                                            if usd_equivalent_enable == 1:
+                                                per_unit = each_message_data['unit_price_usd']
+                                                if per_unit and per_unit > 0:
+                                                    amount_in_usd = per_unit * float(amount_div)
+
+                                            try:
+                                                try:
+                                                    key_coin = each_message_data['from_userid'] + "_" + coin_name + "_" + SERVER_BOT
+                                                    if key_coin in self.bot.user_balance_cache:
+                                                        del self.bot.user_balance_cache[key_coin]
+
+                                                    for each in [i['collector_id'] for i in collectors]:
+                                                        key_coin = each + "_" + coin_name + "_" + SERVER_BOT
+                                                        if key_coin in self.bot.user_balance_cache:
+                                                            del self.bot.user_balance_cache[key_coin]
+                                                except Exception:
+                                                    pass
+                                                tips = await store.sql_user_balance_mv_multiple(
+                                                    each_message_data['from_userid'], [i['collector_id'] for i in collectors],
+                                                    each_message_data['guild_id'],
+                                                    each_message_data['channel_id'], float(amount_div),
+                                                    coin_name, "FREETIP", coin_decimal, SERVER_BOT,
+                                                    contract, float(amount_in_usd), None
+                                                )
+                                                # If tip, update status
+                                                change_status = await store.discord_freetip_update(each_message_data['message_id'], "COMPLETED")
+                                                embed.set_footer(text=f"Completed! Collected by {len(collectors)} member(s)")
+                                                await _msg.edit(embed=embed, view=None)
+                                                if tips:
+                                                    link_to_msg = "https://discord.com/channels/{}/{}/{}".format(
+                                                        each_message_data['guild_id'], each_message_data['channel_id'],
+                                                        each_message_data['message_id']
+                                                    )
+                                                    # free tip shall always get DM. Ignore notifying list
+                                                    try:
+                                                        guild = self.bot.get_guild(int(each_message_data['guild_id']))
+                                                        msg_freetip = f"{EMOJI_ARROW_RIGHTHOOK} FreeTip of {coin_emoji}{tipAmount} {token_display} "\
+                                                            f"was sent to ({len(collectors)}) members in server `{guild.name}`.\n"\
+                                                            f"Each member got: {coin_emoji}**{amountDiv_str} {token_display}**\n"\
+                                                            f"Actual spending: {coin_emoji}**{ActualSpend_str} {token_display}**\n{link_to_msg}"
+                                                        if get_owner is not None:
+                                                            await get_owner.send(
+                                                                msg_freetip
+                                                            )
+                                                        await _msg.reply(msg_freetip)
+                                                    except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                                        pass
+                                            except Exception:
+                                                traceback.print_exc(file=sys.stdout)
+                                                await logchanbot("tips " +str(traceback.format_exc()))
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                     else:
@@ -767,7 +760,7 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         # check if amount is all
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
@@ -1072,7 +1065,7 @@ class Tips(commands.Cog):
 
     # FreeTip
     async def async_freetip(
-        self, ctx, amount: str, token: str, duration: str = None, comment: str = None, verify: str="OFF"
+        self, ctx, amount: str, token: str, duration: int, comment: str = None, verify: str="OFF"
     ):
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /freetip...'
         await ctx.response.send_message(msg)
@@ -1097,278 +1090,245 @@ class Tips(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         # end check lock
 
-        coin_name = token.upper()
-        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
-            coin_name = self.bot.coin_alias_names[coin_name]
-        # Token name check
-        if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-            await ctx.edit_original_message(content=msg)
-            return
-        else:
-            if getattr(getattr(self.bot.coin_list, coin_name), "enable_tip") != 1:
-                msg = f'{ctx.author.mention}, **{coin_name}** tipping is disable.'
-                await ctx.edit_original_message(content=msg)
-                return
-        # End token name check
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-        if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
-            'tiponly'].split(","):
-            allowed_coins = serverinfo['tiponly']
-            msg = f"{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. "\
-                "You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`"
-            await ctx.edit_original_message(content=msg)
-            return
-
-        # Check if there is many airdrop/mathtip/triviatip
         try:
-            count_ongoing = await store.discord_freetip_ongoing(str(ctx.author.id), "ONGOING")
-            if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != self.bot.config['discord']['owner_id']:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. "\
-                    "Please wait for them to complete first!"
-                await ctx.edit_original_message(content=msg)
-                return
-            count_ongoing = await store.discord_freetip_ongoing_guild(str(ctx.guild.id), "ONGOING")
-            # Check max if set in guild
-            if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and ctx.author.id != self.bot.config['discord']['owner_id']:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. "\
-                    "Please wait for them to complete first!"
-                await ctx.edit_original_message(content=msg)
-                return
-            elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != self.bot.config['discord']['owner_id']:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. "\
-                    "Please wait for them to complete first!"
-                await ctx.edit_original_message(content=msg)
-                await logchanbot(f"[FREETIP] server {str(ctx.guild.id)} has no data in discord_server.")
-                return
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-        # End of ongoing check
-
-        coin_emoji = ""
-        try:
-            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
-                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                coin_emoji = coin_emoji + " " if coin_emoji else ""
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-
-        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-
-        # token_info = getattr(self.bot.coin_list, coin_name)
-        token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-
-        get_deposit = await self.wallet_api.sql_get_userwallet(
-            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
-        )
-        if get_deposit is None:
-            get_deposit = await self.wallet_api.sql_register_user(
-                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
-            )
-
-        wallet_address = get_deposit['balance_wallet_address']
-        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-            wallet_address = get_deposit['paymentid']
-        elif type_coin in ["XRP"]:
-            wallet_address = get_deposit['destination_tag']
-
-        # Check if tx in progress
-        if str(ctx.author.id) in self.bot.tipping_in_progress and \
-            int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
-            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
-            await ctx.edit_original_message(content=msg)
-            return
-
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-        # check if amount is all
-        all_amount = False
-        if not amount.isdigit() and amount.upper() == "ALL":
-            all_amount = True
-            userdata_balance = await store.sql_user_balance_single(
-                str(ctx.author.id), coin_name, wallet_address,
-                type_coin, height, deposit_confirm_depth, SERVER_BOT
-            )
-            amount = float(userdata_balance['adjust'])
-        # If $ is in amount, let's convert to coin/token
-        elif "$" in amount[-1] or "$" in amount[0]:  # last is $
-            # Check if conversion is allowed for this coin.
-            amount = amount.replace(",", "").replace("$", "")
-            if usd_equivalent_enable == 0:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+            coin_name = token.upper()
+            if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+                coin_name = self.bot.coin_alias_names[coin_name]
+            # Token name check
+            if not hasattr(self.bot.coin_list, coin_name):
+                msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
                 await ctx.edit_original_message(content=msg)
                 return
             else:
+                if getattr(getattr(self.bot.coin_list, coin_name), "enable_tip") != 1:
+                    msg = f'{ctx.author.mention}, **{coin_name}** tipping is disable.'
+                    await ctx.edit_original_message(content=msg)
+                    return
+            # End token name check
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
+                'tiponly'].split(","):
+                allowed_coins = serverinfo['tiponly']
+                msg = f"{ctx.author.mention}, **{coin_name}** is not allowed here. Currently, allowed `{allowed_coins}`. "\
+                    "You can ask guild owner to allow. `/SETTING TIPONLY coin1,coin2,...`"
+                await ctx.edit_original_message(content=msg)
+                return
+
+            # Check if there is many airdrop/mathtip/triviatip
+            try:
+                count_ongoing = await store.discord_freetip_ongoing(str(ctx.author.id), "ONGOING")
+                if count_ongoing >= self.max_ongoing_by_user and ctx.author.id != self.bot.config['discord']['owner_id']:
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you still have some ongoing tips. "\
+                        "Please wait for them to complete first!"
+                    await ctx.edit_original_message(content=msg)
+                    return
+                count_ongoing = await store.discord_freetip_ongoing_guild(str(ctx.guild.id), "ONGOING")
+                # Check max if set in guild
+                if serverinfo and count_ongoing >= serverinfo['max_ongoing_drop'] and ctx.author.id != self.bot.config['discord']['owner_id']:
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. "\
+                        "Please wait for them to complete first!"
+                    await ctx.edit_original_message(content=msg)
+                    return
+                elif serverinfo is None and count_ongoing >= self.max_ongoing_by_guild and ctx.author.id != self.bot.config['discord']['owner_id']:
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there are still some ongoing drops or tips in this guild. "\
+                        "Please wait for them to complete first!"
+                    await ctx.edit_original_message(content=msg)
+                    await logchanbot(f"[FREETIP] server {str(ctx.guild.id)} has no data in discord_server.")
+                    return
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+            # End of ongoing check
+
+            coin_emoji = ""
+            try:
+                if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+
+            # token_info = getattr(self.bot.coin_list, coin_name)
+            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+
+            get_deposit = await self.wallet_api.sql_get_userwallet(
+                str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+            )
+            if get_deposit is None:
+                get_deposit = await self.wallet_api.sql_register_user(
+                    str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                )
+
+            wallet_address = get_deposit['balance_wallet_address']
+            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                wallet_address = get_deposit['paymentid']
+            elif type_coin in ["XRP"]:
+                wallet_address = get_deposit['destination_tag']
+
+            # Check if tx in progress
+            if str(ctx.author.id) in self.bot.tipping_in_progress and \
+                int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 150:
+                msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
+                await ctx.edit_original_message(content=msg)
+                return
+
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            # check if amount is all
+            all_amount = False
+            if not amount.isdigit() and amount.upper() == "ALL":
+                all_amount = True
+                userdata_balance = await store.sql_user_balance_single(
+                    str(ctx.author.id), coin_name, wallet_address,
+                    type_coin, height, deposit_confirm_depth, SERVER_BOT
+                )
+                amount = float(userdata_balance['adjust'])
+            # If $ is in amount, let's convert to coin/token
+            elif "$" in amount[-1] or "$" in amount[0]:  # last is $
+                # Check if conversion is allowed for this coin.
+                amount = amount.replace(",", "").replace("$", "")
+                if usd_equivalent_enable == 0:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                else:
+                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                    coin_name_for_price = coin_name
+                    if native_token_name:
+                        coin_name_for_price = native_token_name
+                    per_unit = None
+                    if coin_name_for_price in self.bot.token_hints:
+                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
+                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
+                    else:
+                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                    if per_unit and per_unit > 0:
+                        amount = float(Decimal(amount) / Decimal(per_unit))
+                    else:
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method."
+                        await ctx.edit_original_message(content=msg)
+                        return
+            else:
+                amount = amount.replace(",", "")
+                amount = text_to_num(amount)
+                if amount is None:
+                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
+                    await ctx.edit_original_message(content=msg)
+                    return
+            # end of check if amount is all
+
+            notifying_list = await store.sql_get_tipnotify()
+            userdata_balance = await store.sql_user_balance_single(
+                str(ctx.author.id), coin_name, wallet_address, type_coin,
+                height, deposit_confirm_depth, SERVER_BOT
+            )
+            actual_balance = float(userdata_balance['adjust'])
+
+            if amount <= 0 or actual_balance <= 0:
+                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
+                await ctx.edit_original_message(content=msg)
+                return
+
+            if amount > max_tip or amount < min_tip:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than "\
+                    f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
+                    f"**{num_format_coin(min_tip)} {token_display}**."
+                await ctx.edit_original_message(content=msg)
+                return
+            elif amount > actual_balance:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a free tip of "\
+                    f"**{num_format_coin(amount)} {token_display}**."
+                await ctx.edit_original_message(content=msg)
+                return
+
+            equivalent_usd = ""
+            total_in_usd = 0.0
+            per_unit = None
+            if usd_equivalent_enable == 1:
                 native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
                 coin_name_for_price = coin_name
                 if native_token_name:
                     coin_name_for_price = native_token_name
-                per_unit = None
                 if coin_name_for_price in self.bot.token_hints:
                     id = self.bot.token_hints[coin_name_for_price]['ticker_name']
                     per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
                 else:
                     per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
                 if per_unit and per_unit > 0:
-                    amount = float(Decimal(amount) / Decimal(per_unit))
-                else:
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method."
-                    await ctx.edit_original_message(content=msg)
-                    return
-        else:
-            amount = amount.replace(",", "")
-            amount = text_to_num(amount)
-            if amount is None:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.'
-                await ctx.edit_original_message(content=msg)
-                return
+                    total_in_usd = float(Decimal(amount) * Decimal(per_unit))
+                    if total_in_usd >= 0.0001:
+                        equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
 
-        # end of check if amount is all
-
-        def hms_to_seconds(time_string):
-            duration_in_second = 0
-            if time_string.isdigit():
-                return int(time_string)
+            embed = disnake.Embed(
+                title=f"FreeTip appears {coin_emoji}{num_format_coin(amount)} {token_display} {equivalent_usd}",
+                description=f"Click to collect", timestamp=datetime.fromtimestamp(int(time.time()) + duration))
             try:
-                time_string = time_string.replace("hours", "h")
-                time_string = time_string.replace("hour", "h")
-                time_string = time_string.replace("hrs", "h")
-                time_string = time_string.replace("hr", "h")
+                # Delete if has key
+                key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
+                try:
+                    if key in self.bot.user_balance_cache:
+                        del self.bot.user_balance_cache[key]
+                except Exception:
+                    pass
+                # End of del key
+                if comment and len(comment) > 0:
+                    embed.add_field(name="Comment", value=comment, inline=True)
+                embed.add_field(name="Attendees", value="Click to collect!", inline=False)
+                embed.add_field(
+                    name="Individual Tip Amount",
+                    value=f"{coin_emoji}{num_format_coin(amount)} {token_display}",
+                    inline=True
+                )
+                embed.add_field(name="Num. Attendees", value="**0** members", inline=True)
+                embed.set_footer(
+                    text=f"FreeTip by {ctx.author.name}#{ctx.author.discriminator}, Time Left: {seconds_str_days(duration)}")
 
-                time_string = time_string.replace("minutes", "mn")
-                time_string = time_string.replace("mns", "mn")
-                time_string = time_string.replace("mins", "mn")
-                time_string = time_string.replace("min", "mn")
-                mult = {'h': 60 * 60, 'mn': 60, 's': 1}
-                duration_in_second = sum(
-                    int(num) * mult.get(val, 1) for num, val in re.findall('(\d+)(\w+)', time_string))
+                comment_str = ""
+                if comment and len(comment) > 0:
+                    comment_str = comment
+                if str(ctx.author.id) not in self.bot.tipping_in_progress:
+                    self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
+                    try:
+                        verify_int = 1 if verify == "ON" else 0
+                        view = FreeTip_Button(self.bot, verify, ctx.author.id)
+                        view.message = await ctx.original_message()
+                        await store.insert_discord_freetip(
+                            coin_name, contract, str(ctx.author.id),
+                            "{}#{}".format(
+                                ctx.author.name,
+                                ctx.author.discriminator
+                            ),
+                            str(view.message.id), comment_str,
+                            str(ctx.guild.id), str(ctx.channel.id), amount,
+                            total_in_usd, equivalent_usd, per_unit,
+                            coin_decimal, int(time.time()) + duration,
+                            "ONGOING", verify_int
+                        )
+                        try:
+                            await ctx.edit_original_message(content=None, embed=embed, view=view)
+                        except disnake.errors.Forbidden:
+                            # cancelled it
+                            change_status = await store.discord_freetip_update(str(view.message.id), "FAILED")
+                            await ctx.edit_original_message(
+                                content=f"{EMOJI_RED_NO} {ctx.author.mention}, failed to edit embed message (no permission)!"
+                            )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-            return duration_in_second
-
-        default_duration = 60
-        duration_s = 0
-        if duration is None:
-            duration_s = default_duration  # default
-
-        try:
-            duration_s = hms_to_seconds(duration)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid duration.'
-            await ctx.edit_original_message(content=msg)
-            return
-
-        if duration_s == 0:
-            duration_s = default_duration
-            # Just info, continue
-        elif duration_s < self.freetip_duration_min or duration_s > self.freetip_duration_max:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid duration. Please use between "\
-                f"{str(self.freetip_duration_min)}s to {str(self.freetip_duration_max)}s."
-            await ctx.edit_original_message(content=msg)
-            return
-
-        notifying_list = await store.sql_get_tipnotify()
-        userdata_balance = await store.sql_user_balance_single(
-            str(ctx.author.id), coin_name, wallet_address, type_coin,
-            height, deposit_confirm_depth, SERVER_BOT
-        )
-        actual_balance = float(userdata_balance['adjust'])
-
-        if amount <= 0 or actual_balance <= 0:
-            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}.'
-            await ctx.edit_original_message(content=msg)
-            return
-
-        if amount > max_tip or amount < min_tip:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than "\
-                f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
-                f"**{num_format_coin(min_tip)} {token_display}**."
-            await ctx.edit_original_message(content=msg)
-            return
-        elif amount > actual_balance:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to do a free tip of "\
-                f"**{num_format_coin(amount)} {token_display}**."
-            await ctx.edit_original_message(content=msg)
-            return
-
-        equivalent_usd = ""
-        total_in_usd = 0.0
-        per_unit = None
-        if usd_equivalent_enable == 1:
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            coin_name_for_price = coin_name
-            if native_token_name:
-                coin_name_for_price = native_token_name
-            if coin_name_for_price in self.bot.token_hints:
-                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-            else:
-                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-            if per_unit and per_unit > 0:
-                total_in_usd = float(Decimal(amount) * Decimal(per_unit))
-                if total_in_usd >= 0.0001:
-                    equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
-
-        embed = disnake.Embed(
-            title=f"FreeTip appears {coin_emoji}{num_format_coin(amount)} {token_display} {equivalent_usd}",
-            description=f"Click to collect", timestamp=datetime.fromtimestamp(int(time.time()) + duration_s))
-        try:
-            # Delete if has key
-            key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
             try:
-                if key in self.bot.user_balance_cache:
-                    del self.bot.user_balance_cache[key]
+                del self.bot.tipping_in_progress[str(ctx.author.id)]
             except Exception:
                 pass
-            # End of del key
-            if comment and len(comment) > 0:
-                embed.add_field(name="Comment", value=comment, inline=True)
-            embed.add_field(name="Attendees", value="Click to collect!", inline=False)
-            embed.add_field(
-                name="Individual Tip Amount",
-                value=f"{coin_emoji}{num_format_coin(amount)} {token_display}",
-                inline=True
-            )
-            embed.add_field(name="Num. Attendees", value="**0** members", inline=True)
-            embed.set_footer(
-                text=f"FreeTip by {ctx.author.name}#{ctx.author.discriminator}, Time Left: {seconds_str(duration_s)}")
-
-            comment_str = ""
-            if comment and len(comment) > 0:
-                comment_str = comment
-            if str(ctx.author.id) not in self.bot.tipping_in_progress:
-                self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
-                try:
-                    view = FreeTip_Button(ctx, self.bot, duration_s, verify)
-                    view.message = await ctx.original_message()
-                    await store.insert_discord_freetip(
-                        coin_name, contract, str(ctx.author.id),
-                        "{}#{}".format(
-                            ctx.author.name,
-                            ctx.author.discriminator
-                        ),
-                        str(view.message.id), comment_str,
-                        str(ctx.guild.id), str(ctx.channel.id), amount,
-                        total_in_usd, equivalent_usd, per_unit,
-                        coin_decimal, int(time.time()) + duration_s,
-                        "ONGOING"
-                    )
-                    await ctx.edit_original_message(content=None, embed=embed, view=view)
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        try:
-            del self.bot.tipping_in_progress[str(ctx.author.id)]
-        except Exception:
-            pass
 
     @commands.guild_only()
     @commands.bot_has_permissions(send_messages=True)
@@ -1378,7 +1338,19 @@ class Tips(commands.Cog):
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
             Option('token', 'token', OptionType.string, required=True),
-            Option('duration', 'duration', OptionType.string, required=True),
+            Option('duration', 'duration', OptionType.string, required=True, choices=[
+                OptionChoice("2mn", "2mn"),
+                OptionChoice("5mn", "5mn"),
+                OptionChoice("30mn", "30mn"),
+                OptionChoice("42mn", "42mn"),
+                OptionChoice("1 Hour", "60mn"),
+                OptionChoice("2 Hours", "120mn"),
+                OptionChoice("6 Hours", "360mn"),
+                OptionChoice("12 Hours", "720mn"),
+                OptionChoice("1 Day", "1440mn"),
+                OptionChoice("2 Days", "2880mn"),
+                OptionChoice("3 Days", "4320mn")
+            ]),
             Option('comment', 'comment', OptionType.string, required=False),
             Option('verify', 'verify (ON | OFF)', OptionType.string, required=False, choices=[
                 OptionChoice("ON", "ON"),
@@ -1398,6 +1370,10 @@ class Tips(commands.Cog):
         verify: str="OFF"
     ):
         try:
+            duration = int(duration.replace("mn", ""))*60 # in seconds
+            if duration == 0:
+                duration = 60
+                # Just info, continue
             await self.async_freetip(ctx, amount, token, duration, comment, verify)
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -1494,7 +1470,7 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         # check if amount is all
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
@@ -2565,7 +2541,7 @@ class Tips(commands.Cog):
                             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                             list_coin_decimal[coin_name] = coin_decimal
                             list_contract[coin_name] = contract
-                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             get_deposit = await self.wallet_api.sql_get_userwallet(
                                 str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
                             )
@@ -2883,7 +2859,7 @@ class Tips(commands.Cog):
         elif type_coin in ["XRP"]:
             wallet_address = get_deposit['destination_tag']
 
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         userdata_balance = await store.sql_user_balance_single(
             id_tipper, coin_name, wallet_address, type_coin, height,
             deposit_confirm_depth, SERVER_BOT
@@ -3169,7 +3145,7 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         # check if amount is all
         all_amount = False
         if not amount.isdigit() and amount.upper() == "ALL":
@@ -3532,7 +3508,7 @@ class Tips(commands.Cog):
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
 
-                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 userdata_balance = await store.sql_user_balance_single(
                     str(ctx.author.id), coin_name, wallet_address, type_coin, height,
                     deposit_confirm_depth, SERVER_BOT

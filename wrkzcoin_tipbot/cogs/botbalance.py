@@ -80,7 +80,7 @@ class BotBalance(commands.Cog):
             elif type_coin in ["XRP"]:
                 wallet_address = get_deposit['destination_tag']
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             description = ""
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             embed = disnake.Embed(

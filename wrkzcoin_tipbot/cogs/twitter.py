@@ -1043,7 +1043,7 @@ class Twitter(commands.Cog):
         elif type_coin in ["XRP"]:
             wallet_address = get_deposit['destination_tag']
 
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         userdata_balance = await store.sql_user_balance_single(
             str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
         )
@@ -1401,7 +1401,7 @@ class Twitter(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
 
-                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     # check if amount is all
                     all_amount = False
                     if not amount.isdigit() and amount.upper() == "ALL":
@@ -1753,7 +1753,7 @@ class Twitter(commands.Cog):
                     elif type_coin in ["XRP"]:
                         wallet_address = get_deposit['destination_tag']
 
-                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     try:
                         # Add update for future call
                         await self.utils.update_user_balance_call(twitter_id_str, type_coin)

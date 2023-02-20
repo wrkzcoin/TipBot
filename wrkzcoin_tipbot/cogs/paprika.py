@@ -290,7 +290,7 @@ class Paprika(commands.Cog):
                     if coin_name.lower() == i['name'].lower() or coin_name.lower() == i['symbol'].lower():
                         id = i['id']  # i['name']
         # if cache
-        cache_pap_coin = self.utils.get_cache_kv("paprika", id)
+        cache_pap_coin = await self.utils.async_get_cache_kv("paprika", id)
         if cache_pap_coin is not None and cache_pap_coin['fetched_time'] + self.bot.config['kv_db']['paprika_ttl_coin_id'] > int(time.time()):
             print(f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S} get paprika used cache for coin id [{id}]...")
             return cache_pap_coin
@@ -306,7 +306,7 @@ class Paprika(commands.Cog):
                         elif float(j['quotes']['USD']['price']) > 0.0:
                             try:
                                 # set name
-                                self.utils.set_cache_kv(
+                                await self.utils.async_set_cache_kv(
                                     "paprika",
                                     j['name'].upper(),
                                     {
@@ -320,7 +320,7 @@ class Paprika(commands.Cog):
                                     }
                                 )
                                 # set symbol
-                                self.utils.set_cache_kv(
+                                await self.utils.async_set_cache_kv(
                                     "paprika",
                                     j['symbol'].upper(),
                                     {
@@ -334,7 +334,7 @@ class Paprika(commands.Cog):
                                     }
                                 )
                                 # set id
-                                self.utils.set_cache_kv(
+                                await self.utils.async_set_cache_kv(
                                     "paprika",
                                     id,
                                     {

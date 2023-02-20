@@ -179,6 +179,7 @@ class PartyDrop(commands.Cog):
                                 if channel is None:
                                     await logchanbot("party_check: can not find channel ID: {}".format(each_party['channel_id']))
                                     await asyncio.sleep(2.0)
+                                    continue
                                 _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
                                 await _msg.edit(content=None, embed=embed, view=None)
                                 # Update balance
@@ -204,9 +205,24 @@ class PartyDrop(commands.Cog):
                                     ))
                                     await store.update_party_failed(each_party['message_id'], True)
                                     await asyncio.sleep(1.0)
+                            except disnake.errors.DiscordServerError:
+                                    await logchanbot("[PARTYDROP]: DiscordServerError message ID: {} of channel {} in guild: {}.".format(
+                                        each_party['message_id'], each_party['channel_id'], each_party['guild_id']
+                                    ))
+                                    await asyncio.sleep(1.0)
+                                    continue
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                         else:
+                            # If time_left is too long
+                            if 'fetched_msg' not in self.bot.other_data:
+                                self.bot.other_data['fetched_msg'] = {}
+                            else:
+                                if each_party['message_id'] in self.bot.other_data['fetched_msg']:
+                                    duration = each_party['partydrop_time'] - int(time.time())
+                                    last_fetched = self.bot.other_data['fetched_msg'][each_party['message_id']]
+                                    if int(time.time()) - last_fetched < 90 and duration > 10*3600:
+                                        continue
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop 🎉",
                                 description="Each click will deduct from your TipBot's balance. Minimum entrance cost: {}`{} {}`. "\
@@ -275,7 +291,8 @@ class PartyDrop(commands.Cog):
                                 else:
                                     try:
                                         _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
-                                        await _msg.edit(content=None, embed=embed)
+                                        if _msg is not None and _msg.edited_at and int(time.time()) - int(_msg.edited_at.timestamp()) > 60:
+                                            await _msg.edit(content=None, embed=embed)
                                     except disnake.errors.NotFound:
                                         # add fail check
                                         turn_off = False
@@ -403,7 +420,7 @@ class PartyDrop(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         
         # Check min_amount
         if not min_amount.isdigit() and min_amount.upper() == "ALL":

@@ -426,7 +426,7 @@ class Events(commands.Cog):
             elif type_coin in ["XRP"]:
                 wallet_address = get_deposit['destination_tag']
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             userdata_balance = await store.sql_user_balance_single(
                 str(message.author.id), coin_name, wallet_address, type_coin, height,
                 deposit_confirm_depth, SERVER_BOT
@@ -1521,6 +1521,9 @@ class Events(commands.Cog):
                                     await asyncio.sleep(5.0)
                                 else:
                                     await _msg.edit(content=None, embed=embed)
+                                    if 'fetched_msg' not in self.bot.other_data:
+                                        self.bot.other_data['fetched_msg'] = {}
+                                    self.bot.other_data['fetched_msg'][get_message['message_id']] = int(time.time())
                                 await asyncio.sleep(5.0)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -1578,7 +1581,7 @@ class Events(commands.Cog):
                     elif type_coin in ["XRP"]:
                         wallet_address = get_deposit['destination_tag']
 
-                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     userdata_balance = await store.sql_user_balance_single(
                         str(inter.author.id), coin_name, wallet_address, type_coin,
                         height, deposit_confirm_depth, SERVER_BOT
@@ -1638,6 +1641,9 @@ class Events(commands.Cog):
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 _msg: disnake.Message = await channel.fetch_message(inter.message.id)
                                 await _msg.edit(content=None, embed=embed)
+                                if 'fetched_msg' not in self.bot.other_data:
+                                    self.bot.other_data['fetched_msg'] = {}
+                                self.bot.other_data['fetched_msg'][str(inter.message.id)] = int(time.time())
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             return
@@ -1722,6 +1728,9 @@ class Events(commands.Cog):
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 _msg: disnake.Message = await channel.fetch_message(inter.message.id)
                                 await _msg.edit(content=None, embed=embed)
+                                if 'fetched_msg' not in self.bot.other_data:
+                                    self.bot.other_data['fetched_msg'] = {}
+                                self.bot.other_data['fetched_msg'][str(inter.message.id)] = int(time.time())
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             return
@@ -1902,7 +1911,7 @@ class Events(commands.Cog):
                 else:
                     wallet_address = get_deposit['balance_wallet_address']
 
-                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 # height can be None
                 userdata_balance = await store.sql_user_balance_single(
                     str(inter.author.id), coin_name, wallet_address,

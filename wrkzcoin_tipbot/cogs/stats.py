@@ -103,7 +103,7 @@ class Stats(commands.Cog):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 try:
-                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     if height:
                         embed.add_field(
                             name="blockNumber",

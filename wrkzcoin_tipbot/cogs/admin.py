@@ -13,6 +13,7 @@ from io import BytesIO
 import os
 from bip_utils import Bip39SeedGenerator, Bip44Coins, Bip44
 import uuid
+import threading
 
 import aiohttp
 import aiomysql
@@ -1315,6 +1316,11 @@ class Admin(commands.Cog):
                         await cur.execute(sql, )
                         result = await cur.fetchall()
                         if result: return result
+                    elif type_coin.upper() == "XRP":
+                        sql = """ SELECT * FROM `xrp_user` """
+                        await cur.execute(sql, )
+                        result = await cur.fetchall()
+                        if result: return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("admin " +str(traceback.format_exc()))
@@ -1413,6 +1419,22 @@ class Admin(commands.Cog):
         return
 
     @commands.is_owner()
+    @admin.command(hidden=True, usage='admin dumpthread', description="Dump all threads")
+    async def dumpthread(self, ctx):
+        try:
+            all_threads = threading.enumerate()
+            thread_list = []
+            for i in all_threads:
+                thread_list.append(str(i))
+            joi_thread_list = "\n".join(thread_list)
+            data_file = disnake.File(BytesIO(joi_thread_list.encode()),
+                                    filename=f"list_thread_{str(int(time.time()))}.txt")
+            await ctx.reply(file=data_file)
+            return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.is_owner()
     @admin.command(hidden=True, usage='admin enableuser <user id> <user_server>', description="Disable a user from using command.")
     async def enableuser(self, ctx, user_id: str, user_server: str="DISCORD"):
         try:
@@ -1429,7 +1451,7 @@ class Admin(commands.Cog):
                     return
 
             # Check in table
-            get_member = self.utils.get_cache_kv(
+            get_member = await self.utils.async_get_cache_kv(
                 "user_disable",
                 f"{user_id}_{user_server}"
             )
@@ -1475,7 +1497,7 @@ class Admin(commands.Cog):
                     return
 
             # Check in table
-            get_member = self.utils.get_cache_kv(
+            get_member = await self.utils.async_get_cache_kv(
                 "user_disable",
                 f"{user_id}_{user_server}"
             )
@@ -1487,7 +1509,7 @@ class Admin(commands.Cog):
                 await ctx.reply(msg)
                 return
             else:
-                self.utils.set_cache_kv(
+                await self.utils.async_set_cache_kv(
                     "user_disable",
                     f"{user_id}_{user_server}",
                     {'time': int(time.time()), 'reason': reasons if reasons else "N/A"}
@@ -2105,7 +2127,7 @@ class Admin(commands.Cog):
                 # getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 all_user_id = await self.sql_get_all_userid_by_coin(coin_name)
                 time_start = int(time.time())
                 list_users = [m.id for m in self.bot.get_all_members()]
@@ -2277,7 +2299,7 @@ class Admin(commands.Cog):
             elif type_coin in ["XRP"]:
                 wallet_address = get_deposit['destination_tag']
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             try:
                 # Add update for future call
                 try:
@@ -2508,7 +2530,7 @@ class Admin(commands.Cog):
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
 
-                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 query_list[coin_name] = [member_id, coin_name, wallet_address, type_coin, height, deposit_confirm_depth, user_server]
                 coin_index.append(coin_name)
             userdata_balances = await self.user_balance_multi(query_list)

@@ -17,7 +17,7 @@ from cachetools import TTLCache
 
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
-from discord_webhook import DiscordWebhook
+from discord_webhook import AsyncDiscordWebhook
 
 import store
 from Bot import get_token_list, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMOJI_INFORMATION, \
@@ -92,6 +92,8 @@ class Guild(commands.Cog):
             if len(list_activedrop) > 0:
                 for each_drop in list_activedrop:
                     coin_name = each_drop['tiptallk_coin']
+                    if not hasattr(self.bot.coin_list, coin_name):
+                        continue
                     net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                     type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                     deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -163,7 +165,7 @@ class Guild(commands.Cog):
                             elif type_coin in ["XRP"]:
                                 wallet_address = get_deposit['destination_tag']
 
-                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             userdata_balance = await self.wallet_api.user_balance(
                                 each_drop['serverid'], coin_name, 
                                 wallet_address, type_coin, height, 
@@ -897,7 +899,7 @@ class Guild(commands.Cog):
                             elif type_coin in ["XRP"]:
                                 wallet_address = get_deposit['destination_tag']
 
-                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             userdata_balance = await self.wallet_api.user_balance(
                                 each_guild['serverid'], coin_name, 
                                 wallet_address, type_coin, height, 
@@ -999,8 +1001,8 @@ class Guild(commands.Cog):
 
     async def vote_logchan(self, content: str):
         try:
-            webhook = DiscordWebhook(url=self.bot.config['topgg']['topgg_votehook'], content=content)
-            webhook.execute()
+            webhook = AsyncDiscordWebhook(url=self.bot.config['topgg']['topgg_votehook'], content=content)
+            await webhook.execute()
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1503,7 +1505,7 @@ class Guild(commands.Cog):
                             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
                                 wallet_address = user_entry['paymentid']
 
-                            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                             userdata_balance = await self.wallet_api.user_balance(
                                 str(ctx.author.id), coin_name, 
                                 wallet_address, type_coin, height, 
@@ -1632,7 +1634,7 @@ class Guild(commands.Cog):
                 elif type_coin in ["XRP"]:
                     wallet_address = get_deposit['destination_tag']
 
-                height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                 # height can be None
                 userdata_balance = await self.wallet_api.user_balance(
                     str(ctx.guild.id), coin_name, 
@@ -1804,7 +1806,7 @@ class Guild(commands.Cog):
         elif type_coin in ["XRP"]:
             wallet_address = get_deposit['destination_tag']
 
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         userdata_balance = await self.wallet_api.user_balance(
             str(ctx.guild.id), coin_name, wallet_address, 
             type_coin, height, deposit_confirm_depth, SERVER_BOT)
@@ -1961,7 +1963,7 @@ class Guild(commands.Cog):
             elif type_coin in ["XRP"]:
                 wallet_address = get_deposit['destination_tag']
 
-            height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
             # check if amount is all
             all_amount = False
             if not amount.isdigit() and amount.upper() == "ALL":
@@ -2522,7 +2524,7 @@ class Guild(commands.Cog):
         elif type_coin in ["XRP"]:
             wallet_address = get_deposit['destination_tag']
 
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         userdata_balance = await self.wallet_api.user_balance(
             str(ctx.guild.id), coin_name, wallet_address, 
             type_coin, height, deposit_confirm_depth, SERVER_BOT)
@@ -2732,7 +2734,7 @@ class Guild(commands.Cog):
         elif type_coin in ["XRP"]:
             wallet_address = get_deposit['destination_tag']
 
-        height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
         userdata_balance = await self.wallet_api.user_balance(
             str(ctx.guild.id), coin_name, wallet_address, 
             type_coin, height, deposit_confirm_depth, SERVER_BOT
@@ -3369,7 +3371,7 @@ class Guild(commands.Cog):
                     elif type_coin in ["XRP"]:
                         wallet_address = get_deposit['destination_tag']
 
-                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     userdata_balance = await store.sql_user_balance_single(
                         str(ctx.guild.id), coin_name, wallet_address, type_coin, height, deposit_confirm_depth, SERVER_BOT
                     )
@@ -3864,7 +3866,7 @@ class Guild(commands.Cog):
                     if update is True:
                         # kv trade guild channel
                         try:
-                            self.utils.set_cache_kv(
+                            await self.utils.async_set_cache_kv(
                                 "market_guild",
                                 str(ctx.guild.id),
                                 ctx.channel.id
@@ -3886,7 +3888,7 @@ class Guild(commands.Cog):
             if update is True:
                 # kv trade guild channel
                 try:
-                    self.utils.set_cache_kv(
+                    await self.utils.async_set_cache_kv(
                         "market_guild",
                         str(ctx.guild.id),
                         ctx.channel.id

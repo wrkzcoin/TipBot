@@ -60,7 +60,7 @@ class Coininfo(commands.Cog):
         try:
             if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") != 1:
                 try:
-                    height = self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     if height: response_text += "Height: {:,.0f}".format(height) + "\n"
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -171,10 +171,12 @@ class Coininfo(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         if self.bot.coin_name_list and len(self.bot.coin_name_list) > 0:
-            network = {}
-            network['Others'] = []
-            network['ADA'] = []
-            network['SOL'] = []
+            network = {
+                'Others': [],
+                'ADA': [],
+                'SOL': [],
+                'COSMOS': []
+            }
             for coin_name in self.bot.coin_name_list:
                 net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -189,6 +191,8 @@ class Coininfo(commands.Cog):
                         network['ADA'].append(coin_name)
                     elif type_coin == "SOL" or type_coin == "SPL":
                         network['SOL'].append(coin_name)
+                    elif type_coin == "COSMOS":
+                        network['COSMOS'].append(coin_name)
                     else:
                         network['Others'].append(coin_name)
             embed = disnake.Embed(

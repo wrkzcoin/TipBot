@@ -1631,7 +1631,6 @@ class Bidding(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-        # Check if there is many airdrop/mathtip/triviatip/partydrop
         try:
             count_ongoing = await self.utils.discord_bid_ongoing(str(ctx.guild.id), "ONGOING")
             # Check max if set in guild

@@ -38,9 +38,11 @@ class MathButton(disnake.ui.View):
     a_index: int
     coin_list: Dict
 
-    def __init__(self, ctx, answer_list, answer_index: int, timeout: float, coin_list):
+    def __init__(self, bot, ctx, answer_list, answer_index: int, timeout: float, coin_list):
         super().__init__(timeout=timeout)
         i = 0
+        self.bot = bot
+        self.utils = Utils(self.bot)
         self.a_index = answer_index
         self.coin_list = coin_list
         self.ctx = ctx
@@ -78,7 +80,7 @@ class MathButton(disnake.ui.View):
             coin_decimal = getattr(getattr(self.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.coin_list, coin_name), "contract")
             token_display = getattr(getattr(self.coin_list, coin_name), "display_name")
-            usd_equivalent_enable = getattr(getattr(self.coin_list, coin_name), "usd_equivalent_enable")
+            price_with = getattr(getattr(self.coin_list, coin_name), "price_with")
 
             coin_emoji = getattr(getattr(self.coin_list, coin_name), "coin_emoji_discord")
             coin_emoji = coin_emoji + " " if coin_emoji else ""
@@ -93,7 +95,7 @@ class MathButton(disnake.ui.View):
 
             total_equivalent_usd = ""
             per_unit = None
-            if usd_equivalent_enable == 1:
+            if price_with:
                 per_unit = get_mathtip['unit_price_usd']
                 if per_unit and per_unit > 0 and len(answered_msg_id['right_ids']) > 0:
                     each_amount_in_usd = per_unit * float(indiv_amount)
@@ -172,7 +174,6 @@ class MathTips(commands.Cog):
 
         self.max_ongoing_by_user = 3
         self.max_ongoing_by_guild = 5
-
 
     async def async_mathtip(self, ctx, amount: str, token: str, duration: str, math_exp: str = None):
         coin_name = token.upper()
@@ -260,7 +261,7 @@ class MathTips(commands.Cog):
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -295,23 +296,15 @@ class MathTips(commands.Cog):
         elif "$" in amount[-1] or "$" in amount[0]:  # last is $
             # Check if conversion is allowed for this coin.
             amount = amount.replace(",", "").replace("$", "")
-            if usd_equivalent_enable == 0:
+            if price_with is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not "\
                     f"enabled for this `{coin_name}`."
                 await ctx.edit_original_message(content=msg)
                 return
             else:
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                coin_name_for_price = coin_name
-                if native_token_name:
-                    coin_name_for_price = native_token_name
-                per_unit = None
-                if coin_name_for_price in self.bot.token_hints:
-                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                else:
-                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                if per_unit and per_unit > 0:
+                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                    per_unit = per_unit['price']
                     amount = float(Decimal(amount) / Decimal(per_unit))
                 else:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\
@@ -488,7 +481,7 @@ class MathTips(commands.Cog):
         equivalent_usd = ""
         total_in_usd = 0.0
         per_unit = None
-        if usd_equivalent_enable == 1:
+        if price_with:
             native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
             coin_name_for_price = coin_name
             if native_token_name:
@@ -518,7 +511,7 @@ class MathTips(commands.Cog):
         random.shuffle(answers)
         index_answer = answers.index(str(result_float))
         try:
-            view = MathButton(ctx, answers, index_answer, duration_s, self.bot.coin_list)
+            view = MathButton(self.bot, ctx, answers, index_answer, duration_s, self.bot.coin_list)
             view.message = await ctx.original_message()
             await store.insert_discord_mathtip(
                 coin_name, contract, str(ctx.author.id),

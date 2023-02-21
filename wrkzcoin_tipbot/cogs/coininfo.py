@@ -111,6 +111,14 @@ class Coininfo(commands.Cog):
                     response_text += "Contract:\n   {}\n".format(contract)
                 elif contract and len(contract) > 4:
                     response_text += "Contract/Token ID:\n   {}\n".format(contract)
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+            if price_with:
+                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                    per_unit = per_unit['price']
+                    if per_unit >= 0.0001:
+                        equivalent_usd = " ~ {:,.4f}$".format(per_unit)
+                        response_text += "Price 1 {} {} based on {}\n".format(coin_name, equivalent_usd, price_with.lower())
         except Exception:
             traceback.print_exc(file=sys.stdout)
         response_text += "```"

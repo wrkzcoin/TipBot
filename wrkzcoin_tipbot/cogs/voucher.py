@@ -202,7 +202,7 @@ class Voucher(commands.Cog):
 
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -262,22 +262,14 @@ class Voucher(commands.Cog):
                 elif "$" in amount[-1] or "$" in amount[0]:  # last is $
                     # Check if conversion is allowed for this coin.
                     amount = amount.replace(",", "").replace("$", "")
-                    if usd_equivalent_enable == 0:
+                    if price_with is None:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
-                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                        coin_name_for_price = coin_name
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        per_unit = None
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                             amount = float(Decimal(amount) / Decimal(per_unit))
                         else:
                             msg = f'{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method.'
@@ -300,17 +292,10 @@ class Voucher(commands.Cog):
             total_fee_amount = voucher_numb * fee_voucher_amount
 
             per_unit_usd = 0.0
-            if usd_equivalent_enable == 1:
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                coin_name_for_price = coin_name
-                if native_token_name:
-                    coin_name_for_price = native_token_name
-                if coin_name_for_price in self.bot.token_hints:
-                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                    per_unit_usd = self.bot.coin_paprika_id_list[id]['price_usd']
-                else:
-                    per_unit_usd = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-
+            if price_with:
+                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                    per_unit_usd = per_unit['price']
             userdata_balance = await store.sql_user_balance_single(
                 str(ctx.author.id), coin_name, wallet_address, type_coin,
                 height, deposit_confirm_depth, SERVER_BOT

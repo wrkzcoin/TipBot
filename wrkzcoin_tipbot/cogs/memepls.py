@@ -80,12 +80,12 @@ async def add_memetip(
         await logchanbot(traceback.format_exc())
     return 0
 
-
 class MemeTipReport(disnake.ui.Modal):
     def __init__(self, ctx, bot, meme_id: str, owner_userid: str, get_meme) -> None:
         self.meme_web_path = "https://tipbot-static.wrkz.work/discordtip_v2_meme/"
         self.ctx = ctx
         self.bot = bot
+        self.utils = Utils(self.bot)
         self.meme_id = meme_id
         self.owner_userid = owner_userid
         self.get_meme = get_meme
@@ -187,7 +187,7 @@ class TipOtherCoin(disnake.ui.Modal):
         self.ctx = ctx
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
-
+        self.utils = Utils(self.bot)
         self.meme_id = meme_id
         self.owner_userid = owner_userid
         self.get_meme = get_meme
@@ -253,7 +253,7 @@ class TipOtherCoin(disnake.ui.Modal):
 
         min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+        price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
         get_deposit = await self.wallet_api.sql_get_userwallet(
             str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
         )
@@ -298,17 +298,10 @@ class TipOtherCoin(disnake.ui.Modal):
             return
         equivalent_usd = ""
         amount_in_usd = 0.0
-        if usd_equivalent_enable == 1:
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            coin_name_for_price = coin_name
-            if native_token_name:
-                coin_name_for_price = native_token_name
-            if coin_name_for_price in self.bot.token_hints:
-                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-            else:
-                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-            if per_unit and per_unit > 0:
+        if price_with:
+            per_unit = await self.utils.get_coin_price(coin_name, price_with)
+            if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                per_unit = per_unit['price']
                 amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 if amount_in_usd > 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
@@ -377,7 +370,7 @@ class MemeTip_Button(disnake.ui.View):
         super().__init__(timeout=timeout)
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
-
+        self.utils = Utils(self.bot)
         self.ctx = ctx
         self.meme_id = meme_id
         self.owner_userid = owner_userid
@@ -418,7 +411,7 @@ class MemeTip_Button(disnake.ui.View):
 
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -463,17 +456,10 @@ class MemeTip_Button(disnake.ui.View):
                 return
             equivalent_usd = ""
             amount_in_usd = 0.0
-            if usd_equivalent_enable == 1:
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                coin_name_for_price = coin_name
-                if native_token_name:
-                    coin_name_for_price = native_token_name
-                if coin_name_for_price in self.bot.token_hints:
-                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                else:
-                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                if per_unit and per_unit > 0:
+            if price_with:
+                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                    per_unit = per_unit['price']
                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     if amount_in_usd > 0.0001:
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
@@ -564,7 +550,7 @@ class MemeTip_Button(disnake.ui.View):
 
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -609,17 +595,10 @@ class MemeTip_Button(disnake.ui.View):
                 return
             equivalent_usd = ""
             amount_in_usd = 0.0
-            if usd_equivalent_enable == 1:
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                coin_name_for_price = coin_name
-                if native_token_name:
-                    coin_name_for_price = native_token_name
-                if coin_name_for_price in self.bot.token_hints:
-                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                else:
-                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                if per_unit and per_unit > 0:
+            if price_with:
+                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                    per_unit = per_unit['price']
                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     if amount_in_usd > 0.0001:
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
@@ -710,7 +689,7 @@ class MemeTip_Button(disnake.ui.View):
 
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -755,17 +734,10 @@ class MemeTip_Button(disnake.ui.View):
                 return
             equivalent_usd = ""
             amount_in_usd = 0.0
-            if usd_equivalent_enable == 1:
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                coin_name_for_price = coin_name
-                if native_token_name:
-                    coin_name_for_price = native_token_name
-                if coin_name_for_price in self.bot.token_hints:
-                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                else:
-                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                if per_unit and per_unit > 0:
+            if price_with:
+                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                    per_unit = per_unit['price']
                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     if amount_in_usd > 0.0001:
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
@@ -856,7 +828,7 @@ class MemeTip_Button(disnake.ui.View):
 
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -901,17 +873,10 @@ class MemeTip_Button(disnake.ui.View):
                 return
             equivalent_usd = ""
             amount_in_usd = 0.0
-            if usd_equivalent_enable == 1:
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                coin_name_for_price = coin_name
-                if native_token_name:
-                    coin_name_for_price = native_token_name
-                if coin_name_for_price in self.bot.token_hints:
-                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                else:
-                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                if per_unit and per_unit > 0:
+            if price_with:
+                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                    per_unit = per_unit['price']
                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     if amount_in_usd > 0.0001:
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
@@ -999,6 +964,7 @@ class MemeReview_Button(disnake.ui.View):
     def __init__(self, ctx, bot, timeout: float, meme_id: str, owner_userid: int):
         super().__init__(timeout=timeout)
         self.bot = bot
+        self.utils = Utils(self.bot)
         self.ctx = ctx
         self.meme_id = meme_id
         self.owner_userid = owner_userid
@@ -1070,12 +1036,10 @@ class MemeReview_Button(disnake.ui.View):
 
 
 class MemePls(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
-
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         self.enable_logchan = True
         self.meme_accept = ["image/jpeg", "image/gif", "image/png"]

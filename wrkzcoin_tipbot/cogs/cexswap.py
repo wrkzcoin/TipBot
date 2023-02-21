@@ -2763,7 +2763,6 @@ class Cexswap(commands.Cog):
                     amount_liq_sell = liq_pair['pool']['amount_ticker_2']
                 cexswap_min = getattr(getattr(self.bot.coin_list, sell_token), "cexswap_min")
                 token_display = getattr(getattr(self.bot.coin_list, sell_token), "display_name")
-                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, sell_token), "usd_equivalent_enable")
                 cexswap_max_swap_percent_sell = getattr(getattr(self.bot.coin_list, sell_token), "cexswap_max_swap_percent")
                 max_swap_sell_cap = cexswap_max_swap_percent_sell * float(amount_liq_sell)
 
@@ -2775,22 +2774,15 @@ class Cexswap(commands.Cog):
                 if "$" in amount[-1] or "$" in amount[0]:  # last is $
                     # Check if conversion is allowed for this coin.
                     amount = amount.replace(",", "").replace("$", "")
-                    if usd_equivalent_enable == 0:
+                    price_with = getattr(getattr(self.bot.coin_list, sell_token), "price_with")
+                    if price_with is None:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{sell_token}`."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
-                        native_token_name = getattr(getattr(self.bot.coin_list, sell_token), "native_token_name")
-                        coin_name_for_price = sell_token
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        per_unit = None
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
+                        per_unit = await self.utils.get_coin_price(sell_token, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                             amount = float(Decimal(amount) / Decimal(per_unit))
                         else:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\
@@ -2957,30 +2949,20 @@ class Cexswap(commands.Cog):
                     channel_id = "DM" if guild_id == "DM" else str(ctx.channel.id)
                     # get price per unit
                     per_unit_sell = 0.0
-                    if getattr(getattr(self.bot.coin_list, sell_token), "usd_equivalent_enable") == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, sell_token), "native_token_name")
-                        coin_name_for_price = sell_token
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit_sell = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit_sell = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                    price_with = getattr(getattr(self.bot.coin_list, sell_token), "price_with")
+                    if price_with:
+                        per_unit_sell = await self.utils.get_coin_price(sell_token, price_with)
+                        if per_unit_sell and per_unit_sell['price'] and per_unit_sell['price'] > 0:
+                            per_unit_sell = per_unit_sell['price']
                         if per_unit_sell and per_unit_sell < 0.0000000001:
                             per_unit_sell = 0.0
 
                     per_unit_get = 0.0
-                    if getattr(getattr(self.bot.coin_list, for_token), "usd_equivalent_enable") == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, for_token), "native_token_name")
-                        coin_name_for_price = for_token
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit_get = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit_get = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
+                    price_with = getattr(getattr(self.bot.coin_list, for_token), "price_with")
+                    if price_with:
+                        per_unit_get = await self.utils.get_coin_price(for_token, price_with)
+                        if per_unit_get and per_unit_get['price'] and per_unit_get['price'] > 0:
+                            per_unit_get = per_unit_get['price']
                         if per_unit_get and per_unit_get < 0.0000000001:
                             per_unit_get = 0.0
 
@@ -4514,7 +4496,6 @@ class Cexswap(commands.Cog):
                     return
             # End token name check
 
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -4525,22 +4506,15 @@ class Cexswap(commands.Cog):
             if "$" in amount[-1] or "$" in amount[0]:  # last is $
                 # Check if conversion is allowed for this coin.
                 amount = amount.replace(",", "").replace("$", "")
-                if usd_equivalent_enable == 0:
+                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                if price_with is None:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    per_unit = None
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
+                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                        per_unit = per_unit['price']
                         amount = float(Decimal(amount) / Decimal(per_unit))
                     else:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\
@@ -5176,7 +5150,6 @@ class Cexswap(commands.Cog):
                                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
                                 get_deposit = await self.wallet_api.sql_get_userwallet(
                                     user_id, coin_name, net_name, type_coin, user_server, 0)

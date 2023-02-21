@@ -1412,6 +1412,53 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return explorer_link
 
+    async def get_coin_price(self, coin_name: str, source: str):
+        try:
+            id_gecko = getattr(
+                getattr(self.bot.coin_list, coin_name),
+                "id_gecko"
+            )
+            id_paprika = getattr(
+                getattr(self.bot.coin_list, coin_name),
+                "id_paprika"
+            )
+            id_cmc = getattr(
+                getattr(self.bot.coin_list, coin_name),
+                "id_cmc"
+            )
+            if source == "PAPRIKA":
+                coin_name = id_paprika
+                try:
+                    if coin_name in self.bot.other_data['price_paprika'] and \
+                        int(time.time()) - self.bot.other_data['price_paprika'][coin_name]['fetched_time'] < 10*60:
+                        return self.bot.other_data['price_paprika'][coin_name]
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                table = self.bot.config['kv_db']['prefix_paprika']
+                
+            elif source == "GECKO":
+                coin_name = id_gecko
+                try:
+                    if coin_name in self.bot.other_data['price_gecko'] and \
+                        int(time.time()) - self.bot.other_data['price_gecko'][coin_name]['fetched_time'] < 10*60:
+                        return self.bot.other_data['price_gecko'][coin_name]
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                table = self.bot.config['kv_db']['prefix_gecko']
+
+            price_dict = await self.async_get_cache_kv(
+                table,
+                "PRICE:" + coin_name.upper()
+            )
+            if price_dict and type(price_dict) == dict:
+                if 'price_'+source.lower() not in self.bot.other_data:
+                    self.bot.other_data['price_'+source.lower()] = {}    
+                self.bot.other_data['price_'+source.lower()][coin_name] = price_dict
+                return price_dict
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
     def get_usd_paprika(self, coin_name: str):
         usd_equivalent_enable = getattr(
             getattr(self.bot.coin_list, coin_name),

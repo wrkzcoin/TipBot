@@ -226,6 +226,7 @@ class BlackJackButtons(disnake.ui.View):
         self.time_start = int(time.time())
         self.ctx = ctx
         self.bot = bot
+        self.utils = Utils(self.bot)
         self.free_game = free_game
         self.db = DatabaseGames()
         self.deck = blackjack_getDeck()
@@ -332,9 +333,7 @@ class BlackJackButtons(disnake.ui.View):
             coin_name = get_random_reward['coin_name']
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             result = f"You got reward of {num_format_coin(amount)} "\
                 f"{coin_name} to tip balance!"
             if self.free_game is True:
@@ -379,17 +378,10 @@ class BlackJackButtons(disnake.ui.View):
                 if won:
                     amount_in_usd = 0.0
                     per_unit = None
-                    if usd_equivalent_enable == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                        coin_name_for_price = coin_name
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
                         try:
@@ -499,8 +491,7 @@ class BlackJackButtons(disnake.ui.View):
             coin_name = get_random_reward['coin_name']
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             result = f"You got reward of {num_format_coin(amount)} "\
                 f"{coin_name} to tip balance!"
             if self.free_game is True:
@@ -545,17 +536,10 @@ class BlackJackButtons(disnake.ui.View):
                 if won:
                     amount_in_usd = 0.0
                     per_unit = None
-                    if usd_equivalent_enable == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                        coin_name_for_price = coin_name
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
                         try:
@@ -610,6 +594,7 @@ class Maze_Buttons(disnake.ui.View):
         super().__init__(timeout=timeout)
         self.ctx = ctx
         self.bot = bot
+        self.utils = Utils(self.bot)
         self.time_start = int(time.time())
         self.game_over = False
         self.free_game = free_game
@@ -677,9 +662,7 @@ class Maze_Buttons(disnake.ui.View):
             coin_name = get_random_reward['coin_name']
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             result = f"You got reward of {num_format_coin(amount)} "\
                 f"{coin_name} to tip balance!"
             if self.free_game is True:
@@ -713,17 +696,10 @@ class Maze_Buttons(disnake.ui.View):
                 if won:
                     amount_in_usd = 0.0
                     per_unit = None
-                    if usd_equivalent_enable == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                        coin_name_for_price = coin_name
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
                         try:
@@ -736,7 +712,7 @@ class Maze_Buttons(disnake.ui.View):
                                 del self.bot.user_balance_cache[key_coin]
                         except Exception:
                             pass
-                        tip = await store.sql_user_balance_mv_single(
+                        await store.sql_user_balance_mv_single(
                             self.bot.user.id, str(interaction.user.id),
                             str(interaction.guild.id),
                             str(interaction.channel.id), amount, coin_name,
@@ -799,8 +775,7 @@ class Maze_Buttons(disnake.ui.View):
             coin_name = get_random_reward['coin_name']
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
 
             result = f"You got reward of {num_format_coin(amount)} "\
                 f"{coin_name} to tip balance!"
@@ -835,17 +810,10 @@ class Maze_Buttons(disnake.ui.View):
                 if won:
                     amount_in_usd = 0.0
                     per_unit = None
-                    if usd_equivalent_enable == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                        coin_name_for_price = coin_name
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
                         try:
@@ -921,9 +889,7 @@ class Maze_Buttons(disnake.ui.View):
             coin_name = get_random_reward['coin_name']
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             result = f"You got reward of {num_format_coin(amount)} "\
                 f"{coin_name} to tip balance!"
             if self.free_game is True:
@@ -957,17 +923,10 @@ class Maze_Buttons(disnake.ui.View):
                 if won:
                     amount_in_usd = 0.0
                     per_unit = None
-                    if usd_equivalent_enable == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                        coin_name_for_price = coin_name
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
                         try:
@@ -1040,9 +999,7 @@ class Maze_Buttons(disnake.ui.View):
             coin_name = get_random_reward['coin_name']
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             result = f"You got reward of {num_format_coin(amount)} "\
                 f"{coin_name} to tip balance!"
             if self.free_game is True:
@@ -1076,17 +1033,10 @@ class Maze_Buttons(disnake.ui.View):
                 if won:
                     amount_in_usd = 0.0
                     per_unit = None
-                    if usd_equivalent_enable == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                        coin_name_for_price = coin_name
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
                         try:
@@ -1149,6 +1099,7 @@ class g2048_Buttons(disnake.ui.View):
         super().__init__(timeout=timeout)
         self.ctx = ctx
         self.bot = bot
+        self.utils = Utils(self.bot)
         self.free_game = free_game
         self.db = DatabaseGames()
         self.time_start = int(time.time())
@@ -1192,8 +1143,7 @@ class g2048_Buttons(disnake.ui.View):
             coin_name = get_random_reward['coin_name']
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             result = f"You got reward of {num_format_coin(amount)} "\
                 f"{coin_name} to tip balance!"
             if self.free_game is True:
@@ -1225,17 +1175,10 @@ class g2048_Buttons(disnake.ui.View):
                 # add reward him credit
                 amount_in_usd = 0.0
                 per_unit = None
-                if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
+                if price_with:
+                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                        per_unit = per_unit['price']
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 try:
                     try:
@@ -1303,8 +1246,7 @@ class g2048_Buttons(disnake.ui.View):
             coin_name = get_random_reward['coin_name']
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             result = f"You got reward of {num_format_coin(amount)} "\
                 f"{coin_name} to tip balance!"
             if self.free_game is True:
@@ -1336,17 +1278,10 @@ class g2048_Buttons(disnake.ui.View):
                 # add reward him credit
                 amount_in_usd = 0.0
                 per_unit = None
-                if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
+                if price_with:
+                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                        per_unit = per_unit['price']
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 try:
                     try:
@@ -1414,8 +1349,7 @@ class g2048_Buttons(disnake.ui.View):
             coin_name = get_random_reward['coin_name']
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             result = f"You got reward of {num_format_coin(amount)} "\
                 f"{coin_name} to tip balance!"
             if self.free_game is True:
@@ -1447,17 +1381,10 @@ class g2048_Buttons(disnake.ui.View):
                 # add reward him credit
                 amount_in_usd = 0.0
                 per_unit = None
-                if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
+                if price_with:
+                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                        per_unit = per_unit['price']
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 try:
                     try:
@@ -1524,8 +1451,7 @@ class g2048_Buttons(disnake.ui.View):
             coin_name = get_random_reward['coin_name']
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             result = f"You got reward of {num_format_coin(amount)} "\
                 f"{coin_name} to tip balance!"
             if self.free_game is True:
@@ -1557,17 +1483,10 @@ class g2048_Buttons(disnake.ui.View):
                 # add reward him credit
                 amount_in_usd = 0.0
                 per_unit = None
-                if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
+                if price_with:
+                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                        per_unit = per_unit['price']
                         amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                 try:
                     try:
@@ -1634,6 +1553,7 @@ class Sokoban_Buttons(disnake.ui.View):
         super().__init__(timeout=timeout)
         self.ctx = ctx
         self.bot = bot
+        self.utils = Utils(self.bot)
         self.free_game = free_game
         self.db = DatabaseGames()
         self.time_start = int(time.time())
@@ -1832,8 +1752,7 @@ class Sokoban_Buttons(disnake.ui.View):
                 coin_name = get_random_reward['coin_name']
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                 result = f"You got reward of {num_format_coin(amount)} "\
                     f"{coin_name} to tip balance!"
                 if self.free_game is True:
@@ -1985,9 +1904,6 @@ class Sokoban_Buttons(disnake.ui.View):
                 amount = get_random_reward['reward_amount']
                 coin_name = get_random_reward['coin_name']
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
                 result = f"You got reward of {num_format_coin(amount)} "\
                     f"{coin_name} to tip balance!"
                 if self.free_game is True:
@@ -2138,9 +2054,6 @@ class Sokoban_Buttons(disnake.ui.View):
                 amount = get_random_reward['reward_amount']
                 coin_name = get_random_reward['coin_name']
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
                 result = f"You got reward of {num_format_coin(amount)} "\
                     f"{coin_name} to tip balance!"
                 if self.free_game is True:
@@ -2292,9 +2205,6 @@ class Sokoban_Buttons(disnake.ui.View):
                 amount = get_random_reward['reward_amount']
                 coin_name = get_random_reward['coin_name']
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
                 result = f"You got reward of {num_format_coin(amount)} "\
                     f"{coin_name} to tip balance!"
                 if self.free_game is True:
@@ -2844,8 +2754,7 @@ class Games(commands.Cog):
                 coin_name = get_random_reward['coin_name']
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
+                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                 result = f"You got reward of {num_format_coin(amount)} "\
                     f"{coin_name} to tip balance!"
                 if free_game is True:
@@ -2872,17 +2781,10 @@ class Games(commands.Cog):
                     # add reward him credit
                     amount_in_usd = 0.0
                     per_unit = None
-                    if usd_equivalent_enable == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                        coin_name_for_price = coin_name
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     try:
                         try:
@@ -3101,9 +3003,7 @@ class Games(commands.Cog):
                                 coin_name = get_random_reward['coin_name']
                                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-                                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-
+                                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                                 result = ''
                                 if free_game is False:
                                     if won:
@@ -3133,19 +3033,10 @@ class Games(commands.Cog):
                                     # add reward him credit
                                     amount_in_usd = 0.0
                                     per_unit = None
-                                    if usd_equivalent_enable == 1:
-                                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                    "native_token_name")
-                                        coin_name_for_price = coin_name
-                                        if native_token_name:
-                                            coin_name_for_price = native_token_name
-                                        if coin_name_for_price in self.bot.token_hints:
-                                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                                        else:
-                                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price][
-                                                'price_usd']
-                                        if per_unit and per_unit > 0:
+                                    if price_with:
+                                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                            per_unit = per_unit['price']
                                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                                     try:
                                         try:

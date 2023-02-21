@@ -474,7 +474,7 @@ class GShop(commands.Cog):
                 type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                 token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                 amount = item_info['real_amount']
 
@@ -583,19 +583,11 @@ class GShop(commands.Cog):
                         # 2) Assign Role
                         # 3) Log?
                         real_amount_usd = 0
-                        if usd_equivalent_enable == 1:
+                        if price_with:
                             try:
-                                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                                coin_name_for_price = coin_name
-                                if native_token_name:
-                                    coin_name_for_price = native_token_name
-                                per_unit = None
-                                if coin_name_for_price in self.bot.token_hints:
-                                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                                else:
-                                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                                if per_unit and per_unit > 0:
+                                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                    per_unit = per_unit['price']
                                     real_amount_usd = float(Decimal(amount) * Decimal(per_unit))
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -710,7 +702,7 @@ class GShop(commands.Cog):
             return
 
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+        price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
         min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
@@ -719,22 +711,14 @@ class GShop(commands.Cog):
         if "$" in amount[-1] or "$" in amount[0]:  # last is $
             # Check if conversion is allowed for this coin.
             amount = amount.replace(",", "").replace("$", "")
-            if usd_equivalent_enable == 0:
+            if price_with is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
                 await ctx.edit_original_message(content=msg)
                 return
             else:
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                coin_name_for_price = coin_name
-                if native_token_name:
-                    coin_name_for_price = native_token_name
-                per_unit = None
-                if coin_name_for_price in self.bot.token_hints:
-                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                else:
-                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                if per_unit and per_unit > 0:
+                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                    per_unit = per_unit['price']
                     amount = float(Decimal(amount) / Decimal(per_unit))
                 else:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\

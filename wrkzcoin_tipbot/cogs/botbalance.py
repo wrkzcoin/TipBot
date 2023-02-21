@@ -64,8 +64,6 @@ class BotBalance(commands.Cog):
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(member.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -97,18 +95,11 @@ class BotBalance(commands.Cog):
                 )
                 total_balance = userdata_balance['adjust']
                 equivalent_usd = ""
-                if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    per_unit = None
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
+                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                if price_with:
+                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                        per_unit = per_unit['price']
                         total_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
                         if total_in_usd >= 0.01:
                             equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
@@ -122,6 +113,8 @@ class BotBalance(commands.Cog):
                 )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
+            embed.set_thumbnail(url=self.bot.user.display_avatar)
+            embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             await ctx.edit_original_message(content=None, embed=embed)
             # Add update for future call
             try:

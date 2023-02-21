@@ -73,7 +73,7 @@ class TriviaButton(disnake.ui.View):
             coin_decimal = getattr(getattr(self.coin_list, coin_name), "decimal")
             contract = getattr(getattr(self.coin_list, coin_name), "contract")
             token_display = getattr(getattr(self.coin_list, coin_name), "display_name")
-            usd_equivalent_enable = getattr(getattr(self.coin_list, coin_name), "usd_equivalent_enable")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             # get question from db:
             question = await store.get_q_db(get_triviatip['question_id'])
             total_answer = answered_msg_id['total']
@@ -96,7 +96,7 @@ class TriviaButton(disnake.ui.View):
             each_equivalent_usd = ""
             total_equivalent_usd = ""
             per_unit = None
-            if usd_equivalent_enable == 1:
+            if price_with:
                 per_unit = get_triviatip['unit_price_usd']
                 if per_unit and per_unit > 0 and len(answered_msg_id['right_ids']) > 0:
                     each_amount_in_usd = per_unit * float(indiv_amount)
@@ -268,7 +268,7 @@ class TriviaTips(commands.Cog):
 
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -303,22 +303,14 @@ class TriviaTips(commands.Cog):
         elif "$" in amount[-1] or "$" in amount[0]:  # last is $
             # Check if conversion is allowed for this coin.
             amount = amount.replace(",", "").replace("$", "")
-            if usd_equivalent_enable == 0:
+            if price_with is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
                 await ctx.edit_original_message(content=msg)
                 return
             else:
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                coin_name_for_price = coin_name
-                if native_token_name:
-                    coin_name_for_price = native_token_name
-                per_unit = None
-                if coin_name_for_price in self.bot.token_hints:
-                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                else:
-                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                if per_unit and per_unit > 0:
+                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                    per_unit = per_unit['price']
                     amount = float(Decimal(amount) / Decimal(per_unit))
                 else:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\
@@ -428,17 +420,10 @@ class TriviaTips(commands.Cog):
         equivalent_usd = ""
         total_in_usd = 0.0
         per_unit = None
-        if usd_equivalent_enable == 1:
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            coin_name_for_price = coin_name
-            if native_token_name:
-                coin_name_for_price = native_token_name
-            if coin_name_for_price in self.bot.token_hints:
-                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-            else:
-                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-            if per_unit and per_unit > 0:
+        if price_with:
+            per_unit = await self.utils.get_coin_price(coin_name, price_with)
+            if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                per_unit = per_unit['price']
                 total_in_usd = float(Decimal(amount) * Decimal(per_unit))
                 if total_in_usd >= 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)

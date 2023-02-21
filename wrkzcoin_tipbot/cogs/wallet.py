@@ -4220,7 +4220,8 @@ class WalletAPI(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ INSERT INTO `xrp_external_tx` (`coin_name`, `issuer`, 
+                        sql = """
+                        INSERT INTO `xrp_external_tx` (`coin_name`, `issuer`, 
                         `user_id`, `amount`, `tx_fee`, `native_fee`, `decimal`, 
                         `to_address`, `date`, `txid`, `contents`, `user_server`) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -4872,9 +4873,10 @@ class Wallet(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ UPDATE `twitter_mentions_timeline`
-                            SET `response_date`=%s WHERE `twitter_id`=%s LIMIT 1
-                            """
+                        sql = """
+                        UPDATE `twitter_mentions_timeline`
+                        SET `response_date`=%s WHERE `twitter_id`=%s LIMIT 1
+                        """
                         await cur.execute(sql, (int(time.time()), twitter_id))
                         await conn.commit()
             except Exception:
@@ -4937,28 +4939,17 @@ class Wallet(commands.Cog):
 
                                         min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
                                         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-                                        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                        "usd_equivalent_enable")
+                                        price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                                         if "$" in amount[-1] or "$" in amount[0]:  # last is $
                                             # Check if conversion is allowed for this coin.
                                             amount = amount.replace(",", "").replace("$", "")
-                                            if usd_equivalent_enable == 0:
+                                            if price_with is None:
                                                 await invalidate_mentioned(each_resp['twitter_id'])
                                                 continue
                                             else:
-                                                native_token_name = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                            "native_token_name")
-                                                coin_name_for_price = coin_name
-                                                if native_token_name:
-                                                    coin_name_for_price = native_token_name
-                                                per_unit = None
-                                                if coin_name_for_price in self.bot.token_hints:
-                                                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                                                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                                                else:
-                                                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price][
-                                                        'price_usd']
-                                                if per_unit and per_unit > 0:
+                                                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                                    per_unit = per_unit['price']
                                                     amount = float(Decimal(amount) / Decimal(per_unit))
                                                 else:
                                                     await invalidate_mentioned(each_resp['twitter_id'])
@@ -5030,24 +5021,15 @@ class Wallet(commands.Cog):
                                                     equivalent_usd = ""
                                                     amount_in_usd = 0.0
                                                     per_unit = None
-                                                    if usd_equivalent_enable == 1:
-                                                        native_token_name = getattr(
-                                                            getattr(self.bot.coin_list, coin_name), "native_token_name")
-                                                        coin_name_for_price = coin_name
-                                                        if native_token_name:
-                                                            coin_name_for_price = native_token_name
-                                                        if coin_name_for_price in self.bot.token_hints:
-                                                            id = self.bot.token_hints[coin_name_for_price][
-                                                                'ticker_name']
-                                                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                                                        else:
-                                                            per_unit = \
-                                                            self.bot.coin_paprika_symbol_list[coin_name_for_price][
-                                                                'price_usd']
-                                                        if per_unit and per_unit > 0:
-                                                            amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
-                                                            if amount_in_usd > 0.0001:
-                                                                equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+                                                    if price_with:
+                                                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                                            per_unit = per_unit['price']
+                                                            amount_in_usd = float(Decimal(amount) * Decimal(per_unit))
+                                                            if amount_in_usd >= 0.01:
+                                                                equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
+                                                            elif amount_in_usd >= 0.0001:
+                                                                equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
                                                     try:
                                                         tw_tip = await store.sql_user_balance_mv_multiple(
                                                             str(each_resp['twitter_user_id']), list_users, "TWITTER",
@@ -5265,9 +5247,7 @@ class Wallet(commands.Cog):
                                             NetFee = getattr(getattr(self.bot.coin_list, coin_name),
                                                              "real_withdraw_fee")
                                             tx_fee = getattr(getattr(self.bot.coin_list, coin_name), "tx_fee")
-                                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                            "usd_equivalent_enable")
-
+                                            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                                             try:
                                                 check_exist = await self.check_withdraw_coin_address(type_coin, address)
                                                 if check_exist is not None:
@@ -5325,27 +5305,16 @@ class Wallet(commands.Cog):
                                             elif "$" in amount[-1] or "$" in amount[0]:  # last is $
                                                 # Check if conversion is allowed for this coin.
                                                 amount = amount.replace(",", "").replace("$", "")
-                                                if usd_equivalent_enable == 0:
+                                                if price_with is None:
                                                     response = f"Dollar conversion is not enabled for this {coin_name}."
                                                     await update_bot_response(
                                                         each_msg['text'], response, each_msg['id']
                                                     )
                                                     continue
                                                 else:
-                                                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                                "native_token_name")
-                                                    coin_name_for_price = coin_name
-                                                    if native_token_name:
-                                                        coin_name_for_price = native_token_name
-                                                    per_unit = None
-                                                    if coin_name_for_price in self.bot.token_hints:
-                                                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                                                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                                                    else:
-                                                        per_unit = \
-                                                        self.bot.coin_paprika_symbol_list[coin_name_for_price][
-                                                            'price_usd']
-                                                    if per_unit and per_unit > 0:
+                                                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                                        per_unit = per_unit['price']
                                                         amount = float(Decimal(amount) / Decimal(per_unit))
                                                     else:
                                                         response = f"I cannot fetch equivalent price. "\
@@ -5402,24 +5371,16 @@ class Wallet(commands.Cog):
                                                 await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                 continue
                                             equivalent_usd = ""
-                                            total_in_usd = 0.0
-                                            per_unit = None
-                                            if usd_equivalent_enable == 1:
-                                                native_token_name = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                            "native_token_name")
-                                                coin_name_for_price = coin_name
-                                                if native_token_name:
-                                                    coin_name_for_price = native_token_name
-                                                if coin_name_for_price in self.bot.token_hints:
-                                                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                                                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                                                else:
-                                                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price][
-                                                        'price_usd']
-                                                if per_unit and per_unit > 0:
-                                                    total_in_usd = float(Decimal(amount) * Decimal(per_unit))
-                                                    if total_in_usd >= 0.0001:
-                                                        equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
+                                            amount_in_usd = 0.0
+                                            if price_with:
+                                                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                                    per_unit = per_unit['price']
+                                                    amount_in_usd = float(Decimal(amount) * Decimal(per_unit))
+                                                    if amount_in_usd >= 0.01:
+                                                        equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
+                                                    elif amount_in_usd >= 0.0001:
+                                                        equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
 
                                             if type_coin in ["ERC-20"]:
                                                 # Check address
@@ -5924,8 +5885,7 @@ class Wallet(commands.Cog):
                                                                         "deposit_confirm_depth")
                                         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                                         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                                        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                        "usd_equivalent_enable")
+                                        price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                                         user_from = await self.wallet_api.sql_get_userwallet(
                                             each_reward['guild_id'], coin_name, net_name, type_coin, SERVER_BOT, 0
                                         )
@@ -5972,21 +5932,13 @@ class Wallet(commands.Cog):
                                                 traceback.print_exc(file=sys.stdout)
                                             try:
                                                 amount_in_usd = 0.0
-                                                if usd_equivalent_enable == 1:
-                                                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name),
-                                                                                "native_token_name")
-                                                    coin_name_for_price = coin_name
-                                                    if native_token_name:
-                                                        coin_name_for_price = native_token_name
-                                                    if coin_name_for_price in self.bot.token_hints:
-                                                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                                                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                                                    else:
-                                                        per_unit = \
-                                                        self.bot.coin_paprika_symbol_list[coin_name_for_price][
-                                                            'price_usd']
-                                                    if per_unit and per_unit > 0:
-                                                        amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                                                per_unit = None
+                                                if price_with:
+                                                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                                        per_unit = per_unit['price']
+                                                if per_unit and per_unit > 0:
+                                                    amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                                                 try:
                                                     sql = """ UPDATE `twitter_rt_reward_logs` 
                                                     SET `rewarded_user`=%s, `is_credited`=%s, 
@@ -11212,7 +11164,7 @@ class Wallet(commands.Cog):
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
 
             get_deposit = await self.sql_get_userwallet(
                 str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
@@ -11253,24 +11205,17 @@ class Wallet(commands.Cog):
                         pass
                     # End of del key
 
+                per_unit = None
                 equivalent_usd = ""
-                if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    per_unit = None
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
-                        total_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
-                        if total_in_usd >= 0.01:
-                            equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
-                        elif total_in_usd >= 0.0001:
-                            equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
+                if price_with:
+                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                        per_unit = per_unit['price']
+                        amount_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
+                        if amount_in_usd >= 0.01:
+                            equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
+                        elif amount_in_usd >= 0.0001:
+                            equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
                 coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                 embed.add_field(
                     name="{}Token/Coin {}{}".format(coin_emoji+" " if coin_emoji else "", token_display, equivalent_usd),
@@ -11436,7 +11381,7 @@ class Wallet(commands.Cog):
                     deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                     token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                     get_deposit = await self.sql_get_userwallet(
                         str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
                     )
@@ -11477,24 +11422,17 @@ class Wallet(commands.Cog):
                     elif total_balance > 0:
                         has_none_balance = False
                     equivalent_usd = ""
-                    if usd_equivalent_enable == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                        coin_name_for_price = coin_name
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        per_unit = None
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
-                            total_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
-                            total_all_balance_usd += total_in_usd
-                            if total_in_usd >= 0.01:
-                                equivalent_usd = " ~ {:,.2f}$".format(total_in_usd)
-                            elif total_in_usd >= 0.0001:
-                                equivalent_usd = " ~ {:,.4f}$".format(total_in_usd)
+                    per_unit = None
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
+                            amount_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
+                            total_all_balance_usd += amount_in_usd
+                            if amount_in_usd >= 0.01:
+                                equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
+                            elif amount_in_usd >= 0.0001:
+                                equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
 
                     coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                     page.add_field(
@@ -11678,7 +11616,7 @@ class Wallet(commands.Cog):
             max_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tx")
             NetFee = getattr(getattr(self.bot.coin_list, coin_name), "real_withdraw_fee")
             tx_fee = getattr(getattr(self.bot.coin_list, coin_name), "tx_fee")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             try:
                 check_exist = await self.check_withdraw_coin_address(type_coin, address)
                 if check_exist is not None:
@@ -11734,22 +11672,14 @@ class Wallet(commands.Cog):
                 elif "$" in amount[-1] or "$" in amount[0]:  # last is $
                     # Check if conversion is allowed for this coin.
                     amount = amount.replace(",", "").replace("$", "")
-                    if usd_equivalent_enable == 0:
+                    if price_with is None:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
-                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                        coin_name_for_price = coin_name
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        per_unit = None
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                             amount = float(Decimal(amount) / Decimal(per_unit))
                         else:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method."
@@ -11811,22 +11741,17 @@ class Wallet(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
 
                 equivalent_usd = ""
-                total_in_usd = 0.0
-                per_unit = None
-                if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
-                        total_in_usd = float(Decimal(amount) * Decimal(per_unit))
-                        if total_in_usd >= 0.0001:
-                            equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
+                amount_in_usd = 0.0
+                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                if price_with:
+                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                        per_unit = per_unit['price']
+                        amount_in_usd = float(Decimal(amount) * Decimal(per_unit))
+                        if amount_in_usd >= 0.01:
+                            equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
+                        elif amount_in_usd >= 0.0001:
+                            equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
 
                 if str(ctx.author.id) in self.bot.tx_in_progress and \
                     int(time.time()) - self.bot.tx_in_progress[str(ctx.author.id)] < 150 and \
@@ -13718,7 +13643,6 @@ class Wallet(commands.Cog):
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
 
             get_deposit = await self.sql_get_userwallet(
                 str(self.bot.user.id), coin_name, net_name, type_coin, SERVER_BOT, 0
@@ -13980,7 +13904,7 @@ class Wallet(commands.Cog):
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+        price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         coin_emoji = ""
         try:
@@ -14048,18 +13972,13 @@ class Wallet(commands.Cog):
         try:
             if not info:
                 amount_in_usd = 0.0
-                if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
-                        amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                per_unit = None
+                if price_with:
+                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                        per_unit = per_unit['price']
+                if per_unit and per_unit > 0:
+                    amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
 
                 try:
                     key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
@@ -14284,7 +14203,7 @@ class Wallet(commands.Cog):
                     type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                     deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                     contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                     coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                     get_deposit = await self.sql_get_userwallet(
@@ -14314,20 +14233,15 @@ class Wallet(commands.Cog):
                     else:
                         equivalent_usd = ""
                         amount_in_usd = 0.0
-                        if usd_equivalent_enable == 1:
-                            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                            coin_name_for_price = coin_name
-                            if native_token_name:
-                                coin_name_for_price = native_token_name
-                            if coin_name_for_price in self.bot.token_hints:
-                                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                            else:
-                                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                            if per_unit and per_unit > 0:
-                                amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
-                                if amount_in_usd > 0.0001:
-                                    equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+                        per_unit = None
+                        if price_with:
+                            per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                            if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                per_unit = per_unit['price']
+                        if per_unit and per_unit > 0:
+                            amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                            if amount_in_usd > 0.0001:
+                                equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         await store.sql_user_balance_mv_single(
                             str(self.bot.user.id), str(ctx.author.id),
@@ -14534,7 +14448,7 @@ class Wallet(commands.Cog):
                     type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                     deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                     contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                     coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                     get_deposit = await self.sql_get_userwallet(
@@ -14564,20 +14478,15 @@ class Wallet(commands.Cog):
                     else:
                         equivalent_usd = ""
                         amount_in_usd = 0.0
-                        if usd_equivalent_enable == 1:
-                            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                            coin_name_for_price = coin_name
-                            if native_token_name:
-                                coin_name_for_price = native_token_name
-                            if coin_name_for_price in self.bot.token_hints:
-                                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                            else:
-                                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                            if per_unit and per_unit > 0:
-                                amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
-                                if amount_in_usd > 0.0001:
-                                    equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+                        per_unit = None
+                        if price_with:
+                            per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                            if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                per_unit = per_unit['price']
+                        if per_unit and per_unit > 0:
+                            amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                            if amount_in_usd > 0.0001:
+                                equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         await store.sql_user_balance_mv_single(
                             str(self.bot.user.id), str(ctx.author.id),
@@ -14675,8 +14584,7 @@ class Wallet(commands.Cog):
 
         min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-
+        price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
         msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing donation check...'
         await ctx.response.send_message(msg)
 
@@ -14723,22 +14631,14 @@ class Wallet(commands.Cog):
         elif "$" in amount[-1] or "$" in amount[0]:  # last is $
             # Check if conversion is allowed for this coin.
             amount = amount.replace(",", "").replace("$", "")
-            if usd_equivalent_enable == 0:
+            if price_with is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
                 await ctx.edit_original_message(content=msg)
                 return
             else:
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                coin_name_for_price = coin_name
-                if native_token_name:
-                    coin_name_for_price = native_token_name
-                per_unit = None
-                if coin_name_for_price in self.bot.token_hints:
-                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                else:
-                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                if per_unit and per_unit > 0:
+                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                    per_unit = per_unit['price']
                     amount = float(Decimal(amount) / Decimal(per_unit))
                 else:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. Try with different method."
@@ -14784,20 +14684,15 @@ class Wallet(commands.Cog):
 
         equivalent_usd = ""
         amount_in_usd = 0.0
-        if usd_equivalent_enable == 1:
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            coin_name_for_price = coin_name
-            if native_token_name:
-                coin_name_for_price = native_token_name
-            if coin_name_for_price in self.bot.token_hints:
-                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-            else:
-                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-            if per_unit and per_unit > 0:
+        if price_with:
+            per_unit = await self.utils.get_coin_price(coin_name, price_with)
+            if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                per_unit = per_unit['price']
                 amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
-                if amount_in_usd > 0.0001:
-                    equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+                if amount_in_usd >= 0.01:
+                    equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
+                elif amount_in_usd >= 0.0001:
+                    equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
 
         if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
             self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())

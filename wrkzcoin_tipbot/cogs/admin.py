@@ -2285,7 +2285,6 @@ class Admin(commands.Cog):
             # deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 member_id, coin_name, net_name, type_coin, user_server, 0
             )
@@ -2545,7 +2544,7 @@ class Admin(commands.Cog):
                 deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                 coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                 token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-                usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                 try:
                     # Add update for future call
                     await self.utils.update_user_balance_call(member_id, type_coin)
@@ -2553,10 +2552,11 @@ class Admin(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
 
                 if num_coins == 0 or num_coins % per_page == 0:
-                    page = disnake.Embed(title=f"[ BALANCE LIST {member_id} ]",
-                                         description="Thank you for using TipBot!",
-                                         color=disnake.Color.blue(),
-                                         timestamp=datetime.now(), )
+                    page = disnake.Embed(
+                        title=f"[ BALANCE LIST {member_id} ]",
+                        description="Thank you for using TipBot!",
+                        timestamp=datetime.now()
+                    )
                     page.set_thumbnail(url=ctx.author.display_avatar)
                     page.set_footer(text="Use the reactions to flip pages.")
                 total_balance = float("%.6f" % userdata_balances[coin_index.index(coin_name)]['adjust'])
@@ -2566,18 +2566,10 @@ class Admin(commands.Cog):
                 elif total_balance > 0:
                     has_none_balance = False
                 equivalent_usd = ""
-                if usd_equivalent_enable == 1:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    per_unit = None
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
+                if price_with:
+                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                        per_unit = per_unit['price']
                         total_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
                         total_all_balance_usd += total_in_usd
                         if total_in_usd >= 0.01:

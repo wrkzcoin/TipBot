@@ -121,9 +121,9 @@ class CoinGecko(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-    @tasks.loop(seconds=1200.0)
+    @tasks.loop(seconds=300.0)
     async def fetch_gecko_pricelist(self):
-        time_lap = 600 # seconds
+        time_lap = 300 # seconds
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "fetch_gecko_pricelist"
@@ -150,6 +150,7 @@ class CoinGecko(commands.Cog):
                                 update_date = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
                                 if len(decoded_data) > 0:
                                     update_list = []
+                                    price_dict = {}
                                     for k, v in decoded_data.items():
                                         if 'usd' in v:
                                             update_list.append((
@@ -157,6 +158,14 @@ class CoinGecko(commands.Cog):
                                                 v['usd_market_cap'], v['usd_24h_vol'], v['usd_24h_change'], v['last_updated_at'],
                                                 k
                                             ))
+                                            price_dict[k.upper()] = {
+                                                "id": k.upper(),
+                                                "price": v['usd'],
+                                                "time": v['last_updated_at'],
+                                                "fetched_time": int(time.time()),
+                                                "vol_24h": v['usd_24h_vol'],
+                                                "mcap": v['usd_market_cap']
+                                            }
                                     try:
                                         await store.openConnection()
                                         async with store.pool.acquire() as conn:
@@ -169,6 +178,16 @@ class CoinGecko(commands.Cog):
                                                 await conn.commit()
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
+                                    # Update cache price list
+                                    for k, v in price_dict.items():
+                                        try:
+                                            await self.utils.async_set_cache_kv(
+                                                self.bot.config['kv_db']['prefix_gecko'],
+                                                "PRICE:" + k.upper(),
+                                                v
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                     except asyncio.TimeoutError:
                         print('TIMEOUT: Fetching from coingecko price')
                     except Exception:

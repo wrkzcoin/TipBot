@@ -147,9 +147,9 @@ class Paprika(commands.Cog):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
-    @tasks.loop(seconds=600)
+    @tasks.loop(seconds=300)
     async def fetch_paprika_pricelist(self):
-        time_lap = 1800  # seconds
+        time_lap = 300  # seconds
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "fetch_paprika_pricelist"
@@ -169,6 +169,7 @@ class Paprika(commands.Cog):
                     update_date = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
                     if len(decoded_data) > 0:
                         update_list = []
+                        price_dict = {}
                         for each_coin in decoded_data:
                             try:
                                 quote_usd = each_coin['quotes']['USD']
@@ -203,6 +204,15 @@ class Paprika(commands.Cog):
                                     quote_usd['percent_change_1y'], quote_usd['ath_price'], ath_date,
                                     quote_usd['percent_from_price_ath']
                                 ))
+                                price_dict[each_coin['id']] = {
+                                    "id":  each_coin['id'],
+                                    "symbol": each_coin['symbol'],
+                                    "price": quote_usd['price'],
+                                    "time": int(last_updated.timestamp()),
+                                    "fetched_time": int(time.time()),
+                                    "vol_24h": quote_usd['volume_24h'],
+                                    "mcap": quote_usd['market_cap']
+                                }
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                         if len(update_list) > 0:
@@ -251,6 +261,16 @@ class Paprika(commands.Cog):
                                         update_list = []
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
+                            # Update cache price list
+                            for k, v in price_dict.items():
+                                try:
+                                    await self.utils.async_set_cache_kv(
+                                        self.bot.config['kv_db']['prefix_paprika'],
+                                        "PRICE:" + k.upper(),
+                                        v
+                                    )
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
         except asyncio.TimeoutError:
             print('TIMEOUT: Fetching from coingecko price')
         except Exception:

@@ -212,7 +212,7 @@ class TopGGVote(commands.Cog):
                                     deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
                                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                                     contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                                     user_from = await self.wallet_api.sql_get_userwallet(
                                         guild_id, coin_name, net_name, type_coin, SERVER_BOT, 0
                                     )
@@ -247,20 +247,11 @@ class TopGGVote(commands.Cog):
                                             traceback.print_exc(file=sys.stdout)
                                         try:
                                             amount_in_usd = 0.0
-                                            if usd_equivalent_enable == 1:
-                                                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                                                coin_name_for_price = coin_name
-                                                if native_token_name:
-                                                    coin_name_for_price = native_token_name
-                                                if coin_name_for_price in self.bot.token_hints:
-                                                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                                                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                                                else:
-                                                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price][
-                                                        'price_usd']
-                                                if per_unit and per_unit > 0:
+                                            if price_with:
+                                                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                                    per_unit = per_unit['price']
                                                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount + extra_amount))
-
                                             try:
                                                 key_coin = guild_id + "_" + coin_name + "_" + SERVER_BOT
                                                 if key_coin in self.bot.user_balance_cache:
@@ -504,29 +495,13 @@ class TopGGVote(commands.Cog):
                                                             coin_decimal = getattr(
                                                                 getattr(self.bot.coin_list, coin_name), "decimal")
                                                             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                                                            usd_equivalent_enable = getattr(
-                                                                getattr(self.bot.coin_list, coin_name),
-                                                                "usd_equivalent_enable")
+                                                            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                                                             amount_in_usd = 0.0
-                                                            if usd_equivalent_enable == 1:
-                                                                native_token_name = getattr(
-                                                                    getattr(self.bot.coin_list, coin_name),
-                                                                    "native_token_name")
-                                                                coin_name_for_price = coin_name
-                                                                if native_token_name:
-                                                                    coin_name_for_price = native_token_name
-                                                                if coin_name_for_price in self.bot.token_hints:
-                                                                    id = self.bot.token_hints[coin_name_for_price][
-                                                                        'ticker_name']
-                                                                    per_unit = self.bot.coin_paprika_id_list[id][
-                                                                        'price_usd']
-                                                                else:
-                                                                    per_unit = self.bot.coin_paprika_symbol_list[
-                                                                        coin_name_for_price]['price_usd']
-                                                                if per_unit and per_unit > 0:
-                                                                    amount_in_usd = float(
-                                                                        Decimal(per_unit) * Decimal(amount))
-
+                                                            if price_with:
+                                                                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                                                    per_unit = per_unit['price']
+                                                                    amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                                                             try:
                                                                 key_coin = self.bot.config['discord']['bot_id'] + "_" + coin_name + "_" + SERVER_BOT
                                                                 if key_coin in self.bot.user_balance_cache:

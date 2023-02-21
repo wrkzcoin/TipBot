@@ -100,7 +100,7 @@ class Guild(commands.Cog):
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                     contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                     token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                     key = "guild_activedrop_{}".format( each_drop['serverid'] )
                     try:
                         if self.ttlcache[key] == key:
@@ -223,19 +223,11 @@ class Guild(commands.Cog):
                                 else:
                                     equivalent_usd = ""
                                     amount_in_usd = 0.0
-                                    total_amount_in_usd = 0.0
                                     amount = each_drop['tiptalk_amount']/len(list_receivers)
-                                    if usd_equivalent_enable == 1:
-                                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                                        coin_name_for_price = coin_name
-                                        if native_token_name:
-                                            coin_name_for_price = native_token_name
-                                        if coin_name_for_price in self.bot.token_hints:
-                                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                                        else:
-                                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                                        if per_unit and per_unit > 0:
+                                    if price_with:
+                                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                            per_unit = per_unit['price']
                                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                                             if amount_in_usd > 0.0001:
                                                 equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
@@ -450,20 +442,12 @@ class Guild(commands.Cog):
                             serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                             unit_price_usd = 0.0
-                            if usd_equivalent_enable == 1:
-                                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                                coin_name_for_price = coin_name
-                                if native_token_name:
-                                    coin_name_for_price = native_token_name
-                                if coin_name_for_price in self.bot.token_hints:
-                                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                                    if per_unit > 0: unit_price_usd = per_unit
-                                else:
-                                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                                    if per_unit > 0: unit_price_usd = per_unit
+                            if price_with:
+                                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                    unit_price_usd = per_unit['price']
                             if each_raffle['ending_ts'] < int(time.time()):
                                 if each_raffle['id'] in self.raffle_to_win:
                                     continue
@@ -870,7 +854,9 @@ class Guild(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_server` WHERE `vote_reward_amount`>0 """
+                    sql = """
+                    SELECT * FROM `discord_server` WHERE `vote_reward_amount`>0
+                    """
                     await cur.execute(sql, )
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -880,11 +866,6 @@ class Guild(commands.Cog):
                             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-                            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-
                             get_deposit = await self.wallet_api.sql_get_userwallet(
                                 each_guild['serverid'], coin_name, net_name, type_coin, SERVER_BOT, 0
                             )
@@ -1240,23 +1221,17 @@ class Guild(commands.Cog):
             return
 
         coin_name = coin.upper()
-        enable_raffle = getattr(getattr(self.bot.coin_list, coin_name), "enable_raffle")
-
-        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-        token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             await ctx.edit_original_message(content=f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
             return
+
+        enable_raffle = getattr(getattr(self.bot.coin_list, coin_name), "enable_raffle")
+        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+        min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+        max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
 
         if enable_raffle != 1:
             await ctx.edit_original_message(content=f'{ctx.author.mention}, **{coin_name}** not available for raffle.')
@@ -1648,7 +1623,7 @@ class Guild(commands.Cog):
                         num_format_coin(total_balance), token_display
                     )
                     coin_balance[coin_name] = total_balance
-                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                     coin_balance_usd[coin_name] = 0.0
                     coin_balance_equivalent_usd[coin_name] = ""
                     coin_emojis[coin_name] = ""
@@ -1658,18 +1633,10 @@ class Guild(commands.Cog):
                             coin_emojis[coin_name] = coin_emojis[coin_name] + " " if coin_emojis[coin_name] else ""
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                    if usd_equivalent_enable == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                        coin_name_for_price = coin_name
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        per_unit = None
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                             coin_balance_usd[coin_name] = float(Decimal(total_balance) * Decimal(per_unit))
                             total_all_balance_usd += coin_balance_usd[coin_name]
                             if coin_balance_usd[coin_name] >= 0.01:
@@ -1785,13 +1752,9 @@ class Guild(commands.Cog):
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
         deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
         min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-
         get_deposit = await self.wallet_api.sql_get_userwallet(
             str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0
         )
@@ -1947,8 +1910,7 @@ class Guild(commands.Cog):
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
-
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -1977,22 +1939,14 @@ class Guild(commands.Cog):
             elif "$" in amount[-1] or "$" in amount[0]: # last is $
                 # Check if conversion is allowed for this coin.
                 amount = amount.replace(",", "").replace("$", "")
-                if usd_equivalent_enable == 0:
+                if price_with is None:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
-                    native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                    coin_name_for_price = coin_name
-                    if native_token_name:
-                        coin_name_for_price = native_token_name
-                    per_unit = None
-                    if coin_name_for_price in self.bot.token_hints:
-                        id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                        per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                    else:
-                        per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                    if per_unit and per_unit > 0:
+                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                        per_unit = per_unit['price']
                         amount = float(Decimal(amount) / Decimal(per_unit))
                     else:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, I cannot fetch equivalent price. "\
@@ -2036,17 +1990,10 @@ class Guild(commands.Cog):
             equivalent_usd = ""
             amount_in_usd = 0.0
             per_unit = None
-            if usd_equivalent_enable == 1:
-                native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                coin_name_for_price = coin_name
-                if native_token_name:
-                    coin_name_for_price = native_token_name
-                if coin_name_for_price in self.bot.token_hints:
-                    id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                    per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                else:
-                    per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                if per_unit and per_unit > 0:
+            if price_with:
+                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                    per_unit = per_unit['price']
                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                     if amount_in_usd > 0.0001:
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
@@ -2512,7 +2459,7 @@ class Guild(commands.Cog):
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
         min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+        price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
 
         get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
@@ -2722,7 +2669,7 @@ class Guild(commands.Cog):
         token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
         min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
         max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-        usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+        price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
 
         get_deposit = await self.wallet_api.sql_get_userwallet(str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0)
         if get_deposit is None:
@@ -3355,7 +3302,7 @@ class Guild(commands.Cog):
                         traceback.print_exc(file=sys.stdout)
                     min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
                     max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-                    usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
 
                     get_deposit = await self.wallet_api.sql_get_userwallet(
                         str(ctx.guild.id), coin_name, net_name, type_coin, SERVER_BOT, 0
@@ -3402,17 +3349,10 @@ class Guild(commands.Cog):
 
                     equivalent_usd = ""
                     amount_in_usd = 0.0
-                    if usd_equivalent_enable == 1:
-                        native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-                        coin_name_for_price = coin_name
-                        if native_token_name:
-                            coin_name_for_price = native_token_name
-                        if coin_name_for_price in self.bot.token_hints:
-                            id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                            per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-                        else:
-                            per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-                        if per_unit and per_unit > 0:
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount + extra_amount))
                             if amount_in_usd > 0.0001:
                                 equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)

@@ -31,6 +31,7 @@ class TalkDropButton(disnake.ui.View):
     def __init__(self, ctx, timeout: float, coin_list, bot, channel_interact):
         super().__init__(timeout=timeout)
         self.bot = bot
+        self.utils = Utils(self.bot)
         self.wallet_api = WalletAPI(self.bot)
         self.coin_list = coin_list
         self.ctx = ctx
@@ -58,7 +59,6 @@ class TalkDropButton(disnake.ui.View):
 
 
 class TalkDrop(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.max_ongoing_by_user = 3
@@ -358,7 +358,7 @@ class TalkDrop(commands.Cog):
 
             min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
             max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-            usd_equivalent_enable = getattr(getattr(self.bot.coin_list, coin_name), "usd_equivalent_enable")
+            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
             )
@@ -392,7 +392,7 @@ class TalkDrop(commands.Cog):
         elif "$" in amount[-1] or "$" in amount[0]:  # last is $
             # Check if conversion is allowed for this coin.
             amount = amount.replace(",", "").replace("$", "")
-            if usd_equivalent_enable == 0:
+            if price_with is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
                 await ctx.edit_original_message(content=msg)
                 return
@@ -492,17 +492,10 @@ class TalkDrop(commands.Cog):
         equivalent_usd = ""
         total_in_usd = 0.0
         per_unit = None
-        if usd_equivalent_enable == 1:
-            native_token_name = getattr(getattr(self.bot.coin_list, coin_name), "native_token_name")
-            coin_name_for_price = coin_name
-            if native_token_name:
-                coin_name_for_price = native_token_name
-            if coin_name_for_price in self.bot.token_hints:
-                id = self.bot.token_hints[coin_name_for_price]['ticker_name']
-                per_unit = self.bot.coin_paprika_id_list[id]['price_usd']
-            else:
-                per_unit = self.bot.coin_paprika_symbol_list[coin_name_for_price]['price_usd']
-            if per_unit and per_unit > 0:
+        if price_with:
+            per_unit = await self.utils.get_coin_price(coin_name, price_with)
+            if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                per_unit = per_unit['price']
                 total_in_usd = float(Decimal(amount) * Decimal(per_unit))
                 if total_in_usd >= 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)

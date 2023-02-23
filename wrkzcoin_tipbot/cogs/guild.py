@@ -2215,81 +2215,6 @@ class Guild(commands.Cog):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
-
-    @commands.has_permissions(administrator=True)
-    @guild.sub_command(
-        name="discadia",
-        usage="guild discadia [resetkey]", 
-        options=[
-            Option('resetkey', 'resetkey', OptionType.string, required=False, choices=[
-                OptionChoice("YES", "YES"),
-                OptionChoice("NO", "NO")
-            ])
-        ],
-        description="Get token key to set for discadia vote in bot channel."
-    )
-    async def discadia(
-        self,
-        ctx,
-        resetkey: str=None
-    ):
-        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
-        await ctx.response.send_message(msg, ephemeral=True)
-
-        try:
-            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
-                                         str(ctx.author.id), SERVER_BOT, "/guild discadia", int(time.time())))
-            await self.utils.add_command_calls()
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-
-        secret = "discadia_vote_secret"
-        if resetkey is None: resetkey = "NO"
-        get_guild_by_key = await self.guild_find_by_key(str(ctx.guild.id), secret)
-        if get_guild_by_key is None:
-            # Generate
-            random_string = str(uuid.uuid4())
-            insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, False)
-            if insert_key:
-                try:
-                    await ctx.edit_original_message(
-                        content=f"Your guild {ctx.guild.name}\'s webhook link for discadia.com.\nWebook URL: "\
-                            f"`{self.bot.config['discadia']['guild_vote_url'] + random_string}`.\nKeep it secret and set it in server's webhook."
-                    )
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-            else:
-                try:
-                    await ctx.edit_original_message(content=f'Internal error! Please report!')
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-        elif get_guild_by_key and resetkey == "NO":
-            # Just display
-            try:
-                await ctx.edit_original_message(
-                    content=f"Your guild {ctx.guild.name}\'s webhook link for discadia.com:\n"\
-                        f"Webhook URL: `{self.bot.config['discadia']['guild_vote_url'] + get_guild_by_key}`\nKeep it secret and set it in server's webhook."
-                )
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-        elif get_guild_by_key and resetkey == "YES":
-            # Update a new key and say to it. Do not forget to update
-            random_string = str(uuid.uuid4())
-            insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, True)
-            if insert_key:
-                try:
-                    await ctx.edit_original_message(
-                        content=f"Your guild {ctx.guild.name}\'s webhook link for discadia.com:\nWebook URL: "\
-                            f"`{self.bot.config['discadia']['guild_vote_url'] + random_string}`.\nKeep it secret and set it in server's webhook."
-                    )
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-            else:
-                try:
-                    await ctx.edit_original_message(content=f'Internal error! Please report!')
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-
     # Guild deposit
     async def async_mdeposit(self, ctx, token: str=None, plain: str=None):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
@@ -2882,8 +2807,6 @@ class Guild(commands.Cog):
             coin_decimal = getattr(getattr(self.bot.coin_list, serverinfo['vote_reward_coin']), "decimal")
             vote_links = []
             vote_links.append("https://top.gg/servers/{}/vote".format(ctx.guild.id))
-            if serverinfo['discadia_link'] is not None:
-                vote_links.append(serverinfo['discadia_link'])
             embed.add_field(
                 name="Vote Reward {} {}".format(
                     num_format_coin(serverinfo['vote_reward_amount']), serverinfo['vote_reward_coin']

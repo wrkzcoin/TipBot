@@ -13810,9 +13810,6 @@ class Wallet(commands.Cog):
 
                     extra_take_text += "\n⚆ Vote {} at top.gg <https://top.gg/servers/{}/vote> for {} {} each vote.".format(
                         ctx.guild.name, ctx.guild.id, vote_reward_amount, serverinfo['vote_reward_coin'])
-                    if serverinfo['discadia_link']:
-                        extra_take_text += "\n⚆ Vote {} at discadia <{}> for {} {} each vote.".format(
-                            ctx.guild.name, serverinfo['discadia_link'], vote_reward_amount, serverinfo['vote_reward_coin'])
                 if serverinfo['rt_reward_amount'] and serverinfo['rt_reward_coin'] and serverinfo[
                     'rt_end_timestamp'] and serverinfo['rt_end_timestamp'] - 600 > int(time.time()) and serverinfo[
                     'rt_link']:

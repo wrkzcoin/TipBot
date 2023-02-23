@@ -2046,17 +2046,18 @@ class Admin(commands.Cog):
                 msg = ""
                 result = []
                 for each in coin_list:
-                    final_amount[each] = 0.0
                     if each in cexswap_pools:
-                        final_amount[each] += float(cexswap_pools[each])
-                    if each in cexswap_pools_share:
-                        final_amount[each] -= float(cexswap_pools_share[each])
-                    result.append("\nPOOL vs SHARE FOR {}\n   {} - {} = {} {}".format(
-                        each, float(truncate(cexswap_pools[each], 4)),
-                        float(truncate(cexswap_pools_share[each], 4)),
-                        "✅" if truncate(final_amount[each], 8) == 0 else "🔴",
-                        truncate(final_amount[each], 6)
-                    ))
+                        final_amount[each] = 0.0
+                        if each in cexswap_pools:
+                            final_amount[each] += float(cexswap_pools[each])
+                        if each in cexswap_pools_share:
+                            final_amount[each] -= float(cexswap_pools_share[each])
+                        result.append("\nPOOL vs SHARE FOR {}\n   {} - {} = {} {}".format(
+                            each, float(truncate(cexswap_pools[each], 4)),
+                            float(truncate(cexswap_pools_share[each], 4)),
+                            "✅" if truncate(final_amount[each], 8) == 0 else "🔴",
+                            truncate(final_amount[each], 6)
+                        ))
                 msg += "\n".join(result)
                 msg += "\n\n"
                 result = []
@@ -2076,18 +2077,18 @@ class Admin(commands.Cog):
                         add_remove -= float(cexswap_distributing_fee.get(each))
                     if cexswaplp.get(each):
                         add_remove -= float(cexswaplp.get(each))
-
-                    result.append("DETAIL {}:\n   POOL: {}\n   -(ADD: {} - REMOVE: {} - SOLD {} - FEE {} - FEE LP {})\n   = {} ({:,.2f}{}) GOT: {} {}\n".format(
-                        each, pool_amount, 
-                        truncate(float(cexswap_add.get(each)), 5) if cexswap_add.get(each) else 0, 
-                        truncate(float(cexswap_remove.get(each)), 5) if cexswap_remove.get(each) else 0,
-                        truncate(float(cexswap_sell_logs.get(each)), 5) if cexswap_sell_logs.get(each) else 0,
-                        truncate(float(cexswap_distributing_fee.get(each)), 4) if cexswap_distributing_fee.get(each) else 0,
-                        truncate(float(cexswaplp.get(each)), 5) if cexswaplp.get(each) else 0,
-                        truncate(add_remove, 4), add_remove/float(cexswap_pools.get(each))*100, "%",
-                        truncate(float(cexswap_pools.get(each)) - add_remove, 5),
-                        "✅" if truncate(float(cexswap_pools.get(each)) - add_remove, 5) >= 0 else "🔴"
-                    ))
+                    if cexswap_pools.get(each) is not None:
+                        result.append("DETAIL {}:\n   POOL: {}\n   -(ADD: {} - REMOVE: {} - SOLD {} - FEE {} - FEE LP {})\n   = {} ({:,.2f}{}) GOT: {} {}\n".format(
+                            each, pool_amount, 
+                            truncate(float(cexswap_add.get(each)), 5) if cexswap_add.get(each) else 0, 
+                            truncate(float(cexswap_remove.get(each)), 5) if cexswap_remove.get(each) else 0,
+                            truncate(float(cexswap_sell_logs.get(each)), 5) if cexswap_sell_logs.get(each) else 0,
+                            truncate(float(cexswap_distributing_fee.get(each)), 4) if cexswap_distributing_fee.get(each) else 0,
+                            truncate(float(cexswaplp.get(each)), 5) if cexswaplp.get(each) else 0,
+                            truncate(add_remove, 4), add_remove/float(cexswap_pools.get(each))*100, "%",
+                            truncate(float(cexswap_pools.get(each)) - add_remove, 5),
+                            "✅" if truncate(float(cexswap_pools.get(each)) - add_remove, 5) >= 0 else "🔴"
+                        ))
                 msg += "\n".join(result)
                 msg = f"```{msg}```"
                 if len(msg) >= 2000:

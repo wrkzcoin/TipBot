@@ -11010,10 +11010,10 @@ class Wallet(commands.Cog):
                 plain_address += f"\n📝 MEMO (mandatory!): `{address_memo[2]}`"
                 pointer_message += " and do not forget to include MEMO."
 
+            main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
             if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"] and getattr(
                     getattr(self.bot.coin_list, coin_name),
                     "split_main_paymentid") == 1:  # split main and integrated address
-                main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                 embed.add_field(
                     name="Main Address",
                     value="```{}```".format(main_address),
@@ -11029,6 +11029,11 @@ class Wallet(commands.Cog):
                 if " MEMO:" in wallet_address_new:
                     wallet_address_new = wallet_address_new.replace(" MEMO:", "\n📝 MEMO:")
                 embed.add_field(name="Your Deposit Address", value="`{}`".format(wallet_address_new), inline=False)
+                if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"] and getattr(
+                    getattr(self.bot.coin_list, coin_name),
+                    "split_main_paymentid") != 1:
+                    # Add optional address and payment Id
+                    embed.add_field(name="Or Address + PaymentId", value="Address: `{}`\nPaymentId: `{}`".format(main_address, get_deposit['paymentid']), inline=False)
                 embed.set_thumbnail(url=self.bot.config['storage']['deposit_url'] + address_path + ".png")
 
             if getattr(getattr(self.bot.coin_list, coin_name), "related_coins"):

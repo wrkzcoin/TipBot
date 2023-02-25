@@ -2892,11 +2892,7 @@ class Cexswap(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     return
 
-                if amount <= 0 or actual_balance <= 0:
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}."
-                    await ctx.edit_original_message(content=msg)
-                    return
-                elif truncate(amount, 8) < truncate(cexswap_min, 8):
+                if truncate(amount, 8) < truncate(cexswap_min, 8):
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount `{sell_amount_old}`"\
                         f" is below minimum `{num_format_coin(cexswap_min)} {token_display}`."
                     await ctx.edit_original_message(content=msg)

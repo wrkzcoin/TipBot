@@ -509,8 +509,12 @@ class VaultMenu(disnake.ui.View):
                 type_coin = "TRTL-API"
                 coin_setting = await get_coin_vault_setting(self.selected_coin)
                 if coin_setting is None:
-                    await interaction.edit_original_message(f"{interaction.author.mention}, internal error when creating {self.selected_coin} address!")
+                    await interaction.edit_original_message(content=f"{interaction.author.mention}, internal error when creating {self.selected_coin} address!")
                     return
+                else:
+                    if coin_setting['is_maintenance'] == 1:
+                        await interaction.edit_original_message(content=f"{interaction.author.mention}, {self.selected_coin} is currently on maintenance!", ephemeral=True)
+                        return
                 create_wallet = await bcn_get_new_address(self.selected_coin, coin_setting['wallet_address'], coin_setting['header'], 30)
                 if create_wallet is not None:
                     inserting = await vault_insert(
@@ -520,7 +524,7 @@ class VaultMenu(disnake.ui.View):
                     )
                     address = create_wallet['address']
                 else:
-                    await interaction.edit_original_message(f"{interaction.author.mention}, internal error when creating {self.selected_coin} address!")            
+                    await interaction.edit_original_message(content=f"{interaction.author.mention}, internal error when creating {self.selected_coin} address!")            
             if inserting is True:
                 self.embed.clear_fields()
                 self.embed.add_field(
@@ -570,6 +574,9 @@ class VaultMenu(disnake.ui.View):
             # Waits until the user submits the modal.
             try:
                 coin_setting = await get_coin_vault_setting(self.selected_coin)
+                if coin_setting['is_maintenance'] == 1:
+                    await interaction.response.send_message(f"{interaction.author.mention}, {self.selected_coin} is currently on maintenance!", ephemeral=True)
+                    return
                 if self.selected_coin == "ETH":
                     type_coin = "ERC-20"
                 elif self.selected_coin in ["WRKZ", "DEGO"]:

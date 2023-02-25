@@ -14,6 +14,13 @@ from disnake.enums import OptionType
 from disnake.enums import ButtonStyle
 from disnake import TextInputStyle
 from disnake.ext import commands
+from eth_account import Account
+
+from web3 import Web3
+from web3.middleware import geth_poa_middleware
+
+Account.enable_unaudited_hdwallet_features()
+
 # wallet thing
 from pywallet import wallet as ethwallet
 
@@ -88,6 +95,65 @@ async def http_wallet_getbalance(
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
     return None
+
+async def send_erc_token(
+    url: str, chainId: str, from_address: str, seed: str,
+    to_address: str, float_balance: float, float_amount: float, coin_decimal: int
+):
+    try:
+        # HTTPProvider:
+        w3 = Web3(Web3.HTTPProvider(url))
+        # inject the poa compatibility middleware to the innermost layer
+        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(from_address))
+
+        # get gas price
+        gasPrice = w3.eth.gasPrice
+        estimateGas = w3.eth.estimateGas(
+            {
+                'to': w3.toChecksumAddress(to_address),
+                'from': w3.toChecksumAddress(from_address),
+                'value': int(float_amount * 10 ** coin_decimal)
+            }
+        )
+
+        est_gas_amount = gasPrice * estimateGas # atomic
+        if est_gas_amount > (float_balance - float_amount)*10**coin_decimal:
+            return {
+                "success": False,
+                "msg": "You don't have sufficient gas remaining.",
+                "tx": None
+            }
+        else:
+            transaction = {
+                'from': w3.toChecksumAddress(from_address),
+                'to': w3.toChecksumAddress(to_address),
+                'value': int(float_amount*10**coin_decimal),
+                'nonce': nonce,
+                'gasPrice': gasPrice,
+                'gas': estimateGas,
+                'chainId': chainId
+            }
+            acct = Account.from_mnemonic(mnemonic=decrypt_string(seed))
+            signed = w3.eth.account.sign_transaction(transaction, private_key=acct.key)
+            # send Transaction:
+            send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
+            tx_receipt = w3.eth.waitForTransactionReceipt(send_gas_tx)
+            # return tx_receipt.transactionHash.hex() # hash Tx
+            return {
+                "success": True,
+                "msg": "You sent transaction to network tx hash: {}".format(tx_receipt.transactionHash.hex()),
+                "tx": tx_receipt.transactionHash.hex(),
+                "others": str(tx_receipt)
+            }
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return {
+        "success": False,
+        "msg": "Internal error. Please report",
+        "tx": None
+    }
 
 async def bnc_get_balance(
     coin_name: str, wallet_api_url: str, header: str, address: str, timeout: int=30
@@ -185,7 +251,7 @@ async def bcn_get_new_address(
 async def vault_insert(
     user_id: str, user_server: str, coin_name: str, coin_type: str,
     address: str, spend_key: str, view_key: str, private_key: str,
-    seed: str, dump: str
+    seed: str, dump: str, height: int=None
 ):
     try:
         await store.openConnection()
@@ -194,12 +260,17 @@ async def vault_insert(
                 sql = """
                 INSERT INTO `vaults` 
                 (`coin_name`, `type`, `user_id`, `user_server`, `address`, `spend_key`,
-                `view_key`, `private_key`, `seed`, `dump`, `address_ts`)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                `view_key`, `private_key`, `seed`, `dump`, `address_ts`, `height`)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+
+                UPDATE `vaults_coin_setting`
+                SET `used`=`used`+1
+                WHERE `coin_name`=%s LIMIT 1;
                 """
                 await cur.execute(sql, (
                     coin_name, coin_type, user_id, user_server, address,
-                    spend_key, view_key, private_key, seed, dump, int(time.time())
+                    spend_key, view_key, private_key, seed, dump, int(time.time()), height,
+                    coin_name
                 ))
                 await conn.commit()
                 return True
@@ -352,7 +423,7 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
             await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
             return
         else:
-            await inter.response.send_message(f"{inter.author.mention}, checking...", delete_after=1.0)
+            await inter.response.send_message(f"{inter.author.mention}, checking...", delete_after=3.0)
             # check if user has that coin
             get_a_vault = None
             if self.values[0] is not None:
@@ -415,7 +486,13 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                                     inline=False
                                 )
                                 disable_withdraw = True
-                        elif self.values[0] == "ETH":
+                            if coin_setting['note']:
+                                self.embed.add_field(
+                                    name="Coin/Token note",
+                                    value=coin_setting['note'],
+                                    inline=False
+                                )
+                        elif self.values[0] in ["ETH", "MATIC", "BNB"]:
                             get_balance = await http_wallet_getbalance(
                                 coin_setting['daemon_address'], get_a_vault['address'], None, 5
                             )
@@ -446,7 +523,7 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             self.embed.add_field(
-                name="NOTE",
+                name="Other note",
                 value=self.bot.config['vault']['note_msg'],
                 inline=False
             )
@@ -497,30 +574,45 @@ class VaultMenu(disnake.ui.View):
             await interaction.response.send_message(f"{interaction.author.mention}, creating...", ephemeral=True)
             inserting = False
             address = ""
-            if self.selected_coin == "ETH":
+            if self.selected_coin in ["ETH", "MATIC", "BNB"]:
                 type_coin = "ERC-20"
                 w = create_address_eth()
                 inserting = await vault_insert(
                     str(self.owner_id), SERVER_BOT, self.selected_coin, type_coin,
-                    w['address'], None, None, encrypt_string(w['private_key']), encrypt_string(w['seed']), encrypt_string(str(w))
+                    w['address'], None, None, encrypt_string(w['private_key']), encrypt_string(w['seed']), encrypt_string(str(w)),
+                    None
                 )
                 address = w['address']
             elif self.selected_coin in ["WRKZ", "DEGO"]:
                 type_coin = "TRTL-API"
                 coin_setting = await get_coin_vault_setting(self.selected_coin)
+                # get coin height
+                height = await self.wallet_api.get_block_height(type_coin, self.selected_coin, None)
+                if height is None:
+                    await interaction.edit_original_message(
+                        content=f"{interaction.author.mention}, internal error when creating {self.selected_coin} address! Failed to get block info.")
+                    return
                 if coin_setting is None:
-                    await interaction.edit_original_message(content=f"{interaction.author.mention}, internal error when creating {self.selected_coin} address!")
+                    await interaction.edit_original_message(
+                        content=f"{interaction.author.mention}, internal error when creating {self.selected_coin} address!")
                     return
                 else:
                     if coin_setting['is_maintenance'] == 1:
-                        await interaction.edit_original_message(content=f"{interaction.author.mention}, {self.selected_coin} is currently on maintenance!", ephemeral=True)
+                        await interaction.edit_original_message(
+                            content=f"{interaction.author.mention}, {self.selected_coin} is currently on maintenance!", ephemeral=True)
+                        return
+                    elif coin_setting['used'] >= coin_setting['max_number']:
+                        await interaction.edit_original_message(
+                            content=f"{interaction.author.mention}, {self.selected_coin} usage is high right now. "\
+                                "We will increase the capacity and you can check again later!", ephemeral=True)
                         return
                 create_wallet = await bcn_get_new_address(self.selected_coin, coin_setting['wallet_address'], coin_setting['header'], 30)
                 if create_wallet is not None:
                     inserting = await vault_insert(
                         str(self.owner_id), SERVER_BOT, self.selected_coin, type_coin,
                         create_wallet['address'], spend_key=encrypt_string(create_wallet['privateSpendKey']),
-                        view_key=coin_setting['view_key'], private_key=None, seed=None, dump=encrypt_string(json.dumps(create_wallet))
+                        view_key=coin_setting['view_key'], private_key=None, seed=None, dump=encrypt_string(json.dumps(create_wallet)),
+                        height=height
                     )
                     address = create_wallet['address']
                 else:
@@ -549,7 +641,7 @@ class VaultMenu(disnake.ui.View):
                     self.bot, self.ctx, self.owner_id, self.embed, self.bot.config['vault']['enable_vault'],
                     self.selected_coin, disable_update, disable_withdraw, disable_viewkey
                 )
-                await interaction.edit_original_message(f"{interaction.author.mention}, successfully created your {self.selected_coin} address!")
+                await interaction.edit_original_message(f"{interaction.author.mention}, successfully created your {self.selected_coin} address! Please View Seed/Key and backup it now!")
                 await self.ctx.edit_original_message(content=None, embed=self.embed, view=view)
             else:
                 disable_update = True
@@ -577,18 +669,24 @@ class VaultMenu(disnake.ui.View):
                 if coin_setting['is_maintenance'] == 1:
                     await interaction.response.send_message(f"{interaction.author.mention}, {self.selected_coin} is currently on maintenance!", ephemeral=True)
                     return
-                if self.selected_coin == "ETH":
-                    type_coin = "ERC-20"
-                elif self.selected_coin in ["WRKZ", "DEGO"]:
-                    type_coin = "TRTL-API"
+                chain_id = coin_setting['chain_id']
                 get_a_vault = await get_a_user_vault_coin(str(self.owner_id), self.selected_coin, SERVER_BOT)
                 if get_a_vault is None:
                     await interaction.response.send_message(f"{interaction.author.mention}, you don't have {self.selected_coin}'s vault!", ephemeral=True)
                     return
+
+                if self.selected_coin in ["ETH", "MATIC", "BNB"]:
+                    type_coin = "ERC-20"
+                    seed = get_a_vault['seed']
+                elif self.selected_coin in ["WRKZ", "DEGO"]:
+                    type_coin = "TRTL-API"
+                    seed = None
+
                 await interaction.response.send_modal(
                     modal=Withdraw(
                         interaction, self.bot, self.selected_coin, type_coin, coin_setting['coin_decimal'], 
-                        get_a_vault['address'], coin_setting['wallet_address'], coin_setting['header']
+                        get_a_vault['address'], seed, coin_setting['wallet_address'], chain_id, 
+                        coin_setting['header']
                     )
                 )
                 modal_inter: disnake.ModalInteraction = await self.bot.wait_for(
@@ -622,15 +720,15 @@ class VaultMenu(disnake.ui.View):
             else:
                 coin_setting = await get_coin_vault_setting(self.selected_coin)
                 data = ""
-                if self.selected_coin == "ETH":
+                if self.selected_coin in ["ETH", "MATIC", "BNB"]:
                     data = "Address: {}\n".format(get_a_vault['address'])
                     data += "Seed: {}\n".format(decrypt_string(get_a_vault['seed']))
                 elif self.selected_coin in ["WRKZ", "DEGO"]:
                     data = "Address: {}\n".format(get_a_vault['address'])
                     data += "View key: {}\n".format(decrypt_string(get_a_vault['view_key']))
                     data += "Spend key: {}\n".format(decrypt_string(get_a_vault['spend_key']))
-                if coin_setting['note'] is not None:
-                    data += coin_setting['note']
+                if get_a_vault['height'] is not None:
+                    data += "Scan height: {}".format(get_a_vault['height'])
                 view = ConfirmBackup()
                 msg = f"{interaction.author.mention}, your {self.selected_coin} data! "\
                     f"Keep for yourself and don't share!```{data}```Please backup before you can withdraw!"
@@ -668,8 +766,8 @@ class VaultMenu(disnake.ui.View):
 class Withdraw(disnake.ui.Modal):
     def __init__(
             self, ctx, bot, coin_name: str, coin_type: str,
-            coin_decimal: int, source_address: str,
-            endpoint: str, contract_header: str
+            coin_decimal: int, source_address: str, seed: str,
+            endpoint: str, chain_id: int, contract_header: str
     ) -> None:
         self.ctx = ctx
         self.bot = bot
@@ -677,7 +775,9 @@ class Withdraw(disnake.ui.Modal):
         self.coin_type = coin_type
         self.coin_decimal = coin_decimal
         self.source_address = source_address
+        self.seed = seed
         self.endpoint = endpoint
+        self.chain_id = chain_id
         self.contract_header = contract_header
         extra_option = None
         note = "We recommend you to transfer to your own wallet!"
@@ -735,7 +835,7 @@ class Withdraw(disnake.ui.Modal):
         try:
             amount = float(amount.replace(",", ""))
             atomic_amount = amount*10**self.coin_decimal
-            if atomic_amount == 0:
+            if atomic_amount <= 0:
                 await interaction.edit_original_message(f"{interaction.author.mention}, invalid given amount!")
                 return
         except ValueError:
@@ -755,6 +855,11 @@ class Withdraw(disnake.ui.Modal):
 
         coin_name = self.coin_name
         try:
+            if self.source_address == address.lower():
+                await interaction.edit_original_message(
+                    f"{interaction.author.mention}, you should not try to same as source address!"
+                )
+                return
             if coin_name in ["WRKZ", "DEGO"]:
                 sending = await bcn_send_external(
                     coin_name, self.source_address, address, extra_option,
@@ -777,8 +882,40 @@ class Withdraw(disnake.ui.Modal):
                         f"successfully withdrew {num_format_coin(amount)} {coin_name}."
                     )
                 else:
-                    await interaction.edit_original_message(f"{interaction.author.mention}, internal error during sending {coin_name}!")
+                    await interaction.edit_original_message(
+                        content=f"{interaction.author.mention}, internal error during sending {coin_name}!")
                 return
+            elif coin_name in ["ETH", "MATIC", "BNB"]:
+                # get actual balance
+                get_balance = await http_wallet_getbalance(
+                    self.endpoint, self.source_address, None, 10
+                )
+                if get_balance is None:
+                    await interaction.edit_original_message(
+                        content=f"{interaction.author.mention}, failed to retrieve your {coin_name}'s balance. Try again later!")
+                    return
+                sending = await send_erc_token(
+                    self.endpoint, self.chain_id, self.source_address, 
+                    self.seed, address, get_balance/(10**self.coin_decimal), amount, self.coin_decimal
+                )
+                if sending['success'] is False:
+                    await interaction.edit_original_message(
+                        content=f"{interaction.author.mention}, failed to send your {coin_name}. {sending['msg']}")
+                else:
+                    await interaction.edit_original_message(
+                        content=f"{interaction.author.mention}, successfully withdraw {amount} {coin_name}. {sending['tx']}")
+                    try:
+                        await vault_withdraw(
+                            str(interaction.author.id), SERVER_BOT, coin_name, address, None,
+                            amount, sending['tx'], sending['others']
+                        )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                    await log_to_channel(
+                        "withdraw",
+                        f"[VAULT] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
+                        f"successfully withdrew {num_format_coin(amount)} {coin_name}."
+                    )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

@@ -11902,6 +11902,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         try:
@@ -11997,6 +12001,10 @@ class Wallet(commands.Cog):
                                     if key_withdraw in self.withdraw_tx:
                                         del self.withdraw_tx[key_withdraw]
                                     return
+                                else:
+                                    await ctx.edit_original_message(
+                                        view=None
+                                    )
                                 self.withdraw_tx[key_withdraw] = int(time.time())
 
                                 send_tx = await self.wallet_api.send_external_nano(
@@ -12239,6 +12247,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         send_tx = await self.wallet_api.send_external_xlm(
@@ -12359,6 +12371,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
                         get_wallet_seq = await cosmos_get_seq(wallet_host, main_address, 16)
                         if get_wallet_seq is None:
@@ -12472,6 +12488,10 @@ class Wallet(commands.Cog):
                                 if key_withdraw in self.withdraw_tx:
                                     del self.withdraw_tx[key_withdraw]
                                 return
+                            else:
+                                await ctx.edit_original_message(
+                                    view=None
+                                )
                             self.withdraw_tx[key_withdraw] = int(time.time())
 
                             send_tx = await self.wallet_api.send_external_ada(
@@ -12600,6 +12620,10 @@ class Wallet(commands.Cog):
                                 if key_withdraw in self.withdraw_tx:
                                     del self.withdraw_tx[key_withdraw]
                                 return
+                            else:
+                                await ctx.edit_original_message(
+                                    view=None
+                                )
                             self.withdraw_tx[key_withdraw] = int(time.time())
 
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -12700,6 +12724,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         send_tx = None
@@ -12789,6 +12817,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         send_tx = None
@@ -12878,6 +12910,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         transaction = functools.partial(
@@ -12964,6 +13000,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         issuer = getattr(getattr(self.bot.coin_list, coin_name), "header")
@@ -13047,6 +13087,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         send_tx = await self.wallet_api.send_external_near(
@@ -13119,6 +13163,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         send_tx = await self.wallet_api.send_external_sol(
@@ -13193,6 +13241,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         send_tx = await self.wallet_api.send_external_doge(
@@ -13269,6 +13321,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         if send_tx:
@@ -13342,6 +13398,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         send_tx = await self.wallet_api.send_external_xmr(

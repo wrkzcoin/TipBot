@@ -278,6 +278,42 @@ async def vault_insert(
         traceback.print_exc(file=sys.stdout)
     return False
 
+async def vault_archive(
+    user_id: str, user_server: str, coin_name: str, coin_type: str,
+    address: str, spend_key: str, view_key: str, private_key: str,
+    seed: str, dump: str, address_ts: int, height: int=None, confirm: int=0, backup_date: int=None
+):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """
+                INSERT INTO `vaults_archive` 
+                (`coin_name`, `type`, `user_id`, `user_server`, `address`, `spend_key`,
+                `view_key`, `private_key`, `seed`, `dump`, `address_ts`, `height`, 
+                `confirmed_backup`, `backup_date`, `deleted_date`)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+
+                UPDATE `vaults_coin_setting`
+                SET `used`=`used`-1
+                WHERE `coin_name`=%s LIMIT 1;
+
+                DELETE FROM `vaults`
+                WHERE `coin_name`=%s AND `user_id`=%s AND `user_server`=%s LIMIT 1;
+                """
+                await cur.execute(sql, (
+                    coin_name, coin_type, user_id, user_server, address,
+                    spend_key, view_key, private_key, seed, dump, address_ts, height,
+                    confirm, backup_date, int(time.time()),
+                    coin_name,
+                    coin_name, user_id, user_server
+                ))
+                await conn.commit()
+                return True
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
 async def vault_withdraw(
     user_id: str, user_server: str, coin_name: str,
     address: str, extra: str, amount: float, ref: str, other: str
@@ -384,13 +420,33 @@ class ConfirmBackup(disnake.ui.View):
 
     @disnake.ui.button(label="Yes, already backup!", style=disnake.ButtonStyle.green)
     async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.send_message(f"{inter.author.mention}, confirming ...", delete_after=2.0)
+        await inter.response.send_message(f"{inter.author.mention}, confirming ...")
+        await inter.delete_original_message()
         self.value = True
         self.stop()
 
     @disnake.ui.button(label="No, will do later!", style=disnake.ButtonStyle.grey)
     async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.send_message(f"{inter.author.mention}, you need to backup before you can withdraw.", delete_after=5.0)
+        await inter.response.send_message(f"{inter.author.mention}, you need to backup before you can withdraw.", delete_after=6.0)
+        self.value = False
+        self.stop()
+
+class ConfirmArchive(disnake.ui.View):
+    def __init__(self):
+        super().__init__(timeout=60.0)
+        self.value: Optional[bool] = None
+
+    @disnake.ui.button(label="Yes, remove it!", style=disnake.ButtonStyle.green)
+    async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+        await inter.response.send_message(f"{inter.author.mention}, removing ...")
+        await inter.delete_original_message()
+        self.value = True
+        self.stop()
+
+    @disnake.ui.button(label="No, don't do!", style=disnake.ButtonStyle.grey)
+    async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+        await inter.response.send_message(f"{inter.author.mention}, not removing ...")
+        await inter.delete_original_message()
         self.value = False
         self.stop()
 
@@ -423,7 +479,6 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
             await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
             return
         else:
-            await inter.response.send_message(f"{inter.author.mention}, checking...", delete_after=3.0)
             # check if user has that coin
             get_a_vault = None
             if self.values[0] is not None:
@@ -434,10 +489,14 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                 disable_update = False
                 disable_withdraw = True
                 disable_viewkey = True
+                disable_archive = True
             else:
                 disable_update = True
                 disable_withdraw = False
                 disable_viewkey = True
+                disable_archive = True
+                if self.selected_coin in ["ETH", "MATIC", "BNB"]:
+                    disable_archive = False
                 if get_a_vault['confirmed_backup'] == 0:
                     disable_withdraw = True
                     disable_viewkey = False
@@ -492,6 +551,7 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                                     value=coin_setting['note'],
                                     inline=False
                                 )
+                            disable_archive = True
                         elif self.values[0] in ["ETH", "MATIC", "BNB"]:
                             get_balance = await http_wallet_getbalance(
                                 coin_setting['daemon_address'], get_a_vault['address'], None, 5
@@ -513,6 +573,7 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                                         ),
                                         inline=False
                                     )
+                                disable_archive = False
                             else:
                                 self.embed.add_field(
                                     name="Balance",
@@ -529,10 +590,10 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
             )
             view = VaultMenu(
                 self.bot, self.ctx, inter.author.id, self.embed, self.bot.config['vault']['enable_vault'],
-                self.values[0], disable_update, disable_withdraw, disable_viewkey
+                self.values[0], disable_update, disable_withdraw, disable_viewkey, disable_archive
             )
             await self.ctx.edit_original_message(content=None, embed=self.embed, view=view)
-
+            await inter.response.defer()
 
 class VaultMenu(disnake.ui.View):
     def __init__(
@@ -543,7 +604,7 @@ class VaultMenu(disnake.ui.View):
         list_coins,
         selected_coin: str=None,
         disable_create_update: bool=True, disable_withdraw: bool=True,
-        disable_viewkey: bool=True
+        disable_viewkey: bool=True, disable_archive: bool=True
     ):
         super().__init__()
         self.bot = bot
@@ -557,6 +618,7 @@ class VaultMenu(disnake.ui.View):
         self.btn_vault_update.disabled = disable_create_update
         self.btn_vault_withdraw.disabled = disable_withdraw
         self.btn_vault_viewkey.disabled = disable_viewkey
+        self.btn_vault_archive.disabled = disable_archive
 
         self.add_item(DropdownVaultCoin(
             ctx, owner_id, self.bot, self.embed, list_coins, self.selected_coin
@@ -637,19 +699,30 @@ class VaultMenu(disnake.ui.View):
                 disable_update = True
                 disable_withdraw = True
                 disable_viewkey = False
+                disable_archive = True
+                disable_archive = True
+                if self.selected_coin in ["ETH", "MATIC", "BNB"]:
+                    disable_archive = False
                 view = VaultMenu(
                     self.bot, self.ctx, self.owner_id, self.embed, self.bot.config['vault']['enable_vault'],
-                    self.selected_coin, disable_update, disable_withdraw, disable_viewkey
+                    self.selected_coin, disable_update, disable_withdraw, disable_viewkey, disable_archive
                 )
                 await interaction.edit_original_message(f"{interaction.author.mention}, successfully created your {self.selected_coin} address! Please View Seed/Key and backup it now!")
                 await self.ctx.edit_original_message(content=None, embed=self.embed, view=view)
+                await log_to_channel(
+                    "vault",
+                    f"[VAULT] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
+                    f"successfully created a new {self.selected_coin} wallet.",
+                    self.bot.config['discord']['vault_webhook']
+                )
             else:
                 disable_update = True
                 disable_withdraw = True
                 disable_viewkey = True
+                disable_archive = True
                 view = VaultMenu(
                     self.bot, self.ctx, self.owner_id, self.embed, self.bot.config['vault']['enable_vault'],
-                    self.selected_coin, disable_update, disable_withdraw, disable_viewkey
+                    self.selected_coin, disable_update, disable_withdraw, disable_viewkey, disable_archive
                 )
                 await interaction.edit_original_message(f"{interaction.author.mention}, internal error when creating {self.selected_coin} address!")
                 await self.ctx.edit_original_message(content=None, embed=self.embed, view=view)
@@ -702,7 +775,7 @@ class VaultMenu(disnake.ui.View):
                 traceback.print_exc(file=sys.stdout)
             #await interaction.response.send_message(f"{interaction.author.mention}, TODO!", ephemeral=True)
 
-    @disnake.ui.button(label="View Key/Seed", style=ButtonStyle.red, custom_id="vault_viewkey")
+    @disnake.ui.button(label="View Key/Seed", style=ButtonStyle.gray, custom_id="vault_viewkey")
     async def btn_vault_viewkey(
         self, button: disnake.ui.Button,
         interaction: disnake.MessageInteraction
@@ -740,15 +813,10 @@ class VaultMenu(disnake.ui.View):
                 # Wait for the View to stop listening for input...
                 await view.wait()
                 if view.value is False:
-                    await interaction.edit_original_message(
-                        content=f"{EMOJI_INFORMATION} {interaction.author.mention}, cancelled!", view=None
-                    )
+                    await interaction.delete_original_message()
                     return
                 elif view.value is None:
-                    await interaction.edit_original_message(
-                        content=" View timeout!",
-                        view=None
-                    )
+                    await interaction.delete_original_message()
                     return
                 else:
                     # Update
@@ -756,13 +824,92 @@ class VaultMenu(disnake.ui.View):
                         str(interaction.author.id), SERVER_BOT, self.selected_coin
                     )
                     if update_backup is True:
+                        disable_update = True
+                        disable_withdraw = True
+                        disable_viewkey = True
+                        disable_archive = True
+                        view = VaultMenu(
+                            self.bot, self.ctx, self.owner_id, self.embed, self.bot.config['vault']['enable_vault'],
+                            self.selected_coin, disable_update, disable_withdraw, disable_viewkey, disable_archive
+                        )
+                        await self.ctx.edit_original_message(content=None, view=view)
                         await interaction.edit_original_message(
                             content=f"{EMOJI_INFORMATION} {interaction.author.mention}, thank you for backup! You can run `/vault view` again for update.", view=None
+                        )
+                        await log_to_channel(
+                            "vault",
+                            f"[VAULT] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
+                            f"successfully backup his/her {self.selected_coin} key/seed.",
+                            self.bot.config['discord']['vault_webhook']
                         )
                     else:
                         await interaction.edit_original_message(
                             content=f"{EMOJI_INFORMATION} {interaction.author.mention}, internal error. Please report!", view=None
                         )
+
+    @disnake.ui.button(label="❗ Archive", style=ButtonStyle.red, custom_id="vault_archive")
+    async def btn_vault_archive(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        # In case future this is public
+        if interaction.author.id != self.owner_id:
+            await interaction.response.send_message(f"{interaction.author.mention}, that's not yours!", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"{interaction.author.mention}, checking ...", ephemeral=True)
+            # Get user wallet
+            get_a_vault = None
+            if self.selected_coin is not None:
+                get_a_vault = await get_a_user_vault_coin(str(self.owner_id), self.selected_coin, SERVER_BOT)
+            if get_a_vault is None:
+                await interaction.edit_original_message(
+                    content=f"{interaction.author.mention}, you don't have {self.selected_coin}'s vault!")
+                return
+
+            view = ConfirmArchive()
+            msg = f"{interaction.author.mention}, Do you want to remove this wallet? You can create a new one later."
+            await interaction.edit_original_message(
+                content=msg,
+                view=view
+            )
+            # Wait for the View to stop listening for input...
+            await view.wait()
+            if view.value is False:
+                await interaction.delete_original_message()
+                return
+            elif view.value is None:
+                await interaction.delete_original_message()
+                return
+            else:
+                # Archiving
+                deleting = await vault_archive(
+                    str(self.owner_id), SERVER_BOT, self.selected_coin, get_a_vault['type'],
+                    get_a_vault['address'], get_a_vault['spend_key'], get_a_vault['view_key'],
+                    get_a_vault['private_key'], get_a_vault['seed'], get_a_vault['dump'],
+                    get_a_vault['address_ts'], get_a_vault['height'], get_a_vault['confirmed_backup'], 
+                    get_a_vault['backup_date']
+                )
+                if deleting is True:
+                    await interaction.delete_original_message()
+                    disable_update = False
+                    disable_withdraw = True
+                    disable_viewkey = True
+                    disable_archive = True
+                    view = VaultMenu(
+                        self.bot, self.ctx, self.owner_id, self.embed, self.bot.config['vault']['enable_vault'],
+                        self.selected_coin, disable_update, disable_withdraw, disable_viewkey, disable_archive
+                    )
+                    await self.ctx.edit_original_message(content=None, embed=self.embed, view=view)
+                    await log_to_channel(
+                        "vault",
+                        f"[VAULT] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
+                        f"successfully deleted his/her {self.selected_coin}.",
+                        self.bot.config['discord']['vault_webhook']
+                    )
+                else:
+                    await interaction.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {interaction.author.mention}, internal error. Please report!", view=None
+                    )
 
 class Withdraw(disnake.ui.Modal):
     def __init__(
@@ -878,9 +1025,10 @@ class Withdraw(disnake.ui.Modal):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     await log_to_channel(
-                        "withdraw",
+                        "vault",
                         f"[VAULT] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
-                        f"successfully withdrew {num_format_coin(amount)} {coin_name}."
+                        f"successfully withdrew {num_format_coin(amount)} {coin_name}.",
+                        self.bot.config['discord']['vault_webhook']
                     )
                 else:
                     await interaction.edit_original_message(
@@ -913,9 +1061,10 @@ class Withdraw(disnake.ui.Modal):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     await log_to_channel(
-                        "withdraw",
+                        "vault",
                         f"[VAULT] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
-                        f"successfully withdrew {num_format_coin(amount)} {coin_name}."
+                        f"successfully withdrew {num_format_coin(amount)} {coin_name}.",
+                        self.bot.config['discord']['vault_webhook']
                     )
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -1050,8 +1199,12 @@ class Vault(commands.Cog):
             disable_update = True
             disable_withdraw = True
             disable_viewkey = True
+            disable_archive = True
             selected_coin = None
-            view = VaultMenu(self.bot, ctx, ctx.author.id, embed, self.bot.config['vault']['enable_vault'], selected_coin, disable_update, disable_withdraw, disable_viewkey)
+            view = VaultMenu(
+                self.bot, ctx, ctx.author.id, embed, self.bot.config['vault']['enable_vault'],
+                selected_coin, disable_update, disable_withdraw, disable_viewkey, disable_archive
+            )
             await ctx.edit_original_message(content=None, embed=embed, view=view)
         except Exception:
             traceback.print_exc(file=sys.stdout)

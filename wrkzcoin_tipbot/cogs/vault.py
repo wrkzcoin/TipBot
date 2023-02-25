@@ -731,7 +731,8 @@ class VaultMenu(disnake.ui.View):
                     data += "Scan height: {}".format(get_a_vault['height'])
                 view = ConfirmBackup()
                 msg = f"{interaction.author.mention}, your {self.selected_coin} data! "\
-                    f"Keep for yourself and don't share!```{data}```Please backup before you can withdraw!"
+                    f"Keep for yourself and don't share!```{data}```Please backup before you can withdraw! "\
+                    "Once you confirm backup, you can't see the keys again."
                 await interaction.edit_original_message(
                     content=msg,
                     view=view

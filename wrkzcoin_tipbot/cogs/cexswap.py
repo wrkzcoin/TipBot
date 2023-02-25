@@ -9,6 +9,7 @@ import disnake
 from disnake.ext import commands, tasks
 from typing import Optional
 from disnake import TextInputStyle
+from disnake.enums import ButtonStyle
 from decimal import Decimal
 from datetime import datetime
 import time
@@ -313,31 +314,33 @@ async def get_cexswap_get_sell_logs(user_id: str=None, from_time: int=None, pool
                 pool_sql = ""
                 if user_id is None and from_time is not None:
                     extra_sql = """
-                    WHERE `time`>%s
+                    WHERE a.`time`>%s
                     """
                 elif from_time is not None:
                     extra_sql = """
-                    AND `time`>%s
+                    AND a.`time`>%s
                     """
                 if pool_id is not None:
                     if len(extra_sql) == "":
                         pool_sql = """
-                        WHERE `pool_id`=%s
+                        WHERE a.`pool_id`=%s
                         """
                     else:
                         pool_sql = """
-                        AND `pool_id`=%s
+                        AND a.`pool_id`=%s
                         """
                 
                 if user_id is not None:
                     sql = """
-                    SELECT SUM(`total_sold_amount`) AS sold, SUM(`total_sold_amount_usd`) AS sold_usd,
-                    SUM(`got_total_amount`) AS got, SUM(`got_total_amount_usd`) AS got_usd,
-                    `sold_ticker`, `got_ticker`,
-                    COUNT(*) AS total_swap
-                    FROM `cexswap_sell_logs`
-                    GROUP BY `sold_ticker`, `got_ticker`
-                    WHERE `sell_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
+                    SELECT SUM(a.`total_sold_amount`) AS sold, SUM(a.`total_sold_amount_usd`) AS sold_usd,
+                    SUM(a.`got_total_amount`) AS got, SUM(a.`got_total_amount_usd`) AS got_usd,
+                    a.`sold_ticker`, a.`got_ticker`,
+                    COUNT(*) AS `total_swap`, b.`pairs`
+                    FROM `cexswap_sell_logs` a
+                    INNER JOIN `cexswap_pools` b
+                        ON a.pool_id = b.pool_id
+                    GROUP BY a.`sold_ticker`, a.`got_ticker`
+                    WHERE a.`sell_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
                     """
                     data_rows = [user_id]
                     if len(extra_sql) > 0:
@@ -351,13 +354,15 @@ async def get_cexswap_get_sell_logs(user_id: str=None, from_time: int=None, pool
                         return result
                 else:
                     sql = """
-                    SELECT SUM(`total_sold_amount`) AS sold, SUM(`total_sold_amount_usd`) AS sold_usd,
-                    SUM(`got_total_amount`) AS got, SUM(`got_total_amount_usd`) AS got_usd,
-                    `sold_ticker`, `got_ticker`,
-                    COUNT(*) AS total_swap
-                    FROM `cexswap_sell_logs`
+                    SELECT SUM(a.`total_sold_amount`) AS sold, SUM(a.`total_sold_amount_usd`) AS sold_usd,
+                    SUM(a.`got_total_amount`) AS got, SUM(a.`got_total_amount_usd`) AS got_usd,
+                    a.`sold_ticker`, a.`got_ticker`,
+                    COUNT(*) AS `total_swap`, b.`pairs`
+                    FROM `cexswap_sell_logs` a
+                    INNER JOIN `cexswap_pools` b
+                        ON a.pool_id = b.pool_id
                      """ + extra_sql + """ """ + pool_sql + """
-                    GROUP BY `sold_ticker`, `got_ticker`
+                    GROUP BY a.`sold_ticker`, a.`got_ticker`
                     """
                     data_rows = []
                     if len(extra_sql) > 0:
@@ -1419,6 +1424,92 @@ async def cexswap_insert_new(
     except Exception:
         traceback.print_exc(file=sys.stdout)
     return False
+
+# Single coin of /selectpool
+class SelectPoolSingle(disnake.ui.View):
+    def __init__(
+        self, timeout, ctx, bot, owner_id: int, embed_rate, embed_lp, embed_30d=None, embed_7d=None
+    ):
+        super().__init__(timeout=timeout)
+        self.ctx = ctx
+        self.bot = bot
+        self.owner_id = owner_id
+        self.embed_rate = embed_rate
+        self.embed_lp = embed_lp
+        self.embed_30d = embed_30d
+        self.embed_7d = embed_7d
+        if embed_30d is None:
+            self.btn_vol30d.disabled = True
+        if embed_7d is None:
+            self.btn_vol7d.disabled = True
+    
+    async def on_timeout(self):
+        for child in self.children:
+            if isinstance(child, disnake.ui.Button):
+                child.disabled = True
+        await self.ctx.edit_original_message(
+            view=self
+        )
+
+    @disnake.ui.button(label="1️⃣ Rate", style=ButtonStyle.red, custom_id="cexswap_selectpool_rate")
+    async def btn_rate(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        if interaction.author.id != self.owner_id:
+            await interaction.response.send_message(f"{interaction.author.mention}, that's not your menu!", ephemeral=True)
+        else:
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed_rate,
+                view=self
+            )
+            await interaction.response.defer()
+
+    @disnake.ui.button(label="2️⃣ Top LP", style=ButtonStyle.gray, custom_id="cexswap_selectpool_toplp")
+    async def btn_top(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        if interaction.author.id != self.owner_id:
+            await interaction.response.send_message(f"{interaction.author.mention}, that's not your menu!", ephemeral=True)
+        else:
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed_lp,
+                view=self
+            )
+            await interaction.response.defer()
+
+    @disnake.ui.button(label="Volume 7d", style=ButtonStyle.primary, custom_id="cexswap_selectpool_vol7d")
+    async def btn_vol7d(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        if interaction.author.id != self.owner_id:
+            await interaction.response.send_message(f"{interaction.author.mention}, that's not your menu!", ephemeral=True)
+        else:
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed_7d,
+                view=self
+            )
+            await interaction.response.defer()
+
+    @disnake.ui.button(label="Volume 30d", style=ButtonStyle.secondary, custom_id="cexswap_selectpool_vol30d")
+    async def btn_vol30d(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        if interaction.author.id != self.owner_id:
+            await interaction.response.send_message(f"{interaction.author.mention}, that's not your menu!", ephemeral=True)
+        else:
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed_30d,
+                view=self
+            )
+            await interaction.response.defer()
 
 # DropdownSummary Viewer
 class DropdownSummaryLP(disnake.ui.StringSelect):
@@ -3235,6 +3326,9 @@ class Cexswap(commands.Cog):
                 # Find pool with
                 find_other_lp = await cexswap_get_pools(coin_name)
                 total_liq = Decimal(0)
+
+                # lp list of this token, then sort them by amount of coin_name
+                lp_list_token = []
                 if len(find_other_lp) > 0:
                     items =[i['pairs'] for i in find_other_lp]
                     embed.add_field(
@@ -3248,8 +3342,24 @@ class Cexswap(commands.Cog):
                         # get L in LP
                         if coin_name == i['ticker_1_name']:
                             total_liq += i['amount_ticker_1']
+                            lp_list_token.append(
+                                {
+                                    "pairs": i['pairs'],
+                                    "amount": i['amount_ticker_1'],
+                                    "other_amount": i['amount_ticker_2'],
+                                    "other_token": i['ticker_2_name']
+                                }
+                            )
                         elif coin_name == i['ticker_2_name']:
-                            total_liq += i['amount_ticker_2']                            
+                            total_liq += i['amount_ticker_2']
+                            lp_list_token.append(
+                                {
+                                    "pairs": i['pairs'],
+                                    "amount": i['amount_ticker_2'],
+                                    "other_amount": i['amount_ticker_1'],
+                                    "other_token": i['ticker_1_name']
+                                }
+                            )
                         target_coin = i['ticker_1_name']
                         rate_1 = i['amount_ticker_1'] / i['amount_ticker_2']
                         if coin_name == target_coin:
@@ -3343,9 +3453,82 @@ class Cexswap(commands.Cog):
                         value="N/A",
                         inline=False
                     )
+                # Make a copy and add liqudity of top pool with this token
+                embed_lp = embed.copy()
+                embed_lp.clear_fields() 
+                # get sell logs
+                sell_logs_30d = await get_cexswap_get_sell_logs(user_id=None, from_time=int(time.time()-30*24*3600), pool_id=None)
+                sell_logs_7d = await get_cexswap_get_sell_logs(user_id=None, from_time=int(time.time()-7*24*3600), pool_id=None)
+                list_sold_30d = []
+                list_sold_7d = []
+                embed_30d = None
+                embed_7d = None
+                if sell_logs_30d and len(sell_logs_30d) > 0:
+                    for i in sell_logs_30d:
+                        if i['got_ticker'] == coin_name:
+                            list_sold_30d.append(
+                                {
+                                    "pairs": i['pairs'],
+                                    "amount": i['got'],
+                                    "other_amount": i['sold'],
+                                    "other_token": i['sold_ticker']
+                                }
+                            )
+                    list_sold_30d = sorted(list_sold_30d, key=lambda d: d['amount'], reverse=True)
+                    if len(list_sold_30d) > 0:
+                        embed_30d = embed.copy()
+                        embed_30d.clear_fields()
+                        for i in list_sold_30d:
+                            embed_30d.add_field(
+                                name=i['pairs'] + " - 30d",
+                                value="{} {}\n{} {}".format(
+                                    num_format_coin(i['amount']), coin_name,
+                                    num_format_coin(i['other_amount']), i['other_token']
+                                ),
+                                inline=True
+                            )
+                if sell_logs_7d and len(sell_logs_7d) > 0:
+                    for i in sell_logs_7d:
+                        if i['got_ticker'] == coin_name:
+                            list_sold_7d.append(
+                                {
+                                    "pairs": i['pairs'],
+                                    "amount": i['got'],
+                                    "other_amount": i['sold'],
+                                    "other_token": i['sold_ticker']
+                                }
+                            )
+                    list_sold_7d = sorted(list_sold_7d, key=lambda d: d['amount'], reverse=True)
+                    if len(list_sold_7d) > 0:
+                        embed_7d = embed.copy()
+                        embed_7d.clear_fields()
+                        for i in list_sold_7d:
+                            embed_7d.add_field(
+                                name=i['pairs'] + " - 7d",
+                                value="{} {}\n{} {}".format(
+                                    num_format_coin(i['amount']), coin_name,
+                                    num_format_coin(i['other_amount']), i['other_token']
+                                ),
+                                inline=True
+                            )
+                view = None
+                if len(lp_list_token) > 0:
+                    lp_list_token = sorted(lp_list_token, key=lambda d: d['amount'], reverse=True) 
+                    for i in lp_list_token[:10]: # maximum 10
+                        embed_lp.add_field(
+                            name=i['pairs'],
+                            value="{} {}\n{} {}".format(
+                                num_format_coin(i['amount']), coin_name,
+                                num_format_coin(i['other_amount']), i['other_token']
+                            ),
+                            inline=True
+                        )
+                    view = SelectPoolSingle(60, ctx, self.bot, ctx.author.id, embed, embed_lp, embed_30d, embed_7d)
+
                 await ctx.edit_original_message(
                     content=None,
-                    embed=embed
+                    embed=embed,
+                    view=view
                 )
             else:
                 if pool_name not in self.bot.cexswap_pairs:

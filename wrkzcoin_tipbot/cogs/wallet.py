@@ -11816,6 +11816,10 @@ class Wallet(commands.Cog):
                             if key_withdraw in self.withdraw_tx:
                                 del self.withdraw_tx[key_withdraw]
                             return
+                        else:
+                            await ctx.edit_original_message(
+                                view=None
+                            )
                         self.withdraw_tx[key_withdraw] = int(time.time())
                         try:
                             url = self.bot.erc_node_list[net_name]

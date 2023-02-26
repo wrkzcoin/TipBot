@@ -2126,7 +2126,7 @@ class add_liqudity(disnake.ui.Modal):
                 )
             )
 
-            await interaction.edit_original_message(f"{interaction.author.mention}, Update! Please accept or cancel.")
+            await interaction.delete_original_message()
         except Exception:
             traceback.print_exc(file=sys.stdout)
             return
@@ -4922,7 +4922,7 @@ class Cexswap(commands.Cog):
                         if testing == "NO":
                             try:
                                 member = self.bot.get_user(int(each_u))
-                                if member is not None:
+                                if member is not None and each_u in liq_user_percentages:
                                     try:
                                         # Delete if has key
                                         try:

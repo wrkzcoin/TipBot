@@ -1630,8 +1630,8 @@ class Events(commands.Cog):
                                 self.bot.other_data['fetched_msg'][str(inter.message.id)] = int(time.time())
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
+                            await inter.delete_original_message()
                             return
-
                     # If time already pass
                     if int(time.time()) > get_message['partydrop_time']:
                         await inter.edit_original_message(content=f"Party ID: {str(inter.message.id)} passed already!")
@@ -1658,7 +1658,6 @@ class Events(commands.Cog):
                             pass
 
                         if attend is True:
-                            await inter.edit_original_message(content=f"Party ID: {str(inter.message.id)}, joined/added successfully!")
                             # Update view
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop 🎉",
@@ -1717,6 +1716,7 @@ class Events(commands.Cog):
                                 self.bot.other_data['fetched_msg'][str(inter.message.id)] = int(time.time())
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
+                            await inter.delete_original_message()
                             return
             except Exception:
                 traceback.print_exc(file=sys.stdout)

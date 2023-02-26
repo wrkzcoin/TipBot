@@ -1031,6 +1031,8 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                                 await inter.edit_original_message(
                                     f"{inter.author.mention}, you haven't open {self.values[0]} wallet yet! Tap Open."
                                 )
+                                await asyncio.sleep(5.0)
+                                await inter.delete_original_message()
                                 return
                             else:
                                 disable_update = True
@@ -1270,7 +1272,85 @@ class VaultMenu(disnake.ui.View):
                                     )
                                     await asyncio.sleep(1.0)
                         # update slot, update embed?
+                        self.embed.clear_fields()
+                        self.embed.add_field(
+                            name="Selected coins",
+                            value=self.selected_coin,
+                            inline=False
+                        )
+                        self.embed.add_field(
+                            name="Address",
+                            value=get_a_vault['address'],
+                            inline=False
+                        )
+                        disable_update = True
+                        disable_withdraw = False
+                        disable_viewkey = True
+                        disable_archive = False
+                        try:
+                            get_balance = await bnc_get_balance(
+                                self.selected_coin, wallet_url, None, None, 30
+                            )
+                            if get_balance is not None:
+                                self.embed.add_field(
+                                    name="Balance",
+                                    value="Balance: {}\nUnlocked: {}".format(
+                                        num_format_coin(get_balance['result']['balance']/10**coin_setting['coin_decimal']),
+                                        num_format_coin(get_balance['result']['unlocked_balance']/10**coin_setting['coin_decimal'])
+                                    ),
+                                    inline=False
+                                )
+                                try:
+                                    wallet_height = await bcn_get_height(self.selected_coin, wallet_url, None, 30)
+                                    type_coin = "XMR"
+                                    netheight = ""
+                                    height = await self.wallet_api.get_block_height(type_coin, self.selected_coin, None)
+                                    if height is not None:
+                                        netheight = "\nNetwork: {}".format(height)
+                                    if wallet_height is not None:
+                                        self.embed.add_field(
+                                            name="Sync",
+                                            value="Wallet Height: {}{}".format(
+                                                wallet_height['result']['height'], netheight
+                                            ),
+                                            inline=False
+                                        )
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                                if get_balance['result']['unlocked_balance']/10**coin_setting['coin_decimal'] < coin_setting['min_withdraw_btn']:
+                                    disable_withdraw = True
+                                    self.embed.add_field(
+                                        name="Withdraw note",
+                                        value="You would need minimum {} {} to have withdraw button enable.".format(
+                                            num_format_coin(coin_setting['min_withdraw_btn']), self.values[0]
+                                        ),
+                                        inline=False
+                                    )
+                            else:
+                                self.embed.add_field(
+                                    name="Balance",
+                                    value="N/A",
+                                    inline=False
+                                )
+                                disable_withdraw = True
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        self.embed.add_field(
+                            name="NOTE",
+                            value=self.bot.config['vault']['note_msg'],
+                            inline=False
+                        )
+                        if get_a_vault['confirmed_backup'] == 0:
+                            disable_withdraw = True
+                            disable_viewkey = False
+                        if self.selected_coin in ["ETH", "MATIC", "BNB"] + ["WOW", "XMR"]:
+                            disable_archive = False
+                        view = VaultMenu(
+                            self.bot, self.ctx, self.owner_id, self.embed, self.bot.config['vault']['enable_vault'],
+                            self.selected_coin, disable_update, disable_withdraw, disable_viewkey, disable_archive
+                        )
                         await interaction.delete_original_message()
+                        await self.ctx.edit_original_message(content=None, embed=self.embed, view=view)
                         return
             elif self.selected_coin in ["ETH", "MATIC", "BNB"]:
                 type_coin = "ERC-20"

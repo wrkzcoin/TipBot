@@ -246,6 +246,42 @@ async def bnc_get_balance(
         traceback.print_exc(file=sys.stdout)
     return None
 
+# for WRKZ, DEGO
+async def bcn_delete_address(
+    coin_name: str, address: str, wallet_api_url: str, header: str, timeout: int=60
+):
+    try:
+        if coin_name in ["WRKZ", "DEGO"]:
+            headers = {
+                'X-API-KEY': header,
+                'Content-Type': 'application/json'
+            }
+            method = "/addresses/" + address
+            async with aiohttp.ClientSession() as session:
+                async with session.delete(
+                    wallet_api_url + method,
+                    headers=headers,
+                    timeout=timeout
+                ) as response:
+                    if response.status == 200 or response.status == 201:
+                        try:
+                            # call save wallet
+                            async with session.put(
+                                wallet_api_url + "/save",
+                                headers=headers,
+                                timeout=timeout
+                            ) as save_resp:
+                                if save_resp.status != 200:
+                                    print(f"internal error during save wallet {coin_name}")
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        return True
+                    else:
+                        print(f"internal error during sending transaction of wallet {coin_name}")
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
 async def bcn_send_external(
     coin_name: str, source_address: str, ex_address: str, paymentId: str,
     atomic_amount: int, wallet_api_url: str, header: str, send_all: bool=False, timeout: int=60      
@@ -970,7 +1006,7 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                 disable_withdraw = False
                 disable_viewkey = True
                 disable_archive = True
-                if self.selected_coin in ["ETH", "MATIC", "BNB"] + ["WOW", "XMR"]:
+                if self.selected_coin in ["ETH", "MATIC", "BNB"] + ["WOW", "XMR"] + ["WRKZ", "DEGO"]:
                     disable_archive = False
                 if get_a_vault['confirmed_backup'] == 0:
                     disable_withdraw = True
@@ -982,6 +1018,9 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                 value=self.values[0],
                 inline=False
             )
+            coin_setting = None
+            if self.values[0] is not None:
+                coin_setting = await get_coin_vault_setting(self.values[0])
             if get_a_vault is not None:
                 self.embed.add_field(
                     name="Address",
@@ -989,7 +1028,6 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                     inline=False
                 )
                 try:
-                    coin_setting = await get_coin_vault_setting(self.values[0])
                     if coin_setting is not None:
                         if self.values[0] in ["WRKZ", "DEGO"]:
                             get_balance = await bnc_get_balance(
@@ -1039,7 +1077,6 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                                     value=coin_setting['note'],
                                     inline=False
                                 )
-                            disable_archive = True
                         elif self.values[0] in ["ETH", "MATIC", "BNB"]:
                             get_balance = await http_wallet_getbalance(
                                 coin_setting['daemon_address'], get_a_vault['address'], None, 5
@@ -1187,7 +1224,7 @@ class VaultMenu(disnake.ui.View):
         disable_create_update: bool=True, disable_withdraw: bool=True,
         disable_viewkey: bool=True, disable_archive: bool=True
     ):
-        super().__init__(timeout=60.0)
+        super().__init__(timeout=120.0)
         self.bot = bot
         self.ctx = ctx
         self.owner_id = owner_id
@@ -1816,6 +1853,27 @@ class VaultMenu(disnake.ui.View):
                         get_a_vault['address_ts'], get_a_vault['height'], get_a_vault['confirmed_backup'], 
                         get_a_vault['backup_date'], None
                     )
+                elif self.selected_coin in ["WRKZ", "DEGO"]:
+                    if self.bot.config['vault']['disable_wrkz_coins'] == 1:
+                        await interaction.edit_original_message(
+                            content=f"{interaction.author.mention}, {self.selected_coin} is currently on maintenance. Try again later!")
+                        return
+                    coin_setting = await get_coin_vault_setting(self.selected_coin)
+                    if coin_setting is None:
+                        await interaction.edit_original_message(
+                            content=f"{interaction.author.mention}, couldn't get coin setting for {self.selected_coin}!")
+                        return
+                    delete_address = await bcn_delete_address(
+                        self.selected_coin, get_a_vault['address'], coin_setting['wallet_address'], coin_setting['header'], 60
+                    )
+                    if delete_address is True:
+                        deleting = await vault_archive(
+                            str(self.owner_id), SERVER_BOT, self.selected_coin, get_a_vault['type'],
+                            get_a_vault['address'], get_a_vault['spend_key'], get_a_vault['view_key'],
+                            get_a_vault['private_key'], get_a_vault['seed'], get_a_vault['dump'],
+                            get_a_vault['address_ts'], get_a_vault['height'], get_a_vault['confirmed_backup'], 
+                            get_a_vault['backup_date'], get_a_vault['password']
+                        )
                 elif self.selected_coin in ["WOW", "XMR"]:
                     if self.bot.config['vault']['disable_monero_coins'] == 1:
                         await interaction.edit_original_message(

@@ -377,6 +377,18 @@ class Tips(commands.Cog):
                     channel = guild.get_channel(int(each_message_data['channel_id']))
                     if channel is None:
                         print("Channel {} found None".format(each_message_data['channel_id']))
+                        change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                        await logchanbot(
+                            "Failed to find channel: msg id: {}, channel id: {}, guild: {}/{}. Set it to failed.".format(
+                                each_message_data['message_id'], each_message_data['channel_id'],
+                                guild.name, each_message_data['guild_id']
+                            )
+                        )
+                        find_owner = self.bot.get_user(int(each_message_data['from_userid']))
+                        if find_owner is not None:
+                            await find_owner.send("I cancelled your /freetip id: {} in guild {} because I can't find channel.".format(
+                                each_message_data['message_id'], guild.name
+                            ))
                         await asyncio.sleep(1.0)
                         continue
                     get_owner = guild.get_member(int(each_message_data['from_userid']))

@@ -2395,6 +2395,12 @@ class Cexswap(commands.Cog):
 
         self.botLogChan = None
         self.enable_logchan = True
+        # if user try to sell or buy for this, Bot give info to wrap
+        self.wrapped_coin = {
+            "PWRKZ": "WRKZ",
+            "BWRKZ": "WRKZ",
+            "XWRKZ": "WRKZ"
+        }
 
     async def bot_log(self):
         if self.botLogChan is None:
@@ -2785,11 +2791,20 @@ class Cexswap(commands.Cog):
 
         if self.bot.config['cexswap']['enable_sell'] != 1 and ctx.author.id != self.bot.config['discord']['owner_id']:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, CEXSwap sell is temporarily offline! Check again soon."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         sell_token = sell_token.upper()
         for_token = for_token.upper()
+
+        if sell_token in self.wrapped_coin.keys():
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you should do `/wrap` from `{sell_token}` to `{self.wrapped_coin[sell_token]}` and trade."
+            await ctx.edit_original_message(content=msg)
+            return
+        if for_token in self.wrapped_coin.keys():
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you should trade with `{self.wrapped_coin[for_token]}` and do `/wrap` from `{self.wrapped_coin[for_token]}` to `{for_token}`."
+            await ctx.edit_original_message(content=msg)
+            return
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",

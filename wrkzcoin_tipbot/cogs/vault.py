@@ -1013,6 +1013,12 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                                 )
                                 disable_withdraw = True
                         elif self.values[0] in ["WOW", "XMR"]:
+                            if coin_setting and coin_setting['wallet_apps']:
+                                self.embed.add_field(
+                                    name="Wallet App",
+                                    value=coin_setting['wallet_apps'],
+                                    inline=False
+                                )
                             # check if user has wallet service running
                             # async def vault_xmr_find_slot_by_user(coin_name: str, user_id: str, user_server: str):
                             get_slot = await vault_xmr_find_slot_by_user(
@@ -1100,6 +1106,12 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                 value=self.bot.config['vault']['note_msg'],
                 inline=False
             )
+            if coin_setting and coin_setting['wallet_apps']:
+                self.embed.add_field(
+                    name="Wallet App",
+                    value=coin_setting['wallet_apps'],
+                    inline=False
+                )
             view = VaultMenu(
                 self.bot, self.ctx, inter.author.id, self.embed, self.bot.config['vault']['enable_vault'],
                 self.values[0], disable_update, disable_withdraw, disable_viewkey, disable_archive
@@ -1118,7 +1130,7 @@ class VaultMenu(disnake.ui.View):
         disable_create_update: bool=True, disable_withdraw: bool=True,
         disable_viewkey: bool=True, disable_archive: bool=True
     ):
-        super().__init__()
+        super().__init__(timeout=60.0)
         self.bot = bot
         self.ctx = ctx
         self.owner_id = owner_id
@@ -1135,6 +1147,14 @@ class VaultMenu(disnake.ui.View):
         self.add_item(DropdownVaultCoin(
             ctx, owner_id, self.bot, self.embed, list_coins, self.selected_coin
         ))
+
+    async def on_timeout(self):
+        for child in self.children:
+            if isinstance(child, disnake.ui.Button):
+                child.disabled = True
+        await self.ctx.edit_original_message(
+            view=None
+        )
 
     @disnake.ui.button(label="Create/Open", style=ButtonStyle.green, custom_id="vault_update")
     async def btn_vault_update(
@@ -1157,201 +1177,208 @@ class VaultMenu(disnake.ui.View):
                 # prompt for password first, minimum 8, max 32?
                 # created wallet with SERVER_COIN_userid (as file name)
                 # after create, user shall get seed and keys
-                if interaction.author.id != self.bot.config['discord']['owner_id']:
+                type_coin = "XMR"
+
+                # Disable all view first
+                disable_update = True
+                disable_withdraw = True
+                disable_viewkey = True
+                disable_archive = True
+                disable_view = VaultMenu(
+                    self.bot, self.ctx, self.owner_id, self.embed, self.bot.config['vault']['enable_vault'],
+                    self.selected_coin, disable_update, disable_withdraw, disable_viewkey, disable_archive
+                )
+                await self.ctx.edit_original_message(content=None, embed=self.embed, view=disable_view)
+
+                get_free_slot = await vault_xmr_find_slot(self.selected_coin)
+                if len(get_free_slot) == 0:
                     await interaction.edit_original_message(
-                        content=f"{interaction.author.mention}, TODO.")
+                        content=f"{interaction.author.mention}, there is no free slot wallet service right now! Try again later!")
                     return
-                else:
-                    type_coin = "XMR"
-                    get_free_slot = await vault_xmr_find_slot(self.selected_coin)
-                    if len(get_free_slot) == 0:
+                wallet_url = get_free_slot[0]['rpc_address']
+                slot_id = get_free_slot[0]['id']
+                wallet_filename = SERVER_BOT + "_" + self.selected_coin + "_" + str(interaction.author.id)
+                coin_setting = await get_coin_vault_setting(self.selected_coin)
+                # Check if user already created one. If yes, check available slot to open
+                get_a_vault = await get_a_user_vault_coin(str(self.owner_id), self.selected_coin, SERVER_BOT)
+                if get_a_vault is None:
+                    # get coin height
+                    height = await self.wallet_api.get_block_height(type_coin, self.selected_coin, None)
+                    if height is None:
                         await interaction.edit_original_message(
-                            content=f"{interaction.author.mention}, there is no free slot wallet service right now! Try again later!")
+                            content=f"{interaction.author.mention}, internal error when creating {self.selected_coin} address! Failed to get block info.")
                         return
-                    wallet_url = get_free_slot[0]['rpc_address']
-                    slot_id = get_free_slot[0]['id']
-                    wallet_filename = SERVER_BOT + "_" + self.selected_coin + "_" + str(interaction.author.id)
-                    coin_setting = await get_coin_vault_setting(self.selected_coin)
-                    # Check if user already created one. If yes, check available slot to open
-                    get_a_vault = await get_a_user_vault_coin(str(self.owner_id), self.selected_coin, SERVER_BOT)
-                    if get_a_vault is None:
-                        # get coin height
-                        height = await self.wallet_api.get_block_height(type_coin, self.selected_coin, None)
-                        if height is None:
-                            await interaction.edit_original_message(
-                                content=f"{interaction.author.mention}, internal error when creating {self.selected_coin} address! Failed to get block info.")
-                            return
-                        # check if file wallet exist?
-                        # assign one slot to him
-                        # pickup first one
-                        wallet_password = gen_password(12) # generate random string
-                        path = Path(self.bot.config['vault'][self.selected_coin.lower() + '_wallet_dir'] + wallet_filename)
-                        if path.is_file() is True:
-                            await interaction.edit_original_message(
-                                content=f"{interaction.author.mention}, wallet file exists! You may ask TipBot dev to check.")
-                            await log_to_channel(
-                                "vault",
-                                f"[VAULT ERROR] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
-                                f"failed to created a new {self.selected_coin} wallet. Wallet file exist!",
-                                self.bot.config['discord']['vault_webhook']
-                            )
-                            return
-                        create_wallet = await bcn_get_new_address(
-                            coin_name = self.selected_coin, wallet_api_url=wallet_url,
-                            header=coin_setting['header'],
-                            wallet_data={"filename": wallet_filename, "password": wallet_password},
-                            user_id=str(interaction.author.id), user_server=SERVER_BOT, slot_id=get_free_slot[0]['id'],
-                            timeout=30
+                    # check if file wallet exist?
+                    # assign one slot to him
+                    # pickup first one
+                    wallet_password = gen_password(12) # generate random string
+                    path = Path(self.bot.config['vault'][self.selected_coin.lower() + '_wallet_dir'] + wallet_filename)
+                    if path.is_file() is True:
+                        await interaction.edit_original_message(
+                            content=f"{interaction.author.mention}, wallet file exists! You may ask TipBot dev to check.")
+                        await log_to_channel(
+                            "vault",
+                            f"[VAULT ERROR] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
+                            f"failed to created a new {self.selected_coin} wallet. Wallet file exist!",
+                            self.bot.config['discord']['vault_webhook']
                         )
-                        if create_wallet is not None and type(create_wallet) == dict:
-                            inserting = await vault_insert(
-                                str(self.owner_id), SERVER_BOT, self.selected_coin, type_coin,
-                                create_wallet['address'], spend_key=None,
-                                view_key=None, private_key=None, seed=encrypt_string(create_wallet['seed']),
-                                dump=encrypt_string(json.dumps(create_wallet)),
-                                height=height, password=encrypt_string(wallet_password)
-                            )
-                            address = create_wallet['address']
-                            # Do not return, we need to go to next
-                        else:
-                            await interaction.edit_original_message(
-                                content=f"{interaction.author.mention}, internal error when creating {self.selected_coin} address!")
-                            return
+                        return
+                    create_wallet = await bcn_get_new_address(
+                        coin_name = self.selected_coin, wallet_api_url=wallet_url,
+                        header=coin_setting['header'],
+                        wallet_data={"filename": wallet_filename, "password": wallet_password},
+                        user_id=str(interaction.author.id), user_server=SERVER_BOT, slot_id=get_free_slot[0]['id'],
+                        timeout=30
+                    )
+                    if create_wallet is not None and type(create_wallet) == dict:
+                        inserting = await vault_insert(
+                            str(self.owner_id), SERVER_BOT, self.selected_coin, type_coin,
+                            create_wallet['address'], spend_key=None,
+                            view_key=None, private_key=None, seed=encrypt_string(create_wallet['seed']),
+                            dump=encrypt_string(json.dumps(create_wallet)),
+                            height=height, password=encrypt_string(wallet_password)
+                        )
+                        address = create_wallet['address']
+                        # Do not return, we need to go to next
                     else:
-                        # Check if there is file
-                        path = Path(self.bot.config['vault'][self.selected_coin.lower() + '_wallet_dir'] + wallet_filename)
-                        if path.is_file() is False:
+                        await interaction.edit_original_message(
+                            content=f"{interaction.author.mention}, internal error when creating {self.selected_coin} address!")
+                        return
+                else:
+                    # Check if there is file
+                    path = Path(self.bot.config['vault'][self.selected_coin.lower() + '_wallet_dir'] + wallet_filename)
+                    if path.is_file() is False:
+                        await interaction.edit_original_message(
+                            content=f"{interaction.author.mention}, internal error when opening {self.selected_coin} wallet (wallet file not exist)!")
+                        await log_to_channel(
+                            "vault",
+                            f"[VAULT ERROR] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
+                            f"failed to open {self.selected_coin} wallet. Wallet file doesn't exist!",
+                            self.bot.config['discord']['vault_webhook']
+                        )
+                        return
+                    # Check if there is an open thread in DB already
+                    get_slot = await vault_xmr_find_slot_by_user(
+                        self.selected_coin, str(interaction.author.id), SERVER_BOT
+                    )
+                    if get_slot is None:
+                        # Not yet open, open wallet
+                        opening = await bcn_open_wallet(
+                            wallet_url, self.selected_coin, str(interaction.author.id),
+                            SERVER_BOT, wallet_filename, decrypt_string(get_a_vault['password']), 30
+                        )
+                        if opening is False:
                             await interaction.edit_original_message(
-                                content=f"{interaction.author.mention}, internal error when opening {self.selected_coin} wallet (wallet file not exist)!")
+                                content=f"{interaction.author.mention}, internal error when opening {self.selected_coin} wallet!")
                             await log_to_channel(
                                 "vault",
                                 f"[VAULT ERROR] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
-                                f"failed to open {self.selected_coin} wallet. Wallet file doesn't exist!",
+                                f"failed to open {self.selected_coin} wallet..",
                                 self.bot.config['discord']['vault_webhook']
                             )
                             return
-                        # Check if there is an open thread in DB already
-                        get_slot = await vault_xmr_find_slot_by_user(
-                            self.selected_coin, str(interaction.author.id), SERVER_BOT
-                        )
-                        if get_slot is None:
-                            # Not yet open, open wallet
-                            opening = await bcn_open_wallet(
-                                wallet_url, self.selected_coin, str(interaction.author.id),
-                                SERVER_BOT, wallet_filename, decrypt_string(get_a_vault['password']), 30
+                        else:
+                            # update slot
+                            update_slot = await vault_xmr_update_slot_used(
+                                str(interaction.author.id), SERVER_BOT, 1, slot_id, wallet_filename
                             )
-                            if opening is False:
-                                await interaction.edit_original_message(
-                                    content=f"{interaction.author.mention}, internal error when opening {self.selected_coin} wallet!")
+                            if update_slot is False:
                                 await log_to_channel(
                                     "vault",
                                     f"[VAULT ERROR] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
-                                    f"failed to open {self.selected_coin} wallet..",
+                                    f"failed to update slot {slot_id} for {self.selected_coin}..",
                                     self.bot.config['discord']['vault_webhook']
                                 )
                                 return
                             else:
-                                # update slot
-                                update_slot = await vault_xmr_update_slot_used(
-                                    str(interaction.author.id), SERVER_BOT, 1, slot_id, wallet_filename
+                                await log_to_channel(
+                                    "vault",
+                                    f"[VAULT] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
+                                    f" open {self.selected_coin} wallet successfully ...",
+                                    self.bot.config['discord']['vault_webhook']
                                 )
-                                if update_slot is False:
-                                    await log_to_channel(
-                                        "vault",
-                                        f"[VAULT ERROR] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
-                                        f"failed to update slot {slot_id} for {self.selected_coin}..",
-                                        self.bot.config['discord']['vault_webhook']
-                                    )
-                                    return
-                                else:
-                                    await log_to_channel(
-                                        "vault",
-                                        f"[VAULT] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
-                                        f" open {self.selected_coin} wallet successfully ...",
-                                        self.bot.config['discord']['vault_webhook']
-                                    )
-                                    await asyncio.sleep(1.0)
-                        # update slot, update embed?
-                        self.embed.clear_fields()
-                        self.embed.add_field(
-                            name="Selected coins",
-                            value=self.selected_coin,
-                            inline=False
+                                await asyncio.sleep(1.0)
+                    # update slot, update embed?
+                    self.embed.clear_fields()
+                    self.embed.add_field(
+                        name="Selected coins",
+                        value=self.selected_coin,
+                        inline=False
+                    )
+                    self.embed.add_field(
+                        name="Address",
+                        value=get_a_vault['address'],
+                        inline=False
+                    )
+                    disable_update = True
+                    disable_withdraw = False
+                    disable_viewkey = True
+                    disable_archive = False
+                    try:
+                        get_balance = await bnc_get_balance(
+                            self.selected_coin, wallet_url, None, None, 30
                         )
-                        self.embed.add_field(
-                            name="Address",
-                            value=get_a_vault['address'],
-                            inline=False
-                        )
-                        disable_update = True
-                        disable_withdraw = False
-                        disable_viewkey = True
-                        disable_archive = False
-                        try:
-                            get_balance = await bnc_get_balance(
-                                self.selected_coin, wallet_url, None, None, 30
+                        if get_balance is not None:
+                            self.embed.add_field(
+                                name="Balance",
+                                value="Balance: {}\nUnlocked: {}".format(
+                                    num_format_coin(get_balance['result']['balance']/10**coin_setting['coin_decimal']),
+                                    num_format_coin(get_balance['result']['unlocked_balance']/10**coin_setting['coin_decimal'])
+                                ),
+                                inline=False
                             )
-                            if get_balance is not None:
-                                self.embed.add_field(
-                                    name="Balance",
-                                    value="Balance: {}\nUnlocked: {}".format(
-                                        num_format_coin(get_balance['result']['balance']/10**coin_setting['coin_decimal']),
-                                        num_format_coin(get_balance['result']['unlocked_balance']/10**coin_setting['coin_decimal'])
-                                    ),
-                                    inline=False
-                                )
-                                try:
-                                    wallet_height = await bcn_get_height(self.selected_coin, wallet_url, None, 30)
-                                    type_coin = "XMR"
-                                    netheight = ""
-                                    height = await self.wallet_api.get_block_height(type_coin, self.selected_coin, None)
-                                    if height is not None:
-                                        netheight = "\nNetwork: {}".format(height)
-                                    if wallet_height is not None:
-                                        self.embed.add_field(
-                                            name="Sync",
-                                            value="Wallet Height: {}{}".format(
-                                                wallet_height['result']['height'], netheight
-                                            ),
-                                            inline=False
-                                        )
-                                except Exception:
-                                    traceback.print_exc(file=sys.stdout)
-                                if get_balance['result']['unlocked_balance']/10**coin_setting['coin_decimal'] < coin_setting['min_withdraw_btn']:
-                                    disable_withdraw = True
+                            try:
+                                wallet_height = await bcn_get_height(self.selected_coin, wallet_url, None, 30)
+                                type_coin = "XMR"
+                                netheight = ""
+                                height = await self.wallet_api.get_block_height(type_coin, self.selected_coin, None)
+                                if height is not None:
+                                    netheight = "\nNetwork: {}".format(height)
+                                if wallet_height is not None:
                                     self.embed.add_field(
-                                        name="Withdraw note",
-                                        value="You would need minimum {} {} to have withdraw button enable.".format(
-                                            num_format_coin(coin_setting['min_withdraw_btn']), self.values[0]
+                                        name="Sync",
+                                        value="Wallet Height: {}{}".format(
+                                            wallet_height['result']['height'], netheight
                                         ),
                                         inline=False
                                     )
-                            else:
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            if get_balance['result']['unlocked_balance']/10**coin_setting['coin_decimal'] < coin_setting['min_withdraw_btn']:
+                                disable_withdraw = True
                                 self.embed.add_field(
-                                    name="Balance",
-                                    value="N/A",
+                                    name="Withdraw note",
+                                    value="You would need minimum {} {} to have withdraw button enable.".format(
+                                        num_format_coin(coin_setting['min_withdraw_btn']), self.values[0]
+                                    ),
                                     inline=False
                                 )
-                                disable_withdraw = True
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                        self.embed.add_field(
-                            name="NOTE",
-                            value=self.bot.config['vault']['note_msg'],
-                            inline=False
-                        )
-                        if get_a_vault['confirmed_backup'] == 0:
+                        else:
+                            self.embed.add_field(
+                                name="Balance",
+                                value="N/A",
+                                inline=False
+                            )
                             disable_withdraw = True
-                            disable_viewkey = False
-                        if self.selected_coin in ["ETH", "MATIC", "BNB"] + ["WOW", "XMR"]:
-                            disable_archive = False
-                        view = VaultMenu(
-                            self.bot, self.ctx, self.owner_id, self.embed, self.bot.config['vault']['enable_vault'],
-                            self.selected_coin, disable_update, disable_withdraw, disable_viewkey, disable_archive
-                        )
-                        await interaction.delete_original_message()
-                        await self.ctx.edit_original_message(content=None, embed=self.embed, view=view)
-                        return
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                    self.embed.add_field(
+                        name="NOTE",
+                        value=self.bot.config['vault']['note_msg'],
+                        inline=False
+                    )
+                    if get_a_vault['confirmed_backup'] == 0:
+                        disable_withdraw = True
+                        disable_viewkey = False
+                    if self.selected_coin in ["ETH", "MATIC", "BNB"] + ["WOW", "XMR"]:
+                        disable_archive = False
+                    view = VaultMenu(
+                        self.bot, self.ctx, self.owner_id, self.embed, self.bot.config['vault']['enable_vault'],
+                        self.selected_coin, disable_update, disable_withdraw, disable_viewkey, disable_archive
+                    )
+                    await interaction.delete_original_message()
+                    await self.ctx.edit_original_message(content=None, embed=self.embed, view=view)
+                    return
             elif self.selected_coin in ["ETH", "MATIC", "BNB"]:
                 type_coin = "ERC-20"
                 w = create_address_eth()
@@ -1668,10 +1695,13 @@ class VaultMenu(disnake.ui.View):
                             f"successfully backup his/her {self.selected_coin} key/seed.",
                             self.bot.config['discord']['vault_webhook']
                         )
+                        await asyncio.sleep(2.0)
+                        await self.ctx.delete_original_message()
                     else:
                         await interaction.edit_original_message(
                             content=f"{EMOJI_INFORMATION} {interaction.author.mention}, internal error. Please report!", view=None
                         )
+                        await self.ctx.delete_original_message()
 
     @disnake.ui.button(label="❗ Archive", style=ButtonStyle.red, custom_id="vault_archive")
     async def btn_vault_archive(
@@ -1707,6 +1737,16 @@ class VaultMenu(disnake.ui.View):
                 await interaction.delete_original_message()
                 return
             else:
+                # Disable all view first
+                disable_update = True
+                disable_withdraw = True
+                disable_viewkey = True
+                disable_archive = True
+                disable_view = VaultMenu(
+                    self.bot, self.ctx, self.owner_id, self.embed, self.bot.config['vault']['enable_vault'],
+                    self.selected_coin, disable_update, disable_withdraw, disable_viewkey, disable_archive
+                )
+                await self.ctx.edit_original_message(content=None, embed=self.embed, view=disable_view)
                 deleting = False
                 # Check which coin is it?
                 if self.selected_coin in ["ETH", "MATIC", "BNB"]:

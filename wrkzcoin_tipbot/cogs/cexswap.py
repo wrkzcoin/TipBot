@@ -1305,7 +1305,7 @@ async def cexswap_sold(
                     ))
                 await cur.executemany(sql, liq_rows)
 
-                # add to mv_data
+                # add to mv_data # user_balance_mv_data
                 sql = """
                     INSERT INTO `user_balance_mv`
                     (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`,
@@ -1313,12 +1313,17 @@ async def cexswap_sold(
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 liq_rows = []
+                credit_lp = []
                 for each in liquidators:
                     liq_rows.append((
                         got_ticker, contract, "SYSTEM", each[1], guild_id, channel_id,
                         each[0], each[0]*float(per_unit_get), coin_decimal, "CEXSWAPLP", int(time.time()), each[2],
                         ref_log
                     ))
+                    credit_lp.append(
+                        (each[1], got_ticker, each[2], each[0], int(time.time()))
+                    )
+
                 if guild_id != "DM":
                     liq_rows.append((
                         got_ticker, contract, "SYSTEM", guild_id, guild_id, channel_id,
@@ -1326,6 +1331,17 @@ async def cexswap_sold(
                         ref_log
                     ))
                 await cur.executemany(sql, liq_rows)
+                # add mv distribution fee
+                sql = """
+                INSERT INTO `user_balance_mv_data`
+                (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    `balance`=`balance`+VALUES(`balance`),
+                    `update_date`=VALUES(`update_date`);
+                """
+                if len(credit_lp) > 0:
+                    await cur.executemany(sql, credit_lp)
                 await conn.commit()
                 return True
     except Exception:
@@ -3214,10 +3230,10 @@ class Cexswap(commands.Cog):
                                     del self.bot.user_balance_cache[key]
                                 if len(liq_users) > 0:
                                     for u in liq_users:
-                                        key = u[1] + "_" + sell_token + "_" + SERVER_BOT
+                                        key = u[1] + "_" + sell_token + "_" + u[2]
                                         if key in self.bot.user_balance_cache:
                                             del self.bot.user_balance_cache[key]
-                                        key = u[1] + "_" + for_token + "_" + SERVER_BOT
+                                        key = u[1] + "_" + for_token + "_" + u[2]
                                         if key in self.bot.user_balance_cache:
                                             del self.bot.user_balance_cache[key]
                                 if guild_id != "DM":

@@ -6,6 +6,7 @@ import json
 import asyncio, aiohttp
 from typing import Optional
 from pathlib import Path
+import functools
 
 from Bot import encrypt_string, decrypt_string, log_to_channel, SERVER_BOT, EMOJI_RED_NO, EMOJI_INFORMATION
 from cogs.utils import Utils
@@ -97,17 +98,22 @@ async def http_wallet_getbalance(
             traceback.print_exc(file=sys.stdout)
     return None
 
-async def send_erc_token(
-    url: str, chainId: str, from_address: str, seed: str,
-    to_address: str, float_balance: float, float_amount: float, coin_decimal: int
+async def estimate_gas_amount_send_all(
+    url: str, from_address: str, to_address: str
 ):
+    # should return gas and amount
     try:
+        # get balance
+        get_balance = await http_wallet_getbalance(
+            url, from_address, None, 5
+        )
+        if get_balance is None:
+            return None
+
         # HTTPProvider:
         w3 = Web3(Web3.HTTPProvider(url))
         # inject the poa compatibility middleware to the innermost layer
         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-
-        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(from_address))
 
         # get gas price
         gasPrice = w3.eth.gasPrice
@@ -115,39 +121,74 @@ async def send_erc_token(
             {
                 'to': w3.toChecksumAddress(to_address),
                 'from': w3.toChecksumAddress(from_address),
-                'value': int(float_amount * 10 ** coin_decimal)
+                'value': get_balance # atomic already
             }
         )
-
         est_gas_amount = gasPrice * estimateGas # atomic
-        if est_gas_amount > (float_balance - float_amount)*10**coin_decimal:
-            return {
-                "success": False,
-                "msg": "You don't have sufficient gas remaining.",
-                "tx": None
-            }
+        return {
+            "gas_price": w3.eth.gasPrice,
+            "estimate_gas": estimateGas,
+            "gas_amount": est_gas_amount,
+            "remaining": get_balance - est_gas_amount
+        }
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+    
+def send_erc_token(
+    url: str, chainId: str, from_address: str, seed: str,
+    to_address: str, float_balance: float, float_amount: float, coin_decimal: int,
+    gas: dict=None
+):
+    try:
+        # HTTPProvider:
+        w3 = Web3(Web3.HTTPProvider(url))
+        # inject the poa compatibility middleware to the innermost layer
+        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(from_address))
+
+        if gas is None:
+            # get gas price
+            gasPrice = w3.eth.gasPrice
+            estimateGas = w3.eth.estimateGas(
+                {
+                    'to': w3.toChecksumAddress(to_address),
+                    'from': w3.toChecksumAddress(from_address),
+                    'value': int(float_amount * 10 ** coin_decimal)
+                }
+            )
+
+            est_gas_amount = gasPrice * estimateGas # atomic
+            if est_gas_amount > (float_balance - float_amount)*10**coin_decimal:
+                return {
+                    "success": False,
+                    "msg": "You don't have sufficient gas remaining.",
+                    "tx": None
+                }
         else:
-            transaction = {
-                'from': w3.toChecksumAddress(from_address),
-                'to': w3.toChecksumAddress(to_address),
-                'value': int(float_amount*10**coin_decimal),
-                'nonce': nonce,
-                'gasPrice': gasPrice,
-                'gas': estimateGas,
-                'chainId': chainId
-            }
-            acct = Account.from_mnemonic(mnemonic=decrypt_string(seed))
-            signed = w3.eth.account.sign_transaction(transaction, private_key=acct.key)
-            # send Transaction:
-            send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
-            tx_receipt = w3.eth.waitForTransactionReceipt(send_gas_tx)
-            # return tx_receipt.transactionHash.hex() # hash Tx
-            return {
-                "success": True,
-                "msg": "You sent transaction to network tx hash: {}".format(tx_receipt.transactionHash.hex()),
-                "tx": tx_receipt.transactionHash.hex(),
-                "others": str(tx_receipt)
-            }
+            gasPrice = gas['gasPrice']
+            estimateGas = gas['estimateGas']
+        transaction = {
+            'from': w3.toChecksumAddress(from_address),
+            'to': w3.toChecksumAddress(to_address),
+            'value': int(float_amount*10**coin_decimal),
+            'nonce': nonce,
+            'gasPrice': gasPrice,
+            'gas': estimateGas,
+            'chainId': chainId
+        }
+        acct = Account.from_mnemonic(mnemonic=decrypt_string(seed))
+        signed = w3.eth.account.sign_transaction(transaction, private_key=acct.key)
+        # send Transaction:
+        send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
+        tx_receipt = w3.eth.waitForTransactionReceipt(send_gas_tx)
+        # return tx_receipt.transactionHash.hex() # hash Tx
+        return {
+            "success": True,
+            "msg": "You sent transaction to network tx hash: {}".format(tx_receipt.transactionHash.hex()),
+            "tx": tx_receipt.transactionHash.hex(),
+            "others": str(tx_receipt)
+        }
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return {
@@ -207,7 +248,7 @@ async def bnc_get_balance(
 
 async def bcn_send_external(
     coin_name: str, source_address: str, ex_address: str, paymentId: str,
-    atomic_amount: int, wallet_api_url: str, header: str, timeout: int=60      
+    atomic_amount: int, wallet_api_url: str, header: str, send_all: bool=False, timeout: int=60      
 ):
     try:
         if coin_name in ["WRKZ", "DEGO"]:
@@ -238,23 +279,39 @@ async def bcn_send_external(
                         print(f"internal error during sending transaction of wallet {coin_name}")
         elif coin_name in ["WOW", "XMR"]:
             try:
-                acc_index = 0
-                payload = {
-                    "destinations": [{'amount': int(atomic_amount), 'address': ex_address}],
-                    "account_index": acc_index,
-                    "subaddr_indices": [],
-                    "priority": 1,
-                    "unlock_time": 0,
-                    "get_tx_key": True,
-                    "get_tx_hex": False,
-                    "get_tx_metadata": False
-                }
-                full_payload = {
-                    'params': payload,
-                    'jsonrpc': '2.0',
-                    'id': 0,
-                    'method': "transfer"
-                }
+                if send_all is False:
+                    acc_index = 0
+                    payload = {
+                        "destinations": [{'amount': int(atomic_amount), 'address': ex_address}],
+                        "account_index": acc_index,
+                        "subaddr_indices": [],
+                        "priority": 1,
+                        "unlock_time": 0,
+                        "get_tx_key": True,
+                        "get_tx_hex": False,
+                        "get_tx_metadata": False
+                    }
+                    full_payload = {
+                        'params': payload,
+                        'jsonrpc': '2.0',
+                        'id': 0,
+                        'method': "transfer"
+                    }
+                else:
+                    payload = {
+                        "address": ex_address,
+                        "priority": 1,
+                        "unlock_time": 0,
+                        "get_tx_key": True,
+                        "get_tx_hex": False,
+                        "get_tx_metadata": False
+                    }
+                    full_payload = {
+                        'params': payload,
+                        'jsonrpc': '2.0',
+                        'id': 0,
+                        'method': "sweep_all"
+                    }
                 async with aiohttp.ClientSession(headers={'Content-Type': 'application/json'}) as session:
                     async with session.post(
                         wallet_api_url + "/json_rpc",
@@ -1499,6 +1556,7 @@ class VaultMenu(disnake.ui.View):
                 if self.selected_coin in ["ETH", "MATIC", "BNB"]:
                     type_coin = "ERC-20"
                     seed = get_a_vault['seed']
+                    wallet_url = coin_setting['wallet_address']
                 elif self.selected_coin in ["WRKZ", "DEGO"]:
                     type_coin = "TRTL-API"
                     seed = None
@@ -1896,19 +1954,53 @@ class Withdraw(disnake.ui.Modal):
             await interaction.edit_original_message(f"{interaction.author.mention}, amount is empty!")
             return
 
-        try:
-            amount = float(amount.replace(",", ""))
-            atomic_amount = amount*10**self.coin_decimal
-            if atomic_amount <= 0:
-                await interaction.edit_original_message(f"{interaction.author.mention}, invalid given amount!")
-                return
-        except ValueError:
-            await interaction.edit_original_message(f"{interaction.author.mention}, invalid given amount!")
-            return
-
         address = interaction.text_values['address_id'].strip()
         if address == "":
             await interaction.edit_original_message(f"{interaction.author.mention}, address can't be empty!")
+            return
+
+        try:
+            # check if amount is all
+            gas = None
+            send_all = False
+            if amount.upper() == "ALL" and self.coin_name in ["ETH", "MATIC", "BNB"]:
+                get_est_amount = await estimate_gas_amount_send_all(
+                    self.endpoint, self.source_address, address
+                )
+                if get_est_amount is None:
+                    await interaction.edit_original_message(
+                        content=f"{interaction.author.mention}, failed to get estimation"\
+                        f" gas amount for {self.coin_name}. Try again later!"
+                    )
+                    return
+                else:
+                    amount = float(get_est_amount['remaining']/(10**self.coin_decimal))
+                    atomic_amount = get_est_amount['remaining']
+                    if atomic_amount <= 0:
+                        await interaction.edit_original_message(
+                            content=f"{interaction.author.mention}, not sufficient balance to cover gas for sending {self.coin_name}!"
+                        )
+                        return
+                    gas = {"gasPrice": get_est_amount['gas_price'], "estimateGas": get_est_amount['estimate_gas']}
+            elif amount.upper() == "ALL" and self.coin_name in ["WOW", "XMR"]:
+                # sweep_all
+                send_all = True
+                atomic_amount = 0 # placehodler
+            elif amount.upper() == "ALL":
+                await interaction.edit_original_message(
+                    content=f"{interaction.author.mention}, {self.coin_name} doesn't support send `ALL` yet."
+                )
+                return
+            else:
+                amount = float(amount.replace(",", ""))
+                atomic_amount = amount * 10 ** self.coin_decimal
+                if atomic_amount <= 0:
+                    await interaction.edit_original_message(
+                        content=f"{interaction.author.mention}, invalid given amount!")
+                    return
+        except ValueError:
+            await interaction.edit_original_message(
+                content=f"{interaction.author.mention}, invalid given amount!")
             return
 
         extra_option = None
@@ -1927,7 +2019,7 @@ class Withdraw(disnake.ui.Modal):
             if coin_name in ["WRKZ", "DEGO"]:
                 sending = await bcn_send_external(
                     coin_name, self.source_address, address, extra_option,
-                    atomic_amount, self.endpoint, self.contract_header, timeout=60
+                    atomic_amount, self.endpoint, self.contract_header, send_all=False, timeout=60
                 )
                 if sending is not None:
                     await interaction.edit_original_message(
@@ -1954,23 +2046,29 @@ class Withdraw(disnake.ui.Modal):
             elif coin_name in ["WOW", "XMR"]:
                 sending = await bcn_send_external(
                     coin_name, self.source_address, address, extra_option,
-                    atomic_amount, self.endpoint, self.contract_header, timeout=60
+                    atomic_amount, self.endpoint, self.contract_header, send_all=send_all, timeout=60
                 )
                 if sending is not None:
+                    if send_all is False:
+                        tx_hash = sending['tx_hash']
+                        send_amount = amount
+                    else:
+                        tx_hash = ", ".join(sending['tx_hash_list'])
+                        send_amount = sum(sending['amount_list'])/10**self.coin_decimal
                     await interaction.edit_original_message(
-                        f"{interaction.author.mention}, successfully sending out {amount} {coin_name}, tx: {sending['tx_hash']}!"
+                        f"{interaction.author.mention}, successfully sending out {send_amount} {coin_name}, tx: {tx_hash}!"
                     )
                     try:
                         await vault_withdraw(
                             str(interaction.author.id), SERVER_BOT, coin_name, address, extra_option,
-                            amount, sending['tx_hash'], json.dumps(sending)
+                            send_amount, tx_hash, json.dumps(sending)
                         )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     await log_to_channel(
                         "vault",
                         f"[VAULT] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
-                        f"successfully withdrew {num_format_coin(amount)} {coin_name}.",
+                        f"successfully withdrew {send_amount} {coin_name}.",
                         self.bot.config['discord']['vault_webhook']
                     )
                     await self.ctx.delete_original_message()
@@ -1987,10 +2085,14 @@ class Withdraw(disnake.ui.Modal):
                     await interaction.edit_original_message(
                         content=f"{interaction.author.mention}, failed to retrieve your {coin_name}'s balance. Try again later!")
                     return
-                sending = await send_erc_token(
-                    self.endpoint, self.chain_id, self.source_address, 
-                    self.seed, address, get_balance/(10**self.coin_decimal), amount, self.coin_decimal
+
+                transaction = functools.partial(
+                    send_erc_token, self.endpoint, self.chain_id, self.source_address, 
+                    self.seed, address, get_balance/(10**self.coin_decimal), amount, self.coin_decimal,
+                    gas
                 )
+                sending = await self.bot.loop.run_in_executor(None, transaction)
+
                 if sending['success'] is False:
                     await interaction.edit_original_message(
                         content=f"{interaction.author.mention}, failed to send your {coin_name}. {sending['msg']}")

@@ -2418,10 +2418,11 @@ class WalletAPI(commands.Cog):
                     if tx_hash:
                         updateTime = int(time.time())
                         async with conn.cursor() as cur:
-                            sql = """ INSERT INTO nano_external_tx 
-                                (`coin_name`, `user_id`, `amount`, `decimal`, `to_address`, `date`, `tx_hash`) 
-                                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                                """
+                            sql = """
+                            INSERT INTO nano_external_tx 
+                            (`coin_name`, `user_id`, `amount`, `decimal`, `to_address`, `date`, `tx_hash`) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            """
                             await cur.execute(sql, (
                                 coin_name, user_from, amount, coin_decimal,
                                 to_address, int(time.time()), tx_hash['block'],))
@@ -2483,10 +2484,11 @@ class WalletAPI(commands.Cog):
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
                         async with conn.cursor() as cur:
-                            sql = """ INSERT INTO xch_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`,
-                                `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                """
+                            sql = """
+                            INSERT INTO xch_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`,
+                            `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            """
                             await cur.execute(sql, (
                                 coin_name, user_from, amount, float(result['tx_hash']['fee_amount'] / 10 ** coin_decimal),
                                 withdraw_fee, coin_decimal, to_address, int(time.time()), result['tx_hash']['name'],
@@ -2535,11 +2537,12 @@ class WalletAPI(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ INSERT INTO neo_external_tx 
-                            (`coin_name`, `user_id`, `coin_decimal`, `contract`, `real_amount`, 
-                            `real_external_fee`, `to_address`, `date`, `tx_hash`, `tx_json`, `user_server`) 
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                            """
+                        sql = """
+                        INSERT INTO neo_external_tx 
+                        (`coin_name`, `user_id`, `coin_decimal`, `contract`, `real_amount`, 
+                        `real_external_fee`, `to_address`, `date`, `tx_hash`, `tx_json`, `user_server`) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """
                         await cur.execute(sql, (
                             coin_name, user_from, coin_decimal, contract, 
                             amount, tx_fee, to_address, int(time.time()), 
@@ -2612,10 +2615,11 @@ class WalletAPI(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ INSERT INTO doge_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, 
-                            `withdraw_fee`, `to_address`, `date`, `tx_hash`, `user_server`) 
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                            """
+                        sql = """
+                        INSERT INTO doge_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, 
+                        `withdraw_fee`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """
                         await cur.execute(sql, (
                             coin_name, user_from, amount, tx_fee, withdraw_fee,
                             to_address, int(time.time()), txHash, user_server
@@ -2850,10 +2854,11 @@ class WalletAPI(commands.Cog):
                     await self.openConnection()
                     async with self.pool.acquire() as conn:
                         async with conn.cursor() as cur:
-                            sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`,
-                                `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `tx_key`, `user_server`) 
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                """
+                            sql = """
+                            INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`,
+                            `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `tx_key`, `user_server`) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            """
                             await cur.execute(sql, (
                                 coin_name, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address,
                                 int(time.time()), result['tx_hash'], result['tx_key'], user_server
@@ -2893,10 +2898,11 @@ class WalletAPI(commands.Cog):
                         await self.openConnection()
                         async with self.pool.acquire() as conn:
                             async with conn.cursor() as cur:
-                                sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, 
-                                    `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                    """
+                                sql = """
+                                INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, 
+                                `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                """
                                 await cur.execute(sql, (
                                     coin_name, user_from, amount, tx_fee, withdraw_fee, coin_decimal, to_address,
                                     int(time.time()), tx_hash['transactionHash'], user_server
@@ -2952,11 +2958,12 @@ class WalletAPI(commands.Cog):
                                     await self.openConnection()
                                     async with self.pool.acquire() as conn:
                                         async with conn.cursor() as cur:
-                                            sql = """ INSERT INTO cn_external_tx 
-                                                (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, 
-                                                `to_address`, `date`, `tx_hash`, `user_server`) 
-                                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                                """
+                                            sql = """
+                                            INSERT INTO cn_external_tx 
+                                            (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, 
+                                            `to_address`, `date`, `tx_hash`, `user_server`) 
+                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                            """
                                             await cur.execute(sql, (
                                                 coin_name, user_from, amount, tx_fee, withdraw_fee, coin_decimal,
                                                 to_address, int(time.time()), tx_hash['transactionHash'], user_server
@@ -3016,10 +3023,11 @@ class WalletAPI(commands.Cog):
                         await self.openConnection()
                         async with self.pool.acquire() as conn:
                             async with conn.cursor() as cur:
-                                sql = """ INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, 
-                                    `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `paymentid`, `date`, `tx_hash`, `user_server`) 
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                    """
+                                sql = """
+                                INSERT INTO cn_external_tx (`coin_name`, `user_id`, `amount`, 
+                                `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `paymentid`, `date`, `tx_hash`, `user_server`) 
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                """
                                 await cur.execute(sql, (
                                     coin_name, user_from, amount, tx_fee, withdraw_fee, coin_decimal,
                                     to_address, paymentId, int(time.time()), tx_hash['transactionHash'], user_server
@@ -3077,11 +3085,12 @@ class WalletAPI(commands.Cog):
                                     await self.openConnection()
                                     async with self.pool.acquire() as conn:
                                         async with conn.cursor() as cur:
-                                            sql = """ INSERT INTO `cn_external_tx` 
-                                                (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, 
-                                                `to_address`, `paymentid`, `date`, `tx_hash`, `user_server`) 
-                                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                                """
+                                            sql = """
+                                            INSERT INTO `cn_external_tx` 
+                                            (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, `decimal`, 
+                                            `to_address`, `paymentid`, `date`, `tx_hash`, `user_server`) 
+                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                            """
                                             await cur.execute(sql, (
                                                 coin_name, user_from, amount, tx_fee, withdraw_fee, coin_decimal,
                                                 to_address, paymentId, int(time.time()), tx_hash['transactionHash'],
@@ -3180,7 +3189,8 @@ class WalletAPI(commands.Cog):
                             await self.openConnection()
                             async with self.pool.acquire() as conn:
                                 async with conn.cursor() as cur:
-                                    sql = """ INSERT INTO hnt_external_tx 
+                                    sql = """
+                                    INSERT INTO hnt_external_tx 
                                     (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
                                     `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
                                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -3275,7 +3285,8 @@ class WalletAPI(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ INSERT INTO xlm_external_tx 
+                        sql = """
+                        INSERT INTO xlm_external_tx 
                         (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
                         `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -3298,7 +3309,8 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `coin_settings`
+                    sql = """
+                    SELECT * FROM `coin_settings`
                     WHERE `contract`=%s AND `enable`=1 LIMIT 1
                     """
                     await cur.execute(sql, denom)
@@ -3361,7 +3373,8 @@ class WalletAPI(commands.Cog):
                                 await self.openConnection()
                                 async with self.pool.acquire() as conn:
                                     async with conn.cursor() as cur:
-                                        sql = """ INSERT INTO `cosmos_external_tx` 
+                                        sql = """
+                                        INSERT INTO `cosmos_external_tx` 
                                         (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
                                         `decimal`, `to_address`, `date`, `tx_hash`, `tx_dump`, `user_server`, `is_failed`) 
                                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -3393,10 +3406,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * 
-                        FROM `ada_wallets` 
-                        WHERE `is_for_withdraw`=%s ORDER BY RAND() LIMIT 1
-                        """
+                    sql = """
+                    SELECT * 
+                    FROM `ada_wallets` 
+                    WHERE `is_for_withdraw`=%s ORDER BY RAND() LIMIT 1
+                    """
                     await cur.execute(sql, (1))
                     result = await cur.fetchone()
                     if result:
@@ -3466,13 +3480,14 @@ class WalletAPI(commands.Cog):
                                 await self.openConnection()
                                 async with self.pool.acquire() as conn:
                                     async with conn.cursor() as cur:
-                                        sql = """ INSERT INTO `ada_external_tx` 
-                                            (`coin_name`, `asset_name`, `policy_id`, `user_id`, 
-                                            `real_amount`, `real_external_fee`, `network_fee`, 
-                                            `token_decimal`, `to_address`, `input_json`, `output_json`, 
-                                            `hash_id`, `date`, `user_server`) 
-                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                            """
+                                        sql = """
+                                        INSERT INTO `ada_external_tx` 
+                                        (`coin_name`, `asset_name`, `policy_id`, `user_id`, 
+                                        `real_amount`, `real_external_fee`, `network_fee`, 
+                                        `token_decimal`, `to_address`, `input_json`, `output_json`, 
+                                        `hash_id`, `date`, `user_server`) 
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                        """
                                         await cur.execute(sql, (
                                             coin_name, None, None, user_id, amount, network_fee + withdraw_fee, network_fee,
                                             coin_decimal, to_address, json.dumps(sending_tx['inputs']),
@@ -3626,12 +3641,13 @@ class WalletAPI(commands.Cog):
                                         await self.openConnection()
                                         async with self.pool.acquire() as conn:
                                             async with conn.cursor() as cur:
-                                                sql = """ INSERT INTO `ada_external_tx` 
-                                                    (`coin_name`, `asset_name`, `policy_id`, `user_id`, `real_amount`,
-                                                    `real_external_fee`, `network_fee`, `token_decimal`, `to_address`,
-                                                    `input_json`, `output_json`, `hash_id`, `date`, `user_server`) 
-                                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                                    """
+                                                sql = """
+                                                INSERT INTO `ada_external_tx` 
+                                                (`coin_name`, `asset_name`, `policy_id`, `user_id`, `real_amount`,
+                                                `real_external_fee`, `network_fee`, `token_decimal`, `to_address`,
+                                                `input_json`, `output_json`, `hash_id`, `date`, `user_server`) 
+                                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                                """
                                                 await cur.executemany(sql, data_rows)
                                                 await conn.commit()
                                                 sending_tx['all_ada_fee'] = network_fee + fee_limit + ada_fee_atomic / 10 ** 6
@@ -3679,11 +3695,12 @@ class WalletAPI(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ INSERT INTO `sol_external_tx` (`coin_name`, `contract`, `user_id`, 
-                            `real_amount`, `real_external_fee`, `network_fee`, `txn`, `token_decimal`,
-                            `to_address`, `date`, `user_server`) 
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                            """
+                        sql = """
+                        INSERT INTO `sol_external_tx` (`coin_name`, `contract`, `user_id`, 
+                        `real_amount`, `real_external_fee`, `network_fee`, `txn`, `token_decimal`,
+                        `to_address`, `date`, `user_server`) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """
                         await cur.execute(sql, (
                             coin.upper(), None, user_from, amount, withdraw_fee, tx_fee, send_tx, 
                             coin_decimal, to_address, int(time.time()), user_server
@@ -3699,10 +3716,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT IGNORE INTO `tezos_address_reveal_check`
-                        (`address`, `tx_hash`, `checked_date`) 
-                        VALUES (%s, %s, %s)
-                        """
+                    sql = """
+                    INSERT IGNORE INTO `tezos_address_reveal_check`
+                    (`address`, `tx_hash`, `checked_date`) 
+                    VALUES (%s, %s, %s)
+                    """
                     await cur.execute(sql, (address, tx_hash, checked_date))
                     await conn.commit()
                     return True
@@ -3715,10 +3733,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * 
-                        FROM `tezos_address_reveal_check` 
-                        WHERE `address`=%s LIMIT 1
-                        """
+                    sql = """
+                    SELECT * 
+                    FROM `tezos_address_reveal_check` 
+                    WHERE `address`=%s LIMIT 1
+                    """
                     await cur.execute(sql, address)
                     result = await cur.fetchone()
                     if result:
@@ -3732,10 +3751,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * 
-                        FROM `tezos_user` 
-                        WHERE `balance_wallet_address`=%s LIMIT 1
-                        """
+                    sql = """
+                    SELECT * 
+                    FROM `tezos_user` 
+                    WHERE `balance_wallet_address`=%s LIMIT 1
+                    """
                     await cur.execute(sql, address)
                     result = await cur.fetchone()
                     if result:
@@ -3802,7 +3822,8 @@ class WalletAPI(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ INSERT INTO `tezos_external_tx` (`token_name`, `contract`,
+                        sql = """
+                        INSERT INTO `tezos_external_tx` (`token_name`, `contract`,
                         `user_id`, `real_amount`, `real_external_fee`, `token_decimal`,
                         `to_address`, `date`, `txn`, `contents`, `user_server`, `network`) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -3849,7 +3870,8 @@ class WalletAPI(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ INSERT INTO `tezos_external_tx` 
+                        sql = """
+                        INSERT INTO `tezos_external_tx` 
                         (`token_name`, `contract`, `user_id`, `real_amount`, `real_external_fee`,
                         `token_decimal`, `to_address`, `date`, `txn`, `contents`, `user_server`, `network`) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -3874,7 +3896,8 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT IGNORE INTO `tezos_move_deposit` 
+                    sql = """
+                    INSERT IGNORE INTO `tezos_move_deposit` 
                     (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
                     `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`,
                     `content`, `time_insert`, `user_server`, `network`) 
@@ -3895,9 +3918,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * 
-                              FROM `tezos_move_deposit` 
-                              WHERE `status`=%s """
+                    sql = """
+                    SELECT * 
+                    FROM `tezos_move_deposit` 
+                    WHERE `status`=%s
+                    """
                     await cur.execute(sql, status)
                     result = await cur.fetchall()
                     if result:
@@ -3911,10 +3936,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `tezos_user` 
-                        SET `last_moved_gas`=%s 
-                        WHERE `balance_wallet_address`=%s LIMIT 1
-                        """
+                    sql = """
+                    UPDATE `tezos_user` 
+                    SET `last_moved_gas`=%s 
+                    WHERE `balance_wallet_address`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (ts, address))
                     await conn.commit()
                     return True
@@ -3929,10 +3955,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `tezos_move_deposit` 
-                        SET `blockNumber`=%s, `status`=%s, `confirmed_depth`=%s 
-                        WHERE `status`=%s AND `txn`=%s LIMIT 1
-                        """
+                    sql = """
+                    UPDATE `tezos_move_deposit` 
+                    SET `blockNumber`=%s, `status`=%s, `confirmed_depth`=%s 
+                    WHERE `status`=%s AND `txn`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (blockNumber, "CONFIRMED", confirmed_depth, "PENDING", txn))
                     await conn.commit()
                     return True
@@ -3975,9 +4002,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * 
-                              FROM `near_user` 
-                              WHERE `balance_wallet_address`=%s LIMIT 1 """
+                    sql = """
+                    SELECT * 
+                    FROM `near_user` 
+                    WHERE `balance_wallet_address`=%s LIMIT 1
+                    """
                     await cur.execute(sql, address)
                     result = await cur.fetchone()
                     if result:
@@ -3997,7 +4026,8 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT IGNORE INTO `near_move_deposit` (`token_name`, `contract`, 
+                    sql = """
+                    INSERT IGNORE INTO `near_move_deposit` (`token_name`, `contract`, 
                     `user_id`, `balance_wallet_address`, `to_main_address`, `amount`, 
                     `real_deposit_fee`, `token_decimal`, `txn`, `content`, `time_insert`, 
                     `user_server`, `network`) 
@@ -4039,7 +4069,8 @@ class WalletAPI(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ INSERT INTO `near_external_tx` (`token_name`, `contract`, 
+                        sql = """
+                        INSERT INTO `near_external_tx` (`token_name`, `contract`, 
                         `user_id`, `real_amount`, `real_external_fee`, `token_decimal`, 
                         `to_address`, `date`, `tx_hash`, `tx_json`, `user_server`) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -4059,10 +4090,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * 
-                              FROM `near_move_deposit` 
-                              WHERE `status`=%s
-                              """
+                    sql = """
+                    SELECT * 
+                    FROM `near_move_deposit` 
+                    WHERE `status`=%s
+                    """
                     await cur.execute(sql, status)
                     result = await cur.fetchall()
                     if result:
@@ -4078,7 +4110,8 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `near_move_deposit` 
+                    sql = """
+                    UPDATE `near_move_deposit` 
                     SET `blockNumber`=%s, `status`=%s, `confirmations`=%s 
                     WHERE `status`=%s AND `txn`=%s LIMIT 1
                     """
@@ -4094,9 +4127,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `near_user` 
-                              SET `last_moved_gas`=%s 
-                              WHERE `balance_wallet_address`=%s LIMIT 1 """
+                    sql = """
+                    UPDATE `near_user` 
+                    SET `last_moved_gas`=%s 
+                    WHERE `balance_wallet_address`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (ts, address))
                     await conn.commit()
                     return True
@@ -4113,7 +4148,8 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT IGNORE INTO `xrp_get_transfers` (`coin_name`, `issuer`, `user_id`, `txid`, 
+                    sql = """
+                    INSERT IGNORE INTO `xrp_get_transfers` (`coin_name`, `issuer`, `user_id`, `txid`, 
                     `height`, `timestamp`, `amount`, `decimal`, `address`, `destination_tag`, `time_insert`) 
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """
@@ -4132,9 +4168,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * 
-                              FROM `xrp_user` 
-                              WHERE `destination_tag`=%s LIMIT 1 """
+                    sql = """
+                    SELECT * 
+                    FROM `xrp_user` 
+                    WHERE `destination_tag`=%s LIMIT 1
+                    """
                     await cur.execute(sql, tag)
                     result = await cur.fetchone()
                     if result:
@@ -4148,8 +4186,10 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT `txid` 
-                              FROM `xrp_get_transfers` """
+                    sql = """
+                    SELECT `txid` 
+                    FROM `xrp_get_transfers`
+                    """
                     await cur.execute(sql,)
                     result = await cur.fetchall()
                     if result:
@@ -4284,7 +4324,8 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT IGNORE INTO `zil_move_deposit` (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
+                    sql = """
+                    INSERT IGNORE INTO `zil_move_deposit` (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
                     `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `content`, `time_insert`, 
                     `user_server`, `network`) 
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -4305,9 +4346,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * 
-                              FROM `zil_user` 
-                              WHERE `balance_wallet_address`=%s LIMIT 1 """
+                    sql = """
+                    SELECT * 
+                    FROM `zil_user` 
+                    WHERE `balance_wallet_address`=%s LIMIT 1
+                    """
                     await cur.execute(sql, address)
                     result = await cur.fetchone()
                     if result:
@@ -4321,9 +4364,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `zil_user` 
-                              SET `last_moved_gas`=%s 
-                              WHERE `balance_wallet_address`=%s LIMIT 1 """
+                    sql = """
+                    UPDATE `zil_user` 
+                    SET `last_moved_gas`=%s 
+                    WHERE `balance_wallet_address`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (ts, address))
                     await conn.commit()
                     return True
@@ -4336,9 +4381,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * 
-                              FROM `zil_move_deposit` 
-                              WHERE `status`=%s """
+                    sql = """
+                    SELECT * 
+                    FROM `zil_move_deposit` 
+                    WHERE `status`=%s
+                    """
                     await cur.execute(sql, status)
                     result = await cur.fetchall()
                     if result:
@@ -4352,7 +4399,8 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `zil_move_deposit` 
+                    sql = """
+                    UPDATE `zil_move_deposit` 
                     SET `blockNumber`=%s, `status`=%s, `confirmed_depth`=%s 
                     WHERE `status`=%s AND `txn`=%s LIMIT 1
                     """
@@ -4379,7 +4427,8 @@ class WalletAPI(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ INSERT INTO `zil_external_tx` (`token_name`, `contract`, 
+                        sql = """
+                        INSERT INTO `zil_external_tx` (`token_name`, `contract`, 
                         `user_id`, `real_amount`, `real_external_fee`, `token_decimal`, 
                         `to_address`, `date`, `txn`, `contents`, `user_server`, `network`) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -4411,7 +4460,8 @@ class WalletAPI(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ INSERT INTO `zil_external_tx` (`token_name`, `contract`, 
+                        sql = """
+                        INSERT INTO `zil_external_tx` (`token_name`, `contract`, 
                         `user_id`, `real_amount`, `real_external_fee`, `token_decimal`, 
                         `to_address`, `date`, `txn`, `contents`, `user_server`, `network`) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -4437,7 +4487,8 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT IGNORE INTO `vet_move_deposit` (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
+                    sql = """
+                    INSERT IGNORE INTO `vet_move_deposit` (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
                     `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`, `content`, `time_insert`, 
                     `user_server`, `network`) 
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -4458,9 +4509,11 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * 
-                              FROM `vet_move_deposit` 
-                              WHERE `status`=%s """
+                    sql = """
+                    SELECT * 
+                    FROM `vet_move_deposit` 
+                    WHERE `status`=%s
+                    """
                     await cur.execute(sql, status)
                     result = await cur.fetchall()
                     if result:
@@ -4476,7 +4529,8 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `vet_move_deposit` 
+                    sql = """
+                    UPDATE `vet_move_deposit` 
                     SET `blockNumber`=%s, `status`=%s, `confirmed_depth`=%s, `content`=%s 
                     WHERE `status`=%s AND `txn`=%s LIMIT 1
                     """
@@ -4495,7 +4549,8 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `vet_external_tx` (`token_name`, `contract`, `user_id`, 
+                    sql = """
+                    INSERT INTO `vet_external_tx` (`token_name`, `contract`, `user_id`, 
                     `real_amount`, `real_external_fee`, `token_decimal`, `to_address`, `date`, 
                     `txn`, `contents`, `user_server`, `network`) 
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -4518,7 +4573,8 @@ class WalletAPI(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `vite_external_tx` (`coin_name`, `contract`, `user_id`, 
+                    sql = """
+                    INSERT INTO `vite_external_tx` (`coin_name`, `contract`, `user_id`, 
                     `amount`, `withdraw_fee`, `decimal`, `to_address`, `date`, `tx_hash`, 
                     `contents`, `user_server`) 
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -4664,7 +4720,9 @@ class Wallet(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `coin_swap_tokens` WHERE `enable`=%s """
+                    sql = """
+                    SELECT * FROM `coin_swap_tokens` WHERE `enable`=%s
+                    """
                     await cur.execute(sql, (1))
                     result = await cur.fetchall()
                     if result: return result
@@ -4677,7 +4735,8 @@ class Wallet(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `coin_swap_tokens` 
+                    sql = """
+                    SELECT * FROM `coin_swap_tokens` 
                     WHERE `enable`=%s AND `from_token`=%s AND `to_token`=%s LIMIT 1
                     """
                     await cur.execute(sql, (1, from_token, to_token))
@@ -4692,7 +4751,8 @@ class Wallet(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, 
+                    sql = """
+                    INSERT INTO user_balance_mv (`token_name`, `contract`, `from_userid`, 
                     `to_userid`, `guild_id`, `channel_id`, `real_amount`, `token_decimal`, `type`, 
                     `date`, `user_server`, `real_amount_usd`, `extra_message`) 
                     VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS DECIMAL(32,8)), %s, %s, %s, %s, %s, %s);
@@ -4721,7 +4781,9 @@ class Wallet(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `user_balance_mv` WHERE `from_userid`=%s AND `type`=%s """
+                    sql = """
+                    SELECT * FROM `user_balance_mv` WHERE `from_userid`=%s AND `type`=%s
+                    """
                     await cur.execute(sql, (user_id, claim_type))
                     result = await cur.fetchall()
                     if result: return result
@@ -4887,10 +4949,11 @@ class Wallet(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ UPDATE `twitter_mentions_timeline` 
-                            SET `has_tip`=1, `tipped_text`=%s, `response_date`=%s
-                            WHERE `twitter_id`=%s LIMIT 1
-                            """
+                        sql = """
+                        UPDATE `twitter_mentions_timeline` 
+                        SET `has_tip`=1, `tipped_text`=%s, `response_date`=%s
+                        WHERE `twitter_id`=%s LIMIT 1
+                        """
                         await cur.execute(sql, (tipped_text, int(time.time()), twitter_id))
                         await conn.commit()
             except Exception:
@@ -4901,10 +4964,11 @@ class Wallet(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `twitter_mentions_timeline` 
-                        WHERE `response_date` IS NULL 
-                        ORDER BY `created_at` ASC
-                        """
+                    sql = """
+                    SELECT * FROM `twitter_mentions_timeline` 
+                    WHERE `response_date` IS NULL 
+                    ORDER BY `created_at` ASC
+                    """
                     await cur.execute(sql, )
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -5060,10 +5124,11 @@ class Wallet(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ UPDATE `twitter_fetch_bot_messages` 
-                            SET `draft_response_text`=%s 
-                            WHERE `draft_response_text` IS NULL AND `id`=%s LIMIT 1
-                            """
+                        sql = """
+                        UPDATE `twitter_fetch_bot_messages` 
+                        SET `draft_response_text`=%s 
+                        WHERE `draft_response_text` IS NULL AND `id`=%s LIMIT 1
+                        """
                         await cur.execute(sql, (response_text, dm_id))
                         await conn.commit()
             except Exception:
@@ -5074,20 +5139,22 @@ class Wallet(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `twitter_fetch_bot_messages` 
-                        WHERE `is_ignored`=0 AND `draft_response_text` IS NULL 
-                        ORDER BY `created_timestamp` ASC
-                        """
+                    sql = """
+                    SELECT * FROM `twitter_fetch_bot_messages` 
+                    WHERE `is_ignored`=0 AND `draft_response_text` IS NULL 
+                    ORDER BY `created_timestamp` ASC
+                    """
                     await cur.execute(sql, )
                     result = await cur.fetchall()
                     if result and len(result) > 0:
                         for each_msg in result:
                             # Ignore long DM
                             if each_msg['text'] and len(each_msg['text']) > 500:
-                                sql = """ UPDATE `twitter_fetch_bot_messages` 
-                                    SET `is_ignored`=%s, `ignored_date`=%s 
-                                    WHERE `id`=%s LIMIT 1
-                                    """
+                                sql = """
+                                UPDATE `twitter_fetch_bot_messages` 
+                                SET `is_ignored`=%s, `ignored_date`=%s 
+                                WHERE `id`=%s LIMIT 1
+                                """
                                 await cur.execute(sql, (1, int(time.time()), each_msg['id']))
                                 await conn.commit()
                                 continue
@@ -5792,9 +5859,10 @@ class Wallet(commands.Cog):
                                 await update_bot_response(each_msg['text'], response, each_msg['id'])
                                 continue
                             else:
-                                sql = """ UPDATE `twitter_fetch_bot_messages` 
-                                    SET `is_ignored`=%s, `ignored_date`=%s WHERE `id`=%s LIMIT 1
-                                    """
+                                sql = """
+                                UPDATE `twitter_fetch_bot_messages` 
+                                SET `is_ignored`=%s, `ignored_date`=%s WHERE `id`=%s LIMIT 1
+                                """
                                 await cur.execute(sql, (1, int(time.time()), each_msg['id']))
                                 await conn.commit()
         except Exception:
@@ -5819,9 +5887,10 @@ class Wallet(commands.Cog):
                 async with conn.cursor() as cur:
                     # get verified user twitter
                     twitter_discord_user = {}
-                    sql = """ SELECT * FROM `twitter_linkme` 
-                        WHERE `is_verified`=1 
-                        """
+                    sql = """
+                    SELECT * FROM `twitter_linkme` 
+                    WHERE `is_verified`=1 
+                    """
                     await cur.execute(sql, )
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -5829,10 +5898,11 @@ class Wallet(commands.Cog):
                             twitter_discord_user[each_t_user['id_str']] = each_t_user[
                                 'discord_user_id']  # twitter[id]= discord
                     # get unpaid reward
-                    sql = """ SELECT * FROM `twitter_rt_reward_logs` 
-                        WHERE `rewarded_user` IS NULL AND `is_credited`=%s 
-                        AND `notified_confirmation`=%s AND `failed_notification`=%s AND `unverified_reward`=%s
-                        """
+                    sql = """
+                    SELECT * FROM `twitter_rt_reward_logs` 
+                    WHERE `rewarded_user` IS NULL AND `is_credited`=%s 
+                    AND `notified_confirmation`=%s AND `failed_notification`=%s AND `unverified_reward`=%s
+                    """
                     await cur.execute(sql, ("NO", "NO", "NO", "NO"))
                     reward_tos = await cur.fetchall()
                     if reward_tos and len(reward_tos) > 0:
@@ -5840,10 +5910,11 @@ class Wallet(commands.Cog):
                         for each_reward in reward_tos:
                             if each_reward['expired_date'] and each_reward['expired_date'] < int(time.time()):
                                 # Expired.
-                                sql = """ UPDATE `twitter_rt_reward_logs` 
-                                    SET `unverified_reward`=%s
-                                    WHERE `id`=%s LIMIT 1
-                                    """
+                                sql = """
+                                UPDATE `twitter_rt_reward_logs` 
+                                SET `unverified_reward`=%s
+                                WHERE `id`=%s LIMIT 1
+                                """
                                 await cur.execute(sql, ("YES", each_reward['id']))
                                 await conn.commit()
                                 continue
@@ -5867,10 +5938,11 @@ class Wallet(commands.Cog):
                                     # Check if new link is updated. If yes, we ignore it
                                     if serverinfo['rt_link'] and each_reward['tweet_link'] != serverinfo['rt_link']:
                                         # Update
-                                        sql = """ UPDATE `twitter_rt_reward_logs` 
-                                            SET `unverified_reward`=%s
-                                            WHERE `id`=%s LIMIT 1
-                                            """
+                                        sql = """
+                                        UPDATE `twitter_rt_reward_logs` 
+                                        SET `unverified_reward`=%s
+                                        WHERE `id`=%s LIMIT 1
+                                        """
                                         await cur.execute(sql, ("YES", each_reward['id']))
                                         await conn.commit()
                                         continue
@@ -5908,7 +5980,8 @@ class Wallet(commands.Cog):
                                         if total_balance < amount:
                                             # Alert guild owner
                                             try:
-                                                sql = """ UPDATE `twitter_rt_reward_logs` 
+                                                sql = """
+                                                UPDATE `twitter_rt_reward_logs` 
                                                 SET `rewarded_user`=%s, `is_credited`=%s, 
                                                     `notified_confirmation`=%s, `time_notified`=%s, `shortage_balance`=%s 
                                                 WHERE `id`=%s LIMIT 1
@@ -5940,7 +6013,8 @@ class Wallet(commands.Cog):
                                                 if per_unit and per_unit > 0:
                                                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
                                                 try:
-                                                    sql = """ UPDATE `twitter_rt_reward_logs` 
+                                                    sql = """
+                                                    UPDATE `twitter_rt_reward_logs` 
                                                     SET `rewarded_user`=%s, `is_credited`=%s, 
                                                         `notified_confirmation`=%s, `time_notified`=%s 
                                                     WHERE `id`=%s LIMIT 1
@@ -6024,10 +6098,11 @@ class Wallet(commands.Cog):
                                                 traceback.print_exc(file=sys.stdout)
                             else:
                                 # this is not verified. Update it
-                                sql = """ UPDATE `twitter_rt_reward_logs` 
-                                    SET `unverified_reward`=%s
-                                    WHERE `id`=%s LIMIT 1
-                                    """
+                                sql = """
+                                UPDATE `twitter_rt_reward_logs` 
+                                SET `unverified_reward`=%s
+                                WHERE `id`=%s LIMIT 1
+                                """
                                 await cur.execute(sql, ("YES", each_reward['id']))
                                 await conn.commit()
         except Exception:
@@ -6171,9 +6246,10 @@ class Wallet(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `hnt_get_transfers` 
-                        WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s
-                        """
+                    sql = """
+                    SELECT * FROM `hnt_get_transfers` 
+                    WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s
+                    """
                     await cur.execute(sql, ("NO", "NO", SERVER_BOT))
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -6201,18 +6277,20 @@ class Wallet(commands.Cog):
                                         ) + "```"
                                     try:
                                         await member.send(msg)
-                                        sql = """ UPDATE `hnt_get_transfers` 
-                                            SET `notified_confirmation`=%s, `time_notified`=%s 
-                                            WHERE `txid`=%s LIMIT 1
-                                            """
+                                        sql = """
+                                        UPDATE `hnt_get_transfers` 
+                                        SET `notified_confirmation`=%s, `time_notified`=%s 
+                                        WHERE `txid`=%s LIMIT 1
+                                        """
                                         await cur.execute(sql, ("YES", int(time.time()), eachTx['txid']))
                                         await conn.commit()
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
-                                        sql = """ UPDATE `hnt_get_transfers` 
-                                            SET `notified_confirmation`=%s, `failed_notification`=%s 
-                                            WHERE `txid`=%s LIMIT 1
-                                            """
+                                        sql = """
+                                        UPDATE `hnt_get_transfers` 
+                                        SET `notified_confirmation`=%s, `failed_notification`=%s 
+                                        WHERE `txid`=%s LIMIT 1
+                                        """
                                         await cur.execute(sql, ("NO", "YES", eachTx['txid']))
                                         await conn.commit()
         except Exception:
@@ -6271,10 +6349,10 @@ class Wallet(commands.Cog):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
-                async def fetch_api(url, timeout):
+                async def fetch_api(ua: str, url, timeout):
                     try:
                         headers = {
-                            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+                            'User-Agent': ua
                         }
                         async with aiohttp.ClientSession() as session:
                             async with session.get(url, headers=headers, timeout=timeout) as response:
@@ -6292,7 +6370,9 @@ class Wallet(commands.Cog):
                         await self.openConnection()
                         async with self.pool.acquire() as conn:
                             async with conn.cursor() as cur:
-                                sql = """ SELECT * FROM `hnt_get_transfers` """
+                                sql = """
+                                SELECT * FROM `hnt_get_transfers`
+                                """
                                 await cur.execute(sql, )
                                 result = await cur.fetchall()
                                 if result: return result
@@ -6303,7 +6383,7 @@ class Wallet(commands.Cog):
                 # Get list of tx from API:
                 main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                 url = getattr(getattr(self.bot.coin_list, coin_name), "rpchost") + "accounts/" + main_address + "/roles"
-                fetch_data = await fetch_api(url, timeout)
+                fetch_data = await fetch_api(self.bot.config['discord']['default_browser_agent'], url, timeout)
                 incoming = []  ##payments
                 if fetch_data is not None and 'data' in fetch_data:
                     # Check if len data is 0
@@ -6312,7 +6392,7 @@ class Wallet(commands.Cog):
                                        "rpchost") + "accounts/" + main_address + "/roles/?cursor=" + fetch_data[
                                    'cursor']
                         # get with cursor
-                        fetch_data_2 = await fetch_api(url2, timeout)
+                        fetch_data_2 = await fetch_api(self.bot.config['discord']['default_browser_agent'], url2, timeout)
                         if fetch_data_2 is not None and 'data' in fetch_data_2:
                             if len(fetch_data_2['data']) > 0:
                                 for each_item in fetch_data_2['data']:
@@ -6324,7 +6404,7 @@ class Wallet(commands.Cog):
                                        "rpchost") + "accounts/" + main_address + "/roles/?cursor=" + fetch_data[
                                    'cursor']
                         # get with cursor
-                        fetch_data_2 = await fetch_api(url2, timeout)
+                        fetch_data_2 = await fetch_api(self.bot.config['discord']['default_browser_agent'], url2, timeout)
                         if fetch_data_2 is not None and 'data' in fetch_data_2:
                             if len(fetch_data_2['data']) > 0:
                                 for each_item in fetch_data_2['data']:
@@ -6345,7 +6425,7 @@ class Wallet(commands.Cog):
                                 continue
                             amount = 0.0
                             url_tx = getattr(getattr(self.bot.coin_list, coin_name), "rpchost") + "transactions/" + tx_hash
-                            fetch_tx = await fetch_api(url_tx, timeout)
+                            fetch_tx = await fetch_api(self.bot.config['discord']['default_browser_agent'], url_tx, timeout)
                             if fetch_tx and 'data' in fetch_tx:
                                 height = fetch_tx['data']['height']
                                 blockTime = fetch_tx['data']['time']
@@ -6373,12 +6453,13 @@ class Wallet(commands.Cog):
                                                 await self.openConnection()
                                                 async with self.pool.acquire() as conn:
                                                     async with conn.cursor() as cur:
-                                                        sql = """ INSERT INTO `hnt_get_transfers` 
-                                                            (`coin_name`, `user_id`, `txid`, `height`, `timestamp`, 
-                                                            `amount`, `fee`, `decimal`, `address`, `memo`, 
-                                                            `payer`, `time_insert`, `user_server`) 
-                                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                                            """
+                                                        sql = """
+                                                        INSERT INTO `hnt_get_transfers` 
+                                                        (`coin_name`, `user_id`, `txid`, `height`, `timestamp`, 
+                                                        `amount`, `fee`, `decimal`, `address`, `memo`, 
+                                                        `payer`, `time_insert`, `user_server`) 
+                                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                                        """
                                                         await cur.execute(sql, (
                                                             coin_name, user_id, tx_hash, height, blockTime, amount, fee,
                                                             coin_decimal, each_payment['payee'], memo, payer, int(time.time()),
@@ -6412,9 +6493,10 @@ class Wallet(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `vite_get_transfers` 
-                        WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s
-                        """
+                    sql = """
+                    SELECT * FROM `vite_get_transfers` 
+                    WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s
+                    """
                     await cur.execute(sql, ("NO", "NO", SERVER_BOT))
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -6453,18 +6535,20 @@ class Wallet(commands.Cog):
                                         traceback.print_exc(file=sys.stdout)
                                     try:
                                         await member.send(msg)
-                                        sql = """ UPDATE `vite_get_transfers` 
-                                            SET `notified_confirmation`=%s, `time_notified`=%s 
-                                            WHERE `txid`=%s LIMIT 1
-                                            """
+                                        sql = """
+                                        UPDATE `vite_get_transfers` 
+                                        SET `notified_confirmation`=%s, `time_notified`=%s 
+                                        WHERE `txid`=%s LIMIT 1
+                                        """
                                         await cur.execute(sql, ("YES", int(time.time()), eachTx['txid']))
                                         await conn.commit()
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
-                                        sql = """ UPDATE `vite_get_transfers` 
-                                            SET `notified_confirmation`=%s, `failed_notification`=%s 
-                                            WHERE `txid`=%s LIMIT 1
-                                            """
+                                        sql = """
+                                        UPDATE `vite_get_transfers` 
+                                        SET `notified_confirmation`=%s, `failed_notification`=%s 
+                                        WHERE `txid`=%s LIMIT 1
+                                        """
                                         await cur.execute(sql, ("NO", "YES", eachTx['txid']))
                                         await conn.commit()
         except Exception:
@@ -6480,7 +6564,9 @@ class Wallet(commands.Cog):
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        sql = """ SELECT * FROM `vite_get_transfers` """
+                        sql = """
+                        SELECT * FROM `vite_get_transfers`
+                        """
                         await cur.execute(sql,)
                         result = await cur.fetchall()
                         if result: return result
@@ -6567,11 +6653,12 @@ class Wallet(commands.Cog):
                                     await self.openConnection()
                                     async with self.pool.acquire() as conn:
                                         async with conn.cursor() as cur:
-                                            sql = """ INSERT INTO `vite_get_transfers`
-                                                (`coin_name`, `user_id`, `txid`, `contents`,`height`, `amount`, `fee`, `decimal`, `address`, 
-                                                `memo`, `time_insert`, `user_server`) 
-                                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                                """
+                                            sql = """
+                                            INSERT INTO `vite_get_transfers`
+                                            (`coin_name`, `user_id`, `txid`, `contents`,`height`, `amount`, `fee`, `decimal`, `address`, 
+                                            `memo`, `time_insert`, `user_server`) 
+                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                            """
                                             await cur.execute(sql, (
                                                 coin_name, user_id, tx_hash, json.dumps(get_tx), height, amount, fee,
                                                 coin_decimal, main_address, memo, int(time.time()),
@@ -6600,9 +6687,10 @@ class Wallet(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `cosmos_get_transfers` 
-                        WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s
-                        """
+                    sql = """
+                    SELECT * FROM `cosmos_get_transfers` 
+                    WHERE `notified_confirmation`=%s AND `failed_notification`=%s AND `user_server`=%s
+                    """
                     await cur.execute(sql, ("NO", "NO", SERVER_BOT))
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -6642,18 +6730,20 @@ class Wallet(commands.Cog):
                                             traceback.print_exc(file=sys.stdout)
                                         try:
                                             await member.send(msg)
-                                            sql = """ UPDATE `cosmos_get_transfers` 
-                                                SET `notified_confirmation`=%s, `time_notified`=%s
-                                                WHERE `txid`=%s LIMIT 1
-                                                """
+                                            sql = """
+                                            UPDATE `cosmos_get_transfers` 
+                                            SET `notified_confirmation`=%s, `time_notified`=%s
+                                            WHERE `txid`=%s LIMIT 1
+                                            """
                                             await cur.execute(sql, ("YES", int(time.time()), eachTx['txid']))
                                             await conn.commit()
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
-                                            sql = """ UPDATE `cosmos_get_transfers` 
-                                                SET `notified_confirmation`=%s, `failed_notification`=%s
-                                                WHERE `txid`=%s LIMIT 1
-                                                """
+                                            sql = """
+                                            UPDATE `cosmos_get_transfers` 
+                                            SET `notified_confirmation`=%s, `failed_notification`=%s
+                                            WHERE `txid`=%s LIMIT 1
+                                            """
                                             await cur.execute(sql, ("NO", "YES", eachTx['txid']))
                                             await conn.commit()
                             except Exception:
@@ -6675,11 +6765,11 @@ class Wallet(commands.Cog):
             return
         await asyncio.sleep(time_lap)
 
-        async def get_cosmos_transactions(endpoint: str, account_addr: str):
+        async def get_cosmos_transactions(ua: str, endpoint: str, account_addr: str):
             try:
                 headers = {
                     'Content-Type': 'application/json',
-                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+                    'User-Agent': ua
                 }
                 url = endpoint + "?pagination.limit=50&events=coin_received.receiver={}".format("%27" + account_addr + "%27")
                 async with aiohttp.ClientSession() as session:
@@ -6740,7 +6830,9 @@ class Wallet(commands.Cog):
                 try:
                     url = getattr(getattr(bot.coin_list, coin_name), "http_address")
                     main_address = getattr(getattr(bot.coin_list, coin_name), "MainAddress")
-                    get_transactions = await get_cosmos_transactions(url, main_address)
+                    get_transactions = await get_cosmos_transactions(
+                        self.bot.config['discord']['default_browser_agent'], url, main_address
+                    )
                     if len(get_transactions) > 0:
                         get_incoming_tx = await get_tx_incoming()
                         list_existing_tx = []
@@ -6949,8 +7041,10 @@ class Wallet(commands.Cog):
                         await self.openConnection()
                         async with self.pool.acquire() as conn:
                             async with conn.cursor() as cur:
-                                sql = """ SELECT * FROM `xlm_get_transfers` """
-                                await cur.execute(sql, )
+                                sql = """
+                                SELECT * FROM `xlm_get_transfers`
+                                """
+                                await cur.execute(sql,)
                                 result = await cur.fetchall()
                                 if result: return result
                     except Exception:
@@ -6959,14 +7053,18 @@ class Wallet(commands.Cog):
 
                 headers = {
                     'Content-Type': 'application/json',
-                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+                    'User-Agent': self.bot.config['discord']['default_browser_agent']
                 }
                 # get status
                 url = getattr(getattr(self.bot.coin_list, coin_name), "http_address")
                 main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                 try:
                     async with aiohttp.ClientSession() as session:
-                        async with session.get(url, headers=headers, timeout=timeout) as response:
+                        async with session.get(
+                            url,
+                            headers=headers,
+                            timeout=timeout
+                        ) as response:
                             if response.status == 200:
                                 res_data = await response.read()
                                 res_data = res_data.decode('utf-8')
@@ -6998,9 +7096,12 @@ class Wallet(commands.Cog):
                                                 if 'successful' in each_tx and each_tx['successful'] != True:
                                                     # Skip
                                                     continue
-                                                transaction_envelope = parse_transaction_envelope_from_xdr(
-                                                    each_tx['envelope_xdr'], Network.PUBLIC_NETWORK_PASSPHRASE
+                                                tx_envolop = functools.partial(
+                                                    parse_transaction_envelope_from_xdr,
+                                                    each_tx['envelope_xdr'],
+                                                    Network.PUBLIC_NETWORK_PASSPHRASE
                                                 )
+                                                transaction_envelope = await self.bot.loop.run_in_executor(None, tx_envolop)
                                                 for Payment in transaction_envelope.transaction.operations:
                                                     try:
                                                         destination = Payment.destination.account_id

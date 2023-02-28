@@ -1006,7 +1006,7 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                 disable_withdraw = False
                 disable_viewkey = True
                 disable_archive = True
-                if self.selected_coin in ["ETH", "MATIC", "BNB"] + ["WOW", "XMR"] + ["WRKZ", "DEGO"]:
+                if self.values[0] in ["ETH", "MATIC", "BNB"] + ["WOW", "XMR"] + ["WRKZ", "DEGO"]:
                     disable_archive = False
                 if get_a_vault['confirmed_backup'] == 0:
                     disable_withdraw = True
@@ -1055,15 +1055,16 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                                         )
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
-                                if get_balance['unlocked']/10**coin_setting['coin_decimal'] < coin_setting['min_withdraw_btn']:
+                                if get_balance['unlocked']/10**coin_setting['coin_decimal'] <= coin_setting['min_withdraw_btn']:
+                                    if coin_setting['min_withdraw_btn'] > 0:
+                                        self.embed.add_field(
+                                            name="Withdraw note",
+                                            value="You would need minimum {} {} to have withdraw button enable.".format(
+                                                num_format_coin(coin_setting['min_withdraw_btn']), self.values[0]
+                                            ),
+                                            inline=False
+                                        )
                                     disable_withdraw = True
-                                    self.embed.add_field(
-                                        name="Withdraw note",
-                                        value="You would need minimum {} {} to have withdraw button enable.".format(
-                                            num_format_coin(coin_setting['min_withdraw_btn']), self.values[0]
-                                        ),
-                                        inline=False
-                                    )
                             else:
                                 self.embed.add_field(
                                     name="Balance",
@@ -1089,16 +1090,16 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                                     ),
                                     inline=False
                                 )
-                                if get_balance/10**coin_setting['coin_decimal'] < coin_setting['min_withdraw_btn']:
+                                if get_balance/10**coin_setting['coin_decimal'] <= coin_setting['min_withdraw_btn']:
+                                    if coin_setting['min_withdraw_btn'] > 0:
+                                        self.embed.add_field(
+                                            name="Withdraw note",
+                                            value="You would need minimum {} {} to have withdraw button enable.".format(
+                                                num_format_coin(coin_setting['min_withdraw_btn']), self.values[0]
+                                            ),
+                                            inline=False
+                                        )
                                     disable_withdraw = True
-                                    self.embed.add_field(
-                                        name="Withdraw note",
-                                        value="You would need minimum {} {} to have withdraw button enable.".format(
-                                            num_format_coin(coin_setting['min_withdraw_btn']), self.values[0]
-                                        ),
-                                        inline=False
-                                    )
-                                disable_archive = False
                             else:
                                 self.embed.add_field(
                                     name="Balance",
@@ -1177,15 +1178,16 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                                         )
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
-                                if get_balance['result']['unlocked_balance']/10**coin_setting['coin_decimal'] < coin_setting['min_withdraw_btn']:
+                                if get_balance['result']['unlocked_balance']/10**coin_setting['coin_decimal'] <= coin_setting['min_withdraw_btn']:
+                                    if coin_setting['min_withdraw_btn'] > 0:
+                                        self.embed.add_field(
+                                            name="Withdraw note",
+                                            value="You would need minimum {} {} to have withdraw button enable.".format(
+                                                num_format_coin(coin_setting['min_withdraw_btn']), self.values[0]
+                                            ),
+                                            inline=False
+                                        )
                                     disable_withdraw = True
-                                    self.embed.add_field(
-                                        name="Withdraw note",
-                                        value="You would need minimum {} {} to have withdraw button enable.".format(
-                                            num_format_coin(coin_setting['min_withdraw_btn']), self.values[0]
-                                        ),
-                                        inline=False
-                                    )
                             else:
                                 self.embed.add_field(
                                     name="Balance",
@@ -1438,15 +1440,16 @@ class VaultMenu(disnake.ui.View):
                                     )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
-                            if get_balance['result']['unlocked_balance']/10**coin_setting['coin_decimal'] < coin_setting['min_withdraw_btn']:
+                            if get_balance['result']['unlocked_balance']/10**coin_setting['coin_decimal'] <= coin_setting['min_withdraw_btn']:
+                                if coin_setting['min_withdraw_btn'] > 0:
+                                    self.embed.add_field(
+                                        name="Withdraw note",
+                                        value="You would need minimum {} {} to have withdraw button enable.".format(
+                                            num_format_coin(coin_setting['min_withdraw_btn']), self.values[0]
+                                        ),
+                                        inline=False
+                                    )
                                 disable_withdraw = True
-                                self.embed.add_field(
-                                    name="Withdraw note",
-                                    value="You would need minimum {} {} to have withdraw button enable.".format(
-                                        num_format_coin(coin_setting['min_withdraw_btn']), self.values[0]
-                                    ),
-                                    inline=False
-                                )
                         else:
                             self.embed.add_field(
                                 name="Balance",
@@ -2198,7 +2201,7 @@ class Vault(commands.Cog):
                 await ctx.edit_original_message(msg, ephemeral=True)
                 return
             # checking if vault is enable
-            get_user = find_user_by_id(str(ctx.author.id), SERVER_BOT)
+            get_user = await find_user_by_id(str(ctx.author.id), SERVER_BOT)
             if get_user is None or (get_user and get_user['vault_enable'] == 0):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you don't have have vault access yet! If you want to enable or test this, please contact TipBot dev."
                 await ctx.edit_original_message(msg, ephemeral=True)
@@ -2208,6 +2211,7 @@ class Vault(commands.Cog):
                 await ctx.edit_original_message(msg, ephemeral=True)
                 return
         except Exception:
+            traceback.print_exc(file=sys.stdout)
             return
 
     @vault.sub_command(

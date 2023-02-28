@@ -1108,12 +1108,6 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                                 )
                                 disable_withdraw = True
                         elif self.values[0] in ["WOW", "XMR"]:
-                            if coin_setting and coin_setting['wallet_apps']:
-                                self.embed.add_field(
-                                    name="Wallet App",
-                                    value=coin_setting['wallet_apps'],
-                                    inline=False
-                                )
                             # check if user has wallet service running
                             # async def vault_xmr_find_slot_by_user(coin_name: str, user_id: str, user_server: str):
                             get_slot = await vault_xmr_find_slot_by_user(

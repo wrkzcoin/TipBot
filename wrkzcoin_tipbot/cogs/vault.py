@@ -7,6 +7,7 @@ import asyncio, aiohttp
 from typing import Optional
 from pathlib import Path
 import functools
+from eth_utils import is_hex_address  # Check hex only
 
 from Bot import encrypt_string, decrypt_string, log_to_channel, SERVER_BOT, EMOJI_RED_NO, EMOJI_INFORMATION
 from cogs.utils import Utils
@@ -2015,6 +2016,24 @@ class Withdraw(disnake.ui.Modal):
             return
 
         try:
+            # some validation check
+            if self.coin_name in ["ETH", "MATIC", "BNB"]:
+                if not is_hex_address(address):
+                    await interaction.edit_original_message(
+                        content=f"{interaction.author.mention}, invalid address `{address}` for {self.coin_name}!"
+                    )
+                    return
+            elif self.coin_name == "DEGO" and not address.startswith("dg"):
+                await interaction.edit_original_message(
+                    content=f"{interaction.author.mention}, invalid address `{address}` for {self.coin_name}!"
+                )
+                return
+            elif self.coin_name == "WRKZ" and not address.startswith("Wrkz"):
+                await interaction.edit_original_message(
+                    content=f"{interaction.author.mention}, invalid address `{address}` for {self.coin_name}!"
+                )
+                return
+
             # check if amount is all
             gas = None
             send_all = False
@@ -2197,7 +2216,8 @@ class Vault(commands.Cog):
             # checking if vault is enable
             get_user = await find_user_by_id(str(ctx.author.id), SERVER_BOT)
             if get_user is None or (get_user and get_user['vault_enable'] == 0):
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you don't have have vault access yet! If you want to enable or test this, please contact TipBot dev."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you don't have have vault access yet! "\
+                    f"If you want to enable or test this, please contact TipBot dev or join our supported guild."
                 await ctx.edit_original_message(msg, ephemeral=True)
                 return
             if self.bot.config['vault']['disable'] == 1 and ctx.author.id != self.bot.config['discord']['owner_id']:

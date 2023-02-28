@@ -6720,8 +6720,11 @@ class Wallet(commands.Cog):
             coin_family = "COSMOS"
             timeout = 30
             rpchost = getattr(getattr(bot.coin_list, coin_name), "rpchost")
+            if not rpchost.endswith("/"):
+                rpchost += "/"
             net_height = await cosmos_get_height(rpchost + "block", timeout)
             if net_height is None:
+                print("cosmos cosmos_get_height: {} = None".format(coin_name))
                 return
             else:
                 try:
@@ -12311,15 +12314,8 @@ class Wallet(commands.Cog):
                         return
                     else:
                         sub_type = getattr(getattr(self.bot.coin_list, coin_name), "sub_type")
-                        if sub_type == "OSMO" and not address.startswith("osmo"):
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress `{address}` for {coin_name}."
-                            await ctx.edit_original_message(content=msg)
-                            return
-                        if sub_type == "JUNO" and not address.startswith("juno"):
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress `{address}` for {coin_name}."
-                            await ctx.edit_original_message(content=msg)
-                            return
-                        if sub_type == "VDL" and not address.startswith("vdl"):
+                        hrp = getattr(getattr(self.bot.coin_list, coin_name), "header")
+                        if sub_type and hrp and not address.startswith(hrp):
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress `{address}` for {coin_name}."
                             await ctx.edit_original_message(content=msg)
                             return

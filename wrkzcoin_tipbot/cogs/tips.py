@@ -358,7 +358,6 @@ class Tips(commands.Cog):
     async def freetip_check(self):
         get_active_freetip = await store.get_active_discord_freetip(lap=7*24*3600)
         get_inactive_freetip = await store.get_inactive_discord_freetip(lap=7*24*3600)
-        await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "tips_freetip_check"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
@@ -374,6 +373,7 @@ class Tips(commands.Cog):
                         print("Guild {} found None".format(each_message_data['guild_id']))
                         await asyncio.sleep(1.0)
                         continue
+                    await self.bot.wait_until_ready()
                     channel = guild.get_channel(int(each_message_data['channel_id']))
                     if channel is None:
                         print("Channel {} found None".format(each_message_data['channel_id']))
@@ -389,7 +389,6 @@ class Tips(commands.Cog):
                             await find_owner.send("I cancelled your /freetip id: {} in guild {} because I can't find channel.".format(
                                 each_message_data['message_id'], guild.name
                             ))
-                        await asyncio.sleep(1.0)
                         continue
                     get_owner = guild.get_member(int(each_message_data['from_userid']))
                     owner_displayname = ""
@@ -636,6 +635,11 @@ class Tips(commands.Cog):
                     # Notifytip
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
+
+    # called before the task/loop starts running
+    @freetip_check.before_loop
+    async def before_freetip_check(self):
+        await self.bot.wait_until_ready()  # wait until the cache is populated
 
     async def async_notifytip(self, ctx, onoff: str):
         if onoff.upper() not in ["ON", "OFF"]:

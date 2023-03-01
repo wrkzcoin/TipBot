@@ -20,7 +20,7 @@
     <li><a href="#bot-directory-links">Bot directory links</a></li>
     <li><a href="#donation">Donation</a></li>    
     <li><a href="#contributing">Contributing</a></li>
-    <li><a href="#api">API</a></li>
+    <li><a href="#cexswap-api">CEXSwap API</a></li>
     <li><a href="#credit-and-thanks-to">Credit and thanks to</a></li>
 </ul>
 

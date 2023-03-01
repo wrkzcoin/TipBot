@@ -2321,15 +2321,93 @@ class Admin(commands.Cog):
 
     @commands.is_owner()
     @admin.command(
+        hidden=True, usage='creditlist <message>', description='Credit a list of users'
+    )
+    async def creditlist(self, ctx, *, credit_msg: str=None):
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying creditlist!".format(
+                ctx.author.name, ctx.author.discriminator, ctx.author.mention)
+            )
+            return
+        if self.bot.config['discord']['enable_creditlist'] != 1:
+            msg = f"{ctx.author.mention}, this is disable."
+            await ctx.reply(msg)
+            return            
+        if len(ctx.message.attachments) == 0:
+            msg = f"{ctx.author.mention}, missing attachment."
+            await ctx.reply(msg)
+            return
+        else:
+            # check attachment
+            creditor = "SYSTEM"
+            try:
+                total_user_credit = 0
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(str(ctx.message.attachments[0]), timeout=32) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            user_list = res_data.splitlines()
+                            user_list_msg = {}
+                            for i in user_list:
+                                credit_list = i.split(",")
+                                if len(credit_list) == 3 and credit_list[2].isdigit():
+                                    try:
+                                        user_to = credit_list[2]
+                                        amount = float(credit_list[0])
+                                        coin_name =  credit_list[1]
+                                        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                                        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                        await store.sql_user_balance_mv_single(
+                                            creditor, user_to, "CREDIT+", "CREDIT+", amount,
+                                            coin_name, "CREDIT", coin_decimal, SERVER_BOT,
+                                            contract, 0.0, credit_msg
+                                        )
+                                        if user_to not in user_list_msg:
+                                            user_list_msg[user_to] = []
+                                        user_list_msg[user_to].append("{} {}".format(
+                                            num_format_coin(amount, coin_name, coin_decimal, False), coin_name
+                                        ))
+                                        total_user_credit += 1
+                                        try:
+                                            key = user_to + "_" + coin_name + "_" + SERVER_BOT
+                                            if key in self.bot.user_balance_cache:
+                                                del self.bot.user_balance_cache[key]
+                                        except Exception:
+                                            pass
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                            for k, v in user_list_msg.items():
+                                try:
+                                    if k.isdigit():
+                                        member = self.bot.get_user(int(k))
+                                        if member is not None:
+                                            await member.send("You received tip(s)```{}```from TipBot Admin/OP. Extra message: {}".format(
+                                                "\n".join(v), credit_msg)
+                                            )
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
+                            msg = f"{ctx.author.mention}, there are {str(total_user_credit)} user to credit. Uniq users: {str(len(user_list_msg.keys()))}."
+                            await ctx.reply(msg)
+                            return
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+    @commands.is_owner()
+    @admin.command(
         hidden=True, usage='credit <user> <amount> <coin> <server>', description='Credit a user'
     )
     async def credit(self, ctx, member_id: str, amount: str, coin: str, user_server: str = "DISCORD"):
         user_server = user_server.upper()
         if ctx.author.id != self.bot.config['discord']['owner_id']:
-            await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying auditlp!".format(
+            await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying credit!".format(
                 ctx.author.name, ctx.author.discriminator, ctx.author.mention)
             )
             return
+        if self.bot.config['discord']['enable_credit'] != 1:
+            msg = f"{ctx.author.mention}, this is disable."
+            await ctx.reply(msg)
+            return  
         if user_server not in ["DISCORD", "TWITTER", "TELEGRAM", "REDDIT"]:
             await ctx.reply(f"{ctx.author.mention}, invalid server.")
             return

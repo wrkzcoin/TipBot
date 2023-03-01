@@ -6,12 +6,29 @@ from cachetools import TTLCache
 import pickle
 import redis
 
+# password gen
+import secrets
+import string
+
 import disnake
 from disnake.ext import commands
 
 import store
 from Bot import RowButtonRowCloseAnyMessage, logchanbot, truncate
 
+# https://geekflare.com/password-generator-python-code/
+def gen_password(pwd_length: int=12):
+    # define the alphabet
+    letters = string.ascii_letters
+    digits = string.digits
+    special_chars = string.punctuation
+    alphabet = letters + digits + special_chars
+
+    # generate a password string
+    pwd = ''
+    for i in range(pwd_length):
+        pwd += ''.join(secrets.choice(alphabet))
+    return pwd
 
 def num_format_coin(amount):
     if amount == 0:

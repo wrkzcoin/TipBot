@@ -9,6 +9,7 @@ import disnake
 from disnake.ext import commands, tasks
 from typing import Optional
 from disnake import TextInputStyle
+from disnake.enums import ButtonStyle
 from decimal import Decimal
 from datetime import datetime
 import time
@@ -313,31 +314,33 @@ async def get_cexswap_get_sell_logs(user_id: str=None, from_time: int=None, pool
                 pool_sql = ""
                 if user_id is None and from_time is not None:
                     extra_sql = """
-                    WHERE `time`>%s
+                    WHERE a.`time`>%s
                     """
                 elif from_time is not None:
                     extra_sql = """
-                    AND `time`>%s
+                    AND a.`time`>%s
                     """
                 if pool_id is not None:
                     if len(extra_sql) == "":
                         pool_sql = """
-                        WHERE `pool_id`=%s
+                        WHERE a.`pool_id`=%s
                         """
                     else:
                         pool_sql = """
-                        AND `pool_id`=%s
+                        AND a.`pool_id`=%s
                         """
                 
                 if user_id is not None:
                     sql = """
-                    SELECT SUM(`total_sold_amount`) AS sold, SUM(`total_sold_amount_usd`) AS sold_usd,
-                    SUM(`got_total_amount`) AS got, SUM(`got_total_amount_usd`) AS got_usd,
-                    `sold_ticker`, `got_ticker`,
-                    COUNT(*) AS total_swap
-                    FROM `cexswap_sell_logs`
-                    GROUP BY `sold_ticker`, `got_ticker`
-                    WHERE `sell_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
+                    SELECT SUM(a.`total_sold_amount`) AS sold, SUM(a.`total_sold_amount_usd`) AS sold_usd,
+                    SUM(a.`got_total_amount`) AS got, SUM(a.`got_total_amount_usd`) AS got_usd,
+                    a.`sold_ticker`, a.`got_ticker`,
+                    COUNT(*) AS `total_swap`, b.`pairs`
+                    FROM `cexswap_sell_logs` a
+                    INNER JOIN `cexswap_pools` b
+                        ON a.pool_id = b.pool_id
+                    GROUP BY a.`sold_ticker`, a.`got_ticker`
+                    WHERE a.`sell_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
                     """
                     data_rows = [user_id]
                     if len(extra_sql) > 0:
@@ -351,13 +354,15 @@ async def get_cexswap_get_sell_logs(user_id: str=None, from_time: int=None, pool
                         return result
                 else:
                     sql = """
-                    SELECT SUM(`total_sold_amount`) AS sold, SUM(`total_sold_amount_usd`) AS sold_usd,
-                    SUM(`got_total_amount`) AS got, SUM(`got_total_amount_usd`) AS got_usd,
-                    `sold_ticker`, `got_ticker`,
-                    COUNT(*) AS total_swap
-                    FROM `cexswap_sell_logs`
+                    SELECT SUM(a.`total_sold_amount`) AS sold, SUM(a.`total_sold_amount_usd`) AS sold_usd,
+                    SUM(a.`got_total_amount`) AS got, SUM(a.`got_total_amount_usd`) AS got_usd,
+                    a.`sold_ticker`, a.`got_ticker`,
+                    COUNT(*) AS `total_swap`, b.`pairs`
+                    FROM `cexswap_sell_logs` a
+                    INNER JOIN `cexswap_pools` b
+                        ON a.pool_id = b.pool_id
                      """ + extra_sql + """ """ + pool_sql + """
-                    GROUP BY `sold_ticker`, `got_ticker`
+                    GROUP BY a.`sold_ticker`, a.`got_ticker`
                     """
                     data_rows = []
                     if len(extra_sql) > 0:
@@ -1300,7 +1305,7 @@ async def cexswap_sold(
                     ))
                 await cur.executemany(sql, liq_rows)
 
-                # add to mv_data
+                # add to mv_data # user_balance_mv_data
                 sql = """
                     INSERT INTO `user_balance_mv`
                     (`token_name`, `contract`, `from_userid`, `to_userid`, `guild_id`, `channel_id`,
@@ -1308,12 +1313,17 @@ async def cexswap_sold(
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 liq_rows = []
+                credit_lp = []
                 for each in liquidators:
                     liq_rows.append((
                         got_ticker, contract, "SYSTEM", each[1], guild_id, channel_id,
                         each[0], each[0]*float(per_unit_get), coin_decimal, "CEXSWAPLP", int(time.time()), each[2],
                         ref_log
                     ))
+                    credit_lp.append(
+                        (each[1], got_ticker, each[2], each[0], int(time.time()))
+                    )
+
                 if guild_id != "DM":
                     liq_rows.append((
                         got_ticker, contract, "SYSTEM", guild_id, guild_id, channel_id,
@@ -1321,6 +1331,17 @@ async def cexswap_sold(
                         ref_log
                     ))
                 await cur.executemany(sql, liq_rows)
+                # add mv distribution fee
+                sql = """
+                INSERT INTO `user_balance_mv_data`
+                (`user_id`, `token_name`, `user_server`, `balance`, `update_date`)
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    `balance`=`balance`+VALUES(`balance`),
+                    `update_date`=VALUES(`update_date`);
+                """
+                if len(credit_lp) > 0:
+                    await cur.executemany(sql, credit_lp)
                 await conn.commit()
                 return True
     except Exception:
@@ -1419,6 +1440,92 @@ async def cexswap_insert_new(
     except Exception:
         traceback.print_exc(file=sys.stdout)
     return False
+
+# Single coin of /selectpool
+class SelectPoolSingle(disnake.ui.View):
+    def __init__(
+        self, timeout, ctx, bot, owner_id: int, embed_rate, embed_lp, embed_30d=None, embed_7d=None
+    ):
+        super().__init__(timeout=timeout)
+        self.ctx = ctx
+        self.bot = bot
+        self.owner_id = owner_id
+        self.embed_rate = embed_rate
+        self.embed_lp = embed_lp
+        self.embed_30d = embed_30d
+        self.embed_7d = embed_7d
+        if embed_30d is None:
+            self.btn_vol30d.disabled = True
+        if embed_7d is None:
+            self.btn_vol7d.disabled = True
+    
+    async def on_timeout(self):
+        for child in self.children:
+            if isinstance(child, disnake.ui.Button):
+                child.disabled = True
+        await self.ctx.edit_original_message(
+            view=self
+        )
+
+    @disnake.ui.button(label="1️⃣ Rate", style=ButtonStyle.red, custom_id="cexswap_selectpool_rate")
+    async def btn_rate(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        if interaction.author.id != self.owner_id:
+            await interaction.response.send_message(f"{interaction.author.mention}, that's not your menu!", ephemeral=True)
+        else:
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed_rate,
+                view=self
+            )
+            await interaction.response.defer()
+
+    @disnake.ui.button(label="2️⃣ Top LP", style=ButtonStyle.gray, custom_id="cexswap_selectpool_toplp")
+    async def btn_top(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        if interaction.author.id != self.owner_id:
+            await interaction.response.send_message(f"{interaction.author.mention}, that's not your menu!", ephemeral=True)
+        else:
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed_lp,
+                view=self
+            )
+            await interaction.response.defer()
+
+    @disnake.ui.button(label="Volume 7d", style=ButtonStyle.primary, custom_id="cexswap_selectpool_vol7d")
+    async def btn_vol7d(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        if interaction.author.id != self.owner_id:
+            await interaction.response.send_message(f"{interaction.author.mention}, that's not your menu!", ephemeral=True)
+        else:
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed_7d,
+                view=self
+            )
+            await interaction.response.defer()
+
+    @disnake.ui.button(label="Volume 30d", style=ButtonStyle.secondary, custom_id="cexswap_selectpool_vol30d")
+    async def btn_vol30d(
+        self, button: disnake.ui.Button,
+        interaction: disnake.MessageInteraction
+    ):
+        if interaction.author.id != self.owner_id:
+            await interaction.response.send_message(f"{interaction.author.mention}, that's not your menu!", ephemeral=True)
+        else:
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed_30d,
+                view=self
+            )
+            await interaction.response.defer()
 
 # DropdownSummary Viewer
 class DropdownSummaryLP(disnake.ui.StringSelect):
@@ -1651,7 +1758,10 @@ class DropdownViewLP(disnake.ui.View):
 
 # Dropdown mypool
 class DropdownMyPool(disnake.ui.StringSelect):
-    def __init__(self, ctx, bot, list_chunks, list_pairs, total_liq, pool_share, add, remove, gain_lose, list_earnings, active_pair):
+    def __init__(
+            self, ctx, bot, list_chunks, list_pairs, total_liq,
+            pool_share, add, remove, gain_lose, list_earnings, embed, active_pair, is_admin: bool=False
+    ):
         self.ctx = ctx
         self.bot = bot
         self.list_chunks = list_chunks
@@ -1662,8 +1772,10 @@ class DropdownMyPool(disnake.ui.StringSelect):
         self.remove = remove
         self.gain_lose = gain_lose
         self.list_earnings = list_earnings
+        self.embed = embed
         self.active_pair = active_pair
         self.utils = Utils(self.bot)
+        self.is_admin = is_admin
 
         options = [
             disnake.SelectOption(
@@ -1684,14 +1796,8 @@ class DropdownMyPool(disnake.ui.StringSelect):
             await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=5.0)
             return
         else:
-            testing = self.bot.config['cexswap']['testing_msg']
-            embed = disnake.Embed(
-                title="Your LP Pool of TipBot's CEXSwap",
-                description=f"{self.ctx.author.mention}, {testing}Your Liquidity Pools.",
-                timestamp=datetime.now(),
-            )
-            embed.set_footer(text="Requested by: {}#{}".format(self.ctx.author.name, self.ctx.author.discriminator))
-            embed.set_thumbnail(url=self.bot.user.display_avatar)
+            embed = self.embed.copy()
+            embed.clear_fields() 
             # Add embed here
             if self.values[0] in self.total_liq:
                 embed.add_field(
@@ -1701,19 +1807,19 @@ class DropdownMyPool(disnake.ui.StringSelect):
                 )
             if self.values[0] in self.add:
                 embed.add_field(
-                    name="You added (Original)",
+                    name="{} added (Original)".format("You" if self.is_admin is False else "User"),
                     value=self.add[self.values[0]],
                     inline=False
                 )
             if self.values[0] in self.remove:
                 embed.add_field(
-                    name="You removed",
+                    name="{} removed".format("You" if self.is_admin is False else "User"),
                     value=self.remove[self.values[0]],
                     inline=False
                 )
             if self.values[0] in self.pool_share:
                 embed.add_field(
-                    name="Your current LP (Share %)",
+                    name="{} current LP (Share %)".format("Your" if self.is_admin is False else "User's"),
                     value=self.pool_share[self.values[0]],
                     inline=False
                 )
@@ -1737,7 +1843,8 @@ class DropdownMyPool(disnake.ui.StringSelect):
                 )
             view = DropdownViewMyPool(
                 self.ctx, self.bot, self.list_pairs, self.total_liq, self.pool_share,
-                self.add, self.remove, self.gain_lose, self.list_earnings, active_pair=self.values[0]
+                self.add, self.remove, self.gain_lose, self.list_earnings, embed, active_pair=self.values[0],
+                is_admin=self.is_admin
             )
             # Create the view containing our dropdown
             await self.ctx.edit_original_message(
@@ -1748,21 +1855,27 @@ class DropdownMyPool(disnake.ui.StringSelect):
             await inter.response.defer()
 
 class DropdownViewMyPool(disnake.ui.View):
-    def __init__(self, ctx, bot, list_pairs, total_liq, pool_share, add, remove, gain_lose, list_earnings, active_pair: str):
+    def __init__(
+            self, ctx, bot, list_pairs, total_liq, pool_share,
+            add, remove, gain_lose, list_earnings, embed, active_pair: str, is_admin: bool=False
+        ):
         super().__init__(timeout=300.0)
         self.ctx = ctx
         self.bot = bot
         self.list_pairs = list_pairs
+        self.embed = embed
         self.active_pair = active_pair
         self.gain_lose = gain_lose
         self.list_earnings = list_earnings
+        self.is_admin = is_admin
 
         # split to small chunks
         list_chunks = list(chunks(self.list_pairs, 20))
         for i in list_chunks:
             self.add_item(DropdownMyPool(
                 self.ctx, self.bot, i, self.list_pairs, total_liq, 
-                pool_share, add, remove, gain_lose, list_earnings, self.active_pair
+                pool_share, add, remove, gain_lose, list_earnings, self.embed, self.active_pair,
+                self.is_admin
             ))
 
     async def on_timeout(self):
@@ -2035,7 +2148,7 @@ class add_liqudity(disnake.ui.Modal):
                 )
             )
 
-            await interaction.edit_original_message(f"{interaction.author.mention}, Update! Please accept or cancel.")
+            await interaction.delete_original_message()
         except Exception:
             traceback.print_exc(file=sys.stdout)
             return
@@ -2304,6 +2417,12 @@ class Cexswap(commands.Cog):
 
         self.botLogChan = None
         self.enable_logchan = True
+        # if user try to sell or buy for this, Bot give info to wrap
+        self.wrapped_coin = {
+            "PWRKZ": "WRKZ",
+            "BWRKZ": "WRKZ",
+            "XWRKZ": "WRKZ"
+        }
 
     async def bot_log(self):
         if self.botLogChan is None:
@@ -2507,12 +2626,19 @@ class Cexswap(commands.Cog):
                     sub_2 = 0.0
                     single_pair_amount = 0.0
                     pair_amount = 0.0
-                    per_unit = self.utils.get_usd_paprika(each_lp['ticker_1_name'])
-                    if per_unit > 0:
-                        sub_1 = float(Decimal(each_lp['amount_ticker_1']) * Decimal(per_unit))
-                    per_unit = self.utils.get_usd_paprika(each_lp['ticker_2_name'])
-                    if per_unit > 0:
-                        sub_2 = float(Decimal(each_lp['amount_ticker_2']) * Decimal(per_unit))
+                    price_with = getattr(getattr(self.bot.coin_list, each_lp['ticker_1_name']), "price_with")
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(each_lp['ticker_1_name'], price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
+                            sub_1 = float(Decimal(each_lp['amount_ticker_1']) * Decimal(per_unit))
+
+                    price_with = getattr(getattr(self.bot.coin_list, each_lp['ticker_2_name']), "price_with")
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(each_lp['ticker_2_name'], price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
+                            sub_2 = float(Decimal(each_lp['amount_ticker_2']) * Decimal(per_unit))
                     # check max price
                     if sub_1 >= 0.0 and sub_2 >= 0.0:
                         single_pair_amount = max(sub_1, sub_2)
@@ -2694,11 +2820,20 @@ class Cexswap(commands.Cog):
 
         if self.bot.config['cexswap']['enable_sell'] != 1 and ctx.author.id != self.bot.config['discord']['owner_id']:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, CEXSwap sell is temporarily offline! Check again soon."
-            await ctx.response.send_message(msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         sell_token = sell_token.upper()
         for_token = for_token.upper()
+
+        if sell_token in self.wrapped_coin.keys():
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you should do `/wrap` from `{sell_token}` to `{self.wrapped_coin[sell_token]}` and trade."
+            await ctx.edit_original_message(content=msg)
+            return
+        if for_token in self.wrapped_coin.keys():
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you should trade with `{self.wrapped_coin[for_token]}` and do `/wrap` from `{self.wrapped_coin[for_token]}` to `{for_token}`."
+            await ctx.edit_original_message(content=msg)
+            return
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -2892,11 +3027,7 @@ class Cexswap(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     return
 
-                if amount <= 0 or actual_balance <= 0:
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please get more {token_display}."
-                    await ctx.edit_original_message(content=msg)
-                    return
-                elif truncate(amount, 8) < truncate(cexswap_min, 8):
+                if truncate(amount, 8) < truncate(cexswap_min, 8):
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount `{sell_amount_old}`"\
                         f" is below minimum `{num_format_coin(cexswap_min)} {token_display}`."
                     await ctx.edit_original_message(content=msg)
@@ -3112,10 +3243,10 @@ class Cexswap(commands.Cog):
                                     del self.bot.user_balance_cache[key]
                                 if len(liq_users) > 0:
                                     for u in liq_users:
-                                        key = u[1] + "_" + sell_token + "_" + SERVER_BOT
+                                        key = u[1] + "_" + sell_token + "_" + u[2]
                                         if key in self.bot.user_balance_cache:
                                             del self.bot.user_balance_cache[key]
-                                        key = u[1] + "_" + for_token + "_" + SERVER_BOT
+                                        key = u[1] + "_" + for_token + "_" + u[2]
                                         if key in self.bot.user_balance_cache:
                                             del self.bot.user_balance_cache[key]
                                 if guild_id != "DM":
@@ -3239,6 +3370,9 @@ class Cexswap(commands.Cog):
                 # Find pool with
                 find_other_lp = await cexswap_get_pools(coin_name)
                 total_liq = Decimal(0)
+
+                # lp list of this token, then sort them by amount of coin_name
+                lp_list_token = []
                 if len(find_other_lp) > 0:
                     items =[i['pairs'] for i in find_other_lp]
                     embed.add_field(
@@ -3252,8 +3386,24 @@ class Cexswap(commands.Cog):
                         # get L in LP
                         if coin_name == i['ticker_1_name']:
                             total_liq += i['amount_ticker_1']
+                            lp_list_token.append(
+                                {
+                                    "pairs": i['pairs'],
+                                    "amount": i['amount_ticker_1'],
+                                    "other_amount": i['amount_ticker_2'],
+                                    "other_token": i['ticker_2_name']
+                                }
+                            )
                         elif coin_name == i['ticker_2_name']:
-                            total_liq += i['amount_ticker_2']                            
+                            total_liq += i['amount_ticker_2']
+                            lp_list_token.append(
+                                {
+                                    "pairs": i['pairs'],
+                                    "amount": i['amount_ticker_2'],
+                                    "other_amount": i['amount_ticker_1'],
+                                    "other_token": i['ticker_1_name']
+                                }
+                            )
                         target_coin = i['ticker_1_name']
                         rate_1 = i['amount_ticker_1'] / i['amount_ticker_2']
                         if coin_name == target_coin:
@@ -3289,7 +3439,12 @@ class Cexswap(commands.Cog):
                     get_coin_vol['1D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-1*24*3600)
                     get_coin_vol['7D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-7*24*3600)
                     get_coin_vol['30D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-30*24*3600)
-                    per_unit = self.utils.get_usd_paprika(coin_name)
+                    per_unit = 0.0
+                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
                     if len(get_coin_vol) > 0:
                         for k, v in get_coin_vol.items():
                             if len(v) > 0:
@@ -3347,9 +3502,82 @@ class Cexswap(commands.Cog):
                         value="N/A",
                         inline=False
                     )
+                # Make a copy and add liqudity of top pool with this token
+                embed_lp = embed.copy()
+                embed_lp.clear_fields() 
+                # get sell logs
+                sell_logs_30d = await get_cexswap_get_sell_logs(user_id=None, from_time=int(time.time()-30*24*3600), pool_id=None)
+                sell_logs_7d = await get_cexswap_get_sell_logs(user_id=None, from_time=int(time.time()-7*24*3600), pool_id=None)
+                list_sold_30d = []
+                list_sold_7d = []
+                embed_30d = None
+                embed_7d = None
+                if sell_logs_30d and len(sell_logs_30d) > 0:
+                    for i in sell_logs_30d:
+                        if i['got_ticker'] == coin_name:
+                            list_sold_30d.append(
+                                {
+                                    "pairs": i['pairs'],
+                                    "amount": i['got'],
+                                    "other_amount": i['sold'],
+                                    "other_token": i['sold_ticker']
+                                }
+                            )
+                    list_sold_30d = sorted(list_sold_30d, key=lambda d: d['amount'], reverse=True)
+                    if len(list_sold_30d) > 0:
+                        embed_30d = embed.copy()
+                        embed_30d.clear_fields()
+                        for i in list_sold_30d:
+                            embed_30d.add_field(
+                                name=i['pairs'] + " - 30d",
+                                value="{} {}\n{} {}".format(
+                                    num_format_coin(i['amount']), coin_name,
+                                    num_format_coin(i['other_amount']), i['other_token']
+                                ),
+                                inline=True
+                            )
+                if sell_logs_7d and len(sell_logs_7d) > 0:
+                    for i in sell_logs_7d:
+                        if i['got_ticker'] == coin_name:
+                            list_sold_7d.append(
+                                {
+                                    "pairs": i['pairs'],
+                                    "amount": i['got'],
+                                    "other_amount": i['sold'],
+                                    "other_token": i['sold_ticker']
+                                }
+                            )
+                    list_sold_7d = sorted(list_sold_7d, key=lambda d: d['amount'], reverse=True)
+                    if len(list_sold_7d) > 0:
+                        embed_7d = embed.copy()
+                        embed_7d.clear_fields()
+                        for i in list_sold_7d:
+                            embed_7d.add_field(
+                                name=i['pairs'] + " - 7d",
+                                value="{} {}\n{} {}".format(
+                                    num_format_coin(i['amount']), coin_name,
+                                    num_format_coin(i['other_amount']), i['other_token']
+                                ),
+                                inline=True
+                            )
+                view = None
+                if len(lp_list_token) > 0:
+                    lp_list_token = sorted(lp_list_token, key=lambda d: d['amount'], reverse=True) 
+                    for i in lp_list_token[:10]: # maximum 10
+                        embed_lp.add_field(
+                            name=i['pairs'],
+                            value="{} {}\n{} {}".format(
+                                num_format_coin(i['amount']), coin_name,
+                                num_format_coin(i['other_amount']), i['other_token']
+                            ),
+                            inline=True
+                        )
+                    view = SelectPoolSingle(60, ctx, self.bot, ctx.author.id, embed, embed_lp, embed_30d, embed_7d)
+
                 await ctx.edit_original_message(
                     content=None,
-                    embed=embed
+                    embed=embed,
+                    view=view
                 )
             else:
                 if pool_name not in self.bot.cexswap_pairs:
@@ -3423,12 +3651,20 @@ class Cexswap(commands.Cog):
                     sub_2 = 0.0
                     single_pair_amount = 0.0
                     pair_amount = 0.0
-                    per_unit = self.utils.get_usd_paprika(liq_pair['pool']['ticker_1_name'])
-                    if per_unit > 0:
-                        sub_1 = float(Decimal(liq_pair['pool']['amount_ticker_1']) * Decimal(per_unit))
-                    per_unit = self.utils.get_usd_paprika(liq_pair['pool']['ticker_2_name'])
-                    if per_unit > 0:
-                        sub_2 = float(Decimal(liq_pair['pool']['amount_ticker_2']) * Decimal(per_unit))
+
+                    price_with = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_1_name']), "price_with")
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(liq_pair['pool']['ticker_1_name'], price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
+                            sub_1 = float(Decimal(liq_pair['pool']['amount_ticker_1']) * Decimal(per_unit))
+
+                    price_with = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_2_name']), "price_with")
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(liq_pair['pool']['ticker_2_name'], price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
+                            sub_2 = float(Decimal(liq_pair['pool']['amount_ticker_2']) * Decimal(per_unit))
                     # check max price
                     if sub_1 >= 0.0 and sub_2 >= 0.0:
                         single_pair_amount = max(sub_1, sub_2)
@@ -3549,12 +3785,20 @@ class Cexswap(commands.Cog):
                         sub_2 = 0.0
                         single_pair_amount = 0.0
                         pair_amount = 0.0
-                        per_unit = self.utils.get_usd_paprika(i['ticker_1_name'])
-                        if per_unit > 0:
-                            sub_1 = float(Decimal(i['amount_ticker_1']) * Decimal(per_unit))
-                        per_unit = self.utils.get_usd_paprika(i['ticker_2_name'])
-                        if per_unit > 0:
-                            sub_2 = float(Decimal(i['amount_ticker_2']) * Decimal(per_unit))
+
+                        price_with = getattr(getattr(self.bot.coin_list, i['ticker_1_name']), "price_with")
+                        if price_with:
+                            per_unit = await self.utils.get_coin_price(i['ticker_1_name'], price_with)
+                            if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                per_unit = per_unit['price']
+                                sub_1 = float(Decimal(i['pool_amount_1']) * Decimal(per_unit))
+
+                        price_with = getattr(getattr(self.bot.coin_list, i['ticker_2_name']), "price_with")
+                        if price_with:
+                            per_unit = await self.utils.get_coin_price(i['ticker_2_name'], price_with)
+                            if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                per_unit = per_unit['price']
+                                sub_2 = float(Decimal(i['pool_amount_2']) * Decimal(per_unit))
                         # check max price
                         if sub_1 >= 0.0 and sub_2 >= 0.0:
                             single_pair_amount = max(sub_1, sub_2)
@@ -3567,6 +3811,29 @@ class Cexswap(commands.Cog):
                         )
                         if i['amount_ticker_1'] > 0 and i['amount_ticker_2'] > 0:
                             # If a user has already some liq
+                            sub_1 = 0.0
+                            sub_2 = 0.0
+                            single_pair_amount = 0.0
+                            pair_amount = 0.0
+                            price_with = getattr(getattr(self.bot.coin_list, i['ticker_1_name']), "price_with")
+                            if price_with:
+                                per_unit = await self.utils.get_coin_price(i['ticker_1_name'], price_with)
+                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                    per_unit = per_unit['price']
+                                    sub_1 = float(Decimal(i['amount_ticker_1']) * Decimal(per_unit))
+
+                            price_with = getattr(getattr(self.bot.coin_list, i['ticker_2_name']), "price_with")
+                            if price_with:
+                                per_unit = await self.utils.get_coin_price(i['ticker_2_name'], price_with)
+                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                    per_unit = per_unit['price']
+                                    sub_2 = float(Decimal(i['amount_ticker_2']) * Decimal(per_unit))
+                            # check max price
+                            if sub_1 >= 0.0 and sub_2 >= 0.0:
+                                single_pair_amount = max(sub_1, sub_2)
+                            if single_pair_amount > 0:
+                                pair_amount = 2 * single_pair_amount
+                            # If a user has already some liq
                             percent_1 = ""
                             percent_2 = ""
                             try:
@@ -3574,9 +3841,10 @@ class Cexswap(commands.Cog):
                                 percent_2 = " - {:,.2f} {}".format(i['amount_ticker_2']/ i['pool_amount_2']*100, "%")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
-                            your_pool_share[i['pairs']] = "{} {}{}\n{} {}{}".format(
+                            your_pool_share[i['pairs']] = "{} {}{}\n{} {}{}{}".format(
                                     num_format_coin(i['amount_ticker_1']), i['ticker_1_name'], percent_1, 
-                                    num_format_coin(i['amount_ticker_2']), i['ticker_2_name'], percent_2
+                                    num_format_coin(i['amount_ticker_2']), i['ticker_2_name'], percent_2,
+                                    "\n~{} {}".format(truncate(pair_amount, 2), "USD") if pair_amount > 0 else ""
                                 )
                             your_pool_share_num[i['pairs']] = {
                                 i['ticker_1_name']: i['amount_ticker_1'],
@@ -3645,7 +3913,7 @@ class Cexswap(commands.Cog):
                                     list_remove[i['pairs']][coin_2].append("- {} {}".format(num_format_coin(sum_remove_2), coin_2))
                                     remove_list_num[i['pairs']][coin_2] -= sum_remove_2
                     # filter uniq tokens
-                    list_pairs = list(set([i['pairs'] for i in get_poolshare]))
+                    list_pairs = sorted(list(set([i['pairs'] for i in get_poolshare])))
                     for i in list_pairs:
                         tickers = i.split("/")
                         if i in list_add:
@@ -3678,12 +3946,6 @@ class Cexswap(commands.Cog):
                             if i['got_ticker'] in tickers:
                                 list_earnings[i['pairs']].append("{} {}".format(num_format_coin(i['collected_amount']), i['got_ticker']))
                             
-                    # Create the view containing our dropdown
-                    # list_pairs can be more than 25 - limit of Discord
-                    view = DropdownViewMyPool(
-                        ctx, self.bot, list_pairs, total_liq, your_pool_share,
-                        add_dict, remove_dict, gain_lose, list_earnings, active_pair=None
-                    )
                     testing = self.bot.config['cexswap']['testing_msg']
                     embed = disnake.Embed(
                         title="Your LP Pool in TipBot's CEXSwap",
@@ -3692,6 +3954,13 @@ class Cexswap(commands.Cog):
                     )
                     embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
                     embed.set_thumbnail(url=ctx.author.display_avatar)
+
+                    # Create the view containing our dropdown
+                    # list_pairs can be more than 25 - limit of Discord
+                    view = DropdownViewMyPool(
+                        ctx, self.bot, list_pairs, total_liq, your_pool_share,
+                        add_dict, remove_dict, gain_lose, list_earnings, embed, active_pair=None, is_admin=False
+                    )
 
                     await ctx.edit_original_message(
                         content=None,
@@ -3744,12 +4013,19 @@ class Cexswap(commands.Cog):
                     sub_2 = 0.0
                     single_pair_amount = 0.0
                     pair_amount = 0.0
-                    per_unit = self.utils.get_usd_paprika(liq_pair['pool']['ticker_1_name'])
-                    if per_unit > 0:
-                        sub_1 = float(Decimal(liq_pair['pool']['amount_ticker_1']) * Decimal(per_unit))
-                    per_unit = self.utils.get_usd_paprika(liq_pair['pool']['ticker_2_name'])
-                    if per_unit > 0:
-                        sub_2 = float(Decimal(liq_pair['pool']['amount_ticker_2']) * Decimal(per_unit))
+                    price_with = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_1_name']), "price_with")
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(liq_pair['pool']['ticker_1_name'], price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
+                            sub_1 = float(Decimal(liq_pair['pool']['amount_ticker_1']) * Decimal(per_unit))
+
+                    price_with = getattr(getattr(self.bot.coin_list, liq_pair['pool']['ticker_2_name']), "price_with")
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(liq_pair['pool']['ticker_2_name'], price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
+                            sub_2 = float(Decimal(liq_pair['pool']['amount_ticker_2']) * Decimal(per_unit))
                     # check max price
                     if sub_1 >= 0.0 and sub_2 >= 0.0:
                         single_pair_amount = max(sub_1, sub_2)
@@ -3811,6 +4087,28 @@ class Cexswap(commands.Cog):
                             )
                     if liq_pair['pool_share'] is not None:
                         # If a user has already some liq
+                        sub_1 = 0.0
+                        sub_2 = 0.0
+                        single_pair_amount = 0.0
+                        pair_amount = 0.0
+                        price_with = getattr(getattr(self.bot.coin_list, liq_pair['pool_share']['ticker_1_name']), "price_with")
+                        if price_with:
+                            per_unit = await self.utils.get_coin_price(liq_pair['pool_share']['ticker_1_name'], price_with)
+                            if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                per_unit = per_unit['price']
+                                sub_1 = float(Decimal(liq_pair['pool_share']['amount_ticker_1']) * Decimal(per_unit))
+
+                        price_with = getattr(getattr(self.bot.coin_list, liq_pair['pool_share']['ticker_2_name']), "price_with")
+                        if price_with:
+                            per_unit = await self.utils.get_coin_price(liq_pair['pool_share']['ticker_2_name'], price_with)
+                            if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                per_unit = per_unit['price']
+                                sub_2 = float(Decimal(liq_pair['pool_share']['amount_ticker_2']) * Decimal(per_unit))
+                        # check max price
+                        if sub_1 >= 0.0 and sub_2 >= 0.0:
+                            single_pair_amount = max(sub_1, sub_2)
+                        if single_pair_amount > 0:
+                            pair_amount = 2 * single_pair_amount
                         percent_1 = ""
                         percent_2 = ""
                         try:
@@ -3820,9 +4118,10 @@ class Cexswap(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
                         embed.add_field(
                             name="Your current LP (Share %)",
-                            value="{} {}{}\n{} {}{}".format(
+                            value="{} {}{}\n{} {}{}{}".format(
                                 num_format_coin(liq_pair['pool_share']['amount_ticker_1']), liq_pair['pool_share']['ticker_1_name'], percent_1, 
-                                num_format_coin(liq_pair['pool_share']['amount_ticker_2']), liq_pair['pool_share']['ticker_2_name'], percent_2
+                                num_format_coin(liq_pair['pool_share']['amount_ticker_2']), liq_pair['pool_share']['ticker_2_name'], percent_2,
+                                "\n~{} {}".format(truncate(pair_amount, 2), "USD") if pair_amount > 0 else ""
                             ),
                             inline=False
                         )
@@ -3849,6 +4148,239 @@ class Cexswap(commands.Cog):
     async def cexswap_mypool_autocomp(self, inter: disnake.CommandInteraction, string: str):
         string = string.lower()
         return [name for name in self.bot.cexswap_pairs if string in name.lower()][:12]
+
+
+    @cexswap.sub_command(
+        name="userpool",
+        usage="cexswap userpool",
+        options=[
+            Option("user", "Choose pool's name", OptionType.user, required=True)
+        ],
+        description="Admin to check user's liquidated pool detail in cexswap."
+    )
+    async def cexswap_userpool(
+        self,
+        ctx,
+        user: disnake.User,
+    ):
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, checking other user's LP is restricted to Admin only."
+            await ctx.response.send_message(msg, ephemeral=True)
+            await log_to_channel(
+                "cexswap",
+                f"[CEXSWAP]: User {ctx.author.mention} tried /cexswap userpool. Permission denied!",
+                self.bot.config['discord']['cexswap']
+            )
+            return
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap user's pool loading..."
+        await ctx.response.send_message(msg, ephemeral=True)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/cexswap userpool", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        try:
+            get_poolshare = await cexswap_get_poolshare(str(user.id), SERVER_BOT)
+            if len(get_poolshare) == 0:
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, sorry! {user.name}#{user.discriminator} doesn't have any liquidity in any pools."
+                await ctx.edit_original_message(content=msg)
+                return
+            else:
+                user_ar = await cexswap_get_add_remove_user(str(user.id), SERVER_BOT, None)
+                total_liq = {}
+                your_pool_share = {}
+                your_pool_share_num = {}
+                for i in get_poolshare:
+                    sub_1 = 0.0
+                    sub_2 = 0.0
+                    single_pair_amount = 0.0
+                    pair_amount = 0.0
+
+                    price_with = getattr(getattr(self.bot.coin_list, i['ticker_1_name']), "price_with")
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(i['ticker_1_name'], price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
+                            sub_1 = float(Decimal(i['pool_amount_1']) * Decimal(per_unit))
+
+                    price_with = getattr(getattr(self.bot.coin_list, i['ticker_2_name']), "price_with")
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(i['ticker_2_name'], price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
+                            sub_2 = float(Decimal(i['pool_amount_2']) * Decimal(per_unit))
+                    # check max price
+                    if sub_1 >= 0.0 and sub_2 >= 0.0:
+                        single_pair_amount = max(sub_1, sub_2)
+                    if single_pair_amount > 0:
+                        pair_amount = 2 * single_pair_amount
+                    total_liq[i['pairs']] = "{} {}\n{} {}{}".format(
+                        num_format_coin(i['pool_amount_1']), i['ticker_1_name'],
+                        num_format_coin(i['pool_amount_2']), i['ticker_2_name'],
+                        "\n~{} {}".format(truncate(pair_amount, 2), "USD") if pair_amount > 0 else ""
+                    )
+                    if i['amount_ticker_1'] > 0 and i['amount_ticker_2'] > 0:
+                        # If a user has already some liq
+                        sub_1 = 0.0
+                        sub_2 = 0.0
+                        single_pair_amount = 0.0
+                        pair_amount = 0.0
+                        price_with = getattr(getattr(self.bot.coin_list, i['ticker_1_name']), "price_with")
+                        if price_with:
+                            per_unit = await self.utils.get_coin_price(i['ticker_1_name'], price_with)
+                            if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                per_unit = per_unit['price']
+                                sub_1 = float(Decimal(i['amount_ticker_1']) * Decimal(per_unit))
+
+                        price_with = getattr(getattr(self.bot.coin_list, i['ticker_2_name']), "price_with")
+                        if price_with:
+                            per_unit = await self.utils.get_coin_price(i['ticker_2_name'], price_with)
+                            if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                per_unit = per_unit['price']
+                                sub_2 = float(Decimal(i['amount_ticker_2']) * Decimal(per_unit))
+                        # check max price
+                        if sub_1 >= 0.0 and sub_2 >= 0.0:
+                            single_pair_amount = max(sub_1, sub_2)
+                        if single_pair_amount > 0:
+                            pair_amount = 2 * single_pair_amount
+                        # If a user has already some liq
+                        percent_1 = ""
+                        percent_2 = ""
+                        try:
+                            percent_1 = " - {:,.2f} {}".format(i['amount_ticker_1']/ i['pool_amount_1']*100, "%")
+                            percent_2 = " - {:,.2f} {}".format(i['amount_ticker_2']/ i['pool_amount_2']*100, "%")
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        your_pool_share[i['pairs']] = "{} {}{}\n{} {}{}{}".format(
+                                num_format_coin(i['amount_ticker_1']), i['ticker_1_name'], percent_1, 
+                                num_format_coin(i['amount_ticker_2']), i['ticker_2_name'], percent_2,
+                                "\n~{} {}".format(truncate(pair_amount, 2), "USD") if pair_amount > 0 else ""
+                            )
+                        your_pool_share_num[i['pairs']] = {
+                            i['ticker_1_name']: i['amount_ticker_1'],
+                            i['ticker_2_name']: i['amount_ticker_2'],
+                        }
+
+                add_dict = {}
+                remove_dict = {}
+                list_add = {}
+                list_remove = {}
+                adding_list_num = {}
+                remove_list_num = {}
+                gain_lose = {}
+                if len(user_ar) > 0:
+                    for i in user_ar:
+                        if i['pairs'] not in list_add:
+                            list_add[i['pairs']] = {}
+                        if i['pairs'] not in list_remove:
+                            list_remove[i['pairs']] = {}
+                        if i['pairs'] not in adding_list_num:
+                            adding_list_num[i['pairs']] = {}
+                        if i['pairs'] not in remove_list_num:
+                            remove_list_num[i['pairs']] = {}
+                        tickers = i['pairs'].split("/")
+                        coin_1 = tickers[0]
+                        coin_2 = tickers[1]
+                        sum_add_1 = Decimal(0)
+                        sum_remove_1 = Decimal(0)
+                        sum_add_2 = Decimal(0)
+                        sum_remove_2 = Decimal(0)
+
+                        if coin_1 == i['token_name']:
+                            if i['action'] == "add":
+                                sum_add_1 += i['amount']
+                            elif i['action'] in ['removepool', 'remove']:
+                                sum_remove_1 += i['amount']
+                        elif coin_2 == i['token_name']:
+                            if i['action'] == "add":
+                                sum_add_2 += i['amount']
+                            elif i['action'] in ['removepool', 'remove']:
+                                sum_remove_2 += i['amount']
+                        if sum_add_1 > 0 or sum_add_2 > 0:
+                            if coin_1 not in list_add[i['pairs']]:
+                                list_add[i['pairs']][coin_1] = []
+                                adding_list_num[i['pairs']][coin_1] = Decimal(0)
+                            if coin_2 not in list_add[i['pairs']]:
+                                list_add[i['pairs']][coin_2] = []
+                                adding_list_num[i['pairs']][coin_2] = Decimal(0)
+                            if sum_add_1 > 0:
+                                list_add[i['pairs']][coin_1].append("+ {} {}".format(num_format_coin(sum_add_1), coin_1))
+                                adding_list_num[i['pairs']][coin_1] += sum_add_1
+                            if sum_add_2 > 0:
+                                list_add[i['pairs']][coin_2].append("+ {} {}".format(num_format_coin(sum_add_2), coin_2))
+                                adding_list_num[i['pairs']][coin_2] += sum_add_2
+                        if sum_remove_1 > 0 or sum_remove_2 > 0:
+                            if coin_1 not in list_remove[i['pairs']]:
+                                list_remove[i['pairs']][coin_1] = []
+                                remove_list_num[i['pairs']][coin_1] = Decimal(0)
+                            if coin_2 not in list_remove[i['pairs']]:
+                                list_remove[i['pairs']][coin_2] = []
+                                remove_list_num[i['pairs']][coin_2] = Decimal(0)
+                            if sum_remove_1 > 0:
+                                list_remove[i['pairs']][coin_1].append("- {} {}".format(num_format_coin(sum_remove_1), coin_1))
+                                remove_list_num[i['pairs']][coin_1] -= sum_remove_1
+                            if sum_remove_2 > 0:
+                                list_remove[i['pairs']][coin_2].append("- {} {}".format(num_format_coin(sum_remove_2), coin_2))
+                                remove_list_num[i['pairs']][coin_2] -= sum_remove_2
+                # filter uniq tokens
+                list_pairs = sorted(list(set([i['pairs'] for i in get_poolshare])))
+                for i in list_pairs:
+                    tickers = i.split("/")
+                    if i in list_add:
+                        add_dict[i] = "{}".format("\n".join(list_add[i][tickers[0]] + list_add[i][tickers[1]]))
+                    if i in list_remove:
+                        if tickers[0] in list_remove[i]:
+                            remove_dict[i] = "{}".format("\n".join(list_remove[i][tickers[0]] + list_remove[i][tickers[1]]))
+                    if i in remove_list_num or i in your_pool_share_num:
+                        for coin_name in tickers:
+                            a_add = adding_list_num[i][coin_name] if coin_name in adding_list_num[i] else Decimal(0)
+                            a_remove = remove_list_num[i][coin_name] if coin_name in remove_list_num[i] else Decimal(0)
+                            a_share = your_pool_share_num[i][coin_name] if coin_name in your_pool_share_num[i] else Decimal(0)
+                            tmp_gain_lose = a_share - (a_add - a_remove)
+                            if abs(truncate(tmp_gain_lose, 4)) != 0:
+                                if i not in gain_lose:
+                                    gain_lose[i] = []
+                                gain_lose[i].append("{}{} {}".format(
+                                    "+" if tmp_gain_lose > 0 else "-",
+                                    num_format_coin(abs(tmp_gain_lose)),
+                                    coin_name
+                                ))
+
+                list_earnings = {}
+                get_user_earning = await get_cexswap_earning(user_id=str(user.id), from_time=None, pool_id=None, group_pool=True)
+                if len(get_user_earning) > 0:
+                    for i in get_user_earning:
+                        tickers = i['pairs'].split("/")
+                        if i['pairs'] not in list_earnings:
+                            list_earnings[i['pairs']] = []
+                        if i['got_ticker'] in tickers:
+                            list_earnings[i['pairs']].append("{} {}".format(num_format_coin(i['collected_amount']), i['got_ticker']))
+                        
+                embed = disnake.Embed(
+                    title="User LP Pool in TipBot's CEXSwap",
+                    description=f"{ctx.author.mention}, LP of user {user.mention}.",
+                    timestamp=datetime.now(),
+                )
+                embed.set_footer(text="LP User {}#{}".format(user.name, user.discriminator))
+                embed.set_thumbnail(url=user.display_avatar)
+
+                # Create the view containing our dropdown
+                # list_pairs can be more than 25 - limit of Discord
+                view = DropdownViewMyPool(
+                    ctx, self.bot, list_pairs, total_liq, your_pool_share,
+                    add_dict, remove_dict, gain_lose, list_earnings, embed, active_pair=None, is_admin=True
+                )
+
+                await ctx.edit_original_message(
+                    content=None,
+                    embed=embed,
+                    view=view
+                )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @cexswap.sub_command(
         name="addliquidity",
@@ -4743,7 +5275,7 @@ class Cexswap(commands.Cog):
                         if testing == "NO":
                             try:
                                 member = self.bot.get_user(int(each_u))
-                                if member is not None:
+                                if member is not None and each_u in liq_user_percentages:
                                     try:
                                         # Delete if has key
                                         try:

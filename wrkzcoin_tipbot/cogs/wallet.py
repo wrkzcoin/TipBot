@@ -1000,6 +1000,38 @@ class WalletAPI(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    async def cexswap_get_all_poolshares(self, user_id: str=None, ticker: str=None):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    data_rows = []
+                    sql = """ SELECT * 
+                    FROM `cexswap_pools_share` 
+                    """
+                    if user_id is not None:
+                        sql += """
+                        WHERE `user_id`=%s
+                        """
+                        data_rows += [user_id]
+                    if ticker is not None:
+                        if user_id is not None:
+                            sql += """
+                                AND (`ticker_1_name`=%s OR `ticker_2_name`=%s)
+                            """
+                        else:
+                            sql += """
+                                WHERE `ticker_1_name`=%s OR `ticker_2_name`=%s
+                            """
+                        data_rows += [ticker]*2
+                    await cur.execute(sql, tuple(data_rows))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
     async def get_coin_balance(self, coin: str):
         balance = 0.0
         coin_name = coin.upper()
@@ -11611,6 +11643,42 @@ class Wallet(commands.Cog):
                         num_format_coin(total_balance), token_display),
                     inline=False
                 )
+                try:
+                    # check pool share of a coin by user
+                    find_other_lp = await self.wallet_api.cexswap_get_all_poolshares(user_id=None, ticker=coin_name)
+                    if len(find_other_lp) > 0:
+                        user_amount = 0
+                        total_pool_coin = 0
+                        user_pools = [i for i in find_other_lp if i['user_id'] == str(ctx.author.id)]
+                        pairs = []
+                        if len(user_pools) > 0:
+                            for i in find_other_lp:
+                                if i['user_id'] != str(ctx.author.id):
+                                    if i['ticker_1_name'] == coin_name:
+                                        total_pool_coin += i['amount_ticker_1']
+                                    elif i['ticker_2_name'] == coin_name:
+                                        total_pool_coin += i['amount_ticker_2']
+                                else:
+                                    if i['ticker_1_name'] == coin_name:
+                                        user_amount += i['amount_ticker_1']
+                                        total_pool_coin += i['amount_ticker_1']
+                                        pairs.append(i['ticker_2_name'])
+                                    elif i['ticker_2_name'] == coin_name:
+                                        user_amount += i['amount_ticker_2']
+                                        total_pool_coin += i['amount_ticker_2']
+                                        pairs.append(i['ticker_1_name'])
+                            embed.description = "CEXSwap: ✅"
+                            list_pairs = "\n```Locked with: " + ", ".join(list(set(pairs))) + "```"
+                            embed.add_field(
+                                name="CEXSwap: Locked in {} LP".format(len(user_pools)),
+                                value="Amount: {} {}{}".format(
+                                    num_format_coin(user_amount), coin_name,
+                                    list_pairs
+                                ),
+                                inline=False
+                            )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
                 if getattr(getattr(self.bot.coin_list, coin_name), "related_coins"):
                     embed.add_field(name="Related Coins", value="```{}```".format(
                         getattr(getattr(self.bot.coin_list, coin_name), "related_coins")), inline=False)

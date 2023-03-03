@@ -305,15 +305,6 @@ class Trade(commands.Cog):
             )
             if order_add:
                 try:
-                    key_coin = str(ctx.author.id) + "_" + sell_ticker+ "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-                    key_coin = str(ctx.author.id) + "_" + buy_ticker + "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-                except Exception:
-                    pass
-                try:
                     del self.bot.tipping_in_progress[str(self.ctx.author.id)]
                 except Exception:
                     pass
@@ -806,25 +797,6 @@ class Trade(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
-                        try:
-                            key_coin = str(ctx.author.id) + "_" + get_order_num['coin_get'] + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-
-                            key_coin = get_order_num['userid_sell'] + "_" + get_order_num['coin_get'] + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-
-                            key_coin = str(ctx.author.id) + "_" + get_order_num['coin_sell'] + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-
-                            key_coin = get_order_num['userid_sell'] + "_" + get_order_num['coin_sell'] + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-                        except Exception:
-                            pass
-
                         got_amount = num_format_coin(
                             get_order_num['amount_sell_after_fee']
                         )

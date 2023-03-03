@@ -1670,12 +1670,6 @@ class Admin(commands.Cog):
                                             num_format_coin(amount, coin_name, coin_decimal, False), coin_name
                                         ))
                                         total_user_credit += 1
-                                        try:
-                                            key = user_to + "_" + coin_name + "_" + SERVER_BOT
-                                            if key in self.bot.user_balance_cache:
-                                                del self.bot.user_balance_cache[key]
-                                        except Exception:
-                                            pass
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                             for k, v in user_list_msg.items():
@@ -1754,16 +1748,6 @@ class Admin(commands.Cog):
                 # let's credit
                 try:
                     # No need amount_in_usd, keep it 0.0
-                    try:
-                        key_coin = creditor + "_" + coin_name + "_" + SERVER_BOT
-                        if key_coin in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_coin]
-
-                        key_coin = member_id + "_" + coin_name + "_" + SERVER_BOT
-                        if key_coin in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_coin]
-                    except Exception:
-                        pass
                     tip = await store.sql_user_balance_mv_single(
                         creditor, member_id, "CREDIT+", "CREDIT+", amount,
                         coin_name, "CREDIT", coin_decimal, user_server,

@@ -367,14 +367,6 @@ class PlaceBid(disnake.ui.Modal):
                     amount, coin_name, str(interaction.guild.id), str(interaction.channel.id), SERVER_BOT, additional_bid_amount,
                     is_extending, current_closed_time
                 )
-
-                # remove cache
-                try:
-                    key = str(interaction.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                    if key in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key]
-                except Exception:
-                    pass
                 try:
                     del self.bot.tipping_in_progress[str(interaction.author.id)]
                 except Exception:
@@ -765,13 +757,6 @@ class ClearButton(disnake.ui.View):
                     str(interaction.author.id)
                 )
                 payment_list_msg = "\n".join(payment_list_msg)
-                for i in [self.bid_info['user_id'], str(self.winner_id)]:
-                    key = i + "_" + self.bid_info['token_name'] + "_" + SERVER_BOT
-                    try:
-                        if key in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key]
-                    except Exception:
-                        pass
                 await self.message.edit(view=self)
                 await log_to_channel(
                     "bid",
@@ -986,13 +971,6 @@ class BidButton(disnake.ui.View):
                             link_bid = "https://discord.com/channels/{}/{}/{}".format(
                                 interaction.guild.id, interaction.channel.id, self.message.id
                             )
-                            if len(list_key_update) > 0:
-                                for i in list_key_update:
-                                    try:
-                                        if i in self.bot.user_balance_cache:
-                                            del self.bot.user_balance_cache[i]
-                                    except Exception:
-                                        pass
                             ## Update content
                             try:
                                 for child in self.children:
@@ -1383,12 +1361,6 @@ class Bidding(commands.Cog):
                                             each_bid['guild_id'], each_bid['channel_id'], int(time.time()),
                                             num_format_coin(i['bid_amount'])
                                         ))
-                                    for i in list_key_update:
-                                        try:
-                                            if i in self.bot.user_balance_cache:
-                                                del self.bot.user_balance_cache[i]
-                                        except Exception:
-                                            pass
                                     await self.utils.discord_bid_cancel(
                                         each_bid['message_id'], each_bid['user_id'],
                                         each_bid['guild_id'], each_bid['channel_id'],
@@ -1464,13 +1436,6 @@ class Bidding(commands.Cog):
                                                 each_bid['guild_id'], each_bid['channel_id'], int(time.time()),
                                                 num_format_coin(i['bid_amount'])
                                             ))
-                                    if len(list_key_update) > 0:
-                                        for i in list_key_update:
-                                            try:
-                                                if i in self.bot.user_balance_cache:
-                                                    del self.bot.user_balance_cache[i]
-                                            except Exception:
-                                                pass
                                     # check if there is winner or no one join
                                     view = ClearButton(
                                         self.bot.coin_list, self.bot,

@@ -143,17 +143,6 @@ class TriviaButton(disnake.ui.View):
             embed.set_footer(text=f"TriviaTip by {owner_displayname}")
 
             if len(answered_msg_id['right_ids']) > 0:
-                try:
-                    key_coin = get_triviatip['from_userid'] + "_" + coin_name + "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-
-                    for each in answered_msg_id['right_ids']:
-                        key_coin = each + "_" + coin_name + "_" + SERVER_BOT
-                        if key_coin in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_coin]
-                except Exception:
-                    pass
                 await store.sql_user_balance_mv_multiple(
                     get_triviatip['from_userid'],
                     answered_msg_id['right_ids'],
@@ -427,15 +416,6 @@ class TriviaTips(commands.Cog):
                 total_in_usd = float(Decimal(amount) * Decimal(per_unit))
                 if total_in_usd >= 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
-
-        # Delete if has key
-        key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-        try:
-            if key in self.bot.user_balance_cache:
-                del self.bot.user_balance_cache[key]
-        except Exception:
-            pass
-        # End of del key
 
         trivia_end = int(time.time()) + duration_s
         owner_displayname = "{}#{}".format(ctx.author.name, ctx.author.discriminator)

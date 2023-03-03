@@ -155,17 +155,6 @@ class TalkDrop(commands.Cog):
                                         await _msg.edit(content=None, embed=embed, view=None)
                                         # Update balance
                                         if len(all_name_list) > 0:
-                                            try:
-                                                key_coin = each_talkdrop['from_userid'] + "_" + coin_name + "_" + SERVER_BOT
-                                                if key_coin in self.bot.user_balance_cache:
-                                                    del self.bot.user_balance_cache[key_coin]
-
-                                                for each in all_name_list:
-                                                    key_coin = each + "_" + coin_name + "_" + SERVER_BOT
-                                                    if key_coin in self.bot.user_balance_cache:
-                                                        del self.bot.user_balance_cache[key_coin]
-                                            except Exception:
-                                                pass
                                             talkdrop = await store.sql_user_balance_mv_multiple(each_talkdrop['from_userid'], all_name_list, each_talkdrop['guild_id'], each_talkdrop['channel_id'], indiv_amount, coin_name, "TALKDROP", coin_decimal, SERVER_BOT, each_talkdrop['contract'], float(amount_in_usd), None)
                                         await store.update_talkdrop_id(each_talkdrop['message_id'], "COMPLETED" if len(all_name_list) > 0 else "NOCOLLECT")
                                     except disnake.errors.NotFound:
@@ -479,16 +468,6 @@ class TalkDrop(commands.Cog):
 
         if str(ctx.author.id) not in self.bot.tipping_in_progress:
             self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
-
-        # Delete if has key
-        key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-        try:
-            if key in self.bot.user_balance_cache:
-                del self.bot.user_balance_cache[key]
-        except Exception:
-            pass
-        # End of del key
-
         equivalent_usd = ""
         total_in_usd = 0.0
         per_unit = None

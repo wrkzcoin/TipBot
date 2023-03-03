@@ -2335,17 +2335,7 @@ class add_liquidity_btn(disnake.ui.View):
                     await inter.message.edit(view=None)
                 except Exception:
                     pass
-                # Delete if has key
-                try:
-                    key = str(inter.author.id) + "_" + ticker[0] + "_" + SERVER_BOT
-                    if key in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key]
-                    key = str(inter.author.id) + "_" + ticker[1] + "_" + SERVER_BOT
-                    if key in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key]
-                except Exception:
-                    pass
-                # End of del key
+
                 add_msg = "{} {} and {} {}".format(
                     num_format_coin(self.amount_1), ticker[0],
                     num_format_coin(self.amount_2), ticker[1]
@@ -3233,29 +3223,6 @@ class Cexswap(commands.Cog):
                         except Exception:
                             pass
                         if selling is True:
-                            # Delete if has key
-                            try:
-                                key = str(ctx.author.id) + "_" + sell_token + "_" + SERVER_BOT
-                                if key in self.bot.user_balance_cache:
-                                    del self.bot.user_balance_cache[key]
-                                key = str(ctx.author.id) + "_" + for_token + "_" + SERVER_BOT
-                                if key in self.bot.user_balance_cache:
-                                    del self.bot.user_balance_cache[key]
-                                if len(liq_users) > 0:
-                                    for u in liq_users:
-                                        key = u[1] + "_" + sell_token + "_" + u[2]
-                                        if key in self.bot.user_balance_cache:
-                                            del self.bot.user_balance_cache[key]
-                                        key = u[1] + "_" + for_token + "_" + u[2]
-                                        if key in self.bot.user_balance_cache:
-                                            del self.bot.user_balance_cache[key]
-                                if guild_id != "DM":
-                                    key = guild_id + "_" + for_token + "_" + SERVER_BOT
-                                    if key in self.bot.user_balance_cache:
-                                        del self.bot.user_balance_cache[key]
-                            except Exception:
-                                pass
-                            # End of del key
                             # fee_str = num_format_coin(fee)
                             # . Fee {fee_str} {for_token}\n
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully traded!\n"\
@@ -4735,17 +4702,6 @@ class Cexswap(commands.Cog):
                             member = self.bot.get_user(liq_u)
                             if member is not None:
                                 try:
-                                    # Delete if has key
-                                    try:
-                                        key = str(liq_u) + "_" + liq_pair['pool']['ticker_1_name'] + "_" + SERVER_BOT
-                                        if key in self.bot.user_balance_cache:
-                                            del self.bot.user_balance_cache[key]
-                                        key = str(liq_u) + "_" + liq_pair['pool']['ticker_2_name'] + "_" + SERVER_BOT
-                                        if key in self.bot.user_balance_cache:
-                                            del self.bot.user_balance_cache[key]
-                                    except Exception:
-                                        pass
-                                    # End of del key
                                     msg_sending = f"Admin removed pool `{pool_name}`. You pool shared return to your balance:"\
                                         f"```{balance_user[str(liq_u)]}```"
                                     await member.send(msg_sending)
@@ -4902,17 +4858,6 @@ class Cexswap(commands.Cog):
                     except Exception:
                         pass
                     if removing is True:
-                        # Delete if has key
-                        try:
-                            key = str(ctx.author.id) + "_" + ticker_1 + "_" + SERVER_BOT
-                            if key in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key]
-                            key = str(ctx.author.id) + "_" + ticker_2 + "_" + SERVER_BOT
-                            if key in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key]
-                        except Exception:
-                            pass
-                        # End of del key
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully remove liqudity:" \
                             f"```{amount_1_str} {ticker_1}\n{amount_2_str} {ticker_2}```"
                         await ctx.edit_original_message(content=msg)
@@ -5261,14 +5206,6 @@ class Cexswap(commands.Cog):
                 if airdroping is True and len(lp_discord_users) > 0:
                     random.shuffle(lp_discord_users)
                     lp_discord_users = lp_discord_users[0:max_alert]
-                    # Delete if has key
-                    try:
-                        key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                        if key in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key]
-                    except Exception:
-                        pass
-                    # End of del key
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully airdrop for pool: `{pool_name}`. Testing: `{testing}`"
                     for each_u in lp_discord_users:
                         list_receivers_str.append("UserID {}: {} {}".format(each_u, balance_user[str(each_u)], coin_name))
@@ -5277,14 +5214,6 @@ class Cexswap(commands.Cog):
                                 member = self.bot.get_user(int(each_u))
                                 if member is not None and each_u in liq_user_percentages:
                                     try:
-                                        # Delete if has key
-                                        try:
-                                            key = str(each_u) + "_" + coin_name + "_" + SERVER_BOT
-                                            if key in self.bot.user_balance_cache:
-                                                del self.bot.user_balance_cache[key]
-                                        except Exception:
-                                            pass
-                                        # End of del key
                                         msg_sending = f"[Admin/Pool OP] did an airdrop for pool `{pool_name}`. "\
                                             f"You have **{liq_user_percentages[each_u]}** in that pool. "\
                                             f"Airdrop delivered to your balance:"\
@@ -5702,15 +5631,6 @@ class Cexswap(commands.Cog):
                                     height, deposit_confirm_depth, user_server
                                 )
                                 total_balance = userdata_balance['adjust']
-                                if total_balance == 0:
-                                    # Delete if has key
-                                    key = user_id + "_" + coin_name + "_" + user_server
-                                    try:
-                                        if key in self.bot.user_balance_cache:
-                                            del self.bot.user_balance_cache[key]
-                                    except Exception:
-                                        pass
-                                    # End of del key
                                 result = {
                                     "success": True,
                                     "error": None,
@@ -5961,13 +5881,6 @@ class Cexswap(commands.Cog):
                                             "error": None,
                                             "time": int(time.time())
                                         }
-                                        if len(selling['delete_cache_balance']) > 0:
-                                            for i in selling['delete_cache_balance']:
-                                                try:
-                                                    if i in self.bot.user_balance_cache:
-                                                        del self.bot.user_balance_cache[i]
-                                                except Exception:
-                                                    traceback.print_exc(file=sys.stdout)
                                         await log_to_channel(
                                             "cexswap",
                                             f"[API SOLD]: User <@{find_user['user_id']}> / {find_user['user_id']} Sold: " \

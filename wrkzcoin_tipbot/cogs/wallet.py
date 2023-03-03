@@ -1479,13 +1479,6 @@ class WalletAPI(commands.Cog):
         # address: TRTL/BCN/XMR = paymentId
         token_name = coin.upper()
         user_server = user_server.upper()
-
-        key = user_id + "_" + coin + "_" + user_server
-        try:
-            if key in self.bot.user_balance_cache:
-                return self.bot.user_balance_cache[key]
-        except Exception:
-            pass
         if top_block is None:
             # If we can not get top block, confirm after 20mn. This is second not number of block
             nos_block = 20 * 60
@@ -1959,10 +1952,6 @@ class WalletAPI(commands.Cog):
                         await logchanbot(msg_negative)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                try:
-                    self.bot.user_balance_cache[key] = balance
-                except Exception:
-                    pass
                 return balance
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -5364,12 +5353,6 @@ class Wallet(commands.Cog):
                                             list_receivers = json.loads(each_resp['user_mentions_list'])
                                             list_users = []
                                             for each_u in list_receivers:
-                                                try:
-                                                    key_coin = each_u['id_str'] + "_" + coin_name + "_" + "TWITTER"
-                                                    if key_coin in self.bot.user_balance_cache:
-                                                        del self.bot.user_balance_cache[key_coin]
-                                                except Exception:
-                                                    pass
                                                 if each_u['id_str'] not in ["1343104498722467845", str(
                                                         each_resp['twitter_user_id'])]:  # BotTipsTweet, twitter user
                                                     list_users.append(each_u['id_str'])
@@ -6340,17 +6323,6 @@ class Wallet(commands.Cog):
                                                 except Exception:
                                                     traceback.print_exc(file=sys.stdout)
                                                     continue
-
-                                                try:
-                                                    key_coin = each_reward['guild_id'] + "_" + coin_name + "_" + "TWITTER"
-                                                    if key_coin in self.bot.user_balance_cache:
-                                                        del self.bot.user_balance_cache[key_coin]
-
-                                                    key_coin = each_discord_user + "_" + coin_name + "_" + "TWITTER"
-                                                    if key_coin in self.bot.user_balance_cache:
-                                                        del self.bot.user_balance_cache[key_coin]
-                                                except Exception:
-                                                    pass
 
                                                 tip = await store.sql_user_balance_mv_single(
                                                     each_reward['guild_id'], each_discord_user,
@@ -11615,16 +11587,6 @@ class Wallet(commands.Cog):
                     height, deposit_confirm_depth, SERVER_BOT
                 )
                 total_balance = userdata_balance['adjust']
-                if total_balance == 0:
-                    # Delete if has key
-                    key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                    try:
-                        if key in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key]
-                    except Exception:
-                        pass
-                    # End of del key
-
                 per_unit = None
                 equivalent_usd = ""
                 if price_with:
@@ -12331,15 +12293,6 @@ class Wallet(commands.Cog):
                     msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another tx in progress."
                     await ctx.edit_original_message(content=msg)
                     return
-
-                # Delete if has key
-                key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                try:
-                    if key in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key]
-                except Exception:
-                    pass
-                # End of del key
 
                 if type_coin in ["ERC-20"]:
                     # Check address
@@ -14606,17 +14559,6 @@ class Wallet(commands.Cog):
                 if per_unit and per_unit > 0:
                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
 
-                try:
-                    key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-
-                    key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-                except Exception:
-                    pass
-
                 tip = await store.sql_user_balance_mv_single(
                     str(self.bot.user.id), str(ctx.author.id),
                     str(ctx.guild.id), str(ctx.channel.id), amount, coin_name,
@@ -15323,17 +15265,6 @@ class Wallet(commands.Cog):
         if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
             self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
             try:
-                try:
-                    key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-
-                    key_coin = str(self.donate_to) + "_" + coin_name + "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-                except Exception:
-                    pass
-
                 donate = await store.sql_user_balance_mv_single(
                     str(ctx.author.id), str(self.donate_to), "DONATE",
                     "DONATE", amount, coin_name, "DONATE", coin_decimal,
@@ -15571,18 +15502,6 @@ class Wallet(commands.Cog):
                     amount_after_fee = amount * (1 - check_list['fee_percent_from'] / 100)
                     fee_from = amount * check_list['fee_percent_from'] / 100
 
-                    # Delete if has key
-                    key_1 = str(ctx.author.id) + "_" + from_coin + "_" + SERVER_BOT
-                    key_2 = str(ctx.author.id) + "_" + to_coin + "_" + SERVER_BOT
-                    try:
-                        if key_1 in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_1]
-                        if key_2 in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_2]
-                    except Exception:
-                        pass
-                    # End of del key
-
                     # Deduct amount from
                     data_rows.append((
                         from_coin, contract_from, str(ctx.author.id), creditor, guild_id, channel_id,
@@ -15779,19 +15698,6 @@ class Wallet(commands.Cog):
 
                 if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                     self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
-
-                    # Delete if has key
-                    key_1 = str(ctx.author.id) + "_" + from_coin + "_" + SERVER_BOT
-                    key_2 = str(ctx.author.id) + "_" + to_coin + "_" + SERVER_BOT
-                    try:
-                        if key_1 in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_1]
-                        if key_2 in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_2]
-                    except Exception:
-                        pass
-                    # End of del key
-
                     try:
                         swap = await self.swap_coin(
                             str(ctx.author.id), from_coin, amount, contract, coin_decimal,

@@ -209,7 +209,6 @@ bot.erc_node_list = {
     "ONE": bot.config['default_endpoints']['one']
 }
 bot.commandings = []
-bot.user_balance_cache = TTLCache(maxsize=20480, ttl=120.0) # userid_coin
 bot.tx_in_progress = TTLCache(maxsize=20480, ttl=300.0) # replacing bot.TX_IN_PROCESS
 bot.tipping_in_progress = TTLCache(maxsize=20480, ttl=600.0)
 bot.queue_game_economy = TTLCache(maxsize=2048, ttl=60.0) # replacing bot.GAME_INTERACTIVE_ECO

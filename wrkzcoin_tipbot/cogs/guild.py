@@ -244,18 +244,6 @@ class Guild(commands.Cog):
                                             json.dumps(list_receivers), json.dumps(list_receiver_names), int(time.time())
                                         )
 
-                                        try:
-                                            key_coin = each_drop['serverid'] + "_" + coin_name + "_" + SERVER_BOT
-                                            if key_coin in self.bot.user_balance_cache:
-                                                del self.bot.user_balance_cache[key_coin]
-
-                                            for each in list_receivers:
-                                                key_coin = each + "_" + coin_name + "_" + SERVER_BOT
-                                                if key_coin in self.bot.user_balance_cache:
-                                                    del self.bot.user_balance_cache[key_coin]
-                                        except Exception:
-                                            pass
-
                                         tiptalk = await store.sql_user_balance_mv_multiple(
                                             each_drop['serverid'], list_receivers, each_drop['serverid'],
                                             each_drop['tiptalk_channel'], each_drop['tiptalk_amount']/len(list_receivers),
@@ -1998,18 +1986,6 @@ class Guild(commands.Cog):
                     if amount_in_usd > 0.0001:
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
 
-            # Delete if has key
-            key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-            try:
-                if key in self.bot.user_balance_cache:
-                    del self.bot.user_balance_cache[key]
-                key = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
-                if key in self.bot.user_balance_cache:
-                    del self.bot.user_balance_cache[key]
-            except Exception:
-                pass
-            # End of del key
-
             # OK, move fund
             if str(ctx.author.id) in self.bot.tipping_in_progress:
                 await ctx.edit_original_message(
@@ -2019,16 +1995,6 @@ class Guild(commands.Cog):
             else:
                 self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                 try:
-                    try:
-                        key_coin = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
-                        if key_coin in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_coin]
-
-                        key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                        if key_coin in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_coin]
-                    except Exception:
-                        pass
                     tip = await store.sql_user_balance_mv_single(
                         str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id),
                         amount, coin_name, 'GUILDDEPOSIT', coin_decimal, SERVER_BOT, contract, amount_in_usd, None
@@ -3282,16 +3248,6 @@ class Guild(commands.Cog):
                     if str(ctx.guild.id) not in self.bot.tipping_in_progress:
                         self.bot.tipping_in_progress[str(ctx.guild.id)] = int(time.time())
                         try:
-                            try:
-                                key_coin = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
-                                if key_coin in self.bot.user_balance_cache:
-                                    del self.bot.user_balance_cache[key_coin]
-
-                                key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                                if key_coin in self.bot.user_balance_cache:
-                                    del self.bot.user_balance_cache[key_coin]
-                            except Exception:
-                                pass
                             tip = await store.sql_user_balance_mv_single(
                                 str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id),
                                 amount + extra_amount, coin_name, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd, None

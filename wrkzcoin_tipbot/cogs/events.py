@@ -85,16 +85,6 @@ class Quickdrop_Verify(disnake.ui.Modal):
                     int(time.time())
                 )
                 if quick:
-                    try:
-                        key_coin = get_message['from_userid'] + "_" + get_message['token_name'] + "_" + SERVER_BOT
-                        if key_coin in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_coin]
-
-                        key_coin = str(interaction.author.id) + "_" + get_message['token_name'] + "_" + SERVER_BOT
-                        if key_coin in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_coin]
-                    except Exception:
-                        pass
                     tip = await store.sql_user_balance_mv_single(
                         get_message['from_userid'], str(interaction.author.id), get_message['guild_id'],
                         get_message['channel_id'], get_message['real_amount'], 
@@ -612,17 +602,6 @@ class Events(commands.Cog):
                 try:
                     if str(message.author.id) not in self.bot.tipping_in_progress:
                         self.bot.tipping_in_progress[str(message.author.id)] = int(time.time())
-                    try:
-                        key_coin = str(message.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                        if key_coin in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_coin]
-
-                        for each in list_receivers:
-                            key_coin = each + "_" + coin_name + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-                    except Exception:
-                        pass
                     tip = await store.sql_user_balance_mv_multiple(
                         str(message.author.id), list_receivers, str(message.guild.id),
                         str(message.channel.id), amount, coin_name, "TIP",
@@ -1325,16 +1304,6 @@ class Events(commands.Cog):
                             int(time.time())
                         )
                         if quick:
-                            try:
-                                key_coin = get_message['from_userid'] + "_" + get_message['token_name'] + "_" + SERVER_BOT
-                                if key_coin in self.bot.user_balance_cache:
-                                    del self.bot.user_balance_cache[key_coin]
-
-                                key_coin = str(inter.author.id) + "_" + get_message['token_name'] + "_" + SERVER_BOT
-                                if key_coin in self.bot.user_balance_cache:
-                                    del self.bot.user_balance_cache[key_coin]
-                            except Exception:
-                                pass
                             tip = await store.sql_user_balance_mv_single(
                                 get_message['from_userid'], str(inter.author.id), get_message['guild_id'],
                                 get_message['channel_id'], get_message['real_amount'], 

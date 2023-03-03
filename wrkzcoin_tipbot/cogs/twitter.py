@@ -1490,17 +1490,6 @@ class Twitter(commands.Cog):
                         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                             guild_id = str(ctx.guild.id)
                             channel_id = str(ctx.channel.id)
-
-                        try:
-                            key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-
-                            key_coin = get_user['discord_user_id'] + "_" + coin_name + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-                        except Exception:
-                            pass
                         tip = await store.sql_user_balance_mv_single(
                             str(ctx.author.id), get_user['discord_user_id'],
                             guild_id, channel_id, amount, coin_name,

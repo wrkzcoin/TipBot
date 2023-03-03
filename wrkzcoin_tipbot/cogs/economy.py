@@ -3322,16 +3322,6 @@ class Economy(commands.Cog):
                                             if per_unit and per_unit['price'] and per_unit['price'] > 0:
                                                 per_unit = per_unit['price']
                                                 amount_in_usd = float(Decimal(per_unit) * Decimal(get_last_act['reward_amount']))
-                                        try:
-                                            key_coin = get_last_act['guild_id'] + "_" + coin_name + "_" + SERVER_BOT
-                                            if key_coin in self.bot.user_balance_cache:
-                                                del self.bot.user_balance_cache[key_coin]
-
-                                            key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                                            if key_coin in self.bot.user_balance_cache:
-                                                del self.bot.user_balance_cache[key_coin]
-                                        except Exception:
-                                            pass
                                         reward = await store.sql_user_balance_mv_single(
                                             get_last_act['guild_id'], str(ctx.author.id), str(ctx.guild.id), 
                                             str(ctx.channel.id), get_last_act['reward_amount'], coin_name, 

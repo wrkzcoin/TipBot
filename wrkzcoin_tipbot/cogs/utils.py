@@ -16,6 +16,12 @@ from disnake.ext import commands
 import store
 from Bot import RowButtonRowCloseAnyMessage, logchanbot, truncate
 
+# https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
 # https://geekflare.com/password-generator-python-code/
 def gen_password(pwd_length: int=12):
     # define the alphabet
@@ -280,30 +286,48 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def update_user_balance_call(self, user_id: str, type_coin: str):
+    async def update_user_balance_call(self, user_id: str, type_coin: str=None):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    if type_coin.upper() == "ERC-20":
-                        sql = """ UPDATE `erc20_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                    if type_coin is None:
+                        sql = """ UPDATE `erc20_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        sql += """ UPDATE `trc20_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        sql += """ UPDATE `sol_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        sql += """ UPDATE `tezos_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        sql += """ UPDATE `neo_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        sql += """ UPDATE `near_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        sql += """ UPDATE `zil_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        sql += """ UPDATE `vet_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        data_rows = [int(time.time()), user_id]*8
+                    elif type_coin.upper() == "ERC-20":
+                        sql = """ UPDATE `erc20_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        data_rows = [int(time.time()), user_id]
                     elif type_coin.upper() == "TRC-10" or type_coin.upper() == "TRC-20":
-                        sql = """ UPDATE `trc20_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                        sql = """ UPDATE `trc20_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        data_rows = [int(time.time()), user_id]
                     elif type_coin.upper() == "SOL" or type_coin.upper() == "SPL":
-                        sql = """ UPDATE `sol_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                        sql = """ UPDATE `sol_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        data_rows = [int(time.time()), user_id]
                     elif type_coin.upper() == "XTZ":
-                        sql = """ UPDATE `tezos_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                        sql = """ UPDATE `tezos_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        data_rows = [int(time.time()), user_id]
                     elif type_coin.upper() == "NEO":
-                        sql = """ UPDATE `neo_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                        sql = """ UPDATE `neo_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        data_rows = [int(time.time()), user_id]
                     elif type_coin.upper() == "NEAR":
-                        sql = """ UPDATE `near_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                        sql = """ UPDATE `near_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        data_rows = [int(time.time()), user_id]
                     elif type_coin.upper() == "ZIL":
-                        sql = """ UPDATE `zil_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                        sql = """ UPDATE `zil_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        data_rows = [int(time.time()), user_id]
                     elif type_coin.upper() == "VET":
-                        sql = """ UPDATE `vet_user` SET `called_Update`=%s WHERE `user_id`=%s """
+                        sql = """ UPDATE `vet_user` SET `called_Update`=%s WHERE `user_id`=%s; """
+                        data_rows = [int(time.time()), user_id]
                     else:
                         return
-                    await cur.execute(sql, (int(time.time()), user_id))
+                    await cur.execute(sql, tuple(data_rows))
                     await conn.commit()
                     return True
         except Exception as e:
@@ -541,7 +565,7 @@ class Utils(commands.Cog):
                                 return result
                         elif coin_family == "COSMOS":
                             sql = """ SELECT * FROM `cosmos_external_tx` 
-                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s AND `is_failed`=0
+                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s AND `success`=1
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
                             result = await cur.fetchall()

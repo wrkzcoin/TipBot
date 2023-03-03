@@ -982,7 +982,7 @@ class Guild(commands.Cog):
 
     async def vote_logchan(self, content: str):
         try:
-            webhook = AsyncDiscordWebhook(url=self.bot.config['topgg']['topgg_votehook'], content=content)
+            webhook = AsyncDiscordWebhook(url=self.bot.config['discord']['vote_webhook'], content=content)
             await webhook.execute()
         except Exception:
             traceback.print_exc(file=sys.stdout)

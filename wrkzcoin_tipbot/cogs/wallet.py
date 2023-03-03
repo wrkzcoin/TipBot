@@ -92,7 +92,7 @@ from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SE
     seconds_str_days, log_to_channel
 
 from cogs.utils import MenuPage
-from cogs.utils import Utils, num_format_coin
+from cogs.utils import Utils, num_format_coin, chunks
 from cogs.utils import print_color
 
 Account.enable_unaudited_hdwallet_features()
@@ -857,6 +857,99 @@ class ConfirmName(disnake.ui.View):
             self.value = False
             self.stop()
 
+class DropdownBalance(disnake.ui.StringSelect):
+    def __init__(self, ctx, owner_id, bot, embed, list_chunks, list_index, selected_index):
+        self.ctx = ctx
+        self.owner_id = owner_id
+        self.bot = bot
+        self.utils = Utils(self.bot)
+        self.embed = embed
+        self.list_chunks = list_chunks
+        self.list_index = list_index
+        self.selected_index = selected_index
+        options = [
+            disnake.SelectOption(
+                label=self.list_index[c],
+                description="Select {}".format(self.list_index[c]),
+                value=c,
+            ) for c, each in enumerate(list_chunks)
+        ]
+
+        super().__init__(
+            placeholder="Choose menu..." if self.selected_index is None else self.list_index[self.selected_index],
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
+
+    async def callback(self, inter: disnake.MessageInteraction):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            if self.values[0] is None:
+                await inter.response.send_message(f"{inter.author.mention}, out of range! Try again!", ephemeral=True)
+                return
+            else:
+                self.embed.clear_fields()
+                embed = self.embed.copy()
+                total_section_usd = 0.0
+                for i in self.list_chunks[int(self.values[0])]:
+                    coin_name = list(i.keys())[0]
+                    v = list(i.values())[0]
+                    token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                    equivalent_usd = ""
+                    per_unit = None
+                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
+                            amount_in_usd = float(Decimal(v) * Decimal(per_unit))
+                            total_section_usd += amount_in_usd
+                            if amount_in_usd >= 0.01:
+                                equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
+                            elif amount_in_usd >= 0.0001:
+                                equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
+
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    if hasattr(self.ctx, "guild") and hasattr(self.ctx.guild, "id"):
+                        coin_emoji = None
+                    embed.add_field(
+                        name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, equivalent_usd),
+                        value="{}".format(num_format_coin(v)),
+                        inline=True
+                        )
+                if total_section_usd > 0:
+                    embed.set_footer(text="Estimated {}".format(" ~ {:,.4f}$".format(total_section_usd)))
+                else:
+                    embed.set_footer(text="Estimated N/A")
+                view = BalanceMenu(
+                    self.bot, self.ctx, self.owner_id, embed, self.list_chunks, self.list_index, selected_index=int(self.values[0])
+                )
+                await self.ctx.edit_original_message(content=None, embed=embed, view=view)
+                await inter.response.defer()
+
+class BalanceMenu(disnake.ui.View):
+    def __init__(
+        self, bot,
+        ctx,
+        owner_id: int,
+        embed,
+        list_chunks,
+        list_index,
+        selected_index: int=None,
+    ):
+        super().__init__(timeout=120.0)
+        self.add_item(DropdownBalance(
+            ctx, owner_id, bot, embed, list_chunks, list_index, selected_index
+        ))
+
+    async def on_timeout(self):
+        await self.ctx.edit_original_message(
+            view=None
+        )
+
 class WalletAPI(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -1161,6 +1254,160 @@ class WalletAPI(commands.Cog):
                 return balance / 10 ** coin_decimal
         return balance
 
+    async def all_user_balance(
+        self, user_id: str, user_server: str, coinlist
+    ):
+        user_server = user_server.upper()
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    user_balance_coin = {}
+                    sql = """
+                    SELECT (`balance`-`withdrew`+`deposited`) AS balance, `token_name` 
+                    FROM `user_balance_mv_data` 
+                    WHERE `user_id`=%s AND `user_server`=%s
+                    """
+                    await cur.execute(sql, (user_id, user_server))
+                    result_balance = await cur.fetchall()
+                    if result_balance:
+                        for i in result_balance:
+                            if i['token_name'] not in user_balance_coin:
+                                user_balance_coin[i['token_name']] = Decimal(i['balance'])
+
+                        sql = """
+                        SELECT SUM(`real_amount`) AS airdrop , `token_name`
+                        FROM `discord_airdrop_tmp` 
+                        WHERE `from_userid`=%s AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_airdrop = await cur.fetchall()
+                        if result_airdrop:
+                            for i in result_airdrop:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['airdrop'])
+
+                        sql = """
+                        SELECT SUM(`real_amount`) AS math, `token_name`
+                        FROM `discord_mathtip_tmp` 
+                        WHERE `from_userid`=%s AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_math = await cur.fetchall()
+                        if result_math:
+                            for i in result_math:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['math'])
+
+                        sql = """
+                        SELECT SUM(`real_amount`) AS trivia, `token_name`
+                        FROM `discord_triviatip_tmp` 
+                        WHERE `from_userid`=%s AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_trivia = await cur.fetchall()
+                        if result_trivia:
+                            for i in result_trivia:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['trivia'])
+
+                        sql = """
+                        SELECT SUM(`amount_sell`) AS trade, `coin_sell`
+                        FROM `open_order` 
+                        WHERE `userid_sell`=%s AND `status`=%s
+                        GROUP BY `coin_sell`
+                        """
+                        await cur.execute(sql, (user_id, "OPEN"))
+                        result_trade = await cur.fetchall()
+                        if result_trade:
+                            for i in result_trade:
+                                if i['coin_sell'] not in user_balance_coin:
+                                    user_balance_coin[i['coin_sell']] = 0
+                                user_balance_coin[i['coin_sell']] -= Decimal(i['trade'])
+
+                        sql = """
+                        SELECT SUM(`amount`) AS raffle, `coin_name`
+                        FROM `guild_raffle_entries` 
+                        WHERE `user_id`=%s AND `user_server`=%s AND `status`=%s
+                        GROUP BY `coin_name`
+                        """
+                        await cur.execute(sql, (user_id, user_server, "REGISTERED"))
+                        result_raffle = await cur.fetchall()
+                        if result_raffle:
+                            for i in result_raffle:
+                                if i['coin_name'] not in user_balance_coin:
+                                    user_balance_coin[i['coin_name']] = 0
+                                user_balance_coin[i['coin_name']] -= Decimal(i['raffle'])
+
+                        sql = """
+                        SELECT SUM(`init_amount`) AS party_init, `token_name`
+                        FROM `discord_partydrop_tmp` 
+                        WHERE `from_userid`=%s  AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_party_init = await cur.fetchall()
+                        if result_party_init:
+                            for i in result_party_init:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['party_init'])
+
+                        sql = """
+                        SELECT SUM(`joined_amount`) AS party_join, `token_name`
+                        FROM `discord_partydrop_join` 
+                        WHERE `attendant_id`=%s AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_party_join = await cur.fetchall()
+                        if result_party_join:
+                            for i in result_party_join:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['party_join'])
+
+                        sql = """
+                        SELECT SUM(`real_amount`) AS quick, `token_name`
+                        FROM `discord_quickdrop` 
+                        WHERE `from_userid`=%s AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_quick = await cur.fetchall()
+                        if result_quick:
+                            for i in result_quick:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['quick'])
+
+                        sql = """
+                        SELECT SUM(`real_amount`) AS talk, `token_name`
+                        FROM `discord_talkdrop_tmp` 
+                        WHERE `from_userid`=%s AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_talk = await cur.fetchall()
+                        if result_talk:
+                            for i in result_talk:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['talk'])
+                    for i in coinlist:
+                        if i not in user_balance_coin.keys():
+                            user_balance_coin[i] = 0
+                    return user_balance_coin
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot("wallet user_balance " +str(traceback.format_exc()))
+
     async def user_balance(
         self, user_id: str, coin: str, address: str, coin_family: str, top_block: int,
         confirmed_depth: int = 0, user_server: str = 'DISCORD'
@@ -1269,19 +1516,19 @@ class WalletAPI(commands.Cog):
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(`amount`) 
                             FROM `doge_get_transfers` 
-                            WHERE `address`=%s AND `coin_name`=%s 
+                            WHERE `user_id`=%s AND `coin_name`=%s 
                             AND (`category` = %s or `category` = %s) 
                             AND `confirmations`>=%s AND `amount`>0), 0))
                             """
-                            query_param += [address, token_name, 'receive', 'generate', confirmed_depth]
+                            query_param += [user_id, token_name, 'receive', 'generate', confirmed_depth]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
                             FROM `doge_get_transfers` 
-                            WHERE `address`=%s AND `coin_name`=%s AND `category` = %s 
+                            WHERE `user_id`=%s AND `coin_name`=%s AND `category` = %s 
                             AND `confirmations`>=%s AND `amount`>0), 0))
                             """
-                            query_param += [address, token_name, 'receive', confirmed_depth]
+                            query_param += [user_id, token_name, 'receive', confirmed_depth]
                     elif coin_family == "NEO":
                         sql += """
                             - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -1294,20 +1541,20 @@ class WalletAPI(commands.Cog):
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(`amount`)  
                             FROM `neo_get_transfers` 
-                            WHERE `address`=%s 
+                            WHERE `user_id`=%s 
                             AND `coin_name`=%s AND `category` = %s 
                             AND `time_insert`<=%s AND `amount`>0), 0))
                                    """
-                            query_param += [address, token_name, 'received', int(time.time()) - nos_block]
+                            query_param += [user_id, token_name, 'received', int(time.time()) - nos_block]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(`amount`)  
                             FROM `neo_get_transfers` 
-                            WHERE `address`=%s 
+                            WHERE `user_id`=%s 
                             AND `coin_name`=%s AND `category` = %s 
                             AND `confirmations`<=%s AND `amount`>0), 0))
                                    """
-                            query_param += [address, token_name, 'received', nos_block]
+                            query_param += [user_id, token_name, 'received', nos_block]
                     elif coin_family == "NEAR":
                         sql += """
                             - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -1565,7 +1812,7 @@ class WalletAPI(commands.Cog):
                         - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
                         FROM `cosmos_external_tx` 
                         WHERE `user_id`=%s AND `coin_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s AND `is_failed`=0), 0))
+                        AND `user_server`=%s AND `crediting`=%s AND `success`=1), 0))
                         """
                         query_param += [user_id, token_name, user_server, "YES"]
                         
@@ -3366,9 +3613,9 @@ class WalletAPI(commands.Cog):
                         await session.close()
                         decoded_data = json.loads(res_data)
                         if decoded_data is not None:
-                            is_failed = 0
+                            success = 1
                             if decoded_data['result']['code'] != 0:
-                                is_failed = 1
+                                success = 0
                             try:
                                 await self.openConnection()
                                 async with self.pool.acquire() as conn:
@@ -3376,13 +3623,13 @@ class WalletAPI(commands.Cog):
                                         sql = """
                                         INSERT INTO `cosmos_external_tx` 
                                         (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
-                                        `decimal`, `to_address`, `date`, `tx_hash`, `tx_dump`, `user_server`, `is_failed`) 
+                                        `decimal`, `to_address`, `date`, `tx_hash`, `tx_dump`, `user_server`, `success`) 
                                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                         """
                                         await cur.execute(sql, (
                                             coin_name, user_id, amount, None, withdraw_fee, coin_decimal,
                                             to_address, int(time.time()), decoded_data['result']['hash'],
-                                            json.dumps(decoded_data), user_server, is_failed
+                                            json.dumps(decoded_data), user_server, success
                                         ))
                                         await conn.commit()
                                         return decoded_data
@@ -11444,28 +11691,28 @@ class Wallet(commands.Cog):
         else:
             total_all_balance_usd = 0.0
             all_pages = []
-            all_names = [each['coin_name'] for each in mytokens]
+            all_names = [each['coin_name'] for each in mytokens if each['enable'] == 1]
             total_coins = len(mytokens)
             page = disnake.Embed(
                 title='[ YOUR BALANCE LIST ]',
                 description="Thank you for using TipBot!",
-                color=disnake.Color.blue(),
                 timestamp=datetime.fromtimestamp(int(time.time())),
             )
+            page.set_thumbnail(url=ctx.author.display_avatar)
+            page.set_footer(text="Use the reactions to flip pages.")
+            original_em = page.copy()
             page.add_field(
                 name="Coin/Tokens: [{}]".format(len(all_names)),
-                value="```" + ", ".join(all_names) + "```",
+                value=", ".join(all_names),
                 inline=False
             )
             if len(unknown_tokens) > 0:
                 unknown_tokens = list(set(unknown_tokens))
                 page.add_field(
                     name="Unknown Tokens: {}".format(len(unknown_tokens)),
-                    value="```" + ", ".join(unknown_tokens) + "```",
+                    value=", ".join(unknown_tokens),
                     inline=False
                 )
-            page.set_thumbnail(url=ctx.author.display_avatar)
-            page.set_footer(text="Use the reactions to flip pages.")
             all_pages.append(page)
             num_coins = 0
             per_page = 20
@@ -11481,7 +11728,122 @@ class Wallet(commands.Cog):
             except Exception:
                 pass
 
-            bstart = time.time()
+            if tokens is None:
+                # Update balance call
+                try:
+                    await self.utils.update_user_balance_call(str(ctx.author.id), type_coin=None)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+                try:
+                    all_userdata_balance = await self.wallet_api.all_user_balance(str(ctx.author.id), SERVER_BOT, all_names)
+                    if all_userdata_balance is None:
+                        msg = f"{ctx.author.mention}, you don't have any balance."
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    else:
+                        # delete 0 balance
+                        tmp = all_userdata_balance.copy()
+                        for k, v in tmp.items():
+                            if v == 0 or k not in all_names:
+                                del all_userdata_balance[k]
+
+                        if len(all_userdata_balance) == 0:
+                            msg = f"{ctx.author.mention}, you don't have any balance."
+                            await ctx.edit_original_message(content=msg)
+                            return
+                        
+                        original_em = disnake.Embed(
+                            title='[ YOUR BALANCE LIST ]',
+                            description="Thank you for using TipBot!",
+                            timestamp=datetime.fromtimestamp(int(time.time())),
+                        )
+                        original_em.set_thumbnail(url=ctx.author.display_avatar)
+                        original_em.set_footer(text="Use menu to navigates.")
+
+                        if len(all_userdata_balance) <= per_page:
+                            page = original_em.copy()
+                            for coin_name, v in all_userdata_balance.items():
+                                token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                                equivalent_usd = ""
+                                per_unit = None
+                                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                                if price_with:
+                                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                        per_unit = per_unit['price']
+                                        amount_in_usd = float(Decimal(v) * Decimal(per_unit))
+                                        total_all_balance_usd += amount_in_usd
+                                        if amount_in_usd >= 0.01:
+                                            equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
+                                        elif amount_in_usd >= 0.0001:
+                                            equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
+
+                                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                page.add_field(
+                                    name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, equivalent_usd),
+                                    value="{}".format(num_format_coin(v)),
+                                    inline=True
+                                )
+                            await ctx.edit_original_message(content=None, embed=page)
+                            return
+                        else:
+                            top_balances = []
+                            for coin_name, v in all_userdata_balance.items():
+                                token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                                equivalent_usd = ""
+                                per_unit = None
+                                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                                if price_with:
+                                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                        per_unit = per_unit['price']
+                                        total_all_balance_usd += float(Decimal(v) * Decimal(per_unit))
+                                        top_balances.append({"name": coin_name, "amount": float(Decimal(v)), "value_usd": float(Decimal(v) * Decimal(per_unit))})
+                            if len(top_balances) > 0:
+                                top_balances = sorted(top_balances, key=lambda k: k.get('value_usd'), reverse=True)
+
+                            keys = list(sorted(all_userdata_balance.keys()))
+                            new_balance_list = [{i: float(all_userdata_balance[i])} for i in keys]
+
+                            list_bl_chunks = list(chunks(new_balance_list, per_page))
+                            list_index_desc = []
+                            for c, value in enumerate(list_bl_chunks):
+                                if len(value) > 1:
+                                    list_index_desc.append("{}-{}".format(list(value[0].keys())[0], list(value[-1].keys())[0]))
+                                elif len(value) == 1:
+                                    list_index_desc.append("{}".format(list(value[0].keys())[0]))
+                            embed = original_em.copy()
+                            additional_text = ""
+                            if len(top_balances) > 0:
+                                additional_text = " Below are top coins/tokens' amount(s)."
+                            embed.add_field(
+                                name="Your coins/tokens",
+                                value="You currently have {} coin(s)/token(s){}{}".format(
+                                    len(new_balance_list),
+                                    " ~ {:,.4f}$.".format(total_all_balance_usd) if total_all_balance_usd > 0 else "",
+                                    additional_text
+                                ),
+                                inline=False
+                            )
+                            if len(top_balances) > 0:
+                                for i in top_balances[:12]:
+                                    coin_emoji = getattr(getattr(self.bot.coin_list, i['name']), "coin_emoji_discord")
+                                    if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                                        coin_emoji = None
+                                    token_display = getattr(getattr(self.bot.coin_list, i['name']), "display_name")
+                                    embed.add_field(
+                                        name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, " ~ {:,.4f}$".format(i['value_usd'])),
+                                        value="{}".format(
+                                            num_format_coin(i['amount'])),
+                                        inline=True
+                                    )
+                            view = BalanceMenu(
+                                self.bot, ctx, ctx.author.id, embed, list_bl_chunks, list_index_desc, selected_index=None
+                            )
+                            await ctx.edit_original_message(content=None, embed=embed, view=view)
+                            return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
             for each_token in mytokens:
                 try:
                     coin_name = each_token['coin_name']
@@ -11506,8 +11868,9 @@ class Wallet(commands.Cog):
 
                     height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
                     try:
-                        # Add update for future call
-                        await self.utils.update_user_balance_call(str(ctx.author.id), type_coin)
+                        # Add update for future call. Slow, TODO: using other
+                        # await self.utils.update_user_balance_call(str(ctx.author.id), type_coin)
+                        pass
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     if num_coins == 0 or num_coins % per_page == 0:

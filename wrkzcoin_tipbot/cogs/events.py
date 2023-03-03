@@ -172,7 +172,8 @@ class Events(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO discord_stats 
+                    sql = """
+                    INSERT INTO discord_stats 
                     (`num_server`, `num_online`, `num_users`, `num_bots`, `num_tips`, `date`) 
                     VALUES (%s, %s, %s, %s, %s, %s)
                     """

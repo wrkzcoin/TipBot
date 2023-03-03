@@ -859,7 +859,11 @@ class ConfirmName(disnake.ui.View):
             self.stop()
 
 class DropdownBalance(disnake.ui.StringSelect):
-    def __init__(self, ctx, owner_id, bot, embed, list_chunks, list_index, home_embed, selected_index):
+    def __init__(
+            self, ctx, owner_id, bot, embed, list_chunks, list_index,
+            bl_list_by_value_chunks, list_index_value,
+            sorted_by, home_embed, selected_index
+        ):
         self.ctx = ctx
         self.owner_id = owner_id
         self.bot = bot
@@ -867,18 +871,28 @@ class DropdownBalance(disnake.ui.StringSelect):
         self.embed = embed
         self.list_chunks = list_chunks
         self.list_index = list_index
+        self.bl_list_by_value_chunks = bl_list_by_value_chunks
+        self.list_index_value = list_index_value
+        self.sorted_by = sorted_by # ALPHA, VALUE
         self.home_embed = home_embed
         self.selected_index = selected_index
+        if sorted_by == "ALPHA":
+            self.index_by = list_index
+            self.bulk_list = list_chunks
+        elif sorted_by == "VALUE":
+            self.index_by = list_index_value
+            self.bulk_list = bl_list_by_value_chunks
+
         options = [
             disnake.SelectOption(
-                label=self.list_index[c],
-                description="Select {}".format(self.list_index[c]),
+                label=self.index_by[c],
+                description="Select {}".format(self.index_by[c]),
                 value=c,
-            ) for c, each in enumerate(list_chunks)
+            ) for c, each in enumerate(self.bulk_list)
         ]
 
         super().__init__(
-            placeholder="Choose menu..." if self.selected_index is None else self.list_index[self.selected_index],
+            placeholder="Choose menu..." if self.selected_index is None else self.index_by[self.selected_index],
             min_values=1,
             max_values=1,
             options=options,
@@ -896,7 +910,7 @@ class DropdownBalance(disnake.ui.StringSelect):
                 self.embed.clear_fields()
                 embed = self.embed.copy()
                 total_section_usd = 0.0
-                for i in self.list_chunks[int(self.values[0])]:
+                for i in self.bulk_list[int(self.values[0])]:
                     coin_name = list(i.keys())[0]
                     v = list(i.values())[0]
                     token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
@@ -927,7 +941,9 @@ class DropdownBalance(disnake.ui.StringSelect):
                 else:
                     embed.set_footer(text="Estimated N/A")
                 view = BalanceMenu(
-                    self.bot, self.ctx, self.owner_id, embed, self.list_chunks, self.list_index, self.home_embed, selected_index=int(self.values[0])
+                    self.bot, self.ctx, self.owner_id, embed, self.list_chunks, self.list_index,
+                    self.bl_list_by_value_chunks, self.list_index_value,
+                    sorted_by=self.sorted_by, home_embed=self.home_embed, selected_index=int(self.values[0])
                 )
                 await self.ctx.edit_original_message(content=None, embed=embed, view=view)
                 await inter.response.defer()
@@ -940,6 +956,9 @@ class BalanceMenu(disnake.ui.View):
         embed,
         list_chunks,
         list_index,
+        bl_list_by_value_chunks,
+        list_index_value,
+        sorted_by,
         home_embed,
         selected_index: int=None,
     ):
@@ -950,10 +969,20 @@ class BalanceMenu(disnake.ui.View):
         self.owner_id = owner_id
         self.list_chunks = list_chunks
         self.list_index = list_index
+        self.bl_list_by_value_chunks = bl_list_by_value_chunks
+        self.list_index_value = list_index_value
+        self.sorted_by = sorted_by
         self.home_embed = home_embed
+        if len(bl_list_by_value_chunks) <= 1:
+            # disable sort by VALUE
+            self.btn_balance_sort_usd.disabled = True
+        if len(list_chunks) <= 1:
+            self.list_chunks.disabled = True
 
         self.add_item(DropdownBalance(
-            ctx, owner_id, bot, embed, list_chunks, list_index, home_embed, selected_index
+            ctx, owner_id, bot, embed, list_chunks, list_index,
+            bl_list_by_value_chunks, list_index_value,
+            sorted_by, home_embed, selected_index
         ))
 
     async def on_timeout(self):
@@ -970,11 +999,45 @@ class BalanceMenu(disnake.ui.View):
             await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
             return
         view = BalanceMenu(
-            self.bot, self.ctx, self.owner_id, self.embed, self.list_chunks, self.list_index, self.home_embed, selected_index=None
+            self.bot, self.ctx, self.owner_id, self.embed, self.list_chunks, self.list_index,
+            self.bl_list_by_value_chunks, self.list_index_value,
+            sorted_by="ALPHA", home_embed=self.home_embed, selected_index=None
         )
         await self.ctx.edit_original_message(content=None, embed=self.home_embed, view=view)
         await inter.response.defer()
-    
+
+    @disnake.ui.button(label="Sort", emoji="💲", style=ButtonStyle.grey, custom_id="balance_sort_usd")
+    async def btn_balance_sort_usd(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        view = BalanceMenu(
+            self.bot, self.ctx, self.owner_id, self.embed, self.list_chunks, self.list_index,
+            self.bl_list_by_value_chunks, self.list_index_value,
+            sorted_by="VALUE", home_embed=self.home_embed, selected_index=None
+        )
+        await self.ctx.edit_original_message(content=None, embed=self.home_embed, view=view)
+        await inter.response.defer()
+
+    @disnake.ui.button(label="Sort", emoji="🇦", style=ButtonStyle.grey, custom_id="balance_sort_alpha")
+    async def btn_balance_sort_alpha(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        view = BalanceMenu(
+            self.bot, self.ctx, self.owner_id, self.embed, self.list_chunks, self.list_index,
+            self.bl_list_by_value_chunks, self.list_index_value,
+            sorted_by="ALPHA", home_embed=self.home_embed, selected_index=None
+        )
+        await self.ctx.edit_original_message(content=None, embed=self.home_embed, view=view)
+        await inter.response.defer()
+
     @disnake.ui.button(label="Support", emoji="🏢", style=ButtonStyle.link, url="https://discord.com/invite/GpHzURM")
     async def btn_balance_support(
         self, button: disnake.ui.Button,
@@ -11899,8 +11962,22 @@ class Wallet(commands.Cog):
                                             num_format_coin(i['amount'])),
                                         inline=True
                                     )
+                            bl_list_by_value_chunks = []
+                            list_index_value = []
+                            if len(top_balances) > 0:
+                                bl_list_by_value = [{i['name']: i['value_usd']} for i in top_balances]
+                                bl_list_by_value_chunks = list(chunks(bl_list_by_value, per_page))
+                                list_index_value = []
+                                for c, value in enumerate(bl_list_by_value_chunks):
+                                    if len(value) > 1:
+                                        list_index_value.append("{}-{}".format(list(value[0].keys())[0], list(value[-1].keys())[0]))
+                                    elif len(value) == 1:
+                                        list_index_value.append("{}".format(list(value[0].keys())[0]))
+
                             view = BalanceMenu(
-                                self.bot, ctx, ctx.author.id, embed, list_bl_chunks, list_index_desc, home_embed = embed.copy(), selected_index=None
+                                self.bot, ctx, ctx.author.id, embed, list_bl_chunks, list_index_desc,
+                                bl_list_by_value_chunks, list_index_value,
+                                sorted_by="ALPHA", home_embed = embed.copy(), selected_index=None
                             )
                             await ctx.edit_original_message(content=None, embed=embed, view=view)
                             return

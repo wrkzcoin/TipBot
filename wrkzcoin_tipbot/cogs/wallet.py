@@ -25,6 +25,7 @@ from cachetools import TTLCache
 from disnake import TextInputStyle
 from disnake.app_commands import Option, OptionChoice
 from disnake.enums import OptionType
+from disnake.enums import ButtonStyle
 from disnake.ext import commands, tasks
 from eth_account import Account
 from eth_utils import is_hex_address  # Check hex only
@@ -858,7 +859,7 @@ class ConfirmName(disnake.ui.View):
             self.stop()
 
 class DropdownBalance(disnake.ui.StringSelect):
-    def __init__(self, ctx, owner_id, bot, embed, list_chunks, list_index, selected_index):
+    def __init__(self, ctx, owner_id, bot, embed, list_chunks, list_index, home_embed, selected_index):
         self.ctx = ctx
         self.owner_id = owner_id
         self.bot = bot
@@ -866,6 +867,7 @@ class DropdownBalance(disnake.ui.StringSelect):
         self.embed = embed
         self.list_chunks = list_chunks
         self.list_index = list_index
+        self.home_embed = home_embed
         self.selected_index = selected_index
         options = [
             disnake.SelectOption(
@@ -925,7 +927,7 @@ class DropdownBalance(disnake.ui.StringSelect):
                 else:
                     embed.set_footer(text="Estimated N/A")
                 view = BalanceMenu(
-                    self.bot, self.ctx, self.owner_id, embed, self.list_chunks, self.list_index, selected_index=int(self.values[0])
+                    self.bot, self.ctx, self.owner_id, embed, self.list_chunks, self.list_index, self.home_embed, selected_index=int(self.values[0])
                 )
                 await self.ctx.edit_original_message(content=None, embed=embed, view=view)
                 await inter.response.defer()
@@ -938,17 +940,47 @@ class BalanceMenu(disnake.ui.View):
         embed,
         list_chunks,
         list_index,
+        home_embed,
         selected_index: int=None,
     ):
         super().__init__(timeout=120.0)
+        self.bot = bot
+        self.ctx = ctx
+        self.embed = embed
+        self.owner_id = owner_id
+        self.list_chunks = list_chunks
+        self.list_index = list_index
+        self.home_embed = home_embed
+
         self.add_item(DropdownBalance(
-            ctx, owner_id, bot, embed, list_chunks, list_index, selected_index
+            ctx, owner_id, bot, embed, list_chunks, list_index, home_embed, selected_index
         ))
 
     async def on_timeout(self):
         await self.ctx.edit_original_message(
             view=None
         )
+
+    @disnake.ui.button(label="Home", emoji="🏠", style=ButtonStyle.grey, custom_id="balance_home")
+    async def btn_balance_home(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        view = BalanceMenu(
+            self.bot, self.ctx, self.owner_id, self.embed, self.list_chunks, self.list_index, self.home_embed, selected_index=None
+        )
+        await self.ctx.edit_original_message(content=None, embed=self.home_embed, view=view)
+        await inter.response.defer()
+    
+    @disnake.ui.button(label="Support", emoji="🏢", style=ButtonStyle.link, url="https://discord.com/invite/GpHzURM")
+    async def btn_balance_support(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        pass
 
 class WalletAPI(commands.Cog):
     def __init__(self, bot):
@@ -3627,7 +3659,7 @@ class WalletAPI(commands.Cog):
                                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                         """
                                         await cur.execute(sql, (
-                                            coin_name, user_id, amount, None, withdraw_fee, coin_decimal,
+                                            coin_name, user_id, amount, 0, withdraw_fee, coin_decimal,
                                             to_address, int(time.time()), decoded_data['result']['hash'],
                                             json.dumps(decoded_data), user_server, success
                                         ))
@@ -11838,7 +11870,7 @@ class Wallet(commands.Cog):
                                         inline=True
                                     )
                             view = BalanceMenu(
-                                self.bot, ctx, ctx.author.id, embed, list_bl_chunks, list_index_desc, selected_index=None
+                                self.bot, ctx, ctx.author.id, embed, list_bl_chunks, list_index_desc, home_embed = embed.copy(), selected_index=None
                             )
                             await ctx.edit_original_message(content=None, embed=embed, view=view)
                             return

@@ -300,53 +300,47 @@ class PlaceBid(disnake.ui.Modal):
                 type_coin, height, deposit_confirm_depth, SERVER_BOT
             )
             actual_balance = float(userdata_balance['adjust'])
+            previous_bid = 0.0
+            additional_bid_amount = amount
+            key = str(self.message_id) + "_" + str(interaction.author.id)
             if amount <= 0:
                 msg = f"{EMOJI_RED_NO} {interaction.author.mention}, please get more {token_display}."
                 await interaction.edit_original_message(content=msg)
                 return
             elif amount > actual_balance:
-                msg = f"{EMOJI_RED_NO} {self.ctx.author.mention}, insufficient balance to place a bid of "\
-                    f"**{num_format_coin(amount)} {token_display}**."
-                await interaction.edit_original_message(content=msg)
-                return
-            elif amount < current_max:
-                msg = f"{EMOJI_RED_NO} {self.ctx.author.mention}, bid amount can't be smaller than "\
-                    f"**{num_format_coin(current_max)} {token_display}**."
-                await interaction.edit_original_message(content=msg)
-                return
-
-            try:
-                # get his previous bid amount
-                previous_bid = 0.0
-                additional_bid_amount = amount
+                # Check if he already placed a bit, then we just compare with remaining.
                 try:
-                    key = str(self.message_id) + "_" + str(interaction.author.id)
                     previous_bid = await self.utils.async_get_cache_kv(
                         "bidding_amount",
                         key
                     )
                     if previous_bid and previous_bid > 0:
                         additional_bid_amount = amount - previous_bid
-                    await self.utils.async_set_cache_kv(
-                        "bidding_amount",
-                        key,
-                        amount
-                    )
+                        if additional_bid_amount > actual_balance:
+                            msg = f"{EMOJI_RED_NO} {self.ctx.author.mention}, insufficient balance to place a bid of "\
+                                f"**{num_format_coin(amount)} {token_display}**."
+                            await interaction.edit_original_message(content=msg)
+                            return
+                        elif additional_bid_amount < 0:
+                            msg = f"{EMOJI_INFORMATION} {self.ctx.author.mention}, internal error with a new amount {num_format_coin(amount)} {coin_name}!"
+                            await interaction.edit_original_message(content=msg)
+                            return
+                    elif previous_bid is None or previous_bid == 0:
+                        msg = f"{EMOJI_RED_NO} {self.ctx.author.mention}, insufficient balance to place a bid of "\
+                            f"**{num_format_coin(amount)} {token_display}**."
+                        await interaction.edit_original_message(content=msg)
+                        return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                if additional_bid_amount < 0:
-                    msg = f"{EMOJI_INFORMATION} {self.ctx.author.mention}, internal error with a new amount {num_format_coin(amount)} {coin_name}!"
-                    await interaction.edit_original_message(content=msg)
-
-                # Check if tx in progress
-                if str(interaction.author.id) in self.bot.tipping_in_progress and \
-                    int(time.time()) - self.bot.tipping_in_progress[str(interaction.author.id)] < 150:
-                    msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another transaction in progress."
+                    msg = f"{EMOJI_RED_NO} {self.ctx.author.mention}, internal error during checking bid and balance. Please report!"
                     await interaction.edit_original_message(content=msg)
                     return
-                else:
-                    self.bot.tipping_in_progress[str(interaction.author.id)] = int(time.time())
-
+            elif amount < current_max:
+                msg = f"{EMOJI_RED_NO} {self.ctx.author.mention}, bid amount can't be smaller than "\
+                    f"**{num_format_coin(current_max)} {token_display}**."
+                await interaction.edit_original_message(content=msg)
+                return
+            try:
                 current_closed_time = get_message['bid_open_time']
                 is_extending = False
                 num_extension = get_message['number_extension']
@@ -361,6 +355,30 @@ class PlaceBid(disnake.ui.Modal):
                     current_closed_time += 120
                     is_extending = True
                     num_extension += 1
+
+                # get his previous bid amount
+                # Check if tx in progress
+                if str(interaction.author.id) in self.bot.tipping_in_progress and \
+                    int(time.time()) - self.bot.tipping_in_progress[str(interaction.author.id)] < 150:
+                    msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another transaction in progress."
+                    await interaction.edit_original_message(content=msg)
+                    return
+                else:
+                    self.bot.tipping_in_progress[str(interaction.author.id)] = int(time.time())
+                try:
+                    previous_bid = await self.utils.async_get_cache_kv(
+                        "bidding_amount",
+                        key
+                    )
+                    if previous_bid and previous_bid > 0:
+                        additional_bid_amount = amount - previous_bid
+                    await self.utils.async_set_cache_kv(
+                        "bidding_amount",
+                        key,
+                        amount
+                    )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
 
                 adding_bid = await self.utils.bid_new_join(
                     str(self.message_id), str(interaction.author.id), "{}#{}".format(interaction.author.name, interaction.author.discriminator),

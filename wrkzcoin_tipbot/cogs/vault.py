@@ -928,18 +928,18 @@ class ConfirmBackup(disnake.ui.View):
         super().__init__(timeout=60.0)
         self.value: Optional[bool] = None
 
-    @disnake.ui.button(label="Yes, already backup!", style=disnake.ButtonStyle.green)
+    @disnake.ui.button(label="Yes, already backup!", emoji="✅", style=disnake.ButtonStyle.green)
     async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.send_message(f"{inter.author.mention}, confirming ...")
-        await inter.delete_original_message()
         self.value = True
         self.stop()
+        await inter.response.defer()
 
-    @disnake.ui.button(label="No, will do later!", style=disnake.ButtonStyle.grey)
+    @disnake.ui.button(label="No, will do later!", emoji="❌", style=disnake.ButtonStyle.grey)
     async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.send_message(f"{inter.author.mention}, you need to backup before you can withdraw.", delete_after=6.0)
+        await inter.response.send_message(f"{inter.author.mention}, you need to backup before you can withdraw.", delete_after=10.0)
         self.value = False
         self.stop()
+        await inter.response.defer()
 
 class ConfirmArchive(disnake.ui.View):
     def __init__(self):

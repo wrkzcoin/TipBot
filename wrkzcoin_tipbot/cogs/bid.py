@@ -37,23 +37,23 @@ class ConfirmName(disnake.ui.View):
         self.bot = bot
         self.owner_id = owner_id
 
-    @disnake.ui.button(label="Yes, please!", style=disnake.ButtonStyle.green)
+    @disnake.ui.button(label="Yes, please!", emoji="✅", style=disnake.ButtonStyle.green)
     async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
         else:
-            await inter.response.send_message(f"{inter.author.mention}, confirming to cancel ...", delete_after=3.0)
             self.value = True
             self.stop()
+            await inter.response.defer()
 
-    @disnake.ui.button(label="No", style=disnake.ButtonStyle.grey)
+    @disnake.ui.button(label="No", emoji="❌", style=disnake.ButtonStyle.grey)
     async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
         else:
-            await inter.response.send_message(f"{inter.author.mention}, rejected to cancel.", delete_after=3.0)
             self.value = False
             self.stop()
+            await inter.response.defer()
 
 class ReportBid(disnake.ui.Modal):
     def __init__(self, ctx, bot, message_id: str, owner_userid: str) -> None:

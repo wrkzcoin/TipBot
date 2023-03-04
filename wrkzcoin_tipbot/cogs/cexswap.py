@@ -1890,30 +1890,32 @@ class ConfirmSell(disnake.ui.View):
         self.bot = bot
         self.owner_id = owner_id
 
-    @disnake.ui.button(label="Confirm", style=disnake.ButtonStyle.green)
+    @disnake.ui.button(label="Confirm", emoji="✅", style=disnake.ButtonStyle.green)
     async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
         else:
             if str(inter.author.id) in self.bot.tipping_in_progress and \
                 int(time.time()) - self.bot.tipping_in_progress[str(inter.author.id)] < 30:
-                msg = f"{EMOJI_ERROR} {inter.author.mention}, you have another transaction in progress."
-                await inter.response.send_message(content=msg, ephemeral=True)
+                await inter.response.send_message(
+                    content=f"{EMOJI_ERROR} {inter.author.mention}, you have another transaction in progress.",
+                    ephemeral=True
+                )
                 return
             else:
                 self.bot.tipping_in_progress[str(inter.author.id)] = int(time.time())
-            await inter.response.send_message(f"{inter.author.mention}, confirming...", delete_after=3.0)
             self.value = True
             self.stop()
+            await inter.response.defer()
 
-    @disnake.ui.button(label="Cancel", style=disnake.ButtonStyle.grey)
+    @disnake.ui.button(label="Cancel", emoji="❌", style=disnake.ButtonStyle.grey)
     async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
         else:
-            await inter.response.send_message(f"{inter.author.mention}, cancelling...", delete_after=3.0)
             self.value = False
             self.stop()
+            await inter.response.defer()
 
 class add_liqudity(disnake.ui.Modal):
     def __init__(self, ctx, bot, ticker_1: str, ticker_2: str, owner_userid: str, balances_str) -> None:
@@ -3106,17 +3108,17 @@ class Cexswap(commands.Cog):
                     # add confirmation
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to trade?\n"\
                         f"```Get {user_amount_get} {for_token}\n"\
-                        f"From selling {user_amount_sell} {sell_token}{price_impact_text}```Ref: `{ref_log}`{suggestion_msg}"
+                        f"From selling {user_amount_sell} {sell_token}{price_impact_text}```Ref: `{ref_log}`"
 
                     # If there is progress
                     if str(ctx.author.id) in self.bot.tipping_in_progress and \
                         int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 30:
-                        msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
-                        await ctx.response.send_message(content=msg, ephemeral=True)
+                        await ctx.edit_original_message(
+                            content=f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress.")
                         return
 
                     view = ConfirmSell(self.bot, ctx.author.id)
-                    await ctx.edit_original_message(content=msg, view=view)
+                    await ctx.edit_original_message(content=msg+suggestion_msg, view=view)
 
                     try:
                         await cexswap_estimate(
@@ -3138,7 +3140,7 @@ class Cexswap(commands.Cog):
                     # Check the value to determine which button was pressed, if any.
                     if view.value is None:
                         await ctx.edit_original_message(
-                            content=msg + "\n**Timeout!**",
+                            content=msg + "\n🔴 Timeout!",
                             view=None
                         )
                         try:
@@ -3153,8 +3155,8 @@ class Cexswap(commands.Cog):
                             slippage = 1.0 - amount / float(liq_pair['pool']['amount_ticker_2']) - self.bot.config['cexswap_slipage']['reserve']
                         # adjust slippage
                         if slippage > 1 or slippage < 0.88:
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error with slippage. Try again later!"
-                            await ctx.edit_original_message(content=msg)
+                            await ctx.edit_original_message(
+                                content=f"{EMOJI_RED_NO} {ctx.author.mention}, internal error with slippage. Try again later!")
                             return
 
                         new_liq_pair = await cexswap_get_pool_details(sell_token, for_token, None)
@@ -3187,8 +3189,8 @@ class Cexswap(commands.Cog):
                         )
                         actual_balance = float(userdata_balance['adjust'])
                         if amount <= 0 or actual_balance <= 0:
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, ⚠️ Please get more {token_display}."
-                            await ctx.edit_original_message(content=msg)
+                            await ctx.edit_original_message(
+                                content=f"{EMOJI_RED_NO} {ctx.author.mention}, ⚠️ Please get more {token_display}.")
                             try:
                                 del self.bot.tipping_in_progress[str(ctx.author.id)]
                             except Exception:
@@ -3196,8 +3198,8 @@ class Cexswap(commands.Cog):
                             return
 
                         if truncate(actual_balance, 8) < truncate(amount, 8):
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, ⚠️ Please re-check balance {token_display}."
-                            await ctx.edit_original_message(content=msg)
+                            await ctx.edit_original_message(
+                                content=f"{EMOJI_RED_NO} {ctx.author.mention}, ⚠️ Please re-check balance {token_display}.")
                             try:
                                 del self.bot.tipping_in_progress[str(ctx.author.id)]
                             except Exception:
@@ -3227,7 +3229,7 @@ class Cexswap(commands.Cog):
                             # . Fee {fee_str} {for_token}\n
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully traded!\n"\
                                 f"```Get {user_amount_get} {for_token}\n"\
-                                f"From selling {user_amount_sell} {sell_token}{price_impact_text}```✅ Ref: `{ref_log}`{suggestion_msg}"
+                                f"From selling {user_amount_sell} {sell_token}{price_impact_text}```✅ Ref: `{ref_log}`"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "cexswap",

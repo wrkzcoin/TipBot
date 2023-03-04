@@ -11951,7 +11951,8 @@ class Wallet(commands.Cog):
                             embed = original_em.copy()
                             additional_text = ""
                             if len(top_balances) > 0:
-                                additional_text = " Below are top coins/tokens' amount(s)."
+                                additional_text = " Below are top coins/tokens' amount(s). "\
+                                    "Please use the button sort by value or alphabet then use dropdown."
                             embed.add_field(
                                 name="Your coins/tokens",
                                 value="You currently have {} coin(s)/token(s){}{}".format(

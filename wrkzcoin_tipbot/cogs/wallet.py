@@ -860,7 +860,7 @@ class ConfirmName(disnake.ui.View):
 
 class DropdownBalance(disnake.ui.StringSelect):
     def __init__(
-            self, ctx, owner_id, bot, embed, list_chunks, list_index,
+            self, ctx, owner_id, bot, embed, all_userdata_balance, list_chunks, list_index,
             bl_list_by_value_chunks, list_index_value,
             sorted_by, home_embed, selected_index
         ):
@@ -869,6 +869,7 @@ class DropdownBalance(disnake.ui.StringSelect):
         self.bot = bot
         self.utils = Utils(self.bot)
         self.embed = embed
+        self.all_userdata_balance = all_userdata_balance
         self.list_chunks = list_chunks
         self.list_index = list_index
         self.bl_list_by_value_chunks = bl_list_by_value_chunks
@@ -910,10 +911,13 @@ class DropdownBalance(disnake.ui.StringSelect):
                 self.embed.clear_fields()
                 embed = self.embed.copy()
                 total_section_usd = 0.0
-                for i in self.bulk_list[int(self.values[0])]:
+                for c, i in enumerate(self.bulk_list[int(self.values[0])]):
                     coin_name = list(i.keys())[0]
-                    v = list(i.values())[0]
                     token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                    if self.sorted_by == "ALPHA":
+                        v = list(i.values())[0]
+                    elif self.sorted_by == "VALUE":
+                        v = self.all_userdata_balance[coin_name]
                     equivalent_usd = ""
                     per_unit = None
                     price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
@@ -941,7 +945,7 @@ class DropdownBalance(disnake.ui.StringSelect):
                 else:
                     embed.set_footer(text="Estimated N/A")
                 view = BalanceMenu(
-                    self.bot, self.ctx, self.owner_id, embed, self.list_chunks, self.list_index,
+                    self.bot, self.ctx, self.owner_id, embed, self.all_userdata_balance, self.list_chunks, self.list_index,
                     self.bl_list_by_value_chunks, self.list_index_value,
                     sorted_by=self.sorted_by, home_embed=self.home_embed, selected_index=int(self.values[0])
                 )
@@ -954,6 +958,7 @@ class BalanceMenu(disnake.ui.View):
         ctx,
         owner_id: int,
         embed,
+        all_userdata_balance,
         list_chunks,
         list_index,
         bl_list_by_value_chunks,
@@ -966,6 +971,7 @@ class BalanceMenu(disnake.ui.View):
         self.bot = bot
         self.ctx = ctx
         self.embed = embed
+        self.all_userdata_balance = all_userdata_balance
         self.owner_id = owner_id
         self.list_chunks = list_chunks
         self.list_index = list_index
@@ -980,7 +986,7 @@ class BalanceMenu(disnake.ui.View):
             self.list_chunks.disabled = True
 
         self.add_item(DropdownBalance(
-            ctx, owner_id, bot, embed, list_chunks, list_index,
+            ctx, owner_id, bot, embed, all_userdata_balance, list_chunks, list_index,
             bl_list_by_value_chunks, list_index_value,
             sorted_by, home_embed, selected_index
         ))
@@ -999,7 +1005,8 @@ class BalanceMenu(disnake.ui.View):
             await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
             return
         view = BalanceMenu(
-            self.bot, self.ctx, self.owner_id, self.embed, self.list_chunks, self.list_index,
+            self.bot, self.ctx, self.owner_id, self.embed, self.all_userdata_balance,
+            self.list_chunks, self.list_index,
             self.bl_list_by_value_chunks, self.list_index_value,
             sorted_by="ALPHA", home_embed=self.home_embed, selected_index=None
         )
@@ -1015,7 +1022,8 @@ class BalanceMenu(disnake.ui.View):
             await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
             return
         view = BalanceMenu(
-            self.bot, self.ctx, self.owner_id, self.embed, self.list_chunks, self.list_index,
+            self.bot, self.ctx, self.owner_id, self.embed, self.all_userdata_balance,
+            self.list_chunks, self.list_index,
             self.bl_list_by_value_chunks, self.list_index_value,
             sorted_by="VALUE", home_embed=self.home_embed, selected_index=None
         )
@@ -1031,7 +1039,8 @@ class BalanceMenu(disnake.ui.View):
             await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
             return
         view = BalanceMenu(
-            self.bot, self.ctx, self.owner_id, self.embed, self.list_chunks, self.list_index,
+            self.bot, self.ctx, self.owner_id, self.embed, self.all_userdata_balance, 
+            self.list_chunks, self.list_index,
             self.bl_list_by_value_chunks, self.list_index_value,
             sorted_by="ALPHA", home_embed=self.home_embed, selected_index=None
         )
@@ -11975,7 +11984,8 @@ class Wallet(commands.Cog):
                                         list_index_value.append("{}".format(list(value[0].keys())[0]))
 
                             view = BalanceMenu(
-                                self.bot, ctx, ctx.author.id, embed, list_bl_chunks, list_index_desc,
+                                self.bot, ctx, ctx.author.id, embed, all_userdata_balance,
+                                list_bl_chunks, list_index_desc,
                                 bl_list_by_value_chunks, list_index_value,
                                 sorted_by="ALPHA", home_embed = embed.copy(), selected_index=None
                             )
@@ -12153,20 +12163,13 @@ class Wallet(commands.Cog):
 
     @commands.slash_command(
         usage='balances',
-        options=[
-            Option('tokens', 'tokens', OptionType.string, required=False)
-        ],
         description="Get all your token's balance."
     )
     async def balances(
         self,
         ctx,
-        tokens: str = None
     ):
-        if tokens and hasattr(self.bot.coin_list, tokens.upper()):
-            await self.async_balance(ctx, tokens)
-        else:
-            await self.async_balances(ctx, tokens)
+        await self.async_balances(ctx, None)
     # End of Balance
 
     # Withdraw

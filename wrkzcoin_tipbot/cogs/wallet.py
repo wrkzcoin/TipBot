@@ -840,23 +840,23 @@ class ConfirmName(disnake.ui.View):
         self.bot = bot
         self.owner_id = owner_id
 
-    @disnake.ui.button(label="Yes, please!", style=disnake.ButtonStyle.green)
+    @disnake.ui.button(label="Yes, please!", emoji="✅", style=disnake.ButtonStyle.green)
     async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
         else:
-            await inter.response.send_message(f"{inter.author.mention}, confirming ...", delete_after=3.0)
             self.value = True
             self.stop()
+            await inter.response.defer()
 
-    @disnake.ui.button(label="No", style=disnake.ButtonStyle.grey)
+    @disnake.ui.button(label="No", emoji="❌", style=disnake.ButtonStyle.grey)
     async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
         else:
-            await inter.response.send_message(f"{inter.author.mention}, Rejected.", delete_after=3.0)
             self.value = False
             self.stop()
+            await inter.response.defer()
 
 class DropdownBalance(disnake.ui.StringSelect):
     def __init__(
@@ -880,14 +880,16 @@ class DropdownBalance(disnake.ui.StringSelect):
         if sorted_by == "ALPHA":
             self.index_by = list_index
             self.bulk_list = list_chunks
+            select_text = "Select"
         elif sorted_by == "VALUE":
             self.index_by = list_index_value
             self.bulk_list = bl_list_by_value_chunks
+            select_text = "Between"
 
         options = [
             disnake.SelectOption(
                 label=self.index_by[c],
-                description="Select {}".format(self.index_by[c]),
+                description="{} {}".format(select_text, self.index_by[c]),
                 value=c,
             ) for c, each in enumerate(self.bulk_list)
         ]
@@ -11979,9 +11981,9 @@ class Wallet(commands.Cog):
                                 list_index_value = []
                                 for c, value in enumerate(bl_list_by_value_chunks):
                                     if len(value) > 1:
-                                        list_index_value.append("{}-{}".format(list(value[0].keys())[0], list(value[-1].keys())[0]))
+                                        list_index_value.append("{:,.4f}$-{:,.4f}$".format(list(value[0].values())[0], list(value[-1].values())[0]))
                                     elif len(value) == 1:
-                                        list_index_value.append("{}".format(list(value[0].keys())[0]))
+                                        list_index_value.append("{:,.4f}$".format(list(value[0].values())[0]))
 
                             view = BalanceMenu(
                                 self.bot, ctx, ctx.author.id, embed, all_userdata_balance,

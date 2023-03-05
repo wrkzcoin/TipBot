@@ -858,6 +858,44 @@ class ConfirmName(disnake.ui.View):
             self.stop()
             await inter.response.defer()
 
+class SingleBalanceMenu(disnake.ui.View):
+    def __init__(
+        self, bot,
+        ctx,
+        owner_id: int
+    ):
+        super().__init__(timeout=120.0)
+        self.bot = bot
+        self.ctx = ctx
+        self.owner_id = owner_id
+
+    async def on_timeout(self):
+        await self.ctx.edit_original_message(
+            view=None
+        )
+
+    @disnake.ui.button(label="All coins/tokens", emoji="💰", style=ButtonStyle.grey, custom_id="balances_all")
+    async def btn_balance_home(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            # delete and show other menu
+            await inter.response.send_message(f"{inter.author.mention}, loading ...", ephemeral=True)
+            new_wallet = Wallet(self.bot)
+            await new_wallet.async_balances(self.ctx)
+            await inter.delete_original_message()
+
+    @disnake.ui.button(label="Support", emoji="🏢", style=ButtonStyle.link, url="https://discord.com/invite/GpHzURM")
+    async def btn_balance_support(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        pass
+
 class DropdownBalance(disnake.ui.StringSelect):
     def __init__(
             self, ctx, owner_id, bot, embed, all_userdata_balance, list_chunks, list_index,
@@ -946,7 +984,7 @@ class DropdownBalance(disnake.ui.StringSelect):
                     embed.set_footer(text="Estimated {}".format(" ~ {:,.4f}$".format(total_section_usd)))
                 else:
                     embed.set_footer(text="Estimated N/A")
-                view = BalanceMenu(
+                view = BalancesMenu(
                     self.bot, self.ctx, self.owner_id, embed, self.all_userdata_balance, self.list_chunks, self.list_index,
                     self.bl_list_by_value_chunks, self.list_index_value,
                     sorted_by=self.sorted_by, home_embed=self.home_embed, selected_index=int(self.values[0])
@@ -954,7 +992,7 @@ class DropdownBalance(disnake.ui.StringSelect):
                 await self.ctx.edit_original_message(content=None, embed=embed, view=view)
                 await inter.response.defer()
 
-class BalanceMenu(disnake.ui.View):
+class BalancesMenu(disnake.ui.View):
     def __init__(
         self, bot,
         ctx,
@@ -1006,7 +1044,7 @@ class BalanceMenu(disnake.ui.View):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
             return
-        view = BalanceMenu(
+        view = BalancesMenu(
             self.bot, self.ctx, self.owner_id, self.embed, self.all_userdata_balance,
             self.list_chunks, self.list_index,
             self.bl_list_by_value_chunks, self.list_index_value,
@@ -1023,7 +1061,7 @@ class BalanceMenu(disnake.ui.View):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
             return
-        view = BalanceMenu(
+        view = BalancesMenu(
             self.bot, self.ctx, self.owner_id, self.embed, self.all_userdata_balance,
             self.list_chunks, self.list_index,
             self.bl_list_by_value_chunks, self.list_index_value,
@@ -1040,7 +1078,7 @@ class BalanceMenu(disnake.ui.View):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
             return
-        view = BalanceMenu(
+        view = BalancesMenu(
             self.bot, self.ctx, self.owner_id, self.embed, self.all_userdata_balance, 
             self.list_chunks, self.list_index,
             self.bl_list_by_value_chunks, self.list_index_value,
@@ -11773,7 +11811,8 @@ class Wallet(commands.Cog):
                 link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")) + extension
                 embed.set_thumbnail(url=link)
 
-            await ctx.edit_original_message(embed=embed)
+            view = SingleBalanceMenu(self.bot, ctx, ctx.author.id)
+            await ctx.edit_original_message(embed=embed, view=view)
             # Add update for future call
             try:
                 await self.utils.update_user_balance_call(str(ctx.author.id), type_coin)
@@ -11783,8 +11822,7 @@ class Wallet(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     # Balances
-    async def async_balances(self, ctx, tokens: str = None):
-        await ctx.response.send_message(content=f"{ctx.author.mention} balance loading...", ephemeral=True)
+    async def async_balances(self, ctx):
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/balances", int(time.time())))
@@ -11792,33 +11830,12 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        coin_name = None
-        mytokens = []
         zero_tokens = []
         unknown_tokens = []
         has_none_balance = True
         start_time = int(time.time())
-        if tokens is None:
-            # do all coins/token which is not under maintenance
-            mytokens = await store.get_coin_settings(coin_type=None)
-        else:
-            # get list of coin/token from tokens
-            get_tokens = await store.get_coin_settings(coin_type=None)
-            token_list = None
-            tokens = tokens.replace(",", " ").replace(";", " ").replace("/", " ")
-            if " " in tokens:
-                token_list = tokens.upper().split()
-            else:
-                # one token
-                token_list = [tokens.upper().strip()]
-            if token_list and len(token_list) > 0:
-                token_list = list(set(token_list))
-                for each_token in token_list:
-                    try:
-                        if getattr(self.bot.coin_list, each_token):
-                            mytokens.append(getattr(self.bot.coin_list, each_token))
-                    except Exception:
-                        unknown_tokens.append(each_token)
+        # do all coins/token which is not under maintenance
+        mytokens = await store.get_coin_settings(coin_type=None)
 
         if len(mytokens) == 0:
             msg = f'{ctx.author.mention}, no token or not exist.'
@@ -11826,9 +11843,7 @@ class Wallet(commands.Cog):
             return
         else:
             total_all_balance_usd = 0.0
-            all_pages = []
             all_names = [each['coin_name'] for each in mytokens if each['enable'] == 1]
-            total_coins = len(mytokens)
             page = disnake.Embed(
                 title='[ YOUR BALANCE LIST ]',
                 description="Thank you for using TipBot!",
@@ -11837,20 +11852,6 @@ class Wallet(commands.Cog):
             page.set_thumbnail(url=ctx.author.display_avatar)
             page.set_footer(text="Use the reactions to flip pages.")
             original_em = page.copy()
-            page.add_field(
-                name="Coin/Tokens: [{}]".format(len(all_names)),
-                value=", ".join(all_names),
-                inline=False
-            )
-            if len(unknown_tokens) > 0:
-                unknown_tokens = list(set(unknown_tokens))
-                page.add_field(
-                    name="Unknown Tokens: {}".format(len(unknown_tokens)),
-                    value=", ".join(unknown_tokens),
-                    inline=False
-                )
-            all_pages.append(page)
-            num_coins = 0
             per_page = 20
             # check mutual guild for is_on_mobile
             try:
@@ -11864,283 +11865,137 @@ class Wallet(commands.Cog):
             except Exception:
                 pass
 
-            if tokens is None:
-                # Update balance call
-                try:
-                    await self.utils.update_user_balance_call(str(ctx.author.id), type_coin=None)
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-                try:
-                    all_userdata_balance = await self.wallet_api.all_user_balance(str(ctx.author.id), SERVER_BOT, all_names)
-                    if all_userdata_balance is None:
+            # Update balance call
+            try:
+                await self.utils.update_user_balance_call(str(ctx.author.id), type_coin=None)
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+            try:
+                all_userdata_balance = await self.wallet_api.all_user_balance(str(ctx.author.id), SERVER_BOT, all_names)
+                if all_userdata_balance is None:
+                    msg = f"{ctx.author.mention}, you don't have any balance."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                else:
+                    # delete 0 balance
+                    tmp = all_userdata_balance.copy()
+                    for k, v in tmp.items():
+                        if v == 0 or k not in all_names:
+                            del all_userdata_balance[k]
+
+                    if len(all_userdata_balance) == 0:
                         msg = f"{ctx.author.mention}, you don't have any balance."
                         await ctx.edit_original_message(content=msg)
                         return
+                    
+                    original_em = disnake.Embed(
+                        title='[ YOUR BALANCE LIST ]',
+                        description="Thank you for using TipBot!",
+                        timestamp=datetime.fromtimestamp(int(time.time())),
+                    )
+                    original_em.set_thumbnail(url=ctx.author.display_avatar)
+                    original_em.set_footer(text="Use menu to navigates.")
+
+                    if len(all_userdata_balance) <= per_page:
+                        page = original_em.copy()
+                        for coin_name, v in all_userdata_balance.items():
+                            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                            equivalent_usd = ""
+                            per_unit = None
+                            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                            if price_with:
+                                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                    per_unit = per_unit['price']
+                                    amount_in_usd = float(Decimal(v) * Decimal(per_unit))
+                                    total_all_balance_usd += amount_in_usd
+                                    if amount_in_usd >= 0.01:
+                                        equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
+                                    elif amount_in_usd >= 0.0001:
+                                        equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
+
+                            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                            page.add_field(
+                                name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, equivalent_usd),
+                                value="{}".format(num_format_coin(v)),
+                                inline=True
+                            )
+                        await ctx.edit_original_message(content=None, embed=page)
+                        return
                     else:
-                        # delete 0 balance
-                        tmp = all_userdata_balance.copy()
-                        for k, v in tmp.items():
-                            if v == 0 or k not in all_names:
-                                del all_userdata_balance[k]
+                        top_balances = []
+                        for coin_name, v in all_userdata_balance.items():
+                            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                            equivalent_usd = ""
+                            per_unit = None
+                            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                            if price_with:
+                                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                    per_unit = per_unit['price']
+                                    total_all_balance_usd += float(Decimal(v) * Decimal(per_unit))
+                                    top_balances.append({"name": coin_name, "amount": float(Decimal(v)), "value_usd": float(Decimal(v) * Decimal(per_unit))})
+                        if len(top_balances) > 0:
+                            top_balances = sorted(top_balances, key=lambda k: k.get('value_usd'), reverse=True)
 
-                        if len(all_userdata_balance) == 0:
-                            msg = f"{ctx.author.mention}, you don't have any balance."
-                            await ctx.edit_original_message(content=msg)
-                            return
-                        
-                        original_em = disnake.Embed(
-                            title='[ YOUR BALANCE LIST ]',
-                            description="Thank you for using TipBot!",
-                            timestamp=datetime.fromtimestamp(int(time.time())),
+                        keys = list(sorted(all_userdata_balance.keys()))
+                        new_balance_list = [{i: float(all_userdata_balance[i])} for i in keys]
+
+                        list_bl_chunks = list(chunks(new_balance_list, per_page))
+                        list_index_desc = []
+                        for c, value in enumerate(list_bl_chunks):
+                            if len(value) > 1:
+                                list_index_desc.append("{}-{}".format(list(value[0].keys())[0], list(value[-1].keys())[0]))
+                            elif len(value) == 1:
+                                list_index_desc.append("{}".format(list(value[0].keys())[0]))
+                        embed = original_em.copy()
+                        additional_text = ""
+                        if len(top_balances) > 0:
+                            additional_text = " Below are top coins/tokens' amount(s). "\
+                                "Please use the button sort by value or alphabet then use dropdown."
+                        embed.add_field(
+                            name="Your coins/tokens",
+                            value="You currently have {} coin(s)/token(s){}{}".format(
+                                len(new_balance_list),
+                                " ~ {:,.4f}$.".format(total_all_balance_usd) if total_all_balance_usd > 0 else "",
+                                additional_text
+                            ),
+                            inline=False
                         )
-                        original_em.set_thumbnail(url=ctx.author.display_avatar)
-                        original_em.set_footer(text="Use menu to navigates.")
-
-                        if len(all_userdata_balance) <= per_page:
-                            page = original_em.copy()
-                            for coin_name, v in all_userdata_balance.items():
-                                token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-                                equivalent_usd = ""
-                                per_unit = None
-                                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
-                                if price_with:
-                                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
-                                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
-                                        per_unit = per_unit['price']
-                                        amount_in_usd = float(Decimal(v) * Decimal(per_unit))
-                                        total_all_balance_usd += amount_in_usd
-                                        if amount_in_usd >= 0.01:
-                                            equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
-                                        elif amount_in_usd >= 0.0001:
-                                            equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
-
-                                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                                page.add_field(
-                                    name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, equivalent_usd),
-                                    value="{}".format(num_format_coin(v)),
+                        if len(top_balances) > 0:
+                            for i in top_balances[:12]:
+                                coin_emoji = getattr(getattr(self.bot.coin_list, i['name']), "coin_emoji_discord")
+                                if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                                    coin_emoji = None
+                                token_display = getattr(getattr(self.bot.coin_list, i['name']), "display_name")
+                                embed.add_field(
+                                    name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, " ~ {:,.4f}$".format(i['value_usd'])),
+                                    value="{}".format(
+                                        num_format_coin(i['amount'])),
                                     inline=True
                                 )
-                            await ctx.edit_original_message(content=None, embed=page)
-                            return
-                        else:
-                            top_balances = []
-                            for coin_name, v in all_userdata_balance.items():
-                                token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-                                equivalent_usd = ""
-                                per_unit = None
-                                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
-                                if price_with:
-                                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
-                                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
-                                        per_unit = per_unit['price']
-                                        total_all_balance_usd += float(Decimal(v) * Decimal(per_unit))
-                                        top_balances.append({"name": coin_name, "amount": float(Decimal(v)), "value_usd": float(Decimal(v) * Decimal(per_unit))})
-                            if len(top_balances) > 0:
-                                top_balances = sorted(top_balances, key=lambda k: k.get('value_usd'), reverse=True)
-
-                            keys = list(sorted(all_userdata_balance.keys()))
-                            new_balance_list = [{i: float(all_userdata_balance[i])} for i in keys]
-
-                            list_bl_chunks = list(chunks(new_balance_list, per_page))
-                            list_index_desc = []
-                            for c, value in enumerate(list_bl_chunks):
-                                if len(value) > 1:
-                                    list_index_desc.append("{}-{}".format(list(value[0].keys())[0], list(value[-1].keys())[0]))
-                                elif len(value) == 1:
-                                    list_index_desc.append("{}".format(list(value[0].keys())[0]))
-                            embed = original_em.copy()
-                            additional_text = ""
-                            if len(top_balances) > 0:
-                                additional_text = " Below are top coins/tokens' amount(s). "\
-                                    "Please use the button sort by value or alphabet then use dropdown."
-                            embed.add_field(
-                                name="Your coins/tokens",
-                                value="You currently have {} coin(s)/token(s){}{}".format(
-                                    len(new_balance_list),
-                                    " ~ {:,.4f}$.".format(total_all_balance_usd) if total_all_balance_usd > 0 else "",
-                                    additional_text
-                                ),
-                                inline=False
-                            )
-                            if len(top_balances) > 0:
-                                for i in top_balances[:12]:
-                                    coin_emoji = getattr(getattr(self.bot.coin_list, i['name']), "coin_emoji_discord")
-                                    if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                                        coin_emoji = None
-                                    token_display = getattr(getattr(self.bot.coin_list, i['name']), "display_name")
-                                    embed.add_field(
-                                        name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, " ~ {:,.4f}$".format(i['value_usd'])),
-                                        value="{}".format(
-                                            num_format_coin(i['amount'])),
-                                        inline=True
-                                    )
-                            bl_list_by_value_chunks = []
+                        bl_list_by_value_chunks = []
+                        list_index_value = []
+                        if len(top_balances) > 0:
+                            bl_list_by_value = [{i['name']: i['value_usd']} for i in top_balances]
+                            bl_list_by_value_chunks = list(chunks(bl_list_by_value, per_page))
                             list_index_value = []
-                            if len(top_balances) > 0:
-                                bl_list_by_value = [{i['name']: i['value_usd']} for i in top_balances]
-                                bl_list_by_value_chunks = list(chunks(bl_list_by_value, per_page))
-                                list_index_value = []
-                                for c, value in enumerate(bl_list_by_value_chunks):
-                                    if len(value) > 1:
-                                        list_index_value.append("{:,.4f}$-{:,.4f}$".format(list(value[0].values())[0], list(value[-1].values())[0]))
-                                    elif len(value) == 1:
-                                        list_index_value.append("{:,.4f}$".format(list(value[0].values())[0]))
+                            for c, value in enumerate(bl_list_by_value_chunks):
+                                if len(value) > 1:
+                                    list_index_value.append("{:,.4f}$-{:,.4f}$".format(list(value[0].values())[0], list(value[-1].values())[0]))
+                                elif len(value) == 1:
+                                    list_index_value.append("{:,.4f}$".format(list(value[0].values())[0]))
 
-                            view = BalanceMenu(
-                                self.bot, ctx, ctx.author.id, embed, all_userdata_balance,
-                                list_bl_chunks, list_index_desc,
-                                bl_list_by_value_chunks, list_index_value,
-                                sorted_by="ALPHA", home_embed = embed.copy(), selected_index=None
-                            )
-                            await ctx.edit_original_message(content=None, embed=embed, view=view)
-                            return
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-            for each_token in mytokens:
-                try:
-                    coin_name = each_token['coin_name']
-                    type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-                    net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                    token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
-                    get_deposit = await self.sql_get_userwallet(
-                        str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
-                    )
-                    if get_deposit is None:
-                        get_deposit = await self.sql_register_user(
-                            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                        view = BalancesMenu(
+                            self.bot, ctx, ctx.author.id, embed, all_userdata_balance,
+                            list_bl_chunks, list_index_desc,
+                            bl_list_by_value_chunks, list_index_value,
+                            sorted_by="ALPHA", home_embed = embed.copy(), selected_index=None
                         )
-                    wallet_address = get_deposit['balance_wallet_address']
-                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                        wallet_address = get_deposit['paymentid']
-                    elif type_coin in ["XRP"]:
-                        wallet_address = get_deposit['destination_tag']
-
-                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                    try:
-                        # Add update for future call. Slow, TODO: using other
-                        # await self.utils.update_user_balance_call(str(ctx.author.id), type_coin)
-                        pass
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                    if num_coins == 0 or num_coins % per_page == 0:
-                        page = disnake.Embed(
-                            title='[ YOUR BALANCE LIST ]',
-                            description="Thank you for using TipBot!",
-                            color=disnake.Color.blue(),
-                            timestamp=datetime.fromtimestamp(int(time.time())),
-                        )
-                        page.set_thumbnail(url=ctx.author.display_avatar)
-                        page.set_footer(text="Use the reactions to flip pages.")
-                    # height can be None
-                    userdata_balance = await self.wallet_api.user_balance(
-                        str(ctx.author.id), coin_name, wallet_address, type_coin,
-                        height, deposit_confirm_depth, SERVER_BOT
-                    )
-                    total_balance = userdata_balance['adjust']
-                    if total_balance == 0:
-                        zero_tokens.append(coin_name)
-                        continue
-                    elif total_balance > 0:
-                        has_none_balance = False
-                    equivalent_usd = ""
-                    per_unit = None
-                    if price_with:
-                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
-                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
-                            per_unit = per_unit['price']
-                            amount_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
-                            total_all_balance_usd += amount_in_usd
-                            if amount_in_usd >= 0.01:
-                                equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
-                            elif amount_in_usd >= 0.0001:
-                                equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
-
-                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                    page.add_field(
-                        name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, equivalent_usd),
-                        value="{}".format(
-                            num_format_coin(total_balance)),
-                        inline=True
-                    )
-                    num_coins += 1
-                    if num_coins > 0 and num_coins % per_page == 0:
-                        all_pages.append(page)
-                        if num_coins < total_coins:
-                            page = disnake.Embed(
-                                title='[ YOUR BALANCE LIST ]',
-                                description="Thank you for using TipBot!",
-                                color=disnake.Color.blue(),
-                                timestamp=datetime.fromtimestamp(int(time.time())),
-                            )
-                            page.set_thumbnail(url=ctx.author.display_avatar)
-                            page.set_footer(text="Use the reactions to flip pages.")
-                        else:
-                            all_pages.append(page)
-                            break
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-            # Check if there is remaining
-            if (total_coins - len(zero_tokens)) % per_page > 0:
-                all_pages.append(page)
-            # Replace first page
-            if total_all_balance_usd > 0.01:
-                total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)
-            elif total_all_balance_usd > 0.0001:
-                total_all_balance_usd = "Having ~ {:,.4f}$".format(total_all_balance_usd)
-            else:
-                total_all_balance_usd = "Thank you for using TipBot!"
-            page = disnake.Embed(
-                title='[ YOUR BALANCE LIST ]',
-                description=f"`{total_all_balance_usd}`",
-                color=disnake.Color.blue(),
-                timestamp=datetime.fromtimestamp(int(time.time())),
-            )
-            # Remove zero from all_names
-            if has_none_balance is True:
-                msg = f'{ctx.author.mention}, you do not have any balance or the inquired tokens are empty.'
-                await ctx.edit_original_message(content=msg)
-                return
-            else:
-                all_names = [each for each in all_names if each not in zero_tokens]
-                page.add_field(
-                    name="Coin/Tokens: [{}]".format(len(all_names)),
-                    value="```" + ", ".join(all_names) + "```",
-                    inline=False
-                )
-                if len(unknown_tokens) > 0:
-                    unknown_tokens = list(set(unknown_tokens))
-                    page.add_field(
-                        name="Unknown Tokens: {}".format(len(unknown_tokens)),
-                        value="```" + ", ".join(unknown_tokens) + "```",
-                        inline=False
-                    )
-                if len(zero_tokens) > 0:
-                    zero_tokens = list(set(zero_tokens))
-                    page.add_field(
-                        name="Zero Balances: [{}]".format(len(zero_tokens)),
-                        value="```" + ", ".join(zero_tokens) + "```",
-                        inline=False
-                    )
-                page.set_thumbnail(url=ctx.author.display_avatar)
-                page.set_footer(text="Use the reactions to flip pages.")
-                all_pages[0] = page
-                try:
-                    view = MenuPage(ctx, all_pages, timeout=30, disable_remove=True)
-                    view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
-                    if int(time.time()) - start_time > 5:
-                        await logchanbot(
-                            f"[LAG] /balances lagging very long with {ctx.author.name}#{ctx.author.discriminator}. "\
-                            f"Time taken {str(int(time.time()) - start_time)}s."
-                        )
-                except Exception:
-                    msg = f"{ctx.author.mention}, internal error when checking /balances. "\
-                        f"Try again later. If problem still persists, contact TipBot dev."
-                    await ctx.edit_original_message(content=msg)
-                    traceback.print_exc(file=sys.stdout)
-                    await logchanbot(f"[ERROR] /balances with {ctx.author.name}#{ctx.author.discriminator}")
+                        await ctx.edit_original_message(content=None, embed=embed, view=view)
+                        return
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
 
     @commands.slash_command(
         usage='balance <token>',
@@ -12155,7 +12010,8 @@ class Wallet(commands.Cog):
         token: str
     ):
         if token.upper() == "ALL":
-            await self.async_balances(ctx, None)
+            await ctx.response.send_message(content=f"{ctx.author.mention} balance loading...", ephemeral=True)
+            await self.async_balances(ctx)
         else:
             await self.async_balance(ctx, token)
 
@@ -12172,7 +12028,8 @@ class Wallet(commands.Cog):
         self,
         ctx,
     ):
-        await self.async_balances(ctx, None)
+        await ctx.response.send_message(content=f"{ctx.author.mention} balance loading...", ephemeral=True)
+        await self.async_balances(ctx)
     # End of Balance
 
     # Withdraw

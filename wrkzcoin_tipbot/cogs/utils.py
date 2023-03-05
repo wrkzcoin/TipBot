@@ -5,16 +5,87 @@ import time
 from cachetools import TTLCache
 import pickle
 import redis
-
+import aiohttp
+import json
 # password gen
 import secrets
 import string
+import random
+
+# chart
+from datetime import datetime
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+import pandas as pd
+from colour import Color
 
 import disnake
 from disnake.ext import commands
 
 import store
 from Bot import RowButtonRowCloseAnyMessage, logchanbot, truncate
+plt.style.use('ggplot')
+
+def makechart(data, save_path_name: str):
+    try:
+        color = 'grey'
+        mpl.rcParams["axes.edgecolor"] = color
+        mpl.rcParams["axes.linewidth"]  = 1.25
+        mpl.rcParams['text.color'] = color
+        mpl.rcParams['axes.labelcolor'] = color
+        mpl.rcParams['xtick.color'] = color
+        mpl.rcParams['ytick.color'] = color
+
+        chart_date = [datetime.fromtimestamp(i[0]/1000) for i in data['prices']]
+        price_list = [i[1] for i in data['prices']]
+        volume_list = [i[1] for i in data['total_volumes']]
+
+        data = pd.DataFrame(data={'price': price_list, 'volume': volume_list}, index=chart_date)
+        data_v = data.groupby(data.index.date).mean()
+
+        red = Color("red")
+        colors = list(red.range_to(Color("green"), len(data_v.volume)))
+        colors = [color.rgb for color in colors]
+
+        fig, ax = plt.subplots(nrows=2, sharex=True, figsize=(15,8))
+        plt.xticks(rotation=90)
+
+        selected_color = random.choice([color.rgb for color in list(Color("red").range_to(Color("green"), 10))]) # range 10 color
+        ax[0].plot(data.index, data.price, color=selected_color)
+        ax[0].fill_between(data.index, data.price, 0, color=selected_color, alpha=.1)
+        ax[1].bar(data_v.index, data_v.volume, width=0.5, color=colors) # 1/len(data.index)
+        # ax[1].plot(data.index, data.volume)
+
+        xfmt = mpl.dates.DateFormatter('%m-%d')
+        ax[1].xaxis.set_major_locator(mpl.dates.HourLocator(interval=24))
+        ax[1].xaxis.set_major_formatter(xfmt)
+
+        ax[1].xaxis.set_minor_locator(mpl.dates.HourLocator(interval=24))
+        ax[1].xaxis.set_minor_formatter(xfmt)
+
+        ax[1].get_xaxis().set_tick_params(which='major', pad=0)
+        # fig.autofmt_xdate()
+
+        # set grid
+        ax[0].grid(which='major', linestyle = '--', color='grey')
+        ax[1].grid(which='major', linestyle = '--', color='grey')
+
+        # set auto number
+        ax[1].get_yaxis().set_major_formatter(
+            mpl.ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
+
+        # Set common labels
+        ax[0].set_xlabel('Price (USD)')
+        ax[1].set_xlabel('Volume (USD)')
+
+        #ax[0].set_title('ax1 title')
+        #ax[1].set_title('ax2 title')
+
+        plt.savefig(save_path_name, transparent=True)
+        return save_path_name
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
 
 # https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
 def chunks(lst, n):
@@ -1411,6 +1482,75 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
     # end of bidding
+
+    # price, gecko, etc
+    async def gecko_get_coin_db(self, coin_name: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `coin_coingecko_list`
+                    WHERE `name`=%s
+                    """
+                    await cur.execute(sql, coin_name)
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+                    else:
+                        sql = """
+                        SELECT * FROM `coin_coingecko_list`
+                        WHERE `symbol`=%s
+                        """
+                        await cur.execute(sql, coin_name)
+                        result = await cur.fetchall()
+                        if result:
+                            return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def gecko_fetch_marketchart_coin(self, coin_name: str):
+        try:
+            key = 'marketchart_'+coin_name.lower()
+            if key in self.bot.other_data and \
+                int(time.time()) - self.bot.other_data[key]['fetched_time'] < 5*60:
+                return self.bot.other_data[key]['data']
+            url = "https://api.coingecko.com/api/v3/coins/" + coin_name + "/market_chart?vs_currency=usd&days=30"
+            async with aiohttp.ClientSession() as cs:
+                async with cs.get(url, timeout=30) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    # store cache
+                    self.bot.other_data[key] = {"fetched_time": int(time.time()), "data": result} 
+                    return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
+    
+    async def gecko_fetch_marketdata_coin(self, coin_name: str):
+        try:
+            key = 'marketdata_'+coin_name.lower()
+            if key in self.bot.other_data and \
+                int(time.time()) - self.bot.other_data[key]['fetched_time'] < 5*60:
+                return self.bot.other_data[key]['data']
+
+            url = "https://api.coingecko.com/api/v3/coins/" + coin_name + "?tickers=false&market_data=true&community_data=false"
+            async with aiohttp.ClientSession() as cs:
+                async with cs.get(url, timeout=30) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    # store cache
+                    self.bot.other_data['marketdata_'+coin_name.lower()] = {"fetched_time": int(time.time()), "data": result}  
+                    return result
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+
+    # end of price, gecko, etc
 
     # Check if a user lock
     def is_locked_user(self, user_id: str, user_server: str="DISCORD"):

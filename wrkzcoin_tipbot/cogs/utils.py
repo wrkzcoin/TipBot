@@ -18,7 +18,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pandas as pd
 from colour import Color
-
+import aiomysql
+from aiomysql.cursors import DictCursor
 import disnake
 from disnake.ext import commands
 
@@ -52,7 +53,7 @@ def makechart(data, save_path_name: str):
 
         selected_color = random.choice([color.rgb for color in list(Color("red").range_to(Color("green"), 10))]) # range 10 color
         ax[0].plot(data.index, data.price, color=selected_color)
-        ax[0].fill_between(data.index, data.price, 0, color=selected_color, alpha=.1)
+        ax[0].fill_between(data.index, data.price, 0, color=selected_color, alpha=.25)
         ax[1].bar(data_v.index, data_v.volume, width=0.5, color=colors) # 1/len(data.index)
         # ax[1].plot(data.index, data.volume)
 
@@ -159,10 +160,11 @@ async def get_all_coin_names(
         await store.openConnection()
         async with store.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                sql = """ SELECT `coin_name` FROM `coin_settings` 
-                      WHERE `"""+what+"""`=%s
-                      LIMIT 25
-                      """
+                sql = """
+                SELECT `coin_name` FROM `coin_settings` 
+                WHERE `"""+what+"""`=%s
+                LIMIT 25
+                """
                 await cur.execute(sql, value)
                 result = await cur.fetchall()
                 if result:
@@ -335,16 +337,28 @@ class Utils(commands.Cog):
         self.adding_commands = False
         self.cache_pdb = DBPlace()
         self.cache_db_ttl = TTLCache(maxsize=10000, ttl=60.0)
+        self.pool = None
         try:
             self.redis_pool = redis.ConnectionPool(host='localhost', port=6379, db=0)
             self.r = redis.Redis(connection_pool=self.redis_pool)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    async def openConnection(self):
+        try:
+            if self.pool is None:
+                self.pool = await aiomysql.create_pool(
+                    host=self.bot.config['mysql']['host'], port=3306, minsize=2, maxsize=4,
+                    user=self.bot.config['mysql']['user'], password=self.bot.config['mysql']['password'],
+                    db=self.bot.config['mysql']['db'], cursorclass=DictCursor, autocommit=True
+                )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
     async def get_bot_settings(self):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `bot_settings` """
                     await cur.execute(sql, )
@@ -359,8 +373,8 @@ class Utils(commands.Cog):
 
     async def update_user_balance_call(self, user_id: str, type_coin: str=None):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if type_coin is None:
                         sql = """ UPDATE `erc20_user` SET `called_Update`=%s WHERE `user_id`=%s; """
@@ -408,15 +422,16 @@ class Utils(commands.Cog):
 
     async def bot_task_logs_add(self, task_name: str, run_at: int):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `bot_task_logs` (`task_name`, `run_at`)
-                              VALUES (%s, %s)
-                              ON DUPLICATE KEY 
-                              UPDATE 
-                              `run_at`=VALUES(`run_at`)
-                              """
+                    sql = """
+                    INSERT INTO `bot_task_logs` (`task_name`, `run_at`)
+                    VALUES (%s, %s)
+                    ON DUPLICATE KEY 
+                    UPDATE 
+                    `run_at`=VALUES(`run_at`)
+                    """
                     await cur.execute(sql, (task_name, run_at))
                     await conn.commit()
                     return True
@@ -426,12 +441,13 @@ class Utils(commands.Cog):
 
     async def bot_task_logs_check(self, task_name: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `bot_task_logs` 
-                              WHERE `task_name`=%s ORDER BY `id` DESC LIMIT 1
-                              """
+                    sql = """
+                    SELECT * FROM `bot_task_logs` 
+                    WHERE `task_name`=%s ORDER BY `id` DESC LIMIT 1
+                    """
                     await cur.execute(sql, task_name)
                     result = await cur.fetchone()
                     if result:
@@ -448,10 +464,11 @@ class Utils(commands.Cog):
         else:
             self.adding_commands = True
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `bot_commanded` 
+                    sql = """
+                    INSERT INTO `bot_commanded` 
                     (`guild_id`, `user_id`, `user_server`, `command`, `timestamp`)
                     VALUES (%s, %s, %s, %s, %s)
                     """
@@ -470,10 +487,11 @@ class Utils(commands.Cog):
 
     async def advert_impress(self, ad_id: int, user_id: str, guild_id: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `bot_advert_list_impression` 
+                    sql = """
+                    INSERT INTO `bot_advert_list_impression` 
                     (`ad_id`, `date`, `user_id`, `guild`)
                     VALUES (%s, %s, %s, %s);
                     UPDATE `bot_advert_list` SET `numb_impression`=`numb_impression`+1
@@ -488,10 +506,11 @@ class Utils(commands.Cog):
 
     async def get_trade_channel_list(self):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_server`
+                    sql = """
+                    SELECT * FROM `discord_server`
                     WHERE `trade_channel` IS NOT NULL
                         AND `enable_trade`=%s
                     """
@@ -510,12 +529,13 @@ class Utils(commands.Cog):
         global pool
         coin_name = token_name.upper()
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if what.lower() == "withdraw":
                         if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                            sql = """ SELECT * FROM `cn_external_tx` 
+                            sql = """
+                            SELECT * FROM `cn_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -523,7 +543,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "BTC":
-                            sql = """ SELECT * FROM `neo_external_tx` 
+                            sql = """
+                            SELECT * FROM `neo_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -531,7 +552,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "NEO":
-                            sql = """ SELECT * FROM `doge_external_tx` 
+                            sql = """
+                            SELECT * FROM `doge_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -539,7 +561,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "NEAR":
-                            sql = """ SELECT * FROM `near_external_tx` 
+                            sql = """
+                            SELECT * FROM `near_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -547,7 +570,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "NANO":
-                            sql = """ SELECT * FROM `nano_external_tx` 
+                            sql = """
+                            SELECT * FROM `nano_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -555,7 +579,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "CHIA":
-                            sql = """ SELECT * FROM `xch_external_tx` 
+                            sql = """
+                            SELECT * FROM `xch_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -563,7 +588,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "ERC-20":
-                            sql = """ SELECT * FROM `erc20_external_tx` 
+                            sql = """
+                            SELECT * FROM `erc20_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -571,7 +597,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "XTZ":
-                            sql = """ SELECT * FROM `tezos_external_tx` 
+                            sql = """
+                            SELECT * FROM `tezos_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -579,7 +606,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "ZIL":
-                            sql = """ SELECT * FROM `zil_external_tx` 
+                            sql = """
+                            SELECT * FROM `zil_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -587,7 +615,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "VET":
-                            sql = """ SELECT * FROM `vet_external_tx` 
+                            sql = """
+                            SELECT * FROM `vet_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -595,7 +624,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "VITE":
-                            sql = """ SELECT * FROM `vite_external_tx` 
+                            sql = """
+                            SELECT * FROM `vite_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -603,7 +633,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "TRC-20":
-                            sql = """ SELECT * FROM `trc20_external_tx` 
+                            sql = """
+                            SELECT * FROM `trc20_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -611,7 +642,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "HNT":
-                            sql = """ SELECT * FROM `hnt_external_tx` 
+                            sql = """
+                            SELECT * FROM `hnt_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -619,7 +651,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "XRP":
-                            sql = """ SELECT * FROM `xrp_external_tx` 
+                            sql = """
+                            SELECT * FROM `xrp_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -627,7 +660,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "XLM":
-                            sql = """ SELECT * FROM `xlm_external_tx` 
+                            sql = """
+                            SELECT * FROM `xlm_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -635,7 +669,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "COSMOS":
-                            sql = """ SELECT * FROM `cosmos_external_tx` 
+                            sql = """
+                            SELECT * FROM `cosmos_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s AND `success`=1
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -643,7 +678,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "ADA":
-                            sql = """ SELECT * FROM `xlm_external_tx` 
+                            sql = """
+                            SELECT * FROM `xlm_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -651,7 +687,8 @@ class Utils(commands.Cog):
                             if result:
                                 return result
                         elif coin_family == "SOL" or coin_family == "SPL":
-                            sql = """ SELECT * FROM `sol_external_tx` 
+                            sql = """
+                            SELECT * FROM `sol_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -882,10 +919,11 @@ class Utils(commands.Cog):
     # bidding
     async def get_all_bids(self, status: str="ONGOING"):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_bidding_list` 
+                    sql = """
+                    SELECT * FROM `discord_bidding_list` 
                     WHERE `status`=%s
                     """
                     await cur.execute(sql, status)
@@ -898,10 +936,11 @@ class Utils(commands.Cog):
 
     async def get_bid_id(self, message_id: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_bidding_list` 
+                    sql = """
+                    SELECT * FROM `discord_bidding_list` 
                     WHERE `message_id`=%s LIMIT 1
                     """
                     await cur.execute(sql, message_id)
@@ -914,10 +953,11 @@ class Utils(commands.Cog):
 
     async def get_bid_attendant(self, message_id: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_bidding_joined` 
+                    sql = """
+                    SELECT * FROM `discord_bidding_joined` 
                     WHERE `message_id`=%s ORDER BY `bid_amount` DESC
                     """
                     await cur.execute(sql, message_id)
@@ -930,8 +970,8 @@ class Utils(commands.Cog):
 
     async def discord_bid_ongoing(self, guild_id: str, status: str = "ONGOING"):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     SELECT COUNT(*) AS numb FROM `discord_bidding_list` 
@@ -954,8 +994,8 @@ class Utils(commands.Cog):
         list_balance_updates, payment_logs
     ):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     UPDATE `discord_bidding_list` 
@@ -1008,8 +1048,8 @@ class Utils(commands.Cog):
         saved_name: str, file_type: str, sha256: str
     ):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     INSERT INTO `discord_bidding_list`
@@ -1044,11 +1084,12 @@ class Utils(commands.Cog):
 
     async def update_bid_failed(self, message_id: str, turn_off: bool=False):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if turn_off is False:
-                        sql = """ UPDATE `discord_bidding_list` 
+                        sql = """
+                        UPDATE `discord_bidding_list` 
                         SET `failed_check`=`failed_check`+1 
                         WHERE `message_id`=%s 
                         LIMIT 1
@@ -1058,7 +1099,8 @@ class Utils(commands.Cog):
                         return True
                     else:
                         # Change status
-                        sql = """ UPDATE `discord_bidding_list` 
+                        sql = """
+                        UPDATE `discord_bidding_list` 
                         SET `status`=%s 
                         WHERE `message_id`=%s 
                         LIMIT 1
@@ -1072,10 +1114,11 @@ class Utils(commands.Cog):
 
     async def update_bid_no_winning(self, message_id: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `discord_bidding_list` 
+                    sql = """
+                    UPDATE `discord_bidding_list` 
                     SET `status`=%s 
                     WHERE `message_id`=%s 
                     LIMIT 1;
@@ -1092,10 +1135,11 @@ class Utils(commands.Cog):
         list_balance_updates, payment_logs
     ):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `discord_bidding_list` 
+                    sql = """
+                    UPDATE `discord_bidding_list` 
                     SET `status`=%s, `winner_user_id`=%s, `winner_amount`=%s, `winning_date`=%s
                     WHERE `message_id`=%s 
                     LIMIT 1;
@@ -1152,11 +1196,12 @@ class Utils(commands.Cog):
         user_id: str
     ):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if method_for == "winner":
-                        sql = """ UPDATE `discord_bidding_list` 
+                        sql = """
+                        UPDATE `discord_bidding_list` 
                         SET `winner_instruction`=%s, `winner_instruction_date`=%s, `owner_request_to_update`=%s
                         WHERE `message_id`=%s 
                         LIMIT 1;
@@ -1243,8 +1288,8 @@ class Utils(commands.Cog):
 
     async def discord_bid_max_bid(self, message_id: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     SELECT * FROM `discord_bidding_joined` 
@@ -1265,8 +1310,8 @@ class Utils(commands.Cog):
         is_extending: bool=False, current_closed_time: int=None
     ):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     INSERT INTO `discord_bidding_joined` 
@@ -1322,8 +1367,8 @@ class Utils(commands.Cog):
         description: str, guild_id: str, channel_id: str
     ):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     UPDATE `discord_bidding_list`
@@ -1349,8 +1394,8 @@ class Utils(commands.Cog):
 
     async def bidding_joined_by_userid(self, user_id: str, limit: int=25):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     SELECT * FROM `discord_bidding_joined` 
@@ -1366,8 +1411,8 @@ class Utils(commands.Cog):
 
     async def bidding_logs_by_userid(self, user_id: str, limit: int=50):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     SELECT * FROM `discord_bidding_logs` 
@@ -1383,8 +1428,8 @@ class Utils(commands.Cog):
 
     async def bidding_list_by_guildid(self, guild_id: str, limit: int=25):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     SELECT * FROM `discord_bidding_list` 
@@ -1404,8 +1449,8 @@ class Utils(commands.Cog):
         reported_content: str, how_to_contact: str
     ):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     INSERT INTO `discord_bidding_reports`
@@ -1427,8 +1472,8 @@ class Utils(commands.Cog):
 
     async def bid_get_report(self, report_id: int=None):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     SELECT * FROM `discord_bidding_reports`
@@ -1456,8 +1501,8 @@ class Utils(commands.Cog):
         channel_id: str, guild_id: str
     ):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     UPDATE `discord_bidding_list`
@@ -1486,8 +1531,8 @@ class Utils(commands.Cog):
     # favorite coins
     async def fav_coin_add(self, user_id: str, user_server: str, coin_name: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     INSERT INTO `coin_favorites`
@@ -1503,8 +1548,8 @@ class Utils(commands.Cog):
 
     async def fav_coin_remove(self, user_id: str, user_server: str, coin_name: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     DELETE FROM `coin_favorites`
@@ -1520,8 +1565,8 @@ class Utils(commands.Cog):
 
     async def check_if_fav_coin(self, user_id: str, user_server: str, coin_name: str=None):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     if coin_name is None:
                         sql = """
@@ -1552,12 +1597,12 @@ class Utils(commands.Cog):
     # price, gecko, etc
     async def gecko_get_coin_db(self, coin_name: str):
         try:
-            await store.openConnection()
-            async with store.pool.acquire() as conn:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
                     SELECT * FROM `coin_coingecko_list`
-                    WHERE `name`=%s
+                    WHERE `id`=%s
                     """
                     await cur.execute(sql, coin_name)
                     result = await cur.fetchall()
@@ -1566,12 +1611,20 @@ class Utils(commands.Cog):
                     else:
                         sql = """
                         SELECT * FROM `coin_coingecko_list`
-                        WHERE `symbol`=%s
+                        WHERE `name`=%s
                         """
-                        await cur.execute(sql, coin_name)
-                        result = await cur.fetchall()
-                        if result:
-                            return result
+                        result_name = await cur.fetchall()
+                        if result_name:
+                            return result_name
+                        else:
+                            sql = """
+                            SELECT * FROM `coin_coingecko_list`
+                            WHERE `symbol`=%s
+                            """
+                            await cur.execute(sql, coin_name)
+                            result = await cur.fetchall()
+                            if result:
+                                return result
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return []

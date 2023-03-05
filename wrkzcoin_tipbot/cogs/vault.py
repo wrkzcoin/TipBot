@@ -2206,23 +2206,23 @@ class Vault(commands.Cog):
             # If command is in public
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, this command needs to be in DM."
-                await ctx.edit_original_message(msg, ephemeral=True)
+                await ctx.edit_original_message(content=msg)
                 return
             is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
             if is_user_locked is True:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. Please contact bot dev by /about link."
-                await ctx.edit_original_message(msg, ephemeral=True)
+                await ctx.edit_original_message(content=msg)
                 return
             # checking if vault is enable
             get_user = await find_user_by_id(str(ctx.author.id), SERVER_BOT)
             if get_user is None or (get_user and get_user['vault_enable'] == 0):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you don't have have vault access yet! "\
                     f"If you want to enable or test this, please contact TipBot dev or join our supported guild."
-                await ctx.edit_original_message(msg, ephemeral=True)
+                await ctx.edit_original_message(content=msg)
                 return
             if self.bot.config['vault']['disable'] == 1 and ctx.author.id != self.bot.config['discord']['owner_id']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Vault is currently on maintenance. Be back soon!"
-                await ctx.edit_original_message(msg, ephemeral=True)
+                await ctx.edit_original_message(content=msg)
                 return
         except Exception:
             traceback.print_exc(file=sys.stdout)

@@ -55,10 +55,11 @@ class Price(commands.Cog):
             )
             return
         elif len(get_gecko) > 1:
-            full_names = ", ".join([i['name'] for i in get_gecko])
+            ids = ", ".join([i['id'] for i in get_gecko])
+            names = ", ".join([i['name'] for i in get_gecko])
             await ctx.edit_original_message(
                 content=f"{EMOJI_RED_NO} {ctx.author.mention}, there are more than one result. "\
-                    f"Please specified with coin/token's full name (`{full_names}`).",
+                    f"Please re-try by specifying with coin/token's id (`{ids}`) or names (`{names}`).",
                 view=RowButtonRowCloseAnyMessage()
             )
             return

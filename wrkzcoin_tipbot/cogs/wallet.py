@@ -858,6 +858,89 @@ class ConfirmName(disnake.ui.View):
             self.stop()
             await inter.response.defer()
 
+class DepositMenu(disnake.ui.View):
+    def __init__(
+        self, bot,
+        ctx,
+        owner_id: int,
+        embed,
+        coin_name,
+        is_fav: bool=False
+    ):
+        super().__init__(timeout=120.0)
+        self.bot = bot
+        self.ctx = ctx
+        self.utils = Utils(self.bot)
+        self.wallet = Wallet(self.bot)
+        self.owner_id = owner_id
+        self.embed = embed
+        self.coin_name = coin_name
+        if is_fav is True:
+            self.btn_balance_single_add_fav.disabled = True
+            self.btn_balance_single_remove_fav.disabled = False
+        else:
+            self.btn_balance_single_add_fav.disabled = False
+            self.btn_balance_single_remove_fav.disabled = True
+
+    async def on_timeout(self):
+        await self.ctx.edit_original_message(
+            view=None
+        )
+
+    @disnake.ui.button(label="Add", emoji="💚", style=ButtonStyle.grey, custom_id="deposit_add_fav")
+    async def btn_balance_single_add_fav(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, adding to favorite ...", ephemeral=True)
+            # check if he has so many fav already.
+            counting = await self.utils.check_if_fav_coin(str(inter.author.id), SERVER_BOT, None)
+            if len(counting) >= 15:
+                await inter.edit_original_message(
+                    content=f"{inter.author.mention}, you reached maximum of favorited coins already! ({str(len(counting))})"
+                )
+                return
+            adding = await self.utils.fav_coin_add(str(inter.author.id), SERVER_BOT, self.coin_name)
+            if adding is True:
+                await inter.delete_original_message()
+                view = DepositMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=True)
+                await self.ctx.edit_original_message(view=view)
+
+    @disnake.ui.button(label="Remove", emoji="💙", style=ButtonStyle.grey, custom_id="deposit_remove_fav")
+    async def btn_balance_single_remove_fav(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, removing from favorite ...", ephemeral=True)
+            removing = await self.utils.fav_coin_remove(str(inter.author.id), SERVER_BOT, self.coin_name)
+            if removing is True:
+                await inter.delete_original_message()
+                view = DepositMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=False)
+                await self.ctx.edit_original_message(view=view)
+
+    @disnake.ui.button(label="Balance", emoji="💰", style=ButtonStyle.grey, custom_id="deposit_balance")
+    async def btn_balance_single_balance(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, checking balance ...", ephemeral=True)
+            # check if he has so many fav already.
+            await self.wallet.async_balance(self.ctx, self.coin_name)
+            await inter.delete_original_message()
+
+
 class SingleBalanceMenu(disnake.ui.View):
     def __init__(
         self, bot,
@@ -871,6 +954,7 @@ class SingleBalanceMenu(disnake.ui.View):
         self.bot = bot
         self.ctx = ctx
         self.utils = Utils(self.bot)
+        self.wallet = Wallet(self.bot)
         self.owner_id = owner_id
         self.embed = embed
         self.coin_name = coin_name
@@ -925,6 +1009,20 @@ class SingleBalanceMenu(disnake.ui.View):
                 view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=False)
                 await self.ctx.edit_original_message(view=view)
 
+    @disnake.ui.button(label="Deposit", emoji="↪️", style=ButtonStyle.grey, custom_id="balance_single_deposit")
+    async def btn_balance_deposit_coin(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            # delete and show other menu
+            await inter.response.send_message(f"{inter.author.mention}, loading ...", ephemeral=True)
+            await self.wallet.async_deposit(self.ctx, self.coin_name)
+            await inter.delete_original_message()
+
     @disnake.ui.button(label="All coins/tokens", emoji="💰", style=ButtonStyle.grey, custom_id="balance_single_all")
     async def btn_balance_all_coins(
         self, button: disnake.ui.Button,
@@ -935,9 +1033,8 @@ class SingleBalanceMenu(disnake.ui.View):
             return
         else:
             # delete and show other menu
-            await inter.response.send_message(f"{inter.author.mention}, loading ...", ephemeral=True)
-            new_wallet = Wallet(self.bot)
-            await new_wallet.async_balances(self.ctx)
+            await inter.response.send_message(f"{inter.author.mention}, loading all your balance ...", ephemeral=True)
+            await self.wallet.async_balances(self.ctx)
             await inter.delete_original_message()
 
     @disnake.ui.button(label="Support", emoji="🏢", style=ButtonStyle.link, url="https://discord.com/invite/GpHzURM")
@@ -11463,34 +11560,30 @@ class Wallet(commands.Cog):
     async def async_deposit(self, ctx, token: str = None, plain: str = None):
         coin_name = None
         if token is None:
-            await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, token name is missing.")
             return
         else:
             coin_name = token.upper()
             if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
                 coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
-                await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
                 return
             else:
                 if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
-                    await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** deposit disable.')
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, **{coin_name}** deposit disable.")
                     return
-
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                            str(ctx.author.id), SERVER_BOT, "/deposit", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         # Do the job
         try:
-            await ctx.response.send_message(
-                f'{ctx.author.mention}, checking your {coin_name} address...',
-                ephemeral=True
-            )
-
-            try:
-                self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
-                                             str(ctx.author.id), SERVER_BOT, "/deposit", int(time.time())))
-                await self.utils.add_command_calls()
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-
             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
             coin_emoji = coin_emoji + " " if coin_emoji else ""
 
@@ -11651,7 +11744,11 @@ class Wallet(commands.Cog):
                 else:
                     if len(other_links) > 0:
                         embed.add_field(name="Other links", value="{}".format(" | ".join(other_links)), inline=False)
-                    await ctx.edit_original_message(embed=embed)
+                    check_fav = await self.utils.check_if_fav_coin(str(ctx.author.id), SERVER_BOT, coin_name)
+                    view = DepositMenu(
+                        self.bot, ctx, ctx.author.id, embed, coin_name, is_fav=check_fav
+                    )
+                    await ctx.edit_original_message(content=None, embed=embed, view=view)
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 traceback.print_exc(file=sys.stdout)
         except Exception:
@@ -11675,6 +11772,7 @@ class Wallet(commands.Cog):
         token: str,
         plain: str = 'embed'
     ):
+        await ctx.response.send_message(f"{ctx.author.mention}, checking deposit ...", ephemeral=True)
         await self.async_deposit(ctx, token, plain)
 
     @deposit.autocomplete("token")
@@ -11685,36 +11783,26 @@ class Wallet(commands.Cog):
 
     # Balance
     async def async_balance(self, ctx, token: str = None):
-        coin_name = None
-        if token is None:
-            await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
+        coin_name = token.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+        if not hasattr(self.bot.coin_list, coin_name):
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
             return
         else:
-            coin_name = token.upper()
-            if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
-                coin_name = self.bot.coin_alias_names[coin_name]
-            if not hasattr(self.bot.coin_list, coin_name):
-                await ctx.response.send_message(f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
+            if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1:
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, **{coin_name}** is currently under maintenance.")
                 return
-            else:
-                if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1:
-                    await ctx.response.send_message(
-                        f"{ctx.author.mention}, **{coin_name}** is currently under maintenance.")
-                    return
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                            str(ctx.author.id), SERVER_BOT, "/balance", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         # Do the job
         try:
-            await ctx.response.send_message(
-                f'{ctx.author.mention}, checking your {coin_name} balance...',
-                ephemeral=True
-            )
-
-            try:
-                self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
-                                             str(ctx.author.id), SERVER_BOT, "/balance", int(time.time())))
-                await self.utils.add_command_calls()
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -11864,7 +11952,7 @@ class Wallet(commands.Cog):
 
             check_fav = await self.utils.check_if_fav_coin(str(ctx.author.id), SERVER_BOT, coin_name)
             view = SingleBalanceMenu(self.bot, ctx, ctx.author.id, embed, coin_name, is_fav=check_fav)
-            await ctx.edit_original_message(embed=embed, view=view)
+            await ctx.edit_original_message(content=None, embed=embed, view=view)
             # Add update for future call
             try:
                 await self.utils.update_user_balance_call(str(ctx.author.id), type_coin)
@@ -12086,8 +12174,8 @@ class Wallet(commands.Cog):
         ctx,
         token: str
     ):
+        await ctx.response.send_message(content=f"{ctx.author.mention} balance loading...", ephemeral=True)
         if token.upper() == "ALL":
-            await ctx.response.send_message(content=f"{ctx.author.mention} balance loading...", ephemeral=True)
             await self.async_balances(ctx)
         else:
             await self.async_balance(ctx, token)

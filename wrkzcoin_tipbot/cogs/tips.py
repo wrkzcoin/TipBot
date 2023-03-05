@@ -369,9 +369,14 @@ class Tips(commands.Cog):
                 # get message
                 try:
                     guild = self.bot.get_guild(int(each_message_data['guild_id']))
-                    if guild is None:
+                    if guild is None and self.bot.is_ready():
                         print("Guild {} found None".format(each_message_data['guild_id']))
-                        await asyncio.sleep(1.0)
+                        await logchanbot("[FREETIP]: can not find guild for message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
+                            each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],
+                            each_message_data['from_ownername']
+                        ))
+                        change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                        await asyncio.sleep(0.5)
                         continue
                     await self.bot.wait_until_ready()
                     channel = guild.get_channel(int(each_message_data['channel_id']))

@@ -2255,6 +2255,19 @@ class add_liquidity_btn(disnake.ui.View):
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            min_add = getattr(getattr(self.bot.coin_list, coin_name), "cexswap_min_add_liq")
+            if self.amount_1 < min_add:
+                await inter.edit_original_message(
+                    content=f"{EMOJI_RED_NO} {inter.author.mention}, "\
+                        f"{num_format_coin(self.amount_1)} {coin_name} is below min. {num_format_coin(min_add)} {coin_name}.")
+                await self.ctx.delete_original_message()
+                await log_to_channel(
+                    "cexswap",
+                    f"[REJECT LIQUIDITY]: User {inter.author.mention} wanted to add new liquidity to pool `{self.pool_name}`! "\
+                    f"{num_format_coin(self.amount_1)} {coin_name} is below min. {num_format_coin(min_add)} {coin_name}.",
+                    self.bot.config['discord']['cexswap']
+                )
+                return
 
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
@@ -2275,12 +2288,13 @@ class add_liquidity_btn(disnake.ui.View):
             )
             actual_balance = float(userdata_balance['adjust'])
             if actual_balance <= self.amount_1:
-                msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Please get more {coin_name}."
+                msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Not sufficient balance. Please get more {coin_name}."
                 await inter.edit_original_message(content=msg)
                 try:
                     del self.bot.tipping_in_progress[str(inter.author.id)]
                 except Exception:
                     pass
+                await self.ctx.delete_original_message()
                 return
 
             # ticker[1]
@@ -2290,6 +2304,19 @@ class add_liquidity_btn(disnake.ui.View):
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+            min_add = getattr(getattr(self.bot.coin_list, coin_name), "cexswap_min_add_liq")
+            if self.amount_2 < min_add:
+                await inter.edit_original_message(
+                    content=f"{EMOJI_RED_NO} {inter.author.mention}, "\
+                        f"{num_format_coin(self.amount_2)} {coin_name} is below min. {num_format_coin(min_add)} {coin_name}.")
+                await self.ctx.delete_original_message()
+                await log_to_channel(
+                    "cexswap",
+                    f"[REJECT LIQUIDITY]: User {inter.author.mention} wanted to add new liquidity to pool `{self.pool_name}`! "\
+                    f"{num_format_coin(self.amount_2)} {coin_name} is below min. {num_format_coin(min_add)} {coin_name}.",
+                    self.bot.config['discord']['cexswap']
+                )
+                return
 
             get_deposit = await self.wallet_api.sql_get_userwallet(
                 str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
@@ -2310,12 +2337,13 @@ class add_liquidity_btn(disnake.ui.View):
             )
             actual_balance = float(userdata_balance['adjust'])
             if actual_balance <= self.amount_2:
-                msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Please get more {coin_name}."
+                msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Not sufficient balance. Please get more {coin_name}."
                 await inter.edit_original_message(content=msg)
                 try:
                     del self.bot.tipping_in_progress[str(inter.author.id)]
                 except Exception:
                     pass
+                await self.ctx.delete_original_message()
                 return
             # end of re-check balance
 

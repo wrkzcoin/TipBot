@@ -604,6 +604,13 @@ class Tips(commands.Cog):
                             )
                         )
                         await asyncio.sleep(1.0)
+                except disnake.errors.NotFound:
+                    await logchanbot("[FREETIP]: can not find message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
+                        each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],
+                        each_message_data['from_ownername']
+                    ))
+                    change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                    await asyncio.sleep(0.5)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(2.0)

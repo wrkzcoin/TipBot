@@ -1483,6 +1483,72 @@ class Utils(commands.Cog):
         return False
     # end of bidding
 
+    # favorite coins
+    async def fav_coin_add(self, user_id: str, user_server: str, coin_name: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    INSERT INTO `coin_favorites`
+                    (`user_id`, `user_server`, `coin_name`)
+                    VALUES (%s, %s, %s)
+                    """
+                    await cur.execute(sql, (user_id, user_server, coin_name))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def fav_coin_remove(self, user_id: str, user_server: str, coin_name: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    DELETE FROM `coin_favorites`
+                    WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
+                    LIMIT 1;
+                    """
+                    await cur.execute(sql, (user_id, user_server, coin_name))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def check_if_fav_coin(self, user_id: str, user_server: str, coin_name: str=None):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    if coin_name is None:
+                        sql = """
+                        SELECT * FROM `coin_favorites`
+                        WHERE `user_id`=%s AND `user_server`=%s
+                        """
+                        await cur.execute(sql, (user_id, user_server))
+                        result = await cur.fetchall()
+                        if result:
+                            return result
+                        else:
+                            return []
+                    else:
+                        sql = """
+                        SELECT * FROM `coin_favorites`
+                        WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
+                        LIMIT 1;
+                        """
+                        await cur.execute(sql, (user_id, user_server, coin_name))
+                        result = await cur.fetchone()
+                        if result:
+                            return True
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+        return False
+    # end of favorite coins
+
     # price, gecko, etc
     async def gecko_get_coin_db(self, coin_name: str):
         try:

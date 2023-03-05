@@ -862,20 +862,71 @@ class SingleBalanceMenu(disnake.ui.View):
     def __init__(
         self, bot,
         ctx,
-        owner_id: int
+        owner_id: int,
+        embed,
+        coin_name,
+        is_fav: bool=False
     ):
         super().__init__(timeout=120.0)
         self.bot = bot
         self.ctx = ctx
+        self.utils = Utils(self.bot)
         self.owner_id = owner_id
+        self.embed = embed
+        self.coin_name = coin_name
+        if is_fav is True:
+            self.btn_balance_single_add_fav.disabled = True
+            self.btn_balance_single_remove_fav.disabled = False
+        else:
+            self.btn_balance_single_add_fav.disabled = False
+            self.btn_balance_single_remove_fav.disabled = True
 
     async def on_timeout(self):
         await self.ctx.edit_original_message(
             view=None
         )
 
-    @disnake.ui.button(label="All coins/tokens", emoji="💰", style=ButtonStyle.grey, custom_id="balances_all")
-    async def btn_balance_home(
+    @disnake.ui.button(label="Add", emoji="💚", style=ButtonStyle.grey, custom_id="balance_single_add_fav")
+    async def btn_balance_single_add_fav(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, adding to favorite ...", ephemeral=True)
+            # check if he has so many fav already.
+            counting = await self.utils.check_if_fav_coin(str(inter.author.id), SERVER_BOT, None)
+            if len(counting) >= 15:
+                await inter.edit_original_message(
+                    content=f"{inter.author.mention}, you reached maximum of favorited coins already! ({str(len(counting))})"
+                )
+                return
+            adding = await self.utils.fav_coin_add(str(inter.author.id), SERVER_BOT, self.coin_name)
+            if adding is True:
+                await inter.delete_original_message()
+                view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=True)
+                await self.ctx.edit_original_message(view=view)
+
+    @disnake.ui.button(label="Remove", emoji="💙", style=ButtonStyle.grey, custom_id="balance_single_remove_fav")
+    async def btn_balance_single_remove_fav(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, removing from favorite ...", ephemeral=True)
+            removing = await self.utils.fav_coin_remove(str(inter.author.id), SERVER_BOT, self.coin_name)
+            if removing is True:
+                await inter.delete_original_message()
+                view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=False)
+                await self.ctx.edit_original_message(view=view)
+
+    @disnake.ui.button(label="All coins/tokens", emoji="💰", style=ButtonStyle.grey, custom_id="balance_single_all")
+    async def btn_balance_all_coins(
         self, button: disnake.ui.Button,
         inter: disnake.MessageInteraction
     ):
@@ -11811,7 +11862,8 @@ class Wallet(commands.Cog):
                 link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")) + extension
                 embed.set_thumbnail(url=link)
 
-            view = SingleBalanceMenu(self.bot, ctx, ctx.author.id)
+            check_fav = await self.utils.check_if_fav_coin(str(ctx.author.id), SERVER_BOT, coin_name)
+            view = SingleBalanceMenu(self.bot, ctx, ctx.author.id, embed, coin_name, is_fav=check_fav)
             await ctx.edit_original_message(embed=embed, view=view)
             # Add update for future call
             try:
@@ -11923,18 +11975,41 @@ class Wallet(commands.Cog):
                         await ctx.edit_original_message(content=None, embed=page)
                         return
                     else:
+                        # get favorite coins
+                        fav_coins = await self.utils.check_if_fav_coin(str(ctx.author.id), SERVER_BOT, None)
+                        fav_coin_list = []
+                        if len(fav_coins) > 0:
+                            fav_coin_list = [i['coin_name'] for i in fav_coins]
+                            fav_embed = original_em.copy()
+                            fav_embed.description = "Below are coins you added to favorites. "\
+                                "You can remove or add more and they will list here by default. "\
+                                "Please use the button sort by value or alphabet then use dropdown."
                         top_balances = []
                         for coin_name, v in all_userdata_balance.items():
                             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
                             equivalent_usd = ""
                             per_unit = None
+                            amount_usd = 0.0
                             price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                             if price_with:
                                 per_unit = await self.utils.get_coin_price(coin_name, price_with)
                                 if per_unit and per_unit['price'] and per_unit['price'] > 0:
                                     per_unit = per_unit['price']
-                                    total_all_balance_usd += float(Decimal(v) * Decimal(per_unit))
-                                    top_balances.append({"name": coin_name, "amount": float(Decimal(v)), "value_usd": float(Decimal(v) * Decimal(per_unit))})
+                                    amount_usd = float(Decimal(v) * Decimal(per_unit))
+                                    total_all_balance_usd += amount_usd
+                                    top_balances.append({"name": coin_name, "amount": float(Decimal(v)), "value_usd": amount_usd})
+                            if len(fav_coins) > 0 and coin_name in fav_coin_list:
+                                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                fav_embed.add_field(
+                                    name="{}{}{}".format(
+                                        coin_emoji + " " if coin_emoji else "",
+                                        token_display,
+                                        " ~ {:,.4f}$".format(amount_usd) if amount_usd > 0.001 else ""
+                                    ),
+                                    value="{}".format(
+                                        num_format_coin(v)),
+                                    inline=True
+                                )
                         if len(top_balances) > 0:
                             top_balances = sorted(top_balances, key=lambda k: k.get('value_usd'), reverse=True)
 
@@ -11949,6 +12024,7 @@ class Wallet(commands.Cog):
                             elif len(value) == 1:
                                 list_index_desc.append("{}".format(list(value[0].keys())[0]))
                         embed = original_em.copy()
+
                         additional_text = ""
                         if len(top_balances) > 0:
                             additional_text = " Below are top coins/tokens' amount(s). "\
@@ -11990,9 +12066,10 @@ class Wallet(commands.Cog):
                             self.bot, ctx, ctx.author.id, embed, all_userdata_balance,
                             list_bl_chunks, list_index_desc,
                             bl_list_by_value_chunks, list_index_value,
-                            sorted_by="ALPHA", home_embed = embed.copy(), selected_index=None
+                            sorted_by="ALPHA", home_embed = fav_embed if len(fav_coin_list) > 0 else embed,
+                            selected_index=None
                         )
-                        await ctx.edit_original_message(content=None, embed=embed, view=view)
+                        await ctx.edit_original_message(content=None, embed=fav_embed if len(fav_coin_list) > 0 else embed, view=view)
                         return
             except Exception:
                 traceback.print_exc(file=sys.stdout)

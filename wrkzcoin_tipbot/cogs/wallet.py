@@ -1253,7 +1253,7 @@ class WalletAPI(commands.Cog):
         try:
             if self.pool is None:
                 self.pool = await aiomysql.create_pool(
-                    host=self.bot.config['mysql']['host'], port=3306, minsize=4, maxsize=8,
+                    host=self.bot.config['mysql']['host'], port=3306, minsize=2, maxsize=4,
                     user=self.bot.config['mysql']['user'], password=self.bot.config['mysql']['password'],
                     db=self.bot.config['mysql']['db'], cursorclass=DictCursor, autocommit=True
                 )
@@ -5268,7 +5268,7 @@ class Wallet(commands.Cog):
         try:
             if self.pool is None:
                 self.pool = await aiomysql.create_pool(
-                    host=self.bot.config['mysql']['host'], port=3306, minsize=3, maxsize=6,
+                    host=self.bot.config['mysql']['host'], port=3306, minsize=2, maxsize=4,
                     user=self.bot.config['mysql']['user'], password=self.bot.config['mysql']['password'],
                     db=self.bot.config['mysql']['db'], cursorclass=DictCursor, autocommit=True
                 )
@@ -14459,21 +14459,22 @@ class Wallet(commands.Cog):
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
-                    await ctx.edit_original_message(content=msg)
-                    # add penalty:
-                    try:
-                        key = self.bot.config['kv_db']['prefix_faucet_take_penalty'] + SERVER_BOT + "_" + str(ctx.author.id)
-                        await self.utils.async_set_cache_kv(
-                            "faucet",
-                            key,
-                            {
-                                'penalty_at': int(time.time())
-                            }
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                    return
+                    if botChan is not None:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
+                        await ctx.edit_original_message(content=msg)
+                        # add penalty:
+                        try:
+                            key = self.bot.config['kv_db']['prefix_faucet_take_penalty'] + SERVER_BOT + "_" + str(ctx.author.id)
+                            await self.utils.async_set_cache_kv(
+                                "faucet",
+                                key,
+                                {
+                                    'penalty_at': int(time.time())
+                                }
+                            )
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
@@ -16544,6 +16545,8 @@ class Wallet(commands.Cog):
         self.monitoring_tweet_command.cancel()
         self.monitoring_tweet_mentioned_command.cancel()
 
+        # close SQL
+        self.pool.close()
 
 def setup(bot):
     bot.add_cog(Wallet(bot))

@@ -348,7 +348,7 @@ class Utils(commands.Cog):
         try:
             if self.pool is None:
                 self.pool = await aiomysql.create_pool(
-                    host=self.bot.config['mysql']['host'], port=3306, minsize=2, maxsize=4,
+                    host=self.bot.config['mysql']['host'], port=3306, minsize=1, maxsize=2,
                     user=self.bot.config['mysql']['user'], password=self.bot.config['mysql']['password'],
                     db=self.bot.config['mysql']['db'], cursorclass=DictCursor, autocommit=True
                 )
@@ -1834,7 +1834,8 @@ class Utils(commands.Cog):
         pass
 
     def cog_unload(self):
-        pass
+        # close SQL
+        self.pool.close()
 
 def setup(bot):
     bot.add_cog(Utils(bot))

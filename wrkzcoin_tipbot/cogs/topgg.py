@@ -144,7 +144,7 @@ class TopGGVote(commands.Cog):
 
     async def webserver(self):
         async def handler_get(request):
-            return web.Response(text="Hello, world")
+            return web.Response(status=200, text="Hello, world")
 
         async def handler_post(request):
             try:
@@ -172,7 +172,7 @@ class TopGGVote(commands.Cog):
                                         f"[{SERVER_BOT}] User <@{user_vote}> voted for guild `{guild_id}` at top.gg "\
                                         f"type `{type_vote}` but less than 1h."
                                     )
-                                    return web.Response(text="Thank you!")
+                                    return web.Response(status=200, text="Thank you!")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
 
@@ -379,7 +379,7 @@ class TopGGVote(commands.Cog):
                                         )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
-                                return web.Response(text="Thank you!")
+                                return web.Response(status=200, text="Thank you!")
                             else:
                                 try:
                                     await log_to_channel(
@@ -389,9 +389,9 @@ class TopGGVote(commands.Cog):
                                     )
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
-                                return web.Response(text="No such server by this key! Or not up to date!")
+                                return web.Response(status=404, text="No such server by this key! Or not up to date!")
                         else:
-                            return web.Response(text="No Authorization! Or not up to date!")
+                            return web.Response(status=500, text="No Authorization! Or not up to date!")
                     elif str(request.rel_url).startswith("/topgg_bot_vote/"):
                         # Bot: {'user': '386761001808166912', 'type': 'test', 'query': '', 'bot': '474841349968101386'}
                         if 'Authorization' in request.headers and request.headers['Authorization'] == self.bot.config['topgg']['auth']:
@@ -405,7 +405,7 @@ class TopGGVote(commands.Cog):
                                         f"[{SERVER_BOT}] User <@{user_vote}> voted for bot <@{vote_to}> at top.gg "\
                                         f"type `{type_vote}` but less than 1h."
                                     )
-                                    return web.Response(text="Thank you!")
+                                    return web.Response(status=200, text="Thank you!")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             insert_vote = await self.insert_bot_vote(
@@ -478,7 +478,7 @@ class TopGGVote(commands.Cog):
                                                         await log_to_channel(
                                                             "vote",
                                                             f'[{SERVER_BOT}] vote reward for but TipBot for {coin_name} but empty!!!')
-                                                        return web.Response(text="Thank you!")
+                                                        return web.Response(status=200, text="Thank you!")
                                                     else:
                                                         # move reward
                                                         try:
@@ -579,12 +579,12 @@ class TopGGVote(commands.Cog):
                                             traceback.print_exc(file=sys.stdout)
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
-                            return web.Response(text="Thank you!")
+                            return web.Response(status=200, text="Thank you!")
                     else:
                         await log_to_channel(
                             "vote",
                             f"[{SERVER_BOT}] User <@{user_vote}> voted type `{type_vote}` but not true from top.gg.")
-                        return web.Response(text="Thank you but not topgg!")
+                        return web.Response(status=200, text="Thank you but not topgg!")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 

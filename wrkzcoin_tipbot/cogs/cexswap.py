@@ -5612,6 +5612,47 @@ class Cexswap(commands.Cog):
                                         "time": int(time.time())
                                     }
                                     return web.json_response(result, status=500)
+                        elif str(request.rel_url).startswith("/get_balances"):
+                            # show all balances
+                            user_id = find_user['user_id']
+                            user_server = find_user['user_server']
+                            userdata_balances = await self.wallet_api.all_user_balance(
+                                user_id, user_server, self.bot.coin_name_list
+                            )
+                            if userdata_balances is None or len(userdata_balances) == 0:
+                                result = {
+                                    "success": True,
+                                    "error": "You don't have any balance",
+                                    "time": int(time.time())
+                                }
+                                return web.json_response(result, status=200)
+                            else:
+                                list_balance = []
+                                for k, v in userdata_balances.items():
+                                    if k not in self.bot.coin_name_list:
+                                        continue
+                                    value_usd = None
+                                    price_with = getattr(getattr(self.bot.coin_list, k), "price_with")
+                                    if price_with:
+                                        per_unit = await self.utils.get_coin_price(k, price_with)
+                                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                            per_unit = per_unit['price']
+                                            if per_unit > 0.01:
+                                                value_usd = float(Decimal(v) * Decimal(per_unit))
+                                    list_balance.append(
+                                        {
+                                            "coin_name": k,
+                                            "balance": num_format_coin(v),
+                                            "value_usd": value_usd
+                                        }
+                                    )
+                                result = {
+                                    "success": True,
+                                    "data": list_balance,
+                                    "error": None,
+                                    "time": int(time.time())
+                                }
+                                return web.json_response(result, status=200)
                         elif str(request.rel_url).startswith("/get_balance/"):
                             coin_name = str(request.rel_url).replace("/get_balance/", "").replace("/", "").upper().strip()
                             if len(coin_name) == 0:

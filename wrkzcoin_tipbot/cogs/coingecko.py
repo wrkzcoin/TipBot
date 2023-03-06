@@ -170,7 +170,8 @@ class CoinGecko(commands.Cog):
                                         await store.openConnection()
                                         async with store.pool.acquire() as conn:
                                             async with conn.cursor() as cur:
-                                                sql = """ UPDATE coin_coingecko_list 
+                                                sql = """
+                                                UPDATE coin_coingecko_list 
                                                 SET `price_usd`=%s, `price_time`=%s, `price_date`=%s,
                                                 `usd_market_cap`=%s, `usd_24h_vol`=%s, `usd_24h_change`=%s, `last_updated_at`=%s 
                                                 WHERE `id`=%s """

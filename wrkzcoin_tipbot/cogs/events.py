@@ -166,18 +166,18 @@ class Events(commands.Cog):
     # Update stats
     async def insert_new_stats(
         self, num_server: int, num_online: int, num_users: int, 
-        num_bots: int, num_tips: int, date: int
+        num_bots: int, num_tips: int, date: int, uptime: int=0
     ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """
-                    INSERT INTO discord_stats 
-                    (`num_server`, `num_online`, `num_users`, `num_bots`, `num_tips`, `date`) 
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO `discord_stats` 
+                    (`num_server`, `num_online`, `num_users`, `num_bots`, `num_tips`, `date`, `uptime`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """
-                    await cur.execute(sql, (num_server, num_online, num_users, num_bots, num_tips, date))
+                    await cur.execute(sql, (num_server, num_online, num_users, num_bots, num_tips, date, uptime))
                     await conn.commit()
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -817,7 +817,10 @@ class Events(commands.Cog):
             num_bots = sum(1 for m in self.bot.get_all_members() if m.bot == True)
             get_tipping_count = await self.get_tipping_count()
             num_tips = get_tipping_count['nos_tipping']
-            await self.insert_new_stats(num_server, num_online, num_users, num_bots, num_tips, int(time.time()))
+            uptime_seconds = round((datetime.datetime.now() - self.bot.start_time).total_seconds())
+            await self.insert_new_stats(
+                num_server, num_online, num_users, num_bots, num_tips, int(time.time()), uptime_seconds
+            )
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs
@@ -2103,17 +2106,29 @@ class Events(commands.Cog):
             num_bots = sum(1 for m in self.bot.get_all_members() if m.bot == True)
             get_tipping_count = await self.get_tipping_count()
             num_tips = get_tipping_count['nos_tipping']
+            uptime_seconds = round((datetime.datetime.now() - self.bot.start_time).total_seconds())
             await self.insert_new_stats(
-                num_server, int(total_online), int(total_unique), int(num_bots), num_tips, int(time.time())
+                num_server, int(total_online), int(total_unique), int(num_bots), num_tips, int(time.time()), uptime_seconds
             )
             try:
                 if len(self.bot.guilds) > 0 and (len(self.bot.guilds) % 10 == 0 or len(self.bot.guilds) % 1111 == 0):
                     botdetails = disnake.Embed(title='About Me', description='')
-                    botdetails.add_field(name='Creator\'s Discord Name:', value='pluton#8888', inline=True)
-                    botdetails.add_field(name='My Github:', value="[TipBot Github](https://github.com/wrkzcoin/TipBot)",
-                                         inline=True)
-                    botdetails.add_field(name='Invite Me:', value=self.bot.config['discord']['invite_link'], inline=True)
-                    botdetails.add_field(name='Servers:', value=len(self.bot.guilds), inline=True)
+                    botdetails.add_field(
+                        name='Creator\'s Discord Name:',
+                        value='pluton#8888',
+                        inline=True)
+                    botdetails.add_field(
+                        name='My Github:',
+                        value="[TipBot Github](https://github.com/wrkzcoin/TipBot)",
+                        inline=True)
+                    botdetails.add_field(
+                        name='Invite Me:',
+                        value=self.bot.config['discord']['invite_link'],
+                        inline=True)
+                    botdetails.add_field(
+                        name='Servers:',
+                        value=len(self.bot.guilds),
+                        inline=True)
                     try:
                         botdetails.add_field(
                             name="Online",
@@ -2137,8 +2152,9 @@ class Events(commands.Cog):
                         )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                    botdetails.set_footer(text='Made in Python',
-                                          icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
+                    botdetails.set_footer(
+                        text='Made in Python',
+                        icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
                     botdetails.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
                     await self.botLogChan.send(embed=botdetails)
             except Exception:
@@ -2163,7 +2179,10 @@ class Events(commands.Cog):
             num_bots = sum(1 for m in self.bot.get_all_members() if m.bot == True)
             get_tipping_count = await self.get_tipping_count()
             num_tips = get_tipping_count['nos_tipping']
-            await self.insert_new_stats(num_server, total_online, total_unique, num_bots, num_tips, int(time.time()))
+            uptime_seconds = round((datetime.datetime.now() - self.bot.start_time).total_seconds())
+            await self.insert_new_stats(
+                num_server, total_online, total_unique, num_bots, num_tips, int(time.time()), uptime_seconds
+            )
             try:
                 if len(self.bot.guilds) > 0 and len(self.bot.guilds) % 10 == 0:
                     botdetails = disnake.Embed(title='About Me', description='')

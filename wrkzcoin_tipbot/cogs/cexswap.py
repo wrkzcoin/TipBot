@@ -5637,7 +5637,7 @@ class Cexswap(commands.Cog):
                                         per_unit = await self.utils.get_coin_price(k, price_with)
                                         if per_unit and per_unit['price'] and per_unit['price'] > 0:
                                             per_unit = per_unit['price']
-                                            if per_unit > 0.01:
+                                            if per_unit > 0.00001:
                                                 value_usd = float(Decimal(v) * Decimal(per_unit))
                                     list_balance.append(
                                         {

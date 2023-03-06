@@ -65,10 +65,9 @@ class CoinGecko(commands.Cog):
             await logchanbot("coingecko " + str(traceback.format_exc()))
         return False
 
-    @tasks.loop(seconds=60.0)
+    @tasks.loop(seconds=1800.0)
     async def fetch_gecko_coinlist(self):
-        time_lap = 600 # seconds
-        await self.bot.wait_until_ready()
+        time_lap = 30 # seconds
         # Check if task recently run @bot_task_logs
         task_name = "fetch_gecko_coinlist"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
@@ -83,7 +82,7 @@ class CoinGecko(commands.Cog):
                     res_data = res_data.decode('utf-8')
                     decoded_data = json.loads(res_data)
                     if len(decoded_data) > 0:
-                        existing_coinlist = await self.get_coingecko_list_db()
+                        # existing_coinlist = await self.get_coingecko_list_db()
                         insert_list = []
                         id_list_inserting = []
                         for each_item in decoded_data:
@@ -93,8 +92,7 @@ class CoinGecko(commands.Cog):
                                 continue
                             try:
                                 if len(each_item['id']) > 0 and len(each_item['symbol']) > 0 and len(each_item['name']) > 0 \
-                                    and each_item['id'].lower().strip() not in existing_coinlist and \
-                                        each_item['id'].lower().strip() not in id_list_inserting:
+                                    and each_item['id'].lower().strip() not in id_list_inserting:
                                     insert_list.append((each_item['id'].lower().strip(), each_item['symbol'], each_item['name']))
                                     id_list_inserting.append(each_item['id'].lower().strip())
                             except Exception:
@@ -105,8 +103,12 @@ class CoinGecko(commands.Cog):
                                 await store.openConnection()
                                 async with store.pool.acquire() as conn:
                                     async with conn.cursor() as cur:
-                                        sql = """ INSERT INTO coin_coingecko_list (`id`, `symbol`, `name`) 
-                                                  VALUES (%s, %s, %s)"""
+                                        sql = """
+                                        INSERT INTO coin_coingecko_list (`id`, `symbol`, `name`) 
+                                        VALUES (%s, %s, %s)
+                                        ON DUPLICATE KEY
+                                          UPDATE `symbol`=VALUES(`symbol`), `name`=VALUES(`name`)
+                                        """
                                         await cur.executemany(sql, insert_list)
                                         await conn.commit()
                             except Exception:

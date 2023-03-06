@@ -1467,7 +1467,8 @@ class SelectPoolSingle(disnake.ui.View):
         interaction: disnake.MessageInteraction
     ):
         if interaction.author.id != self.owner_id:
-            await interaction.response.send_message(f"{interaction.author.mention}, that's not your menu!", ephemeral=True)
+            await inter.response.defer()
+            return
         else:
             await self.ctx.edit_original_message(
                 content=None,
@@ -1482,7 +1483,8 @@ class SelectPoolSingle(disnake.ui.View):
         interaction: disnake.MessageInteraction
     ):
         if interaction.author.id != self.owner_id:
-            await interaction.response.send_message(f"{interaction.author.mention}, that's not your menu!", ephemeral=True)
+            await inter.response.defer()
+            return
         else:
             await self.ctx.edit_original_message(
                 content=None,
@@ -1497,7 +1499,8 @@ class SelectPoolSingle(disnake.ui.View):
         interaction: disnake.MessageInteraction
     ):
         if interaction.author.id != self.owner_id:
-            await interaction.response.send_message(f"{interaction.author.mention}, that's not your menu!", ephemeral=True)
+            await inter.response.defer()
+            return
         else:
             await self.ctx.edit_original_message(
                 content=None,
@@ -1512,7 +1515,8 @@ class SelectPoolSingle(disnake.ui.View):
         interaction: disnake.MessageInteraction
     ):
         if interaction.author.id != self.owner_id:
-            await interaction.response.send_message(f"{interaction.author.mention}, that's not your menu!", ephemeral=True)
+            await inter.response.defer()
+            return
         else:
             await self.ctx.edit_original_message(
                 content=None,
@@ -1549,7 +1553,7 @@ class DropdownSummaryLP(disnake.ui.StringSelect):
 
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.ctx.user.id:
-            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            await inter.response.defer()
             return
         else:
             try:
@@ -1665,7 +1669,7 @@ class DropdownLP(disnake.ui.StringSelect):
 
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.ctx.user.id:
-            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=5.0)
+            await inter.response.defer()
             return
         else:
             testing = self.bot.config['cexswap']['testing_msg']
@@ -1787,7 +1791,7 @@ class DropdownMyPool(disnake.ui.StringSelect):
 
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.ctx.user.id:
-            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=5.0)
+            await inter.response.defer()
             return
         else:
             embed = self.embed.copy()
@@ -1887,7 +1891,8 @@ class ConfirmSell(disnake.ui.View):
     @disnake.ui.button(label="Confirm", emoji="✅", style=disnake.ButtonStyle.green)
     async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
-            await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
+            await inter.response.defer()
+            return
         else:
             if str(inter.author.id) in self.bot.tipping_in_progress and \
                 int(time.time()) - self.bot.tipping_in_progress[str(inter.author.id)] < 30:
@@ -1905,7 +1910,8 @@ class ConfirmSell(disnake.ui.View):
     @disnake.ui.button(label="Cancel", emoji="❌", style=disnake.ButtonStyle.grey)
     async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
-            await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
+            await inter.response.defer()
+            return
         else:
             self.value = False
             self.stop()
@@ -2186,7 +2192,7 @@ class add_liquidity_btn(disnake.ui.View):
         # await inter.response.send_message("This is the first button.")
         # await inter.response.defer()
         if inter.author.id != self.ctx.author.id:
-            await inter.response.send_message(f"{inter.author.mention}, that's not your menu!", ephemeral=True)
+            await inter.response.defer()
             return
         ticker = self.pool_name.split("/")
         await inter.response.send_modal(
@@ -2195,7 +2201,7 @@ class add_liquidity_btn(disnake.ui.View):
     @disnake.ui.button(label="Accept", style=disnake.ButtonStyle.green, custom_id="cexswap_acceptliquidity_btn")
     async def accept_click(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.ctx.author.id:
-            await inter.response.send_message(f"{inter.author.mention}, that's not your menu!", ephemeral=True)
+            await inter.response.defer()
             return
         else:
             await inter.response.send_message(f"{inter.author.mention}, checking liquidity.")
@@ -2413,7 +2419,7 @@ class add_liquidity_btn(disnake.ui.View):
     @disnake.ui.button(label="Cancel", style=disnake.ButtonStyle.gray, custom_id="cexswap_cancelliquidity_btn")
     async def cancel_click(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.ctx.author.id:
-            await inter.response.send_message(f"{inter.author.mention}, that's not your menu!", ephemeral=True)
+            await inter.response.defer()
             return
         else:
             try:
@@ -2607,6 +2613,8 @@ class Cexswap(commands.Cog):
                 value="{}".format(", ".join(self.bot.cexswap_coins)),
                 inline=False
             )
+            embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+            embed.set_thumbnail(url=self.bot.user.display_avatar)
             # LP available
             get_pools = await cexswap_get_pools()
             if len(get_pools) > 0:
@@ -2634,6 +2642,7 @@ class Cexswap(commands.Cog):
             get_pools = await cexswap_get_all_lp_pools()
             lp_list_coins = {}
             lp_in_usd = {}
+
             for each_lp in get_pools:
                 if each_lp['pairs'] not in lp_in_usd:
                     sub_1 = 0.0
@@ -2680,14 +2689,33 @@ class Cexswap(commands.Cog):
             lp_sorted_key = lp_in_usd.copy()
             lp_sorted_key = sorted(lp_sorted_key, key=lambda k: lp_sorted_key[k]['value_usd'], reverse=True)
 
+            key_lp = list(sorted(lp_list_coins.keys()))
+            tmp_lp = lp_list_coins.copy()
+            lp_list_coins = {}
+            for i in key_lp:
+                lp_list_coins[i] = tmp_lp[i]
+            del tmp_lp
+            list_sold = {}
+            list_embeds = {}
             if len(earning) > 0:
                 for k, v in earning.items():
+                    list_sold[k] = []
+                    list_embeds[k] = []
                     list_coin_set = []
                     earning_list = []
                     volume_list = []
                     list_earning_dict = {}
                     list_volume_dict = {}
                     for each in v:
+                        list_sold[k].append(
+                            {
+                                "pairs": each['pairs'],
+                                "amount": each['got'],
+                                "coin_name": each['got_ticker'],
+                                "other_amount": each['sold'],
+                                "other_token": each['sold_ticker']
+                            }
+                        )
                         if each['got_ticker'] not in list_earning_dict.keys():
                             list_earning_dict[each['got_ticker']] = each['fee_liquidators']
                         else:
@@ -2698,6 +2726,22 @@ class Cexswap(commands.Cog):
                             list_volume_dict[each['got_ticker']] += each['got']
                         if each['got_ticker'] not in list_coin_set:
                             list_coin_set.append(each['got_ticker'])
+                    # Sort by alpha
+                    if len(list_sold[k]) > 0:
+                        list_sold[k] = sorted(list_sold[k], key=lambda d: d['pairs'], reverse=False)
+                        embed_t = embed.copy()
+                        embed_t.clear_fields()
+                        for i in list_sold[k]:
+                            embed_t.add_field(
+                                name=i['pairs'] + " - " + k,
+                                value="{} {}\n{} {}".format(
+                                    num_format_coin(i['amount']), i['coin_name'],
+                                    num_format_coin(i['other_amount']), i['other_token']
+                                ),
+                                inline=True
+                            )
+                        list_embeds[k] = embed_t
+                    list_coin_set = list(sorted(list_coin_set))
                     for i in list_coin_set:
                         if i not in list_volume_dict.keys():
                             continue
@@ -2718,18 +2762,17 @@ class Cexswap(commands.Cog):
                         list_fields[k]['fee_value'] = earning_list
                         list_fields[k]['volume_title'] = "Total volume [{}]".format(k.upper())
                         list_fields[k]['volume_value'] = volume_list
+            #print(list_sold, list_embeds)
             embed.add_field(
                 name="Select Menu",
                 value="Please select from dropdown",
                 inline=False
-            )  
+            )
             embed.add_field(
                 name="Remark",
                 value="Please often check this summary.",
                 inline=False
-            )  
-            embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
-            embed.set_thumbnail(url=self.bot.user.display_avatar)
+            )
             # Create the view containing our dropdown
             view = DropdownViewSummary(ctx, self.bot, embed, list_fields, lp_list_coins, lp_in_usd, lp_sorted_key, selected_menu=None)
             await ctx.edit_original_message(

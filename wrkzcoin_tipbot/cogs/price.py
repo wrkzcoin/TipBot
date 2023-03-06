@@ -91,6 +91,10 @@ class Price(commands.Cog):
                 ),
                 inline=True
             )
+            embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
+            embed.set_footer(text="Credit: CoinGecko")
+            # Edit first before running graph
+            await ctx.edit_original_message(content=None, embed=embed)
             try:
                 get_marketdata = await self.utils.gecko_fetch_marketdata_coin(coin_info['id'])
                 get_marketchart = await self.utils.gecko_fetch_marketchart_coin(coin_info['id'])
@@ -129,7 +133,7 @@ class Price(commands.Cog):
                             )
                         if abs(marketdata['price_change_percentage_30d']) > 0.01:
                             embed.add_field(
-                                name="Change 30d(%)",
+                                name="Change 30d",
                                 value="{:,.2f}{}".format(marketdata['price_change_percentage_30d'], "%"),
                                 inline=True
                             )
@@ -148,8 +152,6 @@ class Price(commands.Cog):
                                     has_chart = True
                             if has_chart is True:
                                 embed.set_image(url=self.bot.config['cg_marketchart']['static_image_link'] + chart_name)
-                    embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
-                    embed.set_footer(text="Credit: CoinGecko")
                     # if advert enable
                     if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
                         try:

@@ -2841,7 +2841,7 @@ class Cexswap(commands.Cog):
                     )
 
                 # filter uniq tokens
-                list_coins = list(set([i['ticker_1_name'] for i in get_pools] + [i['ticker_2_name'] for i in get_pools]))
+                list_coins = list(sorted(set([i['ticker_1_name'] for i in get_pools] + [i['ticker_2_name'] for i in get_pools])))
 
                 # Create the view containing our dropdown
                 # list_coins can be more than 25 - limit of Discord
@@ -3525,11 +3525,6 @@ class Cexswap(commands.Cog):
                             value="{}".format(" | ".join(other_links)),
                             inline=False
                         )
-                    embed.add_field(
-                        name="NOTE",
-                        value="Please use the command and select LP from the list above for more detail!",
-                        inline=False
-                    )
                 else:
                     embed.add_field(
                         name="LP with {} {}".format(coin_emoji, coin_name),
@@ -3597,7 +3592,7 @@ class Cexswap(commands.Cog):
                 view = None
                 if len(lp_list_token) > 0:
                     lp_list_token = sorted(lp_list_token, key=lambda d: d['amount'], reverse=True) 
-                    for i in lp_list_token[:10]: # maximum 10
+                    for i in lp_list_token[:15]: # maximum 10
                         embed_lp.add_field(
                             name=i['pairs'],
                             value="{} {}\n{} {}".format(
@@ -6069,9 +6064,10 @@ class Cexswap(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `cexswap_sell_logs` 
-                        WHERE `api`=1 AND `is_api_announced`=0 AND `time`>%s
-                        """
+                    sql = """
+                    SELECT * FROM `cexswap_sell_logs` 
+                    WHERE `api`=1 AND `is_api_announced`=0 AND `time`>%s
+                    """
                     await cur.execute(sql, lap)
                     result = await cur.fetchall()
                     if result and len(result) > 0:

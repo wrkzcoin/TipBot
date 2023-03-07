@@ -2379,6 +2379,11 @@ class add_liquidity_btn(disnake.ui.View):
                     del self.bot.tipping_in_progress[str(inter.author.id)]
                 except Exception:
                     pass
+                # remove /summary cache
+                try:
+                    self.utils.del_cache_kv(self.bot.config['kv_db']['prefix_cexswap'], "summary")
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
                 await log_to_channel(
                     "cexswap",
                     f"[ADD LIQUIDITY]: User {inter.author.mention} add new liquidity to pool `{self.pool_name}`! {add_msg}",
@@ -3290,6 +3295,11 @@ class Cexswap(commands.Cog):
                         except Exception:
                             pass
                         if selling is True:
+                            # remove /summary cache
+                            try:
+                                self.utils.del_cache_kv(self.bot.config['kv_db']['prefix_cexswap'], "summary")
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
                             # fee_str = num_format_coin(fee)
                             # . Fee {fee_str} {for_token}\n
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully traded!\n"\
@@ -4920,6 +4930,11 @@ class Cexswap(commands.Cog):
                     except Exception:
                         pass
                     if removing is True:
+                        # remove /summary cache
+                        try:
+                            self.utils.del_cache_kv(self.bot.config['kv_db']['prefix_cexswap'], "summary")
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully remove liqudity:" \
                             f"```{amount_1_str} {ticker_1}\n{amount_2_str} {ticker_2}```"
                         await ctx.edit_original_message(content=msg)
@@ -5973,6 +5988,11 @@ class Cexswap(commands.Cog):
                                         self.bot.coin_list, self.bot.config
                                     )
                                     if selling['success'] is True:
+                                        # remove /summary cache
+                                        try:
+                                            self.utils.del_cache_kv(self.bot.config['kv_db']['prefix_cexswap'], "summary")
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                         result = {
                                             "success": True,
                                             "sell": selling['sell'],

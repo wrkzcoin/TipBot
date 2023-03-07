@@ -72,10 +72,12 @@ class Price(commands.Cog):
                 timestamp=datetime.now()
             )
             unit_price = coin_info['price_usd']
-            if coin_info['price_usd'] >= 0.01:
+            if coin_info['price_usd'] >= 1:
                 unit_price = "{:,.2f} USD".format(coin_info['price_usd'])
-            elif coin_info['price_usd'] >= 0.0001:
-                unit_price = "{:,.5f} USD".format(coin_info['price_usd'])
+            elif coin_info['price_usd'] >= 0.01:
+                unit_price = "{:,.4f} USD".format(coin_info['price_usd'])
+            elif coin_info['price_usd'] >= 0.000001:
+                unit_price = "{:,.6f} USD".format(coin_info['price_usd'])
             
             if coin_info['usd_market_cap'] and coin_info['usd_market_cap'] > 1:
                 embed.add_field(

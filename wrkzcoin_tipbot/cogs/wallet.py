@@ -1253,7 +1253,7 @@ class WalletAPI(commands.Cog):
         try:
             if self.pool is None:
                 self.pool = await aiomysql.create_pool(
-                    host=self.bot.config['mysql']['host'], port=3306, minsize=2, maxsize=4,
+                    host=self.bot.config['mysql']['host'], port=3306, minsize=4, maxsize=8,
                     user=self.bot.config['mysql']['user'], password=self.bot.config['mysql']['password'],
                     db=self.bot.config['mysql']['db'], cursorclass=DictCursor, autocommit=True
                 )
@@ -3885,7 +3885,7 @@ class WalletAPI(commands.Cog):
         self, rpc_url: str, chain_id: str, coin_name: str, account_num: int, sequence: int, priv_key: str,
         amount: float, coin_decimal: int, user_id: str, to_address: str, user_server: str,
         withdraw_fee: float, fee: int=1000, gas: int=120000, memo: str ="", timeout: int=20, hrp: str="cosmos",
-        denom: str="uatom"
+        denom: str="uatom",
     ):
         fee_denom: str = denom
         if hrp == "osmo":
@@ -11472,12 +11472,14 @@ class Wallet(commands.Cog):
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
+                await conn.ping(reconnect=True)
                 async with conn.cursor() as cur:
                     if main_token is False:
-                        sql = """ SELECT * FROM `coin_settings` 
-                            WHERE `type`=%s AND `enable`=%s 
-                            AND `contract` IS NOT NULL AND `net_name` IS NOT NULL
-                            """
+                        sql = """
+                        SELECT * FROM `coin_settings` 
+                        WHERE `type`=%s AND `enable`=%s 
+                        AND `contract` IS NOT NULL AND `net_name` IS NOT NULL
+                        """
                         await cur.execute(sql, (type_token, 1))
                         result = await cur.fetchall()
                         if result and len(result) > 0:
@@ -11492,7 +11494,6 @@ class Wallet(commands.Cog):
                             return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot("wallet get_all_contracts " + str(traceback.format_exc()))
         return []
 
     async def generate_qr_address(
@@ -12956,10 +12957,13 @@ class Wallet(commands.Cog):
                             fee=int(getattr(getattr(self.bot.coin_list, coin_name), "fee_limit") * 10 ** coin_decimal)
                             min_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tx")
                             factor = int(amount/min_tx)
-                            if factor > 1:
-                                fee += int(factor/10 * 10 ** coin_decimal)
-                            if fee/10**coin_decimal > NetFee:
+                            if factor > 1 and coin_name in ["LUNC"]:
+                                fee += int(2.5*factor/10 * 10 ** coin_decimal)
+                            elif factor > 1:
+                                fee += int(1.0*factor/10 * 10 ** coin_decimal)
+                            if fee/(10**coin_decimal) > NetFee:
                                 fee = int(NetFee * 10 ** coin_decimal)
+                            print("withdraw {} fee: {}, netfee: {}".format(coin_name, fee, NetFee))
                             NetFee = fee/(10 ** coin_decimal) * 2.0
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
@@ -13007,13 +13011,66 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             del self.bot.tx_in_progress[str(ctx.author.id)]
                             return
+                        gas=120000
+                        if coin_name in ["LUNC"]:
+                            gas = int(1.5*gas)
+                            fee = int(1.5*fee)
                         send_tx = await self.wallet_api.cosmos_send_tx(
                             rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),
                             int(get_wallet_seq['account']['sequence']), key,
                             amount, coin_decimal, str(ctx.author.id), address, SERVER_BOT,
-                            NetFee, fee=fee,gas=120000, memo="", timeout=60, hrp=hrp, denom=denom
+                            NetFee, fee=fee,gas=gas, memo="", timeout=60, hrp=hrp, denom=denom
                         )
                         if send_tx:
+                            # code 13
+                            if send_tx['result']['code'] != 0 and "insufficient fees" in send_tx['result']['log']:
+                                await log_to_channel(
+                                    "withdraw",
+                                    f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"failed to withdraw {num_format_coin(amount)}."\
+                                    f"{token_display}{equivalent_usd}.\nERROR: {send_tx['result']}."
+                                )
+                                # re-send with new fee
+                                if 'required' in send_tx['result']:
+                                    check_fee = send_tx['result']['required'].split(",")
+                                elif 'required:' in send_tx['result']['log']:
+                                    check_fee = send_tx['result']['log'].split("required:")[1].repalce(":", "").split()
+                                for i in check_fee:
+                                    if denom in i:
+                                        gas = int(int(i.replace(denom, ""))*1.20)
+                                        break
+                                    fee = int(1.5*fee)
+                                    await log_to_channel(
+                                        "withdraw",
+                                        f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                        f"failed to withdraw {num_format_coin(amount)}."\
+                                        f"{token_display}{equivalent_usd}.\nERROR: {error}.\n"\
+                                        f"Re-try with a new gas: {str(gas)}{denom}, fee: {str(fee)}{denom}..."
+                                    )
+                                send_tx = await self.wallet_api.cosmos_send_tx(
+                                    rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),
+                                    int(get_wallet_seq['account']['sequence']), key,
+                                    amount, coin_decimal, str(ctx.author.id), address, SERVER_BOT,
+                                    NetFee, fee=fee,gas=gas, memo="", timeout=60, hrp=hrp, denom=denom
+                                )
+                            # code 11
+                            elif send_tx['result']['code'] != 0 and "out of gas" in send_tx['result']['log']:
+                                error = send_tx['result']['log']
+                                gas = int(1.5*gas)
+                                fee = int(1.5*fee)
+                                await log_to_channel(
+                                    "withdraw",
+                                    f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"failed to withdraw {num_format_coin(amount)}."\
+                                    f"{token_display}{equivalent_usd}.\nERROR: {error}.\n"\
+                                    f"Re-try with a new gas: {str(gas)}{denom}, fee: {str(fee)}{denom}..."
+                                )
+                                send_tx = await self.wallet_api.cosmos_send_tx(
+                                    rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),
+                                    int(get_wallet_seq['account']['sequence']), key,
+                                    amount, coin_decimal, str(ctx.author.id), address, SERVER_BOT,
+                                    NetFee, fee=fee,gas=gas, memo="", timeout=60, hrp=hrp, denom=denom
+                                )
                             tx_hash = send_tx['result']['hash']
                             fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
                                 num_format_coin(NetFee), coin_name
@@ -14760,9 +14817,10 @@ class Wallet(commands.Cog):
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
-                    await ctx.edit_original_message(content=msg)
-                    return
+                    if botChan is not None:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
+                        await ctx.edit_original_message(content=msg)
+                        return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
@@ -15005,9 +15063,10 @@ class Wallet(commands.Cog):
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
-                    await ctx.edit_original_message(content=msg)
-                    return
+                    if botChan is not None:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
+                        await ctx.edit_original_message(content=msg)
+                        return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
@@ -16544,9 +16603,6 @@ class Wallet(commands.Cog):
         # Monitoring Tweet command
         self.monitoring_tweet_command.cancel()
         self.monitoring_tweet_mentioned_command.cancel()
-
-        # close SQL
-        self.pool.close()
 
 def setup(bot):
     bot.add_cog(Wallet(bot))

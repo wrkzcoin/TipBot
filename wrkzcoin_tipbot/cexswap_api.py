@@ -655,9 +655,6 @@ async def get_summary(
     try:
         data = get_cache_kv(app, config['kv_db']['prefix_cexswap'], key="summary")
         if data is not None:
-            print("{} /summary using cache ...".format(
-                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            ))
             return {
                 "success": True,
                 "result": data,
@@ -712,6 +709,9 @@ async def get_summary(
             set_cache_kv(app, config['kv_db']['prefix_cexswap'], key="summary", value=data)
         except Exception:
             traceback.print_exc(file=sys.stdout)
+        print("{} /summary using new data ...".format(
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ))
         return {
             "success": True,
             "result": data,

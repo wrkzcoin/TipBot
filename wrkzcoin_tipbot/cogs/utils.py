@@ -1834,8 +1834,7 @@ class Utils(commands.Cog):
         pass
 
     def cog_unload(self):
-        # close SQL
-        self.pool.close()
+        pass
 
 def setup(bot):
     bot.add_cog(Utils(bot))

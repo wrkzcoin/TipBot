@@ -7314,7 +7314,7 @@ class Wallet(commands.Cog):
                     'Content-Type': 'application/json',
                     'User-Agent': ua
                 }
-                url = endpoint + "?pagination.limit=50&events=coin_received.receiver={}".format("%27" + account_addr + "%27")
+                url = endpoint + "?pagination.limit=50&events=coin_received.receiver={}&order_by=ORDER_BY_DESC".format("%27" + account_addr + "%27")
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
                         url,

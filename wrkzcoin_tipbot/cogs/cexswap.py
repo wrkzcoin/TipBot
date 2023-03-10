@@ -1467,7 +1467,7 @@ class SelectPoolSingle(disnake.ui.View):
         interaction: disnake.MessageInteraction
     ):
         if interaction.author.id != self.owner_id:
-            await inter.response.defer()
+            await interaction.response.defer()
             return
         else:
             await self.ctx.edit_original_message(
@@ -1483,7 +1483,7 @@ class SelectPoolSingle(disnake.ui.View):
         interaction: disnake.MessageInteraction
     ):
         if interaction.author.id != self.owner_id:
-            await inter.response.defer()
+            await interaction.response.defer()
             return
         else:
             await self.ctx.edit_original_message(
@@ -1499,7 +1499,7 @@ class SelectPoolSingle(disnake.ui.View):
         interaction: disnake.MessageInteraction
     ):
         if interaction.author.id != self.owner_id:
-            await inter.response.defer()
+            await interaction.response.defer()
             return
         else:
             await self.ctx.edit_original_message(
@@ -1515,7 +1515,7 @@ class SelectPoolSingle(disnake.ui.View):
         interaction: disnake.MessageInteraction
     ):
         if interaction.author.id != self.owner_id:
-            await inter.response.defer()
+            await interaction.response.defer()
             return
         else:
             await self.ctx.edit_original_message(
@@ -1525,27 +1525,36 @@ class SelectPoolSingle(disnake.ui.View):
             )
             await interaction.response.defer()
 
-# DropdownSummary Viewer
-class DropdownSummaryLP(disnake.ui.StringSelect):
-    def __init__(self, ctx, bot, embed, list_fields, lp_list_coins, lp_in_usd, lp_sorted_key, selected_menu):
+class Dropdown_Vol_Fee(disnake.ui.StringSelect):
+    def __init__(
+            self, ctx, bot, ori_embed, embed,
+            list_fields, lp_list_coins,
+            lp_in_usd, lp_sorted_key, has_dropdown: bool,
+            selected_duration, use_for
+        ):
+        """
+        selected_duration: 1d, 7d
+        """
         self.ctx = ctx
         self.bot = bot
+        self.ori_embed = ori_embed
         self.embed = embed
         self.list_fields = list_fields
         self.lp_list_coins = lp_list_coins
         self.lp_in_usd = lp_in_usd
         self.lp_sorted_key = lp_sorted_key
-        self.selected_menu = selected_menu
-        self.utils = Utils(self.bot)
+        self.has_dropdown = has_dropdown
+        self.selected_duration = selected_duration
+        self.use_for = use_for # fee, volume
 
         options = [
             disnake.SelectOption(
-                label=each, description="Show {}".format(each.lower())
-            ) for each in ["TOP POOLS", "LIQUIDITY", "VOLUME", "FEE TO LIQUIDATORS"]
+                label=each.lower(), description="Select {}".format(each.lower())
+            ) for each in ["1D", "7D", "30D"]
         ]
 
         super().__init__(
-            placeholder="Choose menu..." if self.selected_menu is None else self.selected_menu,
+            placeholder="Choose duration..." if self.selected_duration is None else self.selected_duration,
             min_values=1,
             max_values=1,
             options=options,
@@ -1556,91 +1565,229 @@ class DropdownSummaryLP(disnake.ui.StringSelect):
             await inter.response.defer()
             return
         else:
-            try:
-                self.embed.clear_fields()
-                self.embed.add_field(
-                    name="Coins with CEXSwap: {}".format(len(self.bot.cexswap_coins)),
-                    value="{}".format(", ".join(self.bot.cexswap_coins)),
-                    inline=False
-                )
-                if self.values[0] == "TOP POOLS":
-                    for i in self.lp_sorted_key[:self.bot.config['cexswap_summary']['top_pool']]:
-                        self.embed.add_field(
-                            name=i,
-                            value="{} {}\n{} {}{}".format(
-                                self.lp_in_usd[i]['amount_ticker_1'], self.lp_in_usd[i]['ticker_1_name'],
-                                self.lp_in_usd[i]['amount_ticker_2'], self.lp_in_usd[i]['ticker_2_name'],
-                                "\n~{}{}".format(truncate(self.lp_in_usd[i]['value_usd'], 2), " USD") if self.lp_in_usd[i]['value_usd'] > 0 else ""
-                            ),
-                            inline=True
-                        )
-                elif self.values[0] == "LIQUIDITY":
-                    list_lp = []
-                    for k, v in self.lp_list_coins.items():
-                        coin_emoji = getattr(getattr(self.bot.coin_list, k), "coin_emoji_discord")
-                        amount_str = num_format_coin(v)
-                        list_lp.append("{} {} {}".format(coin_emoji, amount_str, k))
-                    list_lp_chunks = list(chunks(list_lp, 12))
-                    for i in list_lp_chunks:
-                        self.embed.add_field(
-                            name=self.values[0],
-                            value="{}".format("\n".join(i)),
-                            inline=False
-                        )
-                elif self.values[0] == "VOLUME":
-                    for key in ['1d', '7d']:
-                        list_vol = list(chunks(self.list_fields[key]['volume_value'], 12))
-                        for i in list_vol:
-                            self.embed.add_field(
-                                name=self.list_fields[key]['volume_title'],
-                                value="{}".format("\n".join(i)),
-                                inline=False
-                            )
-                elif self.values[0] == "FEE TO LIQUIDATORS":
-                    for key in ['1d', '7d']:
-                        list_fee = list(chunks(self.list_fields[key]['fee_value'], 12))
-                        for i in list_fee:
-                            self.embed.add_field(
-                                name=self.list_fields[key]['fee_title'],
-                                value="{}".format("\n".join(i)),
-                                inline=False
-                            )
-                # Create the view containing our dropdown
-                view = DropdownViewSummary(
-                    self.ctx, self.bot, self.embed, self.list_fields,
-                    self.lp_list_coins, self.lp_in_usd, self.lp_sorted_key,
-                    selected_menu=self.values[0]
-                )
-                await self.ctx.edit_original_message(
-                    content=None,
-                    embed=self.embed,
-                    view=view
-                )
-                await inter.response.defer()
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
+            self.embed.clear_fields()
+            self.embed.add_field(
+                name="Coins with CEXSwap: {}".format(len(self.bot.cexswap_coins)),
+                value="{}".format(", ".join(self.bot.cexswap_coins)),
+                inline=False
+            )
+            self.embed.add_field(
+                name="Info",
+                value="Please use menu dropdown.",
+                inline=False
+            )
+        if self.values[0] is not None:
+            if self.use_for == "fee":
+                key = self.values[0]
+                list_fee = list(chunks(self.list_fields[key]['fee_value'], 12))
+                for i in list_fee:
+                    self.embed.add_field(
+                        name=self.list_fields[key]['fee_title'],
+                        value="{}".format("\n".join(i)),
+                        inline=False
+                    )
+            elif self.use_for == "volume":
+                key = self.values[0]
+                list_vol = list(chunks(self.list_fields[key]['volume_value'], 12))
+                for i in list_vol:
+                    self.embed.add_field(
+                        name=self.list_fields[key]['volume_title'],
+                        value="{}".format("\n".join(i)),
+                        inline=False
+                    )
+            view = ViewSummary(
+                self.ctx, self.bot, self.ori_embed, self.embed, self.list_fields, self.lp_list_coins,
+                self.lp_in_usd, self.lp_sorted_key, has_dropdown=True, selected_duration=self.values[0], use_for=self.use_for
+            )
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed,
+                view=view
+            )
+            await inter.response.defer()
 
-class DropdownViewSummary(disnake.ui.View):
-    def __init__(self, ctx, bot, embed, list_fields, lp_list_coins, lp_in_usd, lp_sorted_key, selected_menu: str):
+class ViewSummary(disnake.ui.View):
+    def __init__(
+            self, ctx, bot, ori_embed, embed, list_fields, lp_list_coins,
+            lp_in_usd, lp_sorted_key, has_dropdown: bool=True, selected_duration: str=None,
+            use_for: str=None
+        ):
         super().__init__(timeout=120.0)
         self.ctx = ctx
         self.bot = bot
+        self.ori_embed = ori_embed
         self.embed = embed
         self.list_fields = list_fields
         self.lp_list_coins = lp_list_coins
         self.lp_in_usd = lp_in_usd
         self.lp_sorted_key = lp_sorted_key
-        self.selected_menu = selected_menu
+        self.selected_duration = selected_duration
 
-        self.add_item(DropdownSummaryLP(
-            self.ctx, self.bot, self.embed, self.list_fields,
-            self.lp_list_coins, self.lp_in_usd, self.lp_sorted_key,
-            self.selected_menu
-        ))
+        if has_dropdown is True:
+            self.add_item(Dropdown_Vol_Fee(
+                self.ctx, self.bot, ori_embed, embed,
+                list_fields, lp_list_coins, lp_in_usd, lp_sorted_key,
+                has_dropdown, selected_duration=selected_duration, use_for=use_for
+            ))
 
     async def on_timeout(self):
-        original_message = await self.ctx.original_message()
-        await original_message.edit(view=None)
+        await self.ctx.edit_original_message(view=None)
+
+    @disnake.ui.button(label="Summary", emoji="🏠", style=ButtonStyle.grey, custom_id="cex_summary_home")
+    async def btn_balance_home(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.ctx.author.id:
+            await inter.response.defer()
+            return
+        else:
+            view = ViewSummary(
+                self.ctx, self.bot, self.ori_embed, self.embed, self.list_fields, self.lp_list_coins,
+                self.lp_in_usd, self.lp_sorted_key, has_dropdown=False, selected_duration=None, use_for=None
+            )
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.ori_embed,
+                view=view
+            )
+            await inter.response.defer()
+
+    @disnake.ui.button(label="Top Pools", emoji="⭐", style=ButtonStyle.grey, custom_id="cex_summary_top_pool")
+    async def btn_summary_top_pool(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.ctx.author.id:
+            await inter.response.defer()
+            return
+        else:
+            self.embed.clear_fields()
+            self.embed.add_field(
+                name="Coins with CEXSwap: {}".format(len(self.bot.cexswap_coins)),
+                value="{}".format(", ".join(self.bot.cexswap_coins)),
+                inline=False
+            )
+            for i in self.lp_sorted_key[:self.bot.config['cexswap_summary']['top_pool']]:
+                self.embed.add_field(
+                    name=i,
+                    value="{} {}\n{} {}{}".format(
+                        self.lp_in_usd[i]['amount_ticker_1'], self.lp_in_usd[i]['ticker_1_name'],
+                        self.lp_in_usd[i]['amount_ticker_2'], self.lp_in_usd[i]['ticker_2_name'],
+                        "\n~{}{}".format(truncate(self.lp_in_usd[i]['value_usd'], 2), " USD") if self.lp_in_usd[i]['value_usd'] > 0 else ""
+                    ),
+                    inline=True
+                )
+            view = ViewSummary(
+                self.ctx, self.bot, self.ori_embed, self.embed, self.list_fields, self.lp_list_coins,
+                self.lp_in_usd, self.lp_sorted_key, has_dropdown=False, selected_duration=None, use_for=None
+            )
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed,
+                view=view
+            )
+            await inter.response.defer()
+
+    @disnake.ui.button(label="Liquidity", emoji="💵", style=ButtonStyle.grey, custom_id="cex_summary_liquidity")
+    async def btn_summary_liqudity(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.ctx.author.id:
+            await inter.response.defer()
+            return
+        else:
+            self.embed.clear_fields()
+            self.embed.add_field(
+                name="Coins with CEXSwap: {}".format(len(self.bot.cexswap_coins)),
+                value="{}".format(", ".join(self.bot.cexswap_coins)),
+                inline=False
+            )
+            list_lp = []
+            for k, v in self.lp_list_coins.items():
+                coin_emoji = getattr(getattr(self.bot.coin_list, k), "coin_emoji_discord")
+                amount_str = num_format_coin(v)
+                list_lp.append("{} {} {}".format(coin_emoji, amount_str, k))
+            list_lp_chunks = list(chunks(list_lp, 12))
+            for i in list_lp_chunks:
+                self.embed.add_field(
+                    name="LIQUIDITY",
+                    value="{}".format("\n".join(i)),
+                    inline=False
+                )
+            view = ViewSummary(
+                self.ctx, self.bot, self.ori_embed, self.embed, self.list_fields, self.lp_list_coins,
+                self.lp_in_usd, self.lp_sorted_key, has_dropdown=False, selected_duration=None, use_for=None
+            )
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed,
+                view=view
+            )
+            await inter.response.defer()
+
+    @disnake.ui.button(label="Volume", emoji="💰", style=ButtonStyle.grey, custom_id="cex_summary_volume")
+    async def btn_summary_volume(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.ctx.author.id:
+            await inter.response.defer()
+            return
+        else:
+            self.embed.clear_fields()
+            self.embed.add_field(
+                name="Coins with CEXSwap: {}".format(len(self.bot.cexswap_coins)),
+                value="{}".format(", ".join(self.bot.cexswap_coins)),
+                inline=False
+            )
+            self.embed.add_field(
+                name="Info",
+                value="Please use menu dropdown.",
+                inline=False
+            )
+            view = ViewSummary(
+                self.ctx, self.bot, self.ori_embed, self.embed, self.list_fields, self.lp_list_coins,
+                self.lp_in_usd, self.lp_sorted_key, has_dropdown=True, selected_duration=None, use_for="volume"
+            )
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed,
+                view=view
+            )
+            await inter.response.defer()
+
+    @disnake.ui.button(label="Collected Fee", emoji="🤑", style=ButtonStyle.grey, custom_id="cex_summary_fee")
+    async def btn_summary_fee(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.ctx.author.id:
+            await inter.response.defer()
+            return
+        else:
+            self.embed.clear_fields()
+            self.embed.add_field(
+                name="Coins with CEXSwap: {}".format(len(self.bot.cexswap_coins)),
+                value="{}".format(", ".join(self.bot.cexswap_coins)),
+                inline=False
+            )
+            self.embed.add_field(
+                name="Info",
+                value="Please use menu dropdown.",
+                inline=False
+            )
+            view = ViewSummary(
+                self.ctx, self.bot, self.ori_embed, self.embed, self.list_fields, self.lp_list_coins,
+                self.lp_in_usd, self.lp_sorted_key, has_dropdown=True, selected_duration=None, use_for="fee"
+            )
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed,
+                view=view
+            )
+            await inter.response.defer()
 
 # DropdownLP Viewer
 class DropdownLP(disnake.ui.StringSelect):
@@ -2641,6 +2788,7 @@ class Cexswap(commands.Cog):
 
             # List distributed fee
             earning = {}
+            earning['30d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-30*24*3600)
             earning['7d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-7*24*3600)
             earning['1d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-1*24*3600)
             list_fields = {}
@@ -2769,17 +2917,15 @@ class Cexswap(commands.Cog):
                         list_fields[k]['volume_value'] = volume_list
             #print(list_sold, list_embeds)
             embed.add_field(
-                name="Select Menu",
-                value="Please select from dropdown",
-                inline=False
-            )
-            embed.add_field(
-                name="Remark",
-                value="Please often check this summary.",
+                name="Menu",
+                value="Please use menu or dropdown. Bot will remove menu after timeout.",
                 inline=False
             )
             # Create the view containing our dropdown
-            view = DropdownViewSummary(ctx, self.bot, embed, list_fields, lp_list_coins, lp_in_usd, lp_sorted_key, selected_menu=None)
+            view = ViewSummary(
+                ctx, self.bot, embed.copy(), embed, list_fields, lp_list_coins,
+                lp_in_usd, lp_sorted_key, has_dropdown=False, selected_duration=None, use_for=None
+            )
             await ctx.edit_original_message(
                 content=None,
                 embed=embed,
@@ -3317,41 +3463,47 @@ class Cexswap(commands.Cog):
                                 f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}. Ref: `{ref_log}`",
                                 self.bot.config['discord']['cexswap']
                             )
-                            get_guilds = await self.utils.get_trade_channel_list()
-                            if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0:
-                                list_guild_ids = [i.id for i in self.bot.guilds]
-                                for item in get_guilds:
-                                    if int(item['serverid']) not in list_guild_ids:
-                                        continue
-                                    get_guild = self.bot.get_guild(int(item['serverid']))
-                                    try:
-                                        if get_guild:
-                                            channel = get_guild.get_channel(int(item['trade_channel']))
-                                            if channel is None:
-                                                continue
-                                            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id:
-                                                continue
-                                            elif channel is not None:
-                                                await channel.send(f"[CEXSWAP]: A user sold {user_amount_sell} {sell_token} for "\
-                                                    f"{user_amount_get} {for_token}."
-                                                )
-                                    except disnake.errors.Forbidden:
-                                        await self.botLogChan.send(
-                                            f"[CEXSwap] failed to message to guild {get_guild.name} / {get_guild.id}."
-                                        )
-                                        update = await store.sql_changeinfo_by_server(item['serverid'], 'trade_channel', None)
-                                        if update is True:
-                                            await get_guild.owner.send(f"[CEXSwap] TipBot's failed to send message to <#{str(channel.id)}> "\
-                                                f"in guild {get_guild.name} / {get_guild.id}. "\
-                                                f"TipBot unassigned that channel from [CEXSwap]'s trading."\
-                                                f"You can set again anytime later!\nYou can ignore this message."
-                                            )
+                            # check if the amount is more than minimum.
+                            min_got = getattr(getattr(self.bot.coin_list, for_token), "cexswap_min_sold_ann")
+                            min_sold = getattr(getattr(self.bot.coin_list, sell_token), "cexswap_min_sold_ann")
+                            if min_got is None or min_sold is None or \
+                                (min_sold and amount > min_sold) or \
+                                    (min_got and amount_get > min_got):
+                                get_guilds = await self.utils.get_trade_channel_list()
+                                if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0:
+                                    list_guild_ids = [i.id for i in self.bot.guilds]
+                                    for item in get_guilds:
+                                        if int(item['serverid']) not in list_guild_ids:
+                                            continue
+                                        get_guild = self.bot.get_guild(int(item['serverid']))
+                                        try:
+                                            if get_guild:
+                                                channel = get_guild.get_channel(int(item['trade_channel']))
+                                                if channel is None:
+                                                    continue
+                                                if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id:
+                                                    continue
+                                                elif channel is not None:
+                                                    await channel.send(f"[CEXSWAP]: A user sold {user_amount_sell} {sell_token} for "\
+                                                        f"{user_amount_get} {for_token}."
+                                                    )
+                                        except disnake.errors.Forbidden:
                                             await self.botLogChan.send(
-                                                f"[CEXSwap] informed guild owner {get_guild.name} / {get_guild.id} / <@{get_guild.owner.id}> "\
-                                                f"about failed message and unassigned trade channel."
+                                                f"[CEXSwap] failed to message to guild {get_guild.name} / {get_guild.id}."
                                             )
-                                    except Exception:
-                                        traceback.print_exc(file=sys.stdout)
+                                            update = await store.sql_changeinfo_by_server(item['serverid'], 'trade_channel', None)
+                                            if update is True:
+                                                await get_guild.owner.send(f"[CEXSwap] TipBot's failed to send message to <#{str(channel.id)}> "\
+                                                    f"in guild {get_guild.name} / {get_guild.id}. "\
+                                                    f"TipBot unassigned that channel from [CEXSwap]'s trading."\
+                                                    f"You can set again anytime later!\nYou can ignore this message."
+                                                )
+                                                await self.botLogChan.send(
+                                                    f"[CEXSwap] informed guild owner {get_guild.name} / {get_guild.id} / <@{get_guild.owner.id}> "\
+                                                    f"about failed message and unassigned trade channel."
+                                                )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                         else:
                             await ctx.edit_original_message(
                                 content=f"{EMOJI_INFORMATION} {ctx.author.mention}, internal error!", view=None
@@ -6102,27 +6254,36 @@ class Cexswap(commands.Cog):
                             # too many announcement, skip. Take 10 first
                             result = result[:10]
                             for each_ann in result:
+                                # check if the amount is more than minimum.
                                 try:
-                                    list_guild_ids = [i.id for i in self.bot.guilds]
-                                    for item in get_guilds:
-                                        if int(item['serverid']) not in list_guild_ids:
-                                            continue
-                                        try:
-                                            get_guild = self.bot.get_guild(int(item['serverid']))
-                                            if get_guild:
-                                                channel = get_guild.get_channel(int(item['trade_channel']))
-                                                if channel is None:
-                                                    continue
-                                                else:
-                                                    await channel.send(each_ann['api_messsage'])
-                                        except Exception:
-                                            traceback.print_exc(file=sys.stdout)
+                                    coin_got = each_ann['got_ticker']
+                                    coin_sold = each_ann['sold_ticker']
+                                    min_got = getattr(getattr(self.bot.coin_list, coin_got), "cexswap_min_sold_ann")
+                                    min_sold = getattr(getattr(self.bot.coin_list, coin_sold), "cexswap_min_sold_ann")
+                                    if min_got is None or min_sold is None or \
+                                        (min_sold and float(each_ann['total_sold_amount']) > min_sold) or \
+                                            (min_got and float(each_ann['got_total_amount']) > min_got):
+                                        list_guild_ids = [i.id for i in self.bot.guilds]
+                                        for item in get_guilds:
+                                            if int(item['serverid']) not in list_guild_ids:
+                                                continue
+                                            try:
+                                                get_guild = self.bot.get_guild(int(item['serverid']))
+                                                if get_guild:
+                                                    channel = get_guild.get_channel(int(item['trade_channel']))
+                                                    if channel is None:
+                                                        continue
+                                                    else:
+                                                        await channel.send(each_ann['api_messsage'])
+                                            except Exception:
+                                                traceback.print_exc(file=sys.stdout)
                                     # Update announcement
                                     try:
-                                        sql = """ UPDATE `cexswap_sell_logs` 
-                                            SET `is_api_announced`=1
-                                            WHERE `log_id`=%s LIMIT 1;
-                                            """
+                                        sql = """
+                                        UPDATE `cexswap_sell_logs` 
+                                        SET `is_api_announced`=1
+                                        WHERE `log_id`=%s LIMIT 1;
+                                        """
                                         await cur.execute(sql, each_ann['log_id'])
                                         await conn.commit()
                                     except Exception:

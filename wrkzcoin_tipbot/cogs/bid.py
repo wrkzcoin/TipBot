@@ -1636,7 +1636,7 @@ class Bidding(commands.Cog):
         coin_decimal = 0
         try:
             get_perms = dict(ctx.guild.get_member(ctx.author.id).guild_permissions)
-            if get_perms[self.bot.config['bidding']['perm_bid_add']] is False:
+            if get_perms[self.bot.config['bidding']['perm_bid_add']] is False and ctx.author.id != self.bot.config['discord']['owner']:
                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you don't have permission here. At least `{self.bot.config['bidding']['perm_bid_add']}` in this guild!"
                 await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                 return

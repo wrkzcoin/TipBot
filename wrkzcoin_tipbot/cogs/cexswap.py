@@ -2917,13 +2917,18 @@ class Cexswap(commands.Cog):
 
             additional_msg = ""
             find_other_lp = await cexswap_get_pools(sell_token)
+            limit_show = 30
             if len(find_other_lp) > 0:
-                items =[i['pairs'] for i in find_other_lp]
+                items = list(sorted([i['pairs'] for i in find_other_lp]))
                 additional_msg = "\n__**More {} LP**__:\n   {}.".format(sell_token, ", ".join(items))
+                if len(items) > limit_show:
+                    additional_msg = "\n__**More {} LP**__:\n   {} and {} more...".format(sell_token, ", ".join(items[:limit_show]), len(items) - limit_show)
             find_other_lp = await cexswap_get_pools(for_token)
             if len(find_other_lp) > 0:
-                items =[i['pairs'] for i in find_other_lp]
-                additional_msg += "\n__**More {} LP**__:\n   {}.".format(for_token, ", ".join(items))
+                items = list(sorted([i['pairs'] for i in find_other_lp]))
+                additional_msg = "\n__**More {} LP**__:\n   {}.".format(for_token, ", ".join(items))
+                if len(items) > limit_show:
+                    additional_msg = "\n__**More {} LP**__:\n   {} and {} more...".format(for_token, ", ".join(items[:limit_show]), len(items) - limit_show)
             if len(find_route) > 0:
                 list_paths = []
                 for i in find_route:
@@ -4683,7 +4688,7 @@ class Cexswap(commands.Cog):
         await ctx.response.send_message(msg, ephemeral=True)
 
         if ctx.author.id != self.bot.config['discord']['owner']:
-            await ctx.edit_original_message(content=f"{ctx.auhtor.mention}, you don't have permission!")
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have permission! Did you mean `removeliquidity`?")
             await log_to_channel(
                 "cexswap",
                 f"[REMOVEPOOL]: User {ctx.author.mention} tried /cexswap removepools. Permission denied!",
@@ -5006,7 +5011,7 @@ class Cexswap(commands.Cog):
         # check if he's op and own that pool
         check_op = await cexswap_airdrop_check_op(str(ctx.author.id), SERVER_BOT, pool_name)
         if ctx.author.id != self.bot.config['discord']['owner'] and check_op is None:
-            await ctx.edit_original_message(content=f"{ctx.auhtor.mention}, you don't have permission with `{pool_name}` or invalid!")
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have permission with `{pool_name}` or invalid!")
             await log_to_channel(
                 "cexswap",
                 f"[AIRDROP]: User {ctx.author.mention} tried /cexswap airdrop `{pool_name}`. Permission denied!",
@@ -5019,7 +5024,7 @@ class Cexswap(commands.Cog):
             count_airdrop = await cexswap_airdrop_count(str(ctx.author.id), SERVER_BOT, pool_name, 7*24*3600) # 1 week
             if count_airdrop >= max_aidrop:
                 await ctx.edit_original_message(
-                    content=f"{ctx.auhtor.mention}, you reached maximum airdrop per week for `{pool_name}` max. **{str(max_aidrop)}**!")
+                    content=f"{ctx.author.mention}, you reached maximum airdrop per week for `{pool_name}` max. **{str(max_aidrop)}**!")
                 await log_to_channel(
                     "cexswap",
                     f"[AIRDROP]: User {ctx.author.mention} tried /cexswap reach maximum airdrop `{pool_name}` max. **{str(max_aidrop)}**!",
@@ -5027,7 +5032,7 @@ class Cexswap(commands.Cog):
                 )
                 return
         elif ctx.author.id != self.bot.config['discord']['owner']:
-            await ctx.edit_original_message(content=f"{ctx.auhtor.mention}, you don't have permission!")
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have permission!")
             await log_to_channel(
                 "cexswap",
                 f"[AIRDROP]: User {ctx.author.mention} tried /cexswap airdrop `{pool_name}`. Permission denied!",

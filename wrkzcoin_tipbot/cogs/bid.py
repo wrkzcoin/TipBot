@@ -172,6 +172,7 @@ class EditBid(disnake.ui.Modal):
                     self.bot.other_data['fetched_msg'][str(self.message_id)] = int(time.time())
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
+                await interaction.delete_original_message()
                 return
             else:
                 msg = f"{EMOJI_INFORMATION} {self.ctx.author.mention}, internal error!"

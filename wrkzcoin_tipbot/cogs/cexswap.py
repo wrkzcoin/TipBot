@@ -3466,9 +3466,12 @@ class Cexswap(commands.Cog):
                             # check if the amount is more than minimum.
                             min_got = getattr(getattr(self.bot.coin_list, for_token), "cexswap_min_sold_ann")
                             min_sold = getattr(getattr(self.bot.coin_list, sell_token), "cexswap_min_sold_ann")
-                            if min_got is None or min_sold is None or \
+                            if self.bot.config['cexswap']['ann_sold_limit'] == 2:
+                                # continue without announcement
+                                pass
+                            elif self.bot.config['cexswap']['ann_sold_limit'] == 0 or (min_got is None or min_sold is None or \
                                 (min_sold and amount > min_sold) or \
-                                    (min_got and amount_get > min_got):
+                                    (min_got and amount_get > min_got)):
                                 get_guilds = await self.utils.get_trade_channel_list()
                                 if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0:
                                     list_guild_ids = [i.id for i in self.bot.guilds]
@@ -6260,9 +6263,12 @@ class Cexswap(commands.Cog):
                                     coin_sold = each_ann['sold_ticker']
                                     min_got = getattr(getattr(self.bot.coin_list, coin_got), "cexswap_min_sold_ann")
                                     min_sold = getattr(getattr(self.bot.coin_list, coin_sold), "cexswap_min_sold_ann")
-                                    if min_got is None or min_sold is None or \
+                                    if self.bot.config['cexswap']['ann_sold_limit'] == 2:
+                                        # continue without announcement
+                                        pass
+                                    elif self.bot.config['cexswap']['ann_sold_limit'] == 0 or (min_got is None or min_sold is None or \
                                         (min_sold and float(each_ann['total_sold_amount']) > min_sold) or \
-                                            (min_got and float(each_ann['got_total_amount']) > min_got):
+                                            (min_got and float(each_ann['got_total_amount']) > min_got)):
                                         list_guild_ids = [i.id for i in self.bot.guilds]
                                         for item in get_guilds:
                                             if int(item['serverid']) not in list_guild_ids:

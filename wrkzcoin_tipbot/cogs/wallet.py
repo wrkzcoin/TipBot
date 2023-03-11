@@ -12963,8 +12963,19 @@ class Wallet(commands.Cog):
                                 fee += int(1.0*factor/10 * 10 ** coin_decimal)
                             if fee/(10**coin_decimal) > NetFee:
                                 fee = int(NetFee * 10 ** coin_decimal)
-                            print("withdraw {} fee: {}, netfee: {}".format(coin_name, fee, NetFee))
                             NetFee = fee/(10 ** coin_decimal) * 2.0
+                            # re-check NetFee
+                            if amount + NetFee > actual_balance:
+                                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send out "\
+                                    f"{num_format_coin(amount)} {token_display}. "\
+                                    f"You need to leave at least (updated) network fee: {num_format_coin(NetFee)}"\
+                                    f" {token_display}."
+                                await ctx.edit_original_message(content=msg)
+                                del self.bot.tx_in_progress[str(ctx.author.id)]
+                                key_withdraw = str(ctx.author.id) + "_" + coin_name
+                                if key_withdraw in self.withdraw_tx:
+                                    del self.withdraw_tx[key_withdraw]
+                                return
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\

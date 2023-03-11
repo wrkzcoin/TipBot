@@ -1579,7 +1579,7 @@ class Dropdown_Vol_Fee(disnake.ui.StringSelect):
         if self.values[0] is not None:
             if self.use_for == "fee":
                 key = self.values[0]
-                list_fee = list(chunks(self.list_fields[key]['fee_value'], 12))
+                list_fee = list(chunks(self.list_fields[key]['fee_value'], 15))
                 for i in list_fee:
                     self.embed.add_field(
                         name=self.list_fields[key]['fee_title'],
@@ -1588,7 +1588,7 @@ class Dropdown_Vol_Fee(disnake.ui.StringSelect):
                     )
             elif self.use_for == "volume":
                 key = self.values[0]
-                list_vol = list(chunks(self.list_fields[key]['volume_value'], 12))
+                list_vol = list(chunks(self.list_fields[key]['volume_value'], 15))
                 for i in list_vol:
                     self.embed.add_field(
                         name=self.list_fields[key]['volume_title'],
@@ -1709,7 +1709,7 @@ class ViewSummary(disnake.ui.View):
                 coin_emoji = getattr(getattr(self.bot.coin_list, k), "coin_emoji_discord")
                 amount_str = num_format_coin(v)
                 list_lp.append("{} {} {}".format(coin_emoji, amount_str, k))
-            list_lp_chunks = list(chunks(list_lp, 12))
+            list_lp_chunks = list(chunks(list_lp, 15))
             for i in list_lp_chunks:
                 self.embed.add_field(
                     name="LIQUIDITY",
@@ -3621,7 +3621,7 @@ class Cexswap(commands.Cog):
                                 target_coin
                             ))
                     if len(rate_list) > 0:
-                        rate_list_chunks = list(chunks(rate_list, 12))
+                        rate_list_chunks = list(chunks(rate_list, 15))
                         j = 1
                         extra_text = ""
                         for i in rate_list_chunks:
@@ -5718,7 +5718,7 @@ class Cexswap(commands.Cog):
                     )
                     list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
                 if len(list_earning) > 0:
-                    list_earning_split = list(chunks(list_earning, 12))
+                    list_earning_split = list(chunks(list_earning, 15))
                     j = 1
                     extra_text = ""
                     for i in list_earning_split:

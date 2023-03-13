@@ -1897,8 +1897,7 @@ class DropdownViewLP(disnake.ui.View):
             self.add_item(DropdownLP(self.ctx, self.bot, i, self.list_coins, self.active_coin))
 
     async def on_timeout(self):
-        original_message = await self.ctx.original_message()
-        await original_message.edit(view=None)
+        await self.ctx.edit_original_message(view=None)
 # End of DropdownLP Viewer
 
 # Dropdown mypool
@@ -2024,8 +2023,7 @@ class DropdownViewMyPool(disnake.ui.View):
             ))
 
     async def on_timeout(self):
-        original_message = await self.ctx.original_message()
-        await original_message.edit(view=None)
+        await self.ctx.edit_original_message(view=None)
 # End of dropdown mypool
 
 class ConfirmSell(disnake.ui.View):
@@ -2327,8 +2325,7 @@ class add_liquidity_btn(disnake.ui.View):
             self.add_click.disabled = True
 
     async def on_timeout(self):
-        original_message = await self.ctx.original_message()
-        await original_message.edit(view=None)
+        await self.ctx.edit_original_message(view=None)
         try:
             del self.bot.tipping_in_progress[str(self.ctx.author.id)]
         except Exception:
@@ -2392,7 +2389,7 @@ class add_liquidity_btn(disnake.ui.View):
                     await inter.edit_original_message(content=msg)
                     self.accept_click.disabled = True
                     self.add_click.disabled = True
-                    await inter.message.edit(view=None)
+                    await self.ctx.edit_original_message(view=None)
                     try:
                         del self.bot.tipping_in_progress[str(inter.author.id)]
                     except Exception:
@@ -2420,6 +2417,7 @@ class add_liquidity_btn(disnake.ui.View):
                     f"{num_format_coin(self.amount_1)} {coin_name} is below min. {num_format_coin(min_add)} {coin_name}.",
                     self.bot.config['discord']['cexswap']
                 )
+                await self.ctx.delete_original_message()
                 return
 
             get_deposit = await self.wallet_api.sql_get_userwallet(
@@ -2509,7 +2507,7 @@ class add_liquidity_btn(disnake.ui.View):
                 try:
                     self.accept_click.disabled = True
                     self.add_click.disabled = True
-                    await inter.message.edit(view=None)
+                    await self.ctx.edit_original_message(view=None)
                 except Exception:
                     pass
 
@@ -2521,7 +2519,7 @@ class add_liquidity_btn(disnake.ui.View):
                 await inter.edit_original_message(content=msg)
                 self.accept_click.disabled = True
                 self.add_click.disabled = True
-                await inter.message.edit(view=None)
+                await self.ctx.edit_original_message(view=None)
                 try:
                     del self.bot.tipping_in_progress[str(inter.author.id)]
                 except Exception:
@@ -2560,7 +2558,7 @@ class add_liquidity_btn(disnake.ui.View):
                 await inter.edit_original_message(content=msg)
                 self.accept_click.disabled = True
                 self.add_click.disabled = True
-                await inter.message.edit(view=None)
+                await self.ctx.edit_original_message(view=None)
                 try:
                     del self.bot.tipping_in_progress[str(inter.author.id)]
                 except Exception:
@@ -2578,7 +2576,8 @@ class add_liquidity_btn(disnake.ui.View):
                 del self.bot.tipping_in_progress[str(inter.author.id)]
             except Exception:
                 pass
-            await inter.message.delete()
+            await self.ctx.delete_original_message()
+            await inter.response.defer()
 
 class Cexswap(commands.Cog):
 
@@ -2788,9 +2787,9 @@ class Cexswap(commands.Cog):
 
             # List distributed fee
             earning = {}
-            earning['30d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-30*24*3600)
-            earning['7d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-7*24*3600)
             earning['1d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-1*24*3600)
+            earning['7d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-7*24*3600)
+            earning['30d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-30*24*3600)
             list_fields = {}
             get_pools = await cexswap_get_all_lp_pools()
             lp_list_coins = {}
@@ -2850,8 +2849,17 @@ class Cexswap(commands.Cog):
             del tmp_lp
             list_sold = {}
             list_embeds = {}
+            trade_volumes = {}
+            traded_coins_got = {}
+            traded_coins_sell = {}
             if len(earning) > 0:
                 for k, v in earning.items():
+                    if k not in trade_volumes:
+                        trade_volumes[k] = {"volume_usd": 0.0, "numb_trades": 0}
+                    if k not in traded_coins_got:
+                        traded_coins_got[k] = {}
+                    if k not in traded_coins_sell:
+                        traded_coins_sell[k] = {}
                     list_sold[k] = []
                     list_embeds[k] = []
                     list_coin_set = []
@@ -2860,6 +2868,10 @@ class Cexswap(commands.Cog):
                     list_earning_dict = {}
                     list_volume_dict = {}
                     for each in v:
+                        if each['got'] not in traded_coins_got[k]:
+                            traded_coins_got[k][each['got_ticker']] = 0
+                        if each['sold_ticker'] not in traded_coins_sell[k]:
+                            traded_coins_sell[k][each['sold_ticker']] = 0
                         list_sold[k].append(
                             {
                                 "pairs": each['pairs'],
@@ -2869,6 +2881,8 @@ class Cexswap(commands.Cog):
                                 "other_token": each['sold_ticker']
                             }
                         )
+                        traded_coins_got[k][each['got_ticker']] += each['total_swap']
+                        traded_coins_sell[k][each['sold_ticker']] += each['total_swap']
                         if each['got_ticker'] not in list_earning_dict.keys():
                             list_earning_dict[each['got_ticker']] = each['fee_liquidators']
                         else:
@@ -2879,6 +2893,26 @@ class Cexswap(commands.Cog):
                             list_volume_dict[each['got_ticker']] += each['got']
                         if each['got_ticker'] not in list_coin_set:
                             list_coin_set.append(each['got_ticker'])
+                        # add volume
+                        try:
+                            trade_volumes[k]['numb_trades'] += each['total_swap']
+                            amount_sold_usd = 0.0
+                            amount_got_usd = 0.0
+                            price_with = getattr(getattr(self.bot.coin_list, each['got_ticker']), "price_with")
+                            if price_with:
+                                per_unit = await self.utils.get_coin_price(each['got_ticker'], price_with)
+                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                    amount_got_usd = float(Decimal(per_unit['price']) * each['got'])
+                            price_with = getattr(getattr(self.bot.coin_list, each['sold_ticker']), "price_with")
+                            if price_with:
+                                per_unit = await self.utils.get_coin_price(each['sold_ticker'], price_with)
+                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                    amount_sold_usd = float(Decimal(per_unit['price']) * each['sold'])
+                            if max(amount_got_usd, amount_sold_usd) > 0:
+                                trade_volumes[k]["volume_usd"] += max(amount_got_usd, amount_sold_usd)
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+
                     # Sort by alpha
                     if len(list_sold[k]) > 0:
                         list_sold[k] = sorted(list_sold[k], key=lambda d: d['pairs'], reverse=False)
@@ -2916,6 +2950,46 @@ class Cexswap(commands.Cog):
                         list_fields[k]['volume_title'] = "Total volume [{}]".format(k.upper())
                         list_fields[k]['volume_value'] = volume_list
             #print(list_sold, list_embeds)
+            if len(trade_volumes) > 0:
+                msg_trade = []
+                for k, v in trade_volumes.items():
+                    msg_trade.append("{}: {:,.0f} trade(s) ~ {:,.2f} USD".format(
+                        k, v['numb_trades'], v['volume_usd']
+                    ))
+                embed.add_field(
+                    name="Volumes",
+                    value="\n".join(msg_trade),
+                    inline=False
+                )
+                # traded_coins_got, traded_coins_sell
+                buys = {}
+                sells = {}
+                for k, v in traded_coins_got.items():
+                    buy = dict(sorted(v.items(), key=lambda x:x[1], reverse=True))
+                    buys[k] = ["⚆ {}: {:,.0f} trade(s)".format(i, j) for i, j in buy.items()]
+                for k, v in traded_coins_sell.items():
+                    sell = dict(sorted(v.items(), key=lambda x:x[1], reverse=True))
+                    sells[k] = ["⚆ {}: {:,.0f} trade(s)".format(i, j) for i, j in sell.items()]
+            sell_sum_list = []
+            buy_sum_list = []
+            for k, v in sells.items():
+                sell_sum_list.append("-**{}**-)\n{}".format(
+                    k, "\n".join(v[:5])
+                ))
+            for k, v in buys.items():
+                buy_sum_list.append("-**{}**-)\n{}".format(
+                    k, "\n".join(v[:5])
+                ))
+            embed.add_field(
+                name="Top sell(s)",
+                value="\n".join(sell_sum_list),
+                inline=True
+            )
+            embed.add_field(
+                name="Top buy(s)",
+                value="\n".join(buy_sum_list),
+                inline=True
+            )
             embed.add_field(
                 name="Menu",
                 value="Please use menu or dropdown. Bot will remove menu after timeout.",

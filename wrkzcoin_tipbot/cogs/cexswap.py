@@ -299,7 +299,10 @@ async def cexswap_get_poolshare(user_id: str, user_server: str):
         traceback.print_exc(file=sys.stdout)
     return []
 
-async def get_cexswap_get_sell_logs(user_id: str=None, from_time: int=None, pool_id: int=None):
+async def get_cexswap_get_sell_logs(
+    user_id: str=None, user_server: str="DISCORD",
+    from_time: int=None, pool_id: int=None
+):
     try:
         await store.openConnection()
         async with store.pool.acquire() as conn:
@@ -334,9 +337,9 @@ async def get_cexswap_get_sell_logs(user_id: str=None, from_time: int=None, pool
                     INNER JOIN `cexswap_pools` b
                         ON a.pool_id = b.pool_id
                     GROUP BY a.`sold_ticker`, a.`got_ticker`
-                    WHERE a.`sell_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
+                    WHERE a.`sell_user_id`=%s AND a.`user_server`=%s """ + extra_sql + """ """ + pool_sql + """
                     """
-                    data_rows = [user_id]
+                    data_rows = [user_id, user_server]
                     if len(extra_sql) > 0:
                         data_rows += [from_time]
                     if len(pool_sql) > 0:
@@ -371,7 +374,9 @@ async def get_cexswap_get_sell_logs(user_id: str=None, from_time: int=None, pool
         traceback.print_exc(file=sys.stdout)
     return []
 
-async def get_cexswap_get_coin_sell_logs(coin_name: str=None, user_id: str=None, from_time: int=None):
+async def get_cexswap_get_coin_sell_logs(
+    coin_name: str=None, user_id: str=None, user_server: str="DISCORD", from_time: int=None
+):
     try:
         await store.openConnection()
         async with store.pool.acquire() as conn:
@@ -383,7 +388,7 @@ async def get_cexswap_get_coin_sell_logs(coin_name: str=None, user_id: str=None,
                     """
                 if user_id is not None:
                     extra_sql += """
-                    AND `sell_user_id`=%s
+                    AND `sell_user_id`=%s AND `user_server`=%s
                     """
                 coin_name_sql = ""
                 if coin_name is not None:
@@ -407,7 +412,7 @@ async def get_cexswap_get_coin_sell_logs(coin_name: str=None, user_id: str=None,
                 if from_time is not None:
                     data_rows += [from_time]
                 if user_id is not None:
-                    data_rows += [user_id]
+                    data_rows += [user_id, user_server]
                 await cur.execute(sql, tuple(data_rows))
                 result = await cur.fetchall()
                 if result:
@@ -1434,6 +1439,98 @@ async def cexswap_insert_new(
     except Exception:
         traceback.print_exc(file=sys.stdout)
     return False
+
+class EarningMenu(disnake.ui.View):
+    def __init__(
+        self, bot,
+        ctx,
+        owner_id: int,
+        embed_lp,
+        embed_earning,
+        embed_sell_logs
+    ):
+        super().__init__(timeout=60.0)
+        self.bot = bot
+        self.ctx = ctx
+        self.utils = Utils(self.bot)
+        self.owner_id = owner_id
+        self.embed_lp = embed_lp
+        self.embed_earning = embed_earning
+        self.embed_sell_logs = embed_sell_logs
+
+    async def on_timeout(self):
+        await self.ctx.edit_original_message(
+            view=None
+        )
+
+    @disnake.ui.button(label="Your LP", emoji="💵", style=ButtonStyle.grey, custom_id="btn_user_lp")
+    async def btn_earning_your_lp(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.defer()
+            return
+        else:
+            view = EarningMenu(
+                self.bot, self.ctx, self.owner_id,
+                self.embed_lp, self.embed_earning, self.embed_sell_logs
+            )
+            embed = self.embed_lp.copy()
+            if len(embed.fields) == 0:
+                embed.add_field(
+                    name="INFO",
+                    value="You don't have any coins in CEXSwap LP.",
+                    inline=False
+                )
+            await self.ctx.edit_original_message(content=None, embed=embed, view=view)
+            await inter.response.defer()
+
+    @disnake.ui.button(label="Earning", emoji="💰", style=ButtonStyle.grey, custom_id="btn_earning")
+    async def btn_earning_your_earning(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.defer()
+            return
+        else:
+            view = EarningMenu(
+                self.bot, self.ctx, self.owner_id,
+                self.embed_lp, self.embed_earning, self.embed_sell_logs
+            )
+            embed = self.embed_earning.copy()
+            if len(embed.fields) <= 1:
+                embed.add_field(
+                    name="INFO",
+                    value="You don't have any earning from CEXSwap LP.",
+                    inline=False
+                )
+            await self.ctx.edit_original_message(content=None, embed=embed, view=view)
+            await inter.response.defer()
+
+    @disnake.ui.button(label="Trades", emoji="🔁", style=ButtonStyle.grey, custom_id="btn_trade_sum")
+    async def btn_earning_your_trades(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.defer()
+            return
+        else:
+            view = EarningMenu(
+                self.bot, self.ctx, self.owner_id,
+                self.embed_lp, self.embed_earning, self.embed_sell_logs
+            )
+            embed = self.embed_sell_logs.copy()
+            if len(embed.fields) == 0:
+                embed.add_field(
+                    name="INFO",
+                    value="You don't have any trade with CEXSwap.",
+                    inline=False
+                )
+            await self.ctx.edit_original_message(content=None, embed=embed, view=view)
+            await inter.response.defer()
 
 # Single coin of /selectpool
 class SelectPoolSingle(disnake.ui.View):
@@ -2787,9 +2884,9 @@ class Cexswap(commands.Cog):
 
             # List distributed fee
             earning = {}
-            earning['1d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-1*24*3600)
-            earning['7d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-7*24*3600)
-            earning['30d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, from_time=int(time.time())-30*24*3600)
+            earning['1d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, user_server=None, from_time=int(time.time())-1*24*3600)
+            earning['7d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, user_server=None, from_time=int(time.time())-7*24*3600)
+            earning['30d'] = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=None, user_server=None, from_time=int(time.time())-30*24*3600)
             list_fields = {}
             get_pools = await cexswap_get_all_lp_pools()
             lp_list_coins = {}
@@ -3714,9 +3811,9 @@ class Cexswap(commands.Cog):
                     )
                     # Check volume
                     get_coin_vol = {}
-                    get_coin_vol['1D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-1*24*3600)
-                    get_coin_vol['7D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-7*24*3600)
-                    get_coin_vol['30D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, from_time=int(time.time())-30*24*3600)
+                    get_coin_vol['1D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, user_server=None, from_time=int(time.time())-1*24*3600)
+                    get_coin_vol['7D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, user_server=None, from_time=int(time.time())-7*24*3600)
+                    get_coin_vol['30D'] = await get_cexswap_get_coin_sell_logs(coin_name=coin_name, user_id=None, user_server=None, from_time=int(time.time())-30*24*3600)
                     per_unit = 0.0
                     price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                     if price_with:
@@ -3779,8 +3876,8 @@ class Cexswap(commands.Cog):
                 embed_lp = embed.copy()
                 embed_lp.clear_fields() 
                 # get sell logs
-                sell_logs_30d = await get_cexswap_get_sell_logs(user_id=None, from_time=int(time.time()-30*24*3600), pool_id=None)
-                sell_logs_7d = await get_cexswap_get_sell_logs(user_id=None, from_time=int(time.time()-7*24*3600), pool_id=None)
+                sell_logs_30d = await get_cexswap_get_sell_logs(user_id=None, user_server=SERVER_BOT, from_time=int(time.time()-30*24*3600), pool_id=None)
+                sell_logs_7d = await get_cexswap_get_sell_logs(user_id=None, user_server=SERVER_BOT, from_time=int(time.time()-7*24*3600), pool_id=None)
                 list_sold_30d = []
                 list_sold_7d = []
                 embed_30d = None
@@ -3960,8 +4057,8 @@ class Cexswap(commands.Cog):
                         inline=False
                     )
                     volume = {}
-                    volume['7d'] = await get_cexswap_get_sell_logs(user_id=None, from_time=int(time.time()-7*24*3600), pool_id=liq_pair['pool']['pool_id'])
-                    volume['1d'] = await get_cexswap_get_sell_logs(user_id=None, from_time=int(time.time()-1*24*3600), pool_id=liq_pair['pool']['pool_id'])
+                    volume['7d'] = await get_cexswap_get_sell_logs(user_id=None, user_server=SERVER_BOT, from_time=int(time.time()-7*24*3600), pool_id=liq_pair['pool']['pool_id'])
+                    volume['1d'] = await get_cexswap_get_sell_logs(user_id=None, user_server=SERVER_BOT, from_time=int(time.time()-1*24*3600), pool_id=liq_pair['pool']['pool_id'])
                     if len(volume) > 0:
                         for k, v in volume.items():
                             if len(v) == 0:
@@ -5694,6 +5791,88 @@ class Cexswap(commands.Cog):
                 description=f"{ctx.author.mention}, {testing}List of distributed earning from Liquidity Pools.",
                 timestamp=datetime.now(),
             )
+            embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
+            embed.set_thumbnail(url=ctx.author.display_avatar)
+
+            embed_earning = embed.copy()
+            embed_lp = embed.copy()
+            embed_sell_logs = embed.copy()
+            get_sell_logs = await get_cexswap_get_coin_sell_logs(coin_name=None, user_id=str(ctx.author.id), user_server=SERVER_BOT, from_time=None)
+            if len(get_sell_logs) > 0:
+                record_list = {"sold": {}, "bought": {}}
+                for i in get_sell_logs:
+                    if i['sold_ticker'] not in record_list['sold']:
+                        record_list['sold'][i['sold_ticker']] = Decimal(0)
+                    if i['got_ticker'] not in record_list['bought']:
+                        record_list['bought'][i['got_ticker']] = Decimal(0)
+                    record_list['sold'][i['sold_ticker']] += i['sold']
+                    record_list['bought'][i['got_ticker']] += i['got']
+                key_sold = list(sorted(record_list['sold'].keys()))
+                key_bought = list(sorted(record_list['bought'].keys()))
+                list_sold_sum = []
+                list_bought_sum = []
+                for i in key_sold:
+                    list_sold_sum.append("{} {}".format(
+                        num_format_coin(record_list['sold'][i]), i
+                    ))
+                for i in key_bought:
+                    list_bought_sum.append("{} {}".format(
+                        num_format_coin(record_list['bought'][i]), i
+                    ))
+                list_sold_sum_chunks = list(chunks(list_sold_sum, 20))
+                list_bought_sum_chunks = list(chunks(list_bought_sum, 20))
+                for c, i in enumerate(list_sold_sum_chunks, start=1):
+                    embed_sell_logs.add_field(
+                        name="➡️ Total sold [{}]".format(c),
+                        value="{}".format(", ".join(i)),
+                        inline=False
+                    )
+                for c, i in enumerate(list_bought_sum_chunks, start=1):
+                    embed_sell_logs.add_field(
+                        name="⬅️ Total bought [{}]".format(c),
+                        value="{}".format(", ".join(i)),
+                        inline=False
+                    )
+
+            # check earning
+            get_user_earning = await get_cexswap_earning(user_id=str(ctx.author.id), from_time=None, pool_id=None)
+            if len(get_user_earning) == 0 and token is None:
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you don't have any earning from LP yet."
+                await ctx.edit_original_message(content=msg)
+                return
+            elif len(get_user_earning) > 0:
+                list_earning = []
+                for each in get_user_earning:
+                    if token is not None and token != each['got_ticker']:
+                        continue
+                    coin_emoji = ""
+                    try:
+                        if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                                coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
+                                coin_emoji = coin_emoji + " " if coin_emoji else ""
+                        else:
+                            coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
+                            coin_emoji = coin_emoji + " " if coin_emoji else ""
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                    earning_amount = num_format_coin(
+                        each['collected_amount']
+                    )
+                    list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
+                if len(list_earning) > 0:
+                    list_earning_split = list(chunks(list_earning, 15))
+                    j = 1
+                    extra_text = ""
+                    for i in list_earning_split:
+                        if len(list_earning_split) > 1:
+                            extra_text = " [{}/{}]".format(j, len(list_earning_split))
+                        embed_earning.add_field(
+                            name="Your earning{}".format(extra_text),
+                            value="{}".format("\n".join(i)),
+                            inline=False
+                        )
+                        j += 1
             if token is None:
                 # check current LP user has
                 get_poolshare = await cexswap_get_poolshare(str(ctx.author.id), SERVER_BOT)
@@ -5717,7 +5896,7 @@ class Cexswap(commands.Cog):
                     for i in list_coin_lp_user_chunks:
                         if len(list_coin_lp_user_chunks) > 1:
                             extra_text = " [{}/{}]".format(j, len(list_coin_lp_user_chunks))
-                        embed.add_field(
+                        embed_lp.add_field(
                             name="Your LP{}".format(extra_text),
                             value="{}".format("\n".join(i)),
                             inline=True
@@ -5765,57 +5944,28 @@ class Cexswap(commands.Cog):
                         value="{}".format(", ".join(list(set([i['pairs'] for i in user_pools])))),
                         inline=False
                     )
-            # check earning
-            get_user_earning = await get_cexswap_earning(user_id=str(ctx.author.id), from_time=None, pool_id=None)
-            if len(get_user_earning) == 0 and token is None:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you don't have any earning from LP yet."
-                await ctx.edit_original_message(content=msg)
-                return
-            elif len(get_user_earning) > 0:
-                list_earning = []
-                for each in get_user_earning:
-                    if token is not None and token != each['got_ticker']:
-                        continue
-                    coin_emoji = ""
-                    try:
-                        if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                            if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
-                                coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
-                                coin_emoji = coin_emoji + " " if coin_emoji else ""
-                        else:
-                            coin_emoji = getattr(getattr(self.bot.coin_list, each['got_ticker']), "coin_emoji_discord")
-                            coin_emoji = coin_emoji + " " if coin_emoji else ""
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                    earning_amount = num_format_coin(
-                        each['collected_amount']
-                    )
-                    list_earning.append("{}{} {} - {:,.0f} trade(s)".format(coin_emoji, earning_amount, each['got_ticker'], each['total_swap']))
-                if len(list_earning) > 0:
-                    list_earning_split = list(chunks(list_earning, 15))
-                    j = 1
-                    extra_text = ""
-                    for i in list_earning_split:
-                        if len(list_earning_split) > 1:
-                            extra_text = " [{}/{}]".format(j, len(list_earning_split))
-                        embed.add_field(
-                            name="Your earning{}".format(extra_text),
-                            value="{}".format("\n".join(i)),
-                            inline=False
-                        )
-                        j += 1
 
             # last emebed to add
-            embed.add_field(
+            embed_earning.add_field(
                 name="NOTE",
                 value="You can check your balance by `/balance` or `/balances`. "\
                     "From every trade, you will always receive fee {} x amount liquidated pools.\n\n"\
                     "You can check recent earning also with `/recent cexswaplp <token>`.".format("0.50%"),
                 inline=False
             )
-            embed.set_footer(text="Requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
-            embed.set_thumbnail(url=ctx.author.display_avatar)
-            await ctx.edit_original_message(content=None, embed=embed)
+            view = EarningMenu(
+                self.bot, ctx, ctx.author.id,
+                embed_lp, embed_earning, embed_sell_logs
+            )
+            if token is not None:
+                view = None
+            else:
+                embed.add_field(
+                    name="INFORMATION",
+                    value="Use menu.",
+                    inline=False
+                )
+            await ctx.edit_original_message(content=None, embed=embed, view=view)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

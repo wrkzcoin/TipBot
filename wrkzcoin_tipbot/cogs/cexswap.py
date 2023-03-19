@@ -3231,6 +3231,16 @@ class Cexswap(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
+        # check if enable in CEXSwap
+        if sell_token not in self.bot.cexswap_coins:
+            msg = f"{EMOJI_ERROR}, {ctx.author.mention}, __{sell_token}__ is not in CEXSwap."
+            await ctx.edit_original_message(content=msg)
+            return
+        if for_token not in self.bot.cexswap_coins:
+            msg = f"{EMOJI_ERROR}, {ctx.author.mention}, __{for_token}__ is not in CEXSwap."
+            await ctx.edit_original_message(content=msg)
+            return
+
         # check liq
         liq_pair = await cexswap_get_pool_details(sell_token, for_token, None)
         if liq_pair is None:

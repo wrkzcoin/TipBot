@@ -271,7 +271,7 @@ class MenuPage(disnake.ui.View):
         # await interaction.response.edit_message(view=None)
         try:
             if type(self.inter) == disnake.ApplicationCommandInteraction:
-                await interaction.delete_original_message()
+                await self.inter.delete_original_message()
             else:
                 await interaction.message.delete()
         except Exception as e:

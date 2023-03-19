@@ -4217,13 +4217,13 @@ class WalletAPI(commands.Cog):
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                         await logchanbot(
-                                            f"[BUG] send_external_ada_asset: user_id: `{user_id}` "\
+                                            f"[BUG] send_external_ada_asset: user_id: __{user_id}__ "\
                                             f"failed to insert to DB for withdraw {json.dumps(data_rows)}."
                                         )
                             else:
                                 print(
-                                    f"send_external_ada_asset: cannot get estimated fee for sending asset `{asset_name}`" \
-                                    f"for amount `{str(amount)} {coin_name}`"
+                                    f"send_external_ada_asset: cannot get estimated fee for sending asset __{asset_name}__" \
+                                    f"for amount __{str(amount)} {coin_name}__"
                                 )
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -5908,7 +5908,7 @@ class Wallet(commands.Cog):
                                             if height is None:
                                                 # can not pull height, continue
                                                 await logchanbot(
-                                                    f"[{user_server}] - Execute withdraw for `{tw_user}` "\
+                                                    f"[{user_server}] - Execute withdraw for __{tw_user}__ "\
                                                     f"but can not pull height of {coin_name}."
                                                 )
                                                 continue
@@ -6034,11 +6034,11 @@ class Wallet(commands.Cog):
                                                     )
 
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
                                                     try:
-                                                        response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                        response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}'
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         continue
                                                     except Exception:
@@ -6068,10 +6068,10 @@ class Wallet(commands.Cog):
                                                     )
 
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
@@ -6098,7 +6098,7 @@ class Wallet(commands.Cog):
                                                                 coin_name)
                                                             SendTx_hash = send_tx['block']
                                                             response = f'You withdrew {num_format_coin(amount)} "\
-                                                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`{fee_txt}'
+                                                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{SendTx_hash}_{fee_txt}'
                                                             await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                             await log_to_channel(
                                                                 "withdraw",
@@ -6126,10 +6126,10 @@ class Wallet(commands.Cog):
                                                     coin_name, coin_decimal, tx_fee, NetFee, user_server
                                                 )
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
@@ -6157,11 +6157,11 @@ class Wallet(commands.Cog):
                                                     user_server, coin_name, NetFee, 32
                                                 )
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
                                                     response = f"You withdrew {num_format_coin(amount)} "\
-                                                        f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                                        f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}"
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
@@ -6196,12 +6196,12 @@ class Wallet(commands.Cog):
                                                     if "status" in send_tx and send_tx['status'] == "pending":
                                                         tx_hash = send_tx['id']
                                                         fee = send_tx['fee']['quantity'] / 10 ** coin_decimal + fee_limit
-                                                        fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                        fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                             num_format_coin(fee),
                                                             coin_name)
                                                         response = f"You withdrew {num_format_coin(amount)} "\
-                                                            f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: "\
-                                                            f"`{tx_hash}`{fee_txt}"
+                                                            f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: "\
+                                                            f"_{tx_hash}_{fee_txt}"
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
                                                             "withdraw",
@@ -6289,15 +6289,15 @@ class Wallet(commands.Cog):
                                                         tx_hash = send_tx['id']
                                                         gas_coin_msg = ""
                                                         if GAS_COIN is not None:
-                                                            gas_coin_msg = " and fee `{} {}` you shall receive additional `{} {}`.".format(
+                                                            gas_coin_msg = " and fee __{} {}__ you shall receive additional __{} {}__.".format(
                                                                 num_format_coin(send_tx['network_fee'] + fee_limit / 20), GAS_COIN,
                                                                 num_format_coin(send_tx['ada_received']), GAS_COIN)
-                                                        fee_txt = "\nWithdrew fee/node: `{} {}`{}.".format(
+                                                        fee_txt = "\nWithdrew fee/node: __{} {}__{}.".format(
                                                             num_format_coin(NetFee),
                                                             coin_name, gas_coin_msg)
                                                         response = f"You withdrew {num_format_coin(amount)} "\
-                                                            f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: "\
-                                                            f"`{tx_hash}`{fee_txt}"
+                                                            f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: "\
+                                                            f"_{tx_hash}_{fee_txt}"
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
                                                             "withdraw",
@@ -6333,10 +6333,10 @@ class Wallet(commands.Cog):
                                                     self.bot.erc_node_list['SOL'], each_msg['sender_id'], amount,
                                                     address, coin_name, coin_decimal, tx_fee, NetFee, user_server)
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
@@ -6357,10 +6357,10 @@ class Wallet(commands.Cog):
                                                     each_msg['sender_id'], amount, address,
                                                     coin_name, 0, NetFee, user_server)  # tx_fee=0
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
@@ -6389,10 +6389,10 @@ class Wallet(commands.Cog):
                                                     wallet_address, header, None
                                                 )  # paymentId: None (end)
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
@@ -6598,7 +6598,7 @@ class Wallet(commands.Cog):
                                                         guild_owner = self.bot.get_user(guild.owner.id)
                                                         try:
                                                             await guild_owner.send(
-                                                                f"User `{each_discord_user}` RT your twitter at <{twitter_link}>. "\
+                                                                f"User __{each_discord_user}__ RT your twitter at <{twitter_link}>. "\
                                                                 f"He/she just got a reward of "\
                                                                 f"{num_format_coin(amount)} {coin_name}."
                                                             )
@@ -6633,7 +6633,7 @@ class Wallet(commands.Cog):
                                                         except Exception:
                                                             traceback.print_exc(file=sys.stdout)
                                                             await logchanbot(
-                                                                f'[TWITTER] Failed to send message to retweet reward to channel in guild: `{guild_id}` / {guild.name}.')
+                                                                f'[TWITTER] Failed to send message to retweet reward to channel in guild: __{guild_id}__ / {guild.name}.')
                                                     except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
                                                         await logchanbot(
                                                             f'[TWITTER] Failed to thank message to <@{each_discord_user}>.')
@@ -11651,7 +11651,7 @@ class Wallet(commands.Cog):
 
             if type_coin in ["HNT", "XLM", "VITE", "COSMOS"]:
                 plain_address = address_memo[0]
-                plain_address += f"\n📝 MEMO (mandatory!): `{address_memo[2]}`"
+                plain_address += f"\n📝 MEMO (mandatory!): __{address_memo[2]}__"
                 pointer_message += " and do not forget to include MEMO."
 
             main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
@@ -11665,19 +11665,19 @@ class Wallet(commands.Cog):
                 )
                 embed.add_field(
                     name="PaymentID (Must include)",
-                    value="`{}`".format(get_deposit['paymentid']),
+                    value="{}".format(get_deposit['paymentid']),
                     inline=False
                 )
             else:
                 wallet_address_new = wallet_address
                 if " MEMO:" in wallet_address_new:
                     wallet_address_new = wallet_address_new.replace(" MEMO:", "\n📝 MEMO:")
-                embed.add_field(name="Your Deposit Address", value="`{}`".format(wallet_address_new), inline=False)
+                embed.add_field(name="Your Deposit Address", value="```\n{}```".format(wallet_address_new), inline=False)
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"] and getattr(
                     getattr(self.bot.coin_list, coin_name),
                     "split_main_paymentid") != 1:
                     # Add optional address and payment Id
-                    embed.add_field(name="Or Address + PaymentId", value="Address: `{}`\nPaymentId: `{}`".format(main_address, get_deposit['paymentid']), inline=False)
+                    embed.add_field(name="Or Address + PaymentId", value="Address: ```{}```\nPaymentId: ```{}```".format(main_address, get_deposit['paymentid']), inline=False)
                 embed.set_thumbnail(url=self.bot.config['storage']['deposit_url'] + address_path + ".png")
 
             if getattr(getattr(self.bot.coin_list, coin_name), "related_coins"):
@@ -12260,7 +12260,7 @@ class Wallet(commands.Cog):
             try:
                 check_exist = await self.check_withdraw_coin_address(type_coin, address)
                 if check_exist is not None:
-                    msg = f"{EMOJI_ERROR} {ctx.author.mention}, you cannot send to this address `{address}`."
+                    msg = f"{EMOJI_ERROR} {ctx.author.mention}, you cannot send to this address _{address}_."
                     await ctx.edit_original_message(content=msg)
                     return
             except Exception:
@@ -12313,7 +12313,7 @@ class Wallet(commands.Cog):
                     # Check if conversion is allowed for this coin.
                     amount = amount.replace(",", "").replace("$", "")
                     if price_with is None:
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this __{coin_name}__."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
@@ -12407,7 +12407,7 @@ class Wallet(commands.Cog):
                     if valid_address and valid_address.upper() == address.upper():
                         valid = True
                     else:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid address:\n`{address}`'
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid address:\n_{address}_'
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -12417,8 +12417,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -12471,12 +12471,12 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                     if send_tx:
-                        fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                        fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                             num_format_coin(NetFee), coin_name)
                         explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                         msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                             f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                            f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                            f"_{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                         await ctx.edit_original_message(content=msg, view=None)
                         await log_to_channel(
                             "withdraw",
@@ -12487,7 +12487,7 @@ class Wallet(commands.Cog):
                         return
                     else:
                         msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                            f"{num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`."
+                            f"{num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_."
                         await ctx.edit_original_message(content=msg, view=None)
                         await log_to_channel(
                             "withdraw",
@@ -12503,8 +12503,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -12557,13 +12557,13 @@ class Wallet(commands.Cog):
                         pass
 
                     if send_tx:
-                        fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                        fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                             num_format_coin(NetFee), coin_name
                         )
                         explorer_link = self.utils.get_explorer_link(coin_name, send_tx)                            
                         msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                             f"{num_format_coin(amount)} "\
-                            f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                            f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                         await ctx.edit_original_message(content=msg, view=None)
                         await log_to_channel(
                             "withdraw",
@@ -12575,7 +12575,7 @@ class Wallet(commands.Cog):
                     else:
                         msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                             f"{num_format_coin(amount)} "\
-                            f"{token_display}{equivalent_usd} to `{address}`."
+                            f"{token_display}{equivalent_usd} to _{address}_."
                         await ctx.edit_original_message(content=msg, view=None)
                         await log_to_channel(
                             "withdraw",
@@ -12586,7 +12586,7 @@ class Wallet(commands.Cog):
                 elif type_coin == "NANO":
                     valid_address = await self.wallet_api.nano_validate_address(coin_name, address)
                     if not valid_address is True:
-                        msg = f"{EMOJI_RED_NO} Address: `{address}` is invalid."
+                        msg = f"{EMOJI_RED_NO} Address: _{address}_ is invalid."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
@@ -12596,14 +12596,14 @@ class Wallet(commands.Cog):
                                 main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                                 if main_address == address:
                                     # can not send
-                                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_.'
                                     await ctx.edit_original_message(content=msg)
                                     return
                                 # Ask for confirm
                                 view = ConfirmName(self.bot, ctx.author.id)
                                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                                    f"`{num_format_coin(amount)} {coin_name}` with fee: `0.00 {coin_name}` to "\
-                                    f"`{address}`?"
+                                    f"__{num_format_coin(amount)} {coin_name}__ with fee: `0.00 {coin_name}` to "\
+                                    f"_{address}_?"
                                 await ctx.edit_original_message(content=msg, view=view)
                                 # Wait for the View to stop listening for input...
                                 await view.wait()
@@ -12642,7 +12642,7 @@ class Wallet(commands.Cog):
                                     fee_txt = "\nWithdrew fee/node: `0.00 {}`.".format(coin_name)
                                     msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                         f"{num_format_coin(amount)} "\
-                                        f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                                        f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{tx_hash}_{fee_txt}{explorer_link}"
                                     await ctx.edit_original_message(content=msg, view=None)
                                     await log_to_channel(
                                         "withdraw",
@@ -12653,7 +12653,7 @@ class Wallet(commands.Cog):
                                 else:
                                     msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                         f"{num_format_coin(amount)} "\
-                                        f"{token_display}{equivalent_usd} to `{address}`."
+                                        f"{token_display}{equivalent_usd} to _{address}_."
                                     await ctx.edit_original_message(content=msg, view=None)
                                     await log_to_channel(
                                         "withdraw",
@@ -12684,12 +12684,12 @@ class Wallet(commands.Cog):
                             coin_decimal, tx_fee, NetFee, SERVER_BOT
                         )
                         if send_tx:
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
@@ -12700,7 +12700,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
@@ -12730,12 +12730,12 @@ class Wallet(commands.Cog):
                             SERVER_BOT, coin_name, NetFee, 32
                         )
                         if send_tx:
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
@@ -12746,7 +12746,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
@@ -12773,7 +12773,7 @@ class Wallet(commands.Cog):
                     atomic_amount = str(int(amount*10**coin_decimal))
                     if address == main_address:
                         # can not send
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_.'
                         await ctx.edit_original_message(content=msg)
                         return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
@@ -12785,12 +12785,12 @@ class Wallet(commands.Cog):
                                 str(ctx.author.id), amount, address, coin_name, contract, coin_decimal,
                                 NetFee, send_tx['hash'], json.dumps(send_tx), SERVER_BOT
                             )
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{tx_hash}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
@@ -12801,7 +12801,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
@@ -12820,7 +12820,7 @@ class Wallet(commands.Cog):
                     main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                     if address == main_address:
                         # can not send
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`."
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_."
                         await ctx.edit_original_message(content=msg)
                         return
                     if coin_name != "XLM":  # in case of asset
@@ -12830,7 +12830,7 @@ class Wallet(commands.Cog):
                             url, asset_code, issuer, address, str(ctx.author.id), SERVER_BOT
                         )
                         if check_asset is False:
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`. "\
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_. "\
                                 f"The destination account may not trust the asset you are attempting to send!"
                             await ctx.edit_original_message(content=msg)
                             return
@@ -12845,11 +12845,11 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         extra_txt = ""
                         if extra_option:
-                            extra_txt = " with memo: `{}`".format(extra_option)
+                            extra_txt = " with memo: __{}__".format(extra_option)
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`{extra_txt}?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_{extra_txt}?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -12886,15 +12886,15 @@ class Wallet(commands.Cog):
                             90, extra_option
                         )
                         if send_tx:
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name
                             )
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             if extra_option is not None:
-                                msg += "\nWith memo: `{}`".format(extra_option)
+                                msg += "\nWith memo: __{}__".format(extra_option)
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -12905,7 +12905,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -12927,19 +12927,19 @@ class Wallet(commands.Cog):
                     main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                     if address == main_address:
                         # can not send
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`."
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_."
                         await ctx.edit_original_message(content=msg)
                         return
                     # check address
                     if coin_name == "ATOM" and not address.startswith("cosmos"):
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress `{address}` for {coin_name}."
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress _{address}_ for {coin_name}."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
                         sub_type = getattr(getattr(self.bot.coin_list, coin_name), "sub_type")
                         hrp = getattr(getattr(self.bot.coin_list, coin_name), "header")
                         if sub_type and hrp and not address.startswith(hrp):
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress `{address}` for {coin_name}."
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress _{address}_ for {coin_name}."
                             await ctx.edit_original_message(content=msg)
                             return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
@@ -12979,8 +12979,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13083,7 +13083,7 @@ class Wallet(commands.Cog):
                                     NetFee, fee=fee,gas=gas, memo="", timeout=60, hrp=hrp, denom=denom
                                 )
                             tx_hash = send_tx['result']['hash']
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name
                             )
                             if send_tx['result']['code'] != 0:
@@ -13096,17 +13096,17 @@ class Wallet(commands.Cog):
                                 )
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                     f"{num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd} to `{address}`.\nERROR: `{error}`"
+                                    f"{token_display}{equivalent_usd} to _{address}_.\nERROR: _{error}_"
                                 if extra_option is not None:
-                                    msg += "\nWith memo: `{}`".format(extra_option)
+                                    msg += "\nWith memo: __{}__".format(extra_option)
                                 await ctx.edit_original_message(content=msg, view=None)
                             else:
                                 explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                     f"{num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                                    f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{tx_hash}_{fee_txt}{explorer_link}"
                                 if extra_option is not None:
-                                    msg += "\nWith memo: `{}`".format(extra_option)
+                                    msg += "\nWith memo: __{}__".format(extra_option)
                                 await ctx.edit_original_message(content=msg, view=None)
                                 await log_to_channel(
                                     "withdraw",
@@ -13117,7 +13117,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13149,8 +13149,8 @@ class Wallet(commands.Cog):
                             # Ask for confirm
                             view = ConfirmName(self.bot, ctx.author.id)
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                                f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                                f"`{address}`?"
+                                f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                                f"_{address}_?"
                             await ctx.edit_original_message(content=msg, view=view)
                             # Wait for the View to stop listening for input...
                             await view.wait()
@@ -13187,12 +13187,12 @@ class Wallet(commands.Cog):
                             if "status" in send_tx and send_tx['status'] == "pending":
                                 tx_hash = send_tx['id']
                                 fee = send_tx['fee']['quantity'] / 10 ** coin_decimal + fee_limit
-                                fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                     num_format_coin(fee), coin_name)
                                 explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                     f"{num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                                    f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{tx_hash}_{fee_txt}{explorer_link}"
                                 await ctx.edit_original_message(content=msg, view=None)
                                 await log_to_channel(
                                     "withdraw",
@@ -13237,7 +13237,7 @@ class Wallet(commands.Cog):
                                     GAS_COIN = getattr(getattr(self.bot.coin_list, coin_name), "gas_ticker")
                                     fee_limit = getattr(getattr(self.bot.coin_list, coin_name), "fee_limit")
                                     if GAS_COIN:
-                                        reserved_txt = f" and another reserved fee `{fee_limit} {GAS_COIN}` (will be updated after tx executes) "
+                                        reserved_txt = f" and another reserved fee __{fee_limit} {GAS_COIN}__ (will be updated after tx executes) "
                                         userdata_balance = await self.wallet_api.user_balance(
                                             str(ctx.author.id), GAS_COIN,
                                             wallet_address, type_coin, height,
@@ -13248,7 +13248,7 @@ class Wallet(commands.Cog):
                                         if actual_balance < fee_limit:  # use fee_limit to limit ADA
                                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have sufficient "\
                                                 f"{GAS_COIN} to withdraw {coin_name}. You need to have at least a "\
-                                                f"reserved `{fee_limit} {GAS_COIN}`."
+                                                f"reserved __{fee_limit} {GAS_COIN}__."
                                             await ctx.edit_original_message(content=msg, view=None)
                                             await log_to_channel(
                                                 "withdraw",
@@ -13281,8 +13281,8 @@ class Wallet(commands.Cog):
                             # Ask for confirm
                             view = ConfirmName(self.bot, ctx.author.id)
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                                f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}`{reserved_txt} to "\
-                                f"`{address}`?"
+                                f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__{reserved_txt} to "\
+                                f"_{address}_?"
                             await ctx.edit_original_message(content=msg, view=view)
                             # Wait for the View to stop listening for input...
                             await view.wait()
@@ -13325,15 +13325,15 @@ class Wallet(commands.Cog):
                                 tx_hash = send_tx['id']
                                 gas_coin_msg = ""
                                 if GAS_COIN is not None:
-                                    gas_coin_msg = " and fee `{} {}` you shall receive additional `{} {}`.".format(
+                                    gas_coin_msg = " and fee __{} {}__ you shall receive additional __{} {}__.".format(
                                         num_format_coin(send_tx['network_fee'] + fee_limit / 20),
                                         GAS_COIN, num_format_coin(send_tx['ada_received']), GAS_COIN)
-                                fee_txt = "\nWithdrew fee/node: `{} {}`{}.".format(
+                                fee_txt = "\nWithdrew fee/node: __{} {}__{}.".format(
                                     num_format_coin(NetFee), coin_name, gas_coin_msg)
                                 explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                     f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                                    f"`{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                                    f"_{address}_.\nTransaction hash: _{tx_hash}_{fee_txt}{explorer_link}"
                                 await ctx.edit_original_message(content=msg, view=None)
                                 await log_to_channel(
                                     "withdraw",
@@ -13377,7 +13377,7 @@ class Wallet(commands.Cog):
                         main_address = getattr(getattr(self.bot.coin_list, "XTZ"), "MainAddress")
                         if address == main_address:
                             # can not send
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`."
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_."
                             await ctx.edit_original_message(content=msg)
                             return
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
@@ -13385,8 +13385,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13432,11 +13432,11 @@ class Wallet(commands.Cog):
                             )
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"_{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13447,7 +13447,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13470,7 +13470,7 @@ class Wallet(commands.Cog):
                         main_address = getattr(getattr(self.bot.coin_list, "ZIL"), "MainAddress")
                         if address == main_address:
                             # can not send
-                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_.'
                             await ctx.edit_original_message(content=msg)
                             return
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
@@ -13478,8 +13478,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13523,11 +13523,11 @@ class Wallet(commands.Cog):
                             )
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"_{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13538,7 +13538,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13563,7 +13563,7 @@ class Wallet(commands.Cog):
                         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                         if address == main_address:
                             # can not send
-                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_.'
                             await ctx.edit_original_message(content=msg)
                             return
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
@@ -13571,8 +13571,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13613,11 +13613,11 @@ class Wallet(commands.Cog):
                                 coin_decimal, NetFee, send_tx, type_coin, SERVER_BOT
                             )
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} "\
-                                f"to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13628,7 +13628,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to "\
                                 f"withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13653,7 +13653,7 @@ class Wallet(commands.Cog):
                         main_address = getattr(getattr(self.bot.coin_list, "XRP"), "MainAddress")
                         if address == main_address:
                             # can not send
-                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_.'
                             await ctx.edit_original_message(content=msg)
                             return
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
@@ -13661,8 +13661,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13700,11 +13700,11 @@ class Wallet(commands.Cog):
                         )
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"_{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13715,7 +13715,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13740,7 +13740,7 @@ class Wallet(commands.Cog):
                         token_contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                         if address == main_address:
                             # can not send
-                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_.'
                             await ctx.edit_original_message(content=msg)
                             return
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
@@ -13748,8 +13748,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13785,11 +13785,11 @@ class Wallet(commands.Cog):
                         )
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13799,7 +13799,7 @@ class Wallet(commands.Cog):
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`."
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13824,8 +13824,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13862,11 +13862,11 @@ class Wallet(commands.Cog):
                         )
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"_{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13877,7 +13877,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13902,8 +13902,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13938,11 +13938,11 @@ class Wallet(commands.Cog):
                         )  # tx_fee=0
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"_{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13953,7 +13953,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13982,8 +13982,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -14015,13 +14015,13 @@ class Wallet(commands.Cog):
 
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name
                             )
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\n"\
-                                f"Transaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"{token_display}{equivalent_usd} to _{address}_.\n"\
+                                f"Transaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -14030,7 +14030,7 @@ class Wallet(commands.Cog):
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`."
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -14059,8 +14059,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -14099,11 +14099,11 @@ class Wallet(commands.Cog):
                         )  # paymentId: None (end)
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} "\
-                                f"to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -14114,7 +14114,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -14353,14 +14353,14 @@ class Wallet(commands.Cog):
         else:
             coin_name = token.upper()
             if coin_name not in list_coin_names:
-                msg = f'{ctx.author.mention}, `{coin_name}` is invalid or does not exist in faucet list!'
+                msg = f'{ctx.author.mention}, __{coin_name}__ is invalid or does not exist in faucet list!'
                 await ctx.edit_original_message(content=msg)
                 return
             else:
                 # Update user setting faucet
                 update = await faucet.update_faucet_user(str(ctx.author.id), coin_name, SERVER_BOT)
                 if update:
-                    msg = f"{ctx.author.mention}, you updated your preferred claimed reward to `{coin_name}`. "\
+                    msg = f"{ctx.author.mention}, you updated your preferred claimed reward to __{coin_name}__. "\
                         f"This preference applies only for TipBot's voting reward."\
                         f" Type `/claim` without token to see the list of voting websites."
                     await ctx.edit_original_message(content=msg)
@@ -14473,8 +14473,8 @@ class Wallet(commands.Cog):
             return
 
         if not hasattr(ctx.guild, "id"):
-            msg = f"{ctx.author.mention}, you can invite me to your guild with `/invite`\'s link and execute `/take`. "\
-                f"`/take` is not available in Direct Message."
+            msg = f"{ctx.author.mention}, you can invite me to your guild with __/invite__\'s link and execute __/take__. "\
+                f"__/take__ is not available in Direct Message."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -14488,7 +14488,7 @@ class Wallet(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
             elif coin_name not in self.bot.faucet_coins:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {coin_name} not available for `/take`."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {coin_name} not available for __/take__."
                 await ctx.edit_original_message(content=msg)
                 return
 
@@ -14549,8 +14549,8 @@ class Wallet(commands.Cog):
             if serverinfo and serverinfo['enable_faucet'] == "NO":
                 if self.enable_logchan:
                     await self.botLogChan.send(
-                        f'{ctx.author.name} / {ctx.author.id} tried `/take` in {ctx.guild.name} / {ctx.guild.id} which is disable.')
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, `/take` in this guild is disable."
+                        f'{ctx.author.name} / {ctx.author.id} tried __/take__ in {ctx.guild.name} / {ctx.guild.id} which is disable.')
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, __/take__ in this guild is disable."
                 await ctx.edit_original_message(content=msg)
                 return
             elif serverinfo and serverinfo['enable_faucet'] == "YES" and serverinfo['faucet_channel'] is not None and \
@@ -14579,7 +14579,7 @@ class Wallet(commands.Cog):
                     if time_left > 0:
                         extra_take_text += f"\n⚆ RT <{tweet_link}> and get {rt_amount} {rt_reward_coin} "\
                             f"(Be sure you verified your twitter with TipBot <https://www.youtube.com/watch?v=q79_1M0_Hsw>). "\
-                            f"Time left `{seconds_str_days(time_left)}`."
+                            f"Time left __{seconds_str_days(time_left)}__."
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # end of bot channel check
@@ -14604,9 +14604,9 @@ class Wallet(commands.Cog):
                             style='f'
                         )
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /take on {last_claim_at}. "\
-                            f"Waiting time {time_waiting} for next `/take`. Total user claims: **{total_claimed}** times. "\
+                            f"Waiting time {time_waiting} for next __/take__. Total user claims: **{total_claimed}** times. "\
                             f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. "\
-                            f"Use /claim to vote TipBot and get reward.{extra_take_text}{advert_txt}"
+                            f"Use __/claim__ to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                         await ctx.edit_original_message(content=msg)
                         return
         except Exception:
@@ -14625,7 +14625,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using /take. Alternatively, vote for TipBot to get reward `/claim`.{extra_take_text}{advert_txt}"
+                    f"Wait a few days before using __/take__. Alternatively, vote for TipBot to get reward __/claim__.{extra_take_text}{advert_txt}"
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -14641,7 +14641,7 @@ class Wallet(commands.Cog):
                         time_waiting = "<t:{}:R>".format(half_claim_interval * 3600 + faucet_penalty['penalty_at'])
                         penalty_at = "<t:{}:f>".format(faucet_penalty['penalty_at'])
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel "\
-                            f"{penalty_at}. Waiting time {time_waiting} for next `/take` "\
+                            f"{penalty_at}. Waiting time {time_waiting} for next __/take__ "\
                             f"and be sure to be the right channel set by the guild. Use /claim "\
                             f"to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                         await ctx.edit_original_message(content=msg)
@@ -14744,7 +14744,7 @@ class Wallet(commands.Cog):
                         str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
                         coin_decimal, SERVER_BOT, "TAKE"
                     )
-                    msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random `/take` "\
+                    msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random __/take__ "\
                         f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
                         f"Use /claim to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                     await ctx.edit_original_message(content=msg)
@@ -14759,7 +14759,7 @@ class Wallet(commands.Cog):
             else:
                 try:
                     msg = f"Simulated faucet {coin_emoji}{num_format_coin(amount)} {coin_name}. "\
-                        f"This is a test only. Use without **ticker** to do real faucet claim. Use /claim "\
+                        f"This is a test only. Use without **ticker** to do real faucet claim. Use __/claim__ "\
                         f"to vote TipBot and get reward.{advert_txt}"
                     await ctx.edit_original_message(content=msg)
                 except Exception:
@@ -14937,7 +14937,7 @@ class Wallet(commands.Cog):
                 coin_name = coin.upper()
                 if coin_name not in self.bot.other_data['daily']:
                     await ctx.edit_original_message(
-                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, `{coin_name}` is not available for `/daily`."
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, __{coin_name}__ is not available for `/daily`."
                     )
                     return
                 else:
@@ -15183,7 +15183,7 @@ class Wallet(commands.Cog):
                 coin_name = coin.upper()
                 if coin_name not in self.bot.other_data['hourly']:
                     await ctx.edit_original_message(
-                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, `{coin_name}` is not available for `/hourly`."
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, __{coin_name}__ is not available for `/hourly`."
                     )
                     return
                 else:
@@ -15376,7 +15376,7 @@ class Wallet(commands.Cog):
             # Check if conversion is allowed for this coin.
             amount = amount.replace(",", "").replace("$", "")
             if price_with is None:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this __{coin_name}__."
                 await ctx.edit_original_message(content=msg)
                 return
             else:
@@ -15471,7 +15471,9 @@ class Wallet(commands.Cog):
     # Swap Tokens
     @commands.slash_command(description="Swap supporting tokens")
     async def swaptokens(self, ctx):
-        pass
+        msg = f"{EMOJI_INFORMATION}, this command is disable now. Please use __/cexswap__."
+        await ctx.response.send_message(msg)
+        return
 
     @swaptokens.sub_command(
         usage="swaptokens disclaimer",
@@ -15784,7 +15786,7 @@ class Wallet(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         if PAIR_NAME not in self.swap_pair:
-            msg = f'{EMOJI_RED_NO}, {ctx.author.mention} `{PAIR_NAME}` is not available.'
+            msg = f'{EMOJI_RED_NO}, {ctx.author.mention} __{PAIR_NAME}__ is not available.'
             await ctx.edit_original_message(content=msg)
             return
         else:
@@ -15858,14 +15860,14 @@ class Wallet(commands.Cog):
                     if balance / 5 < to_amount:  # We allow 20% to swap
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention} insufficient liquidity to swap "\
                             f"**{num_format_coin(amount)} {token_display}** "\
-                            f"to {to_coin}. Try lower the amount of `{from_coin}`."
+                            f"to {to_coin}. Try lower the amount of __{from_coin}__."
                         await ctx.edit_original_message(content=msg)
                         await logchanbot(
                             f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} wanted to "\
-                            f"swap from `{num_format_coin(amount)} {from_coin} "\
-                            f"to {num_format_coin(to_amount)} {to_coin}` "\
+                            f"swap from __{num_format_coin(amount)} {from_coin}__ "\
+                            f"to __{num_format_coin(to_amount)} {to_coin}__ "\
                             f"but shortage of liquidity. "\
-                            f"Having only `{num_format_coin(balance)} {to_coin}`."
+                            f"Having only __{num_format_coin(balance)} {to_coin}__."
                         )
                         return
                 except Exception:
@@ -15881,13 +15883,13 @@ class Wallet(commands.Cog):
                         )
                         if swap:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, swapped from "\
-                                f"`{num_format_coin(amount)} "\
-                                f"{from_coin} to {num_format_coin(to_amount)} {to_coin}`."
+                                f"__{num_format_coin(amount)} "\
+                                f"{from_coin}__ to __{num_format_coin(to_amount)} {to_coin}__."
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"swapped from `{num_format_coin(amount)} {from_coin} "\
-                                f"to {num_format_coin(to_amount)} {to_coin}`."
+                                f"swapped from __{num_format_coin(amount)} {from_coin}__ "\
+                                f"to __{num_format_coin(to_amount)} {to_coin}__."
                             )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)

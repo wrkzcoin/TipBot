@@ -398,7 +398,7 @@ class PlaceBid(disnake.ui.Modal):
                             get_user = self.bot.get_user(previous_user_id)
                             if get_user is not None:
                                 await get_user.send(f"{EMOJI_INFORMATION} {interaction.author.mention} placed a higher bid than "\
-                                                    f"yours in guild {interaction.guild.name}/{interaction.guild.id} for item `{str(self.message_id)}`!")
+                                                    f"yours in guild {interaction.guild.name}/{interaction.guild.id} for item __{str(self.message_id)}__!")
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                     # update embed
@@ -540,7 +540,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
                     owner_user = self.bot.get_user(self.owner_userid)
                     if owner_user is not None:
                         await owner_user.send(
-                            f"One of your bidding winner <@{str(self.winner_user_id)}> for `{str(self.message_id)}` at guild `{get_message['guild_name']}` updated an "\
+                            f"One of your bidding winner <@{str(self.winner_user_id)}> for __{str(self.message_id)}__ at guild __{get_message['guild_name']}__ updated an "\
                             f"instruction/information as the following:\n\n{instruction}\n{link_bid}"
                         )
                         await interaction.edit_original_message(f"{interaction.author.mention}, we updated your input and notified the bidding owner.")
@@ -585,7 +585,7 @@ class OwnerWinnerInput(disnake.ui.Modal):
                     winner_user = self.bot.get_user(self.winner_user_id)
                     if winner_user is not None:
                         await winner_user.send(
-                            f"Updated: Your bidding id `{str(self.message_id)}` at guild `{get_message['guild_name']}`: <@{str(self.owner_userid)}> just updated "\
+                            f"Updated: Your bidding id __{str(self.message_id)}__ at guild __{get_message['guild_name']}__: <@{str(self.owner_userid)}> just updated "\
                             f"instruction/information as the following:\n\n{instruction}\n\nPlease Tap on **Complete** button if you confirm you get the item. "\
                             f"You bidding amount will be transferred to him/her after completion and can't be undone.\n{link_bid}"
                         )
@@ -1014,7 +1014,7 @@ class BidButton(disnake.ui.View):
                                 try:
                                     get_u = self.bot.get_user(int(i[0]))
                                     if get_u is not None:
-                                        await get_u.send(f"Bid `{str(self.message.id)}` cancelled in guild {interaction.guild.name}/{interaction.guild.id}!"\
+                                        await get_u.send(f"Bid __{str(self.message.id)}__ cancelled in guild {interaction.guild.name}/{interaction.guild.id}!"\
                                                         " You get a refund of "\
                                                         f"{num_format_coin(i[3])} {self.coin_name}.\n{link_bid}")
                                 except Exception:
@@ -1399,7 +1399,7 @@ class Bidding(commands.Cog):
                                             if get_u is not None:
                                                 await get_u.send(f"You get a refund of "\
                                                                  f"{num_format_coin(i[3])} {each_bid['coin_name']} "\
-                                                                 f"from bidding no. `{each_bid['message_id']}` in "\
+                                                                 f"from bidding no. __{each_bid['message_id']}__ in "\
                                                                  f"guild {each_bid['guild_name']}/{each_bid['guild_id']}.\n{link_bid}")
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
@@ -1431,7 +1431,7 @@ class Bidding(commands.Cog):
                                     await self.utils.update_bid_no_winning(each_bid['message_id'])
                                     # notify owner, no winner
                                     msg_owner = "One of your bidding is completed! "\
-                                        "There is no winner for bidding `{}` in guild `{}`.\n{}".format(
+                                        "There is no winner for bidding __{}__ in guild __{}__.\n{}".format(
                                             each_bid['message_id'], each_bid['guild_name'], link_bid
                                         )
                                     await log_to_channel(
@@ -1470,10 +1470,10 @@ class Bidding(commands.Cog):
                                         refund_list, payment_logs
                                     )
                                     msg_owner = "One of your bidding is completed! "\
-                                        "User <@{}> is the winner for bidding `{}` in guild `{}`.\n{}".format(
+                                        "User <@{}> is the winner for bidding __{}__ in guild __{}__.\n{}".format(
                                             attend_list[0]['user_id'], each_bid['message_id'], each_bid['guild_name'], link_bid
                                     )
-                                    msg_winner = "Congratulation! You won a bid `{}` in guild {}/{}. "\
+                                    msg_winner = "Congratulation! You won a bid __{}__ in guild {}/{}. "\
                                         "Kindly check the new button and input necessary information and tap on Complete once's done.\n{}".format(
                                         each_bid['message_id'], each_bid['guild_name'], each_bid['guild_id'], link_bid
                                     )
@@ -1493,7 +1493,7 @@ class Bidding(commands.Cog):
                                     await log_to_channel(
                                         "bid",
                                         f"[BIDDING FAILED MSG]: failed to DM owner user <@{each_bid['user_id']}>. "\
-                                        f"Bid `{each_bid['message_id']}` at Guild {each_bid['guild_name']}/{each_bid['guild_id']}.",
+                                        f"Bid __{each_bid['message_id']}__ at Guild {each_bid['guild_name']}/{each_bid['guild_id']}.",
                                         self.bot.config['discord']['bid_webhook']
                                     )
                                 # notify bid winner
@@ -1506,7 +1506,7 @@ class Bidding(commands.Cog):
                                     await log_to_channel(
                                         "bid",
                                         f"[BIDDING FAILED MSG]: failed to DM winner user <@{attend_list[0]['user_id']}>. "\
-                                        f"Bid `{each_bid['message_id']}` at Guild {each_bid['guild_name']}/{each_bid['guild_id']}.",
+                                        f"Bid __{each_bid['message_id']}__ at Guild {each_bid['guild_name']}/{each_bid['guild_id']}.",
                                         self.bot.config['discord']['bid_webhook']
                                     )
                                 # DM refund
@@ -1514,14 +1514,14 @@ class Bidding(commands.Cog):
                                     try:
                                         get_u = self.bot.get_user(int(i[0]))
                                         if get_u is not None:
-                                            await get_u.send(f"You didn't win for bidding `{str(each_bid['message_id'])}` in Guild "\
+                                            await get_u.send(f"You didn't win for bidding __{str(each_bid['message_id'])}__ in Guild "\
                                                              f"{each_bid['guild_name']}/{each_bid['guild_id']}!"\
                                                              " You get a refund of full amount "\
                                                              f"{num_format_coin(i[3])} {coin_name}.\n{link_bid}")
                                             await log_to_channel(
                                                 "bid",
                                                 f"[BIDDING REFUND]: sent refund DM to user <@{i[0]}>. "\
-                                                f"Bid `{each_bid['message_id']}` amount {num_format_coin(i[3])} {coin_name} "\
+                                                f"Bid __{each_bid['message_id']}__ amount {num_format_coin(i[3])} {coin_name} "\
                                                 f"at Guild {each_bid['guild_name']}/{each_bid['guild_id']}.",
                                                 self.bot.config['discord']['bid_webhook']
                                             )
@@ -1636,7 +1636,7 @@ class Bidding(commands.Cog):
         try:
             get_perms = dict(ctx.guild.get_member(ctx.author.id).guild_permissions)
             if get_perms[self.bot.config['bidding']['perm_bid_add']] is False and ctx.author.id != self.bot.config['discord']['owner']:
-                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you don't have permission here. At least `{self.bot.config['bidding']['perm_bid_add']}` in this guild!"
+                msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you don't have permission here. At least __{self.bot.config['bidding']['perm_bid_add']}__ in this guild!"
                 await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                 return
             guild_id = str(ctx.guild.id)
@@ -1666,7 +1666,7 @@ class Bidding(commands.Cog):
                     # Check if conversion is allowed for this coin.
                     min_amount = min_amount.replace(",", "").replace("$", "")
                     if price_with is None:
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this __{coin_name}__."
                         await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                         return
                     else:
@@ -1695,7 +1695,7 @@ class Bidding(commands.Cog):
                     step_amount = step_amount.replace(",", "").replace("$", "")
                     price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                     if price_with is None:
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this __{coin_name}__."
                         await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
                         return
                     else:

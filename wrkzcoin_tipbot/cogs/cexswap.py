@@ -993,13 +993,13 @@ async def cexswap_sold_by_api(
             if is_sellable != 1:
                 return {
                     "success": False,
-                    "error": f"Coin/token `{sell_token}` is currently disable for CEXSwap.",
+                    "error": f"Coin/token __{sell_token}__ is currently disable for CEXSwap.",
                 }
             is_sellable = getattr(getattr(coin_list, for_token), "cexswap_sell_enable")
             if is_sellable != 1:
                 return {
                     "success": False,
-                    "error": f"Coin/token `{for_token}` is currently disable for CEXSwap.",
+                    "error": f"Coin/token __{for_token}__ is currently disable for CEXSwap.",
                 }
             try:
                 # check amount
@@ -2082,7 +2082,7 @@ class DropdownMyPool(disnake.ui.StringSelect):
                 embed.add_field(
                     name="Note",
                     value="Earning from LP Distribution fee isn't added to the LP. "\
-                        "It always go to you balance from each successful trade. You can check with `/recent cexswaplp <tokenn>`.",
+                        "It always go to you balance from each successful trade. You can check with __/recent cexswaplp <tokenn>__.",
                     inline=False
                 )
             view = DropdownViewMyPool(
@@ -2513,7 +2513,7 @@ class add_liquidity_btn(disnake.ui.View):
                 await self.ctx.delete_original_message()
                 await log_to_channel(
                     "cexswap",
-                    f"[REJECT LIQUIDITY]: User {inter.author.mention} wanted to add new liquidity to pool `{self.pool_name}`! "\
+                    f"[REJECT LIQUIDITY]: User {inter.author.mention} wanted to add new liquidity to pool __{self.pool_name}__! "\
                     f"{num_format_coin(self.amount_1)} {coin_name} is below min. {num_format_coin(min_add)} {coin_name}.",
                     self.bot.config['discord']['cexswap']
                 )
@@ -2563,7 +2563,7 @@ class add_liquidity_btn(disnake.ui.View):
                 await self.ctx.delete_original_message()
                 await log_to_channel(
                     "cexswap",
-                    f"[REJECT LIQUIDITY]: User {inter.author.mention} wanted to add new liquidity to pool `{self.pool_name}`! "\
+                    f"[REJECT LIQUIDITY]: User {inter.author.mention} wanted to add new liquidity to pool __{self.pool_name}__! "\
                     f"{num_format_coin(self.amount_2)} {coin_name} is below min. {num_format_coin(min_add)} {coin_name}.",
                     self.bot.config['discord']['cexswap']
                 )
@@ -2631,7 +2631,7 @@ class add_liquidity_btn(disnake.ui.View):
                     traceback.print_exc(file=sys.stdout)
                 await log_to_channel(
                     "cexswap",
-                    f"[ADD LIQUIDITY]: User {inter.author.mention} add new liquidity to pool `{self.pool_name}`! {add_msg}",
+                    f"[ADD LIQUIDITY]: User {inter.author.mention} add new liquidity to pool __{self.pool_name}__! {add_msg}",
                     self.bot.config['discord']['cexswap']
                 )
                 # Find guild where there is trade channel assign
@@ -2650,7 +2650,7 @@ class add_liquidity_btn(disnake.ui.View):
                                 if hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel.id != inter.channel.id:
                                     continue
                                 elif channel is not None:
-                                    await channel.send(f"[CEXSWAP]: A user added more liquidity pool `{self.pool_name}`! {add_msg}")
+                                    await channel.send(f"[CEXSWAP]: A user added more liquidity pool __{self.pool_name}__! {add_msg}")
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
             else:
@@ -3210,11 +3210,12 @@ class Cexswap(commands.Cog):
         for_token = for_token.upper()
 
         if sell_token in self.wrapped_coin.keys():
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you should do `/wrap` from `{sell_token}` to `{self.wrapped_coin[sell_token]}` and trade."
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you should do __/wrap__ from __{sell_token}__ to __{self.wrapped_coin[sell_token]}__ and trade."
             await ctx.edit_original_message(content=msg)
             return
         if for_token in self.wrapped_coin.keys():
-            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you should trade with `{self.wrapped_coin[for_token]}` and do `/wrap` from `{self.wrapped_coin[for_token]}` to `{for_token}`."
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you should trade with __{self.wrapped_coin[for_token]}__ "\
+                f"and do __/wrap__ from __{self.wrapped_coin[for_token]}__ to __{for_token}__."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -3259,24 +3260,24 @@ class Cexswap(commands.Cog):
                         self.utils.get_coin_emoji(for_token), for_token
                     ))
                 path_trades = "\n".join(list_paths)
-                msg = f"{EMOJI_INFORMATION}, {ctx.author.mention}, there is no liquidity of `{sell_token}/{for_token}` yet." \
+                msg = f"{EMOJI_INFORMATION}, {ctx.author.mention}, there is no liquidity of __{sell_token}/{for_token}__ yet." \
                     f"\n__**Possible trade:**__\n{path_trades}{additional_msg}"
                 await ctx.edit_original_message(content=msg)
                 return
             else:
-                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity of `{sell_token}/{for_token}` yet.{additional_msg}"
+                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity of __{sell_token}/{for_token}__ yet.{additional_msg}"
                 await ctx.edit_original_message(content=msg)
                 return
         else:
             # check if coin sell is enable
             is_sellable = getattr(getattr(self.bot.coin_list, sell_token), "cexswap_sell_enable")
             if is_sellable != 1:
-                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, coin/token `{sell_token}` is currently disable for cexswap."
+                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, coin/token __{sell_token}__ is currently disable for cexswap."
                 await ctx.edit_original_message(content=msg)
                 return
             is_sellable = getattr(getattr(self.bot.coin_list, for_token), "cexswap_sell_enable")
             if is_sellable != 1:
-                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, coin/token `{for_token}` is currently disable for cexswap."
+                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, coin/token __{for_token}__ is currently disable for cexswap."
                 await ctx.edit_original_message(content=msg)
                 return
             try:
@@ -3299,7 +3300,7 @@ class Cexswap(commands.Cog):
                     amount = amount.replace(",", "").replace("$", "")
                     price_with = getattr(getattr(self.bot.coin_list, sell_token), "price_with")
                     if price_with is None:
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{sell_token}`."
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this __{sell_token}__."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
@@ -3355,8 +3356,8 @@ class Cexswap(commands.Cog):
 
                 # Check if amount is more than liquidity
                 if truncate(float(amount), 8) > truncate(float(max_swap_sell_cap), 8):
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount `{sell_amount_old}`"\
-                        f" is more than allowable 10% of liquidity `{num_format_coin(max_swap_sell_cap)} {token_display}`." \
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount __{sell_amount_old}__"\
+                        f" is more than allowable 10% of liquidity __{num_format_coin(max_swap_sell_cap)} {token_display}__." \
                         f"```Current LP: {num_format_coin(liq_pair['pool']['amount_ticker_1'])} "\
                         f"{liq_pair['pool']['ticker_1_name']} and "\
                         f"{num_format_coin(liq_pair['pool']['amount_ticker_2'])} "\
@@ -3371,7 +3372,7 @@ class Cexswap(commands.Cog):
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, rate ratio is out of range. Try with other pairs."
                         await ctx.edit_original_message(content=msg)
                         await self.botLogChan.send(
-                            f"{ctx.author.name} / {ctx.author.id} reject trade ratio out of range: `{sell_token}/{for_token}`"
+                            f"{ctx.author.name} / {ctx.author.id} reject trade ratio out of range: __{sell_token}/{for_token}__"
                         )
                         return
                 except Exception:
@@ -3416,8 +3417,8 @@ class Cexswap(commands.Cog):
                     return
 
                 if truncate(amount, 8) < truncate(cexswap_min, 8):
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount `{sell_amount_old}`"\
-                        f" is below minimum `{num_format_coin(cexswap_min)} {token_display}`."
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount __{sell_amount_old}__"\
+                        f" is below minimum __{num_format_coin(cexswap_min)} {token_display}__."
                     await ctx.edit_original_message(content=msg)
                     return
 
@@ -3504,7 +3505,7 @@ class Cexswap(commands.Cog):
                     # add confirmation
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to trade?\n"\
                         f"```Get {user_amount_get} {for_token}\n"\
-                        f"From selling {user_amount_sell} {sell_token}{price_impact_text}```Ref: `{ref_log}`"
+                        f"From selling {user_amount_sell} {sell_token}{price_impact_text}```Ref: __{ref_log}__"
 
                     # If there is progress
                     if str(ctx.author.id) in self.bot.tipping_in_progress and \
@@ -3630,12 +3631,12 @@ class Cexswap(commands.Cog):
                             # . Fee {fee_str} {for_token}\n
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully traded!\n"\
                                 f"```Get {user_amount_get} {for_token}\n"\
-                                f"From selling {user_amount_sell} {sell_token}{price_impact_text}```✅ Ref: `{ref_log}`"
+                                f"From selling {user_amount_sell} {sell_token}{price_impact_text}```✅ Ref: __{ref_log}__"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "cexswap",
                                 f"[SOLD]: User {ctx.author.mention} Sold: " \
-                                f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}. Ref: `{ref_log}`",
+                                f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}. Ref: __{ref_log}__",
                                 self.bot.config['discord']['cexswap']
                             )
                             # check if the amount is more than minimum.
@@ -3962,17 +3963,17 @@ class Cexswap(commands.Cog):
                             pool_name = "{}/{}".format(tickers[1], tickers[0])
                             if pool_name not in self.bot.cexswap_pairs:
                                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                                    f"Invalid given `{pool_name}`."
+                                    f"Invalid given __{pool_name}__."
                                 await ctx.edit_original_message(content=msg)
                                 return
                         else:
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                                f"Invalid given `{pool_name}`."
+                                f"Invalid given __{pool_name}__."
                             await ctx.edit_original_message(content=msg)
                             return
                     except Exception:
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                            f"Invalid given `{pool_name}`."
+                            f"Invalid given __{pool_name}__."
                         await ctx.edit_original_message(content=msg)
                         traceback.print_exc(file=sys.stdout)
                     # End checking wrong order
@@ -4352,17 +4353,17 @@ class Cexswap(commands.Cog):
                             pool_name = "{}/{}".format(tickers[1], tickers[0])
                             if pool_name not in self.bot.cexswap_pairs:
                                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                                    f"Invalid given `{pool_name}`."
+                                    f"Invalid given __{pool_name}__."
                                 await ctx.edit_original_message(content=msg)
                                 return
                         else:
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                                f"Invalid given `{pool_name}`."
+                                f"Invalid given __{pool_name}__."
                             await ctx.edit_original_message(content=msg)
                             return
                     except Exception:
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                            f"Invalid given `{pool_name}`."
+                            f"Invalid given __{pool_name}__."
                         await ctx.edit_original_message(content=msg)
                         traceback.print_exc(file=sys.stdout)
                     # End checking wrong order
@@ -4799,18 +4800,18 @@ class Cexswap(commands.Cog):
                         pool_name = "{}/{}".format(tickers[1], tickers[0])
                         if pool_name not in self.bot.cexswap_pairs:
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                                f"Invalid given `{pool_name}`."
+                                f"Invalid given __{pool_name}__."
                             await ctx.edit_original_message(content=msg)
                             return
                     else:
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                            f"Invalid given `{pool_name}`."
+                            f"Invalid given __{pool_name}__."
                         await ctx.edit_original_message(content=msg)
                         return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                        f"Invalid given `{pool_name}`."
+                        f"Invalid given __{pool_name}__."
                     await ctx.edit_original_message(content=msg)
                     return
                 # End checking wrong order
@@ -4855,7 +4856,7 @@ class Cexswap(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     await log_to_channel(
                         "cexswap",
-                        f"[REJECT ADDING LIQUIDITY]: User {ctx.author.mention} try to add LP to pool `{pool_name}`!"\
+                        f"[REJECT ADDING LIQUIDITY]: User {ctx.author.mention} try to add LP to pool __{pool_name}__!"\
                         f" but rejected with reason: {cant_init_reason}",
                         self.bot.config['discord']['cexswap']
                     )
@@ -5048,18 +5049,18 @@ class Cexswap(commands.Cog):
                         pool_name = "{}/{}".format(tickers[1], tickers[0])
                         if pool_name not in self.bot.cexswap_pairs:
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                                f"Invalid given `{pool_name}`."
+                                f"Invalid given __{pool_name}__."
                             await ctx.edit_original_message(content=msg)
                             return
                     else:
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                            f"Invalid given `{pool_name}`."
+                            f"Invalid given __{pool_name}__."
                         await ctx.edit_original_message(content=msg)
                         return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                        f"Invalid given `{pool_name}`."
+                        f"Invalid given __{pool_name}__."
                     await ctx.edit_original_message(content=msg)
                     return
                 # End checking wrong order
@@ -5067,7 +5068,7 @@ class Cexswap(commands.Cog):
 
             liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], None)
             if liq_pair is None:
-                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity for that pool `{pool_name}`. "
+                msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity for that pool __{pool_name}__. "
                 await ctx.edit_original_message(content=msg)
                 return
             else:
@@ -5107,14 +5108,14 @@ class Cexswap(commands.Cog):
                 )
                 if removing is True:
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully removed pool:" \
-                        f"```{pool_name}```"
+                        f"__{pool_name}__"
                     num_notifying = 0
                     for liq_u in notifying_u:
                         try:
                             member = self.bot.get_user(liq_u)
                             if member is not None:
                                 try:
-                                    msg_sending = f"Admin removed pool `{pool_name}`. You pool shared return to your balance:"\
+                                    msg_sending = f"Admin removed pool __{pool_name}__. You pool shared return to your balance:"\
                                         f"```{balance_user[str(liq_u)]}```"
                                     await member.send(msg_sending)
                                     num_notifying += 1
@@ -5126,7 +5127,7 @@ class Cexswap(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     await log_to_channel(
                         "cexswap",
-                        f"[REMOVEPOOL]: User {ctx.author.mention} removed pools `{pool_name}`!",
+                        f"[REMOVEPOOL]: User {ctx.author.mention} removed pools __{pool_name}__!",
                         self.bot.config['discord']['cexswap']
                     )
                 else:
@@ -5191,18 +5192,18 @@ class Cexswap(commands.Cog):
                         pool_name = "{}/{}".format(tickers[1], tickers[0])
                         if pool_name not in self.bot.cexswap_pairs:
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                                f"Invalid given `{pool_name}`."
+                                f"Invalid given __{pool_name}__."
                             await ctx.edit_original_message(content=msg)
                             return
                     else:
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                            f"Invalid given `{pool_name}`."
+                            f"Invalid given __{pool_name}__."
                         await ctx.edit_original_message(content=msg)
                         return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                        f"Invalid given `{pool_name}`."
+                        f"Invalid given __{pool_name}__."
                     await ctx.edit_original_message(content=msg)
                     return
                 # End checking wrong order
@@ -5210,11 +5211,11 @@ class Cexswap(commands.Cog):
                 tickers = pool_name.split("/")
                 liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], str(ctx.author.id))
                 if liq_pair is None:
-                    msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity for that pool `{pool_name}`. "
+                    msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity for that pool __{pool_name}__. "
                     await ctx.edit_original_message(content=msg)
                     return
                 elif liq_pair and liq_pair['pool_share'] is None:
-                    msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you own nothing for that pool `{pool_name}`. "
+                    msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you own nothing for that pool __{pool_name}__. "
                     await ctx.edit_original_message(content=msg)
                     return
                 elif liq_pair and liq_pair['pool_share'] is not None:
@@ -5280,7 +5281,7 @@ class Cexswap(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         await log_to_channel(
                             "cexswap",
-                            f"[REMOVING LIQUIDITY]: User {ctx.author.mention} removed liquidity from `{pool_name}`!" \
+                            f"[REMOVING LIQUIDITY]: User {ctx.author.mention} removed liquidity from __{pool_name}__!" \
                             f"{amount_1_str} {ticker_1} and {amount_2_str} {ticker_2}",
                             self.bot.config['discord']['cexswap']
                         )
@@ -5300,7 +5301,7 @@ class Cexswap(commands.Cog):
                                             continue
                                         else:
                                             await channel.send(
-                                                f"[CEXSWAP]: A user removed liquidity from `{pool_name}`. "\
+                                                f"[CEXSWAP]: A user removed liquidity from __{pool_name}__. "\
                                                 f"{amount_1_str} {ticker_1} and {amount_2_str} {ticker_2}"
                                             )
                                 except Exception:
@@ -5346,10 +5347,10 @@ class Cexswap(commands.Cog):
         # check if he's op and own that pool
         check_op = await cexswap_airdrop_check_op(str(ctx.author.id), SERVER_BOT, pool_name)
         if ctx.author.id != self.bot.config['discord']['owner'] and check_op is None:
-            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have permission with `{pool_name}` or invalid!")
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have permission with __{pool_name}__ or invalid!")
             await log_to_channel(
                 "cexswap",
-                f"[AIRDROP]: User {ctx.author.mention} tried /cexswap airdrop `{pool_name}`. Permission denied!",
+                f"[AIRDROP]: User {ctx.author.mention} tried /cexswap airdrop __{pool_name}__. Permission denied!",
                 self.bot.config['discord']['cexswap']
             )
             return
@@ -5359,10 +5360,10 @@ class Cexswap(commands.Cog):
             count_airdrop = await cexswap_airdrop_count(str(ctx.author.id), SERVER_BOT, pool_name, 7*24*3600) # 1 week
             if count_airdrop >= max_aidrop:
                 await ctx.edit_original_message(
-                    content=f"{ctx.author.mention}, you reached maximum airdrop per week for `{pool_name}` max. **{str(max_aidrop)}**!")
+                    content=f"{ctx.author.mention}, you reached maximum airdrop per week for __{pool_name}__ max. **{str(max_aidrop)}**!")
                 await log_to_channel(
                     "cexswap",
-                    f"[AIRDROP]: User {ctx.author.mention} tried /cexswap reach maximum airdrop `{pool_name}` max. **{str(max_aidrop)}**!",
+                    f"[AIRDROP]: User {ctx.author.mention} tried /cexswap reach maximum airdrop __{pool_name}__ max. **{str(max_aidrop)}**!",
                     self.bot.config['discord']['cexswap']
                 )
                 return
@@ -5370,7 +5371,7 @@ class Cexswap(commands.Cog):
             await ctx.edit_original_message(content=f"{ctx.author.mention}, you don't have permission!")
             await log_to_channel(
                 "cexswap",
-                f"[AIRDROP]: User {ctx.author.mention} tried /cexswap airdrop `{pool_name}`. Permission denied!",
+                f"[AIRDROP]: User {ctx.author.mention} tried /cexswap airdrop __{pool_name}__. Permission denied!",
                 self.bot.config['discord']['cexswap']
             )
             return
@@ -5402,7 +5403,7 @@ class Cexswap(commands.Cog):
                 amount = amount.replace(",", "").replace("$", "")
                 price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                 if price_with is None:
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this __{coin_name}__."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -5446,7 +5447,7 @@ class Cexswap(commands.Cog):
                 find_other_lp = await cexswap_get_all_poolshares(user_id=None, ticker=pool_name)
                 # We'll get a list of that
                 if len(find_other_lp) == 0:
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there's not any pool share with `{pool_name}`."
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there's not any pool share with __{pool_name}__."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -5497,32 +5498,32 @@ class Cexswap(commands.Cog):
                         pool_name = "{}/{}".format(tickers[1], tickers[0])
                         if pool_name not in self.bot.cexswap_pairs:
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                                f"Invalid given `{pool_name}`."
+                                f"Invalid given __{pool_name}__."
                             await ctx.edit_original_message(content=msg)
                             return
                     else:
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                            f"Invalid given `{pool_name}`."
+                            f"Invalid given __{pool_name}__."
                         await ctx.edit_original_message(content=msg)
                         return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                        f"Invalid given `{pool_name}`."
+                        f"Invalid given __{pool_name}__."
                     await ctx.edit_original_message(content=msg)
                     return
                 # End checking wrong order
 
             if pool_name not in self.bot.cexswap_pairs and single_coin is False:
                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, please select from pair list!  "\
-                    f"Invalid given `{pool_name}`."
+                    f"Invalid given __{pool_name}__."
                 await ctx.edit_original_message(content=msg)
                 return
             elif pool_name in self.bot.cexswap_pairs and single_coin is False:
                 tickers = pool_name.split("/")
                 liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], None)
                 if liq_pair is None:
-                    msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity of `{pool_name}` yet."
+                    msg = f"{EMOJI_ERROR}, {ctx.author.mention}, there is no liquidity of __{pool_name}__ yet."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -5623,7 +5624,7 @@ class Cexswap(commands.Cog):
                 if airdroping is True and len(lp_discord_users) > 0:
                     random.shuffle(lp_discord_users)
                     lp_discord_users = lp_discord_users[0:max_alert]
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully airdrop for pool: `{pool_name}`. Testing: `{testing}`"
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully airdrop for pool: __{pool_name}__. Testing: __{testing}__"
                     for each_u in lp_discord_users:
                         list_receivers_str.append("UserID {}: {} {}".format(each_u, balance_user[str(each_u)], coin_name))
                         if testing == "NO":
@@ -5631,7 +5632,7 @@ class Cexswap(commands.Cog):
                                 member = self.bot.get_user(int(each_u))
                                 if member is not None and each_u in liq_user_percentages:
                                     try:
-                                        msg_sending = f"[Admin/Pool OP] did an airdrop for pool `{pool_name}`. "\
+                                        msg_sending = f"[Admin/Pool OP] did an airdrop for pool __{pool_name}__. "\
                                             f"You have **{liq_user_percentages[each_u]}** in that pool. "\
                                             f"Airdrop delivered to your balance:"\
                                             f"```{balance_user[str(each_u)]} {coin_name}```Thank you!"
@@ -5646,7 +5647,7 @@ class Cexswap(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 await log_to_channel(
                     "cexswap",
-                    f"[AIRDROP LP]: User {ctx.author.mention} did airdrop LP for pools `{pool_name}`. Testing: {testing}!",
+                    f"[AIRDROP LP]: User {ctx.author.mention} did airdrop LP for pools __{pool_name}__. Testing: {testing}!",
                     self.bot.config['discord']['cexswap']
                 )
         except Exception:
@@ -5915,14 +5916,14 @@ class Cexswap(commands.Cog):
             else:
                 # if that coin is enable
                 if token not in self.bot.cexswap_coins:
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there is no `{token}` in CEXSwap."
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, there is no __{token}__ in CEXSwap."
                     await ctx.edit_original_message(content=msg)
                     return
                 # check pool share of a coin by user
                 find_other_lp = await cexswap_get_all_poolshares(user_id=None, ticker=token)
                 # We'll get a list of that
                 if len(find_other_lp) == 0:
-                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you currently don't have any pool share with `{token}`."
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you currently don't have any pool share with __{token}__."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:

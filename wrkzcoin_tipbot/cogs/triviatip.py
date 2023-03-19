@@ -167,8 +167,8 @@ class TriviaTips(commands.Cog):
         self.trivia_duration_min = 5
         self.trivia_duration_max = 45
 
-        self.max_ongoing_by_user = 3
-        self.max_ongoing_by_guild = 5
+        self.max_ongoing_by_user = self.bot.config['discord']['max_ongoing_by_user']
+        self.max_ongoing_by_guild = self.bot.config['discord']['max_ongoing_by_guild']
 
 
     async def async_triviatip(self, ctx, amount: str, token: str, duration: str):

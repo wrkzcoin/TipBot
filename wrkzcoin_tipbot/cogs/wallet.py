@@ -1726,7 +1726,7 @@ class WalletAPI(commands.Cog):
                                 user_balance_coin[i['token_name']] -= Decimal(i['talk'])
                     for i in coinlist:
                         if i not in user_balance_coin.keys():
-                            user_balance_coin[i] = 0
+                            user_balance_coin[i] = Decimal(0)
                     return user_balance_coin
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -2401,7 +2401,7 @@ class WalletAPI(commands.Cog):
             elif type_coin.upper() == "BTC":
                 naming = self.bot.config['kv_db']['prefix'] + "_" + user_server + "_" + str(user_id)
                 payload = f'"{naming}"'
-                if coin_name in ["BTCZ", "VTC", "ZEC"]:
+                if coin_name in ["BTCZ", "VTC", "ZEC", "FLUX"]:
                     payload = ''
                 elif coin_name in ["HNS"]:
                     payload = '"default"'

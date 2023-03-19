@@ -22,7 +22,7 @@ from disnake.app_commands import Option
 from disnake.enums import OptionType
 
 import store
-from Bot import num_format_coin, SERVER_BOT, logchanbot, encrypt_string, decrypt_string, \
+from Bot import SERVER_BOT, logchanbot, encrypt_string, decrypt_string, \
     RowButtonRowCloseAnyMessage, EMOJI_INFORMATION, EMOJI_RED_NO, truncate
 from aiomysql.cursors import DictCursor
 from attrdict import AttrDict
@@ -44,7 +44,7 @@ import json
 import near_api
 
 from cogs.utils import MenuPage
-from cogs.utils import Utils
+from cogs.utils import Utils, num_format_coin
 
 Account.enable_unaudited_hdwallet_features()
 
@@ -230,7 +230,7 @@ class Admin(commands.Cog):
                             for i in result_airdrop:
                                 if i['token_name'] not in user_balance_coin:
                                     user_balance_coin[i['token_name']] = 0
-                                user_balance_coin[i['token_name']] -= i['airdrop']
+                                user_balance_coin[i['token_name']] -= Decimal(i['airdrop'])
 
                         sql = """
                         SELECT SUM(`real_amount`) AS math, `token_name`
@@ -244,7 +244,7 @@ class Admin(commands.Cog):
                             for i in result_math:
                                 if i['token_name'] not in user_balance_coin:
                                     user_balance_coin[i['token_name']] = 0
-                                user_balance_coin[i['token_name']] -= i['math']
+                                user_balance_coin[i['token_name']] -= Decimal(i['math'])
 
                         sql = """
                         SELECT SUM(`real_amount`) AS trivia, `token_name`
@@ -258,7 +258,7 @@ class Admin(commands.Cog):
                             for i in result_trivia:
                                 if i['token_name'] not in user_balance_coin:
                                     user_balance_coin[i['token_name']] = 0
-                                user_balance_coin[i['token_name']] -= i['trivia']
+                                user_balance_coin[i['token_name']] -= Decimal(i['trivia'])
 
                         sql = """
                         SELECT SUM(`amount_sell`) AS trade, `coin_sell`
@@ -272,7 +272,7 @@ class Admin(commands.Cog):
                             for i in result_trade:
                                 if i['coin_sell'] not in user_balance_coin:
                                     user_balance_coin[i['coin_sell']] = 0
-                                user_balance_coin[i['coin_sell']] -= i['trade']
+                                user_balance_coin[i['coin_sell']] -= Decimal(i['trade'])
 
                         sql = """
                         SELECT SUM(`amount`) AS raffle, `coin_name`
@@ -286,7 +286,7 @@ class Admin(commands.Cog):
                             for i in result_raffle:
                                 if i['coin_name'] not in user_balance_coin:
                                     user_balance_coin[i['coin_name']] = 0
-                                user_balance_coin[i['coin_name']] -= i['raffle']
+                                user_balance_coin[i['coin_name']] -= Decimal(i['raffle'])
 
                         sql = """
                         SELECT SUM(`init_amount`) AS party_init, `token_name`
@@ -300,7 +300,7 @@ class Admin(commands.Cog):
                             for i in result_party_init:
                                 if i['token_name'] not in user_balance_coin:
                                     user_balance_coin[i['token_name']] = 0
-                                user_balance_coin[i['token_name']] -= i['party_init']
+                                user_balance_coin[i['token_name']] -= Decimal(i['party_init'])
 
                         sql = """
                         SELECT SUM(`joined_amount`) AS party_join, `token_name`
@@ -314,7 +314,7 @@ class Admin(commands.Cog):
                             for i in result_party_join:
                                 if i['token_name'] not in user_balance_coin:
                                     user_balance_coin[i['token_name']] = 0
-                                user_balance_coin[i['token_name']] -= i['party_join']
+                                user_balance_coin[i['token_name']] -= Decimal(i['party_join'])
 
                         sql = """
                         SELECT SUM(`real_amount`) AS quick, `token_name`
@@ -328,7 +328,7 @@ class Admin(commands.Cog):
                             for i in result_quick:
                                 if i['token_name'] not in user_balance_coin:
                                     user_balance_coin[i['token_name']] = 0
-                                user_balance_coin[i['token_name']] -= i['quick']
+                                user_balance_coin[i['token_name']] -= Decimal(i['quick'])
 
                         sql = """
                         SELECT SUM(`real_amount`) AS talk, `token_name`
@@ -342,7 +342,7 @@ class Admin(commands.Cog):
                             for i in result_talk:
                                 if i['token_name'] not in user_balance_coin:
                                     user_balance_coin[i['token_name']] = 0
-                                user_balance_coin[i['token_name']] -= i['talk']
+                                user_balance_coin[i['token_name']] -= Decimal(i['talk'])
                     for i in coinlist:
                         if i not in user_balance_coin.keys():
                             user_balance_coin[i] = 0
@@ -449,6 +449,62 @@ class Admin(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("admin " +str(traceback.format_exc()))
+
+    async def audit_update_poolshare(self, diff_1, diff_2, pool_id):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    UPDATE `cexswap_pools`
+                    SET `amount_ticker_1`=`amount_ticker_1`+%s, `amount_ticker_2`=`amount_ticker_2`+%s
+                    WHERE `pool_id`=%s LIMIT 1; 
+                    """
+                    await cur.execute(sql, (diff_1, diff_2, pool_id))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def audit_lp_share(self):
+        pool_and_share = {"share": [], "pools": []}
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT SUM(`amount_ticker_1`) as amount_ticker_1, 
+                    SUM(`amount_ticker_2`) AS amount_ticker_2, `ticker_1_name`, `ticker_2_name`, `pairs`
+                    FROM `cexswap_pools_share`
+                    GROUP BY  `ticker_1_name`, `ticker_2_name`
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool_and_share['shares'] = result
+                    sql = """
+                    SELECT *
+                    FROM `cexswap_pools`
+                    WHERE `enable`=1
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool_and_share['pools'] = result
+
+                    sql = """
+                    SELECT *
+                    FROM `a_cexswap_pools`
+                    WHERE `enable`=1
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        pool_and_share['a_pools'] = result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return pool_and_share
 
     async def audit_lp_db(self):
         try:
@@ -1233,7 +1289,141 @@ class Admin(commands.Cog):
             else:
                 msg = f"{ctx.author.mention}, I can not find guild id `{guild_id}`."
                 await ctx.reply(msg)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='checkshare', description='run check pool share of CEXSwap')
+    async def checkshare(self, ctx):
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying checkshare!".format(
+                ctx.author.name, ctx.author.discriminator, ctx.author.mention)
+            )
             return
+        try:
+            pools = {}
+            get_poolshares = await self.audit_lp_share()
+            if len(get_poolshares['shares']) > 0 and len(get_poolshares['pools']) > 0:
+                for sh in get_poolshares['shares']:
+                    # sum all share of each coins
+                    if sh['pairs'] not in pools:
+                        pools[sh['pairs']] = {sh['ticker_1_name']: Decimal(0), sh['ticker_2_name']: Decimal(0)}
+                    pools[sh['pairs']][sh['ticker_1_name']] += sh['amount_ticker_1']
+                    pools[sh['pairs']][sh['ticker_2_name']] += sh['amount_ticker_2']
+                # check with pool
+                checked_lines = []
+                response = "Updating: \n"
+                updating = False
+                for p in get_poolshares['pools']:
+                    if p['pairs'] not in pools:
+                        checked_lines.append("!{} /pool_id: {} in pools but not in share!".format(p['pairs'], p['pool_id']))
+                    else:
+                        diff_1 = pools[p['pairs']][p['ticker_1_name']] - p['amount_ticker_1']
+                        diff_2 = pools[p['pairs']][p['ticker_2_name']] - p['amount_ticker_2']
+                        if truncate(abs(diff_1), 6) != Decimal(0) or truncate(abs(diff_2), 6) != Decimal(0):
+                            # check amount
+                            checked_lines.append("⚆ {} /pool_id: {} has {} {}/{} {} in pool vs {} {} / {} {} in pool shares!".format(
+                                p['pairs'], p['pool_id'],
+                                num_format_coin(p['amount_ticker_1']), p['ticker_1_name'],
+                                num_format_coin(p['amount_ticker_2']), p['ticker_2_name'],
+                                num_format_coin(pools[p['pairs']][p['ticker_1_name']]), p['ticker_1_name'],
+                                num_format_coin(pools[p['pairs']][p['ticker_2_name']]), p['ticker_2_name']
+                            ))
+                        if truncate(abs(diff_1), 6) != Decimal(0):
+                            checked_lines.append("    diff ({})[share - pool] = {} {}".format(p['pairs'], num_format_coin(diff_1), p['ticker_1_name']))
+                        if truncate(abs(diff_2), 6) != Decimal(0):
+                            checked_lines.append("    diff ({})[share - pool] = {} {}".format(p['pairs'], num_format_coin(diff_2), p['ticker_2_name']))
+                        if truncate(abs(diff_1), 6) != Decimal(0) and truncate(abs(diff_2), 6) != Decimal(0):
+                            # audit_update_poolshare
+                            updating = await self.audit_update_poolshare(diff_1, diff_2, p['pool_id'])
+                            if updating is True:
+                                checked_lines.append("    Fixed amount pool: {} {} / {} {} for pool_id: {}".format(
+                                    diff_1, p['ticker_1_name'], diff_2, p['ticker_2_name'], p['pool_id']))
+                                break
+                reply_msg = await ctx.reply(response + "```{}```".format("\n".join(checked_lines)))
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.is_owner()
+    @admin.command(hidden=True, usage='auditshare', description='Audit share of CEXSwap')
+    async def auditshare(self, ctx):
+        if ctx.author.id != self.bot.config['discord']['owner_id']:
+            await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying auditshare!".format(
+                ctx.author.name, ctx.author.discriminator, ctx.author.mention)
+            )
+            return
+        try:
+            pools = {}
+            get_poolshares = await self.audit_lp_share()
+            if len(get_poolshares['shares']) > 0 and len(get_poolshares['pools']) > 0:
+                for sh in get_poolshares['shares']:
+                    # sum all share of each coins
+                    if sh['pairs'] not in pools:
+                        pools[sh['pairs']] = {sh['ticker_1_name']: Decimal(0), sh['ticker_2_name']: Decimal(0)}
+                    pools[sh['pairs']][sh['ticker_1_name']] += sh['amount_ticker_1']
+                    pools[sh['pairs']][sh['ticker_2_name']] += sh['amount_ticker_2']
+                # check with pool
+                checked_lines = []
+                for p in get_poolshares['pools']:
+                    if p['pairs'] not in pools:
+                        checked_lines.append("!{} /pool_id: {} in pools but not in share!".format(p['pairs'], p['pool_id']))
+                    else:
+                        diff_1 = pools[p['pairs']][p['ticker_1_name']] - p['amount_ticker_1']
+                        diff_2 = pools[p['pairs']][p['ticker_2_name']] - p['amount_ticker_2']
+                        if truncate(abs(diff_1), 6) != Decimal(0) or truncate(abs(diff_2), 6) != Decimal(0):
+                            # check amount
+                            checked_lines.append("⚆ {} /pool_id: {} has {} {}/{} {} in pool vs {} {} / {} {} in pool shares!".format(
+                                p['pairs'], p['pool_id'],
+                                num_format_coin(p['amount_ticker_1']), p['ticker_1_name'],
+                                num_format_coin(p['amount_ticker_2']), p['ticker_2_name'],
+                                num_format_coin(pools[p['pairs']][p['ticker_1_name']]), p['ticker_1_name'],
+                                num_format_coin(pools[p['pairs']][p['ticker_2_name']]), p['ticker_2_name']
+                            ))
+                        if truncate(abs(diff_1), 6) != Decimal(0):
+                            checked_lines.append("    diff ({})[share - pool] = {} {}".format(p['pairs'], num_format_coin(diff_1), p['ticker_1_name']))
+                        if truncate(abs(diff_2), 6) != Decimal(0):
+                            checked_lines.append("    diff ({})[share - pool] = {} {}".format(p['pairs'], num_format_coin(diff_2), p['ticker_2_name']))
+                # a pools
+                a_checked_lines = []
+                for p in get_poolshares['a_pools']:
+                    if p['pairs'] not in pools:
+                        a_checked_lines.append("!{} /pool_id: {} in pools but not in share!".format(p['pairs'], p['pool_id']))
+                    else:
+                        diff_1 = pools[p['pairs']][p['ticker_1_name']] - p['amount_ticker_1']
+                        diff_2 = pools[p['pairs']][p['ticker_2_name']] - p['amount_ticker_2']
+                        if truncate(abs(diff_1), 6) != Decimal(0) or truncate(abs(diff_2), 6) != Decimal(0):
+                            # check amount
+                            a_checked_lines.append("⚆ {} /pool_id: {} has {} {}/{} {} in pool vs {} {} / {} {} in pool shares!".format(
+                                p['pairs'], p['pool_id'],
+                                num_format_coin(p['amount_ticker_1']), p['ticker_1_name'],
+                                num_format_coin(p['amount_ticker_2']), p['ticker_2_name'],
+                                num_format_coin(pools[p['pairs']][p['ticker_1_name']]), p['ticker_1_name'],
+                                num_format_coin(pools[p['pairs']][p['ticker_2_name']]), p['ticker_2_name']
+                            ))
+                        if truncate(abs(diff_1), 6) != Decimal(0):
+                            a_checked_lines.append("    diff ({})[share - pool] = {} {}".format(p['pairs'], num_format_coin(diff_1), p['ticker_1_name']))
+                        if truncate(abs(diff_2), 6) != Decimal(0):
+                            a_checked_lines.append("    diff ({})[share - pool] = {} {}".format(p['pairs'], num_format_coin(diff_2), p['ticker_2_name']))
+                # send result
+                msg = "1) Using pools:" + "\n".join(checked_lines)
+                if len(msg) >= 2000:
+                    data_file = disnake.File(
+                        BytesIO(msg.encode()),
+                        filename=f"auditshare_{str(int(time.time()))}.txt"
+                    )
+                    await ctx.reply(file=data_file)
+                else:
+                    await ctx.reply(msg)
+
+                msg = "2) Using a_pools:" + "\n".join(a_checked_lines)
+                if len(msg) >= 2000:
+                    data_file = disnake.File(
+                        BytesIO(msg.encode()),
+                        filename=f"a_auditshare_{str(int(time.time()))}.txt"
+                    )
+                    await ctx.reply(file=data_file)
+                else:
+                    await ctx.reply(msg)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1524,12 +1714,10 @@ class Admin(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
                     msg_checkcoin += wallet_stat_str + "\n"
                     msg_checkcoin += "Total record id in DB: " + str(sum_user) + "\n"
-                    msg_checkcoin += "Total balance: " + num_format_coin(sum_balance, coin_name, coin_decimal,
-                                                                         False) + " " + coin_name + "\n"
+                    msg_checkcoin += "Total balance: " + num_format_coin(sum_balance) + " " + coin_name + "\n"
                     msg_checkcoin += "Total user/guild not found (discord): " + str(sum_unfound_user) + "\n"
                     msg_checkcoin += "Total balance not found (discord): " + num_format_coin(
-                        sum_unfound_balance, coin_name, coin_decimal, False
-                        ) + " " + coin_name + "\n"
+                        sum_unfound_balance) + " " + coin_name + "\n"
                     if len(negative_users) > 0:
                         msg_checkcoin += "Negative balance: " + str(len(negative_users)) + "\n"
                         msg_checkcoin += "Negative users: " + ", ".join(negative_users)
@@ -1667,7 +1855,7 @@ class Admin(commands.Cog):
                                         if user_to not in user_list_msg:
                                             user_list_msg[user_to] = []
                                         user_list_msg[user_to].append("{} {}".format(
-                                            num_format_coin(amount, coin_name, coin_decimal, False), coin_name
+                                            num_format_coin(amount), coin_name
                                         ))
                                         total_user_credit += 1
                                     except Exception:
@@ -1732,8 +1920,8 @@ class Admin(commands.Cog):
 
             if amount > max_tip or amount < min_tip:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, credit cannot be bigger than **"\
-                    f"{num_format_coin(max_tip, coin_name, coin_decimal, False)} {token_display}**"\
-                    f" or smaller than **{num_format_coin(min_tip, coin_name, coin_decimal, False)} {token_display}**."
+                    f"{num_format_coin(max_tip)} {token_display}**"\
+                    f" or smaller than **{num_format_coin(min_tip)} {token_display}**."
                 await ctx.reply(msg)
                 return
 
@@ -1755,12 +1943,12 @@ class Admin(commands.Cog):
                     )
                     if tip:
                         msg = f"[CREDITING] to user {member_id} server {user_server} with amount "\
-                            f": {num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}"
+                            f": {num_format_coin(amount)} {coin_name}"
                         await ctx.reply(msg)
                         await logchanbot(
                             f"[CREDITING] {ctx.author.name}#{ctx.author.discriminator} / {str(ctx.author.id)} "\
                             f"credit to user {member_id} server {user_server} with amount : "\
-                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} {coin_name}"
+                            f"{num_format_coin(amount)} {coin_name}"
                         )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -1929,7 +2117,7 @@ class Admin(commands.Cog):
 
                 page.add_field(
                     name="{}{}".format(token_display, equivalent_usd),
-                    value=num_format_coin(total_balance, coin_name, coin_decimal, False),
+                    value=num_format_coin(total_balance),
                     inline=True
                 )
                 num_coins += 1

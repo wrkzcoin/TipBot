@@ -161,8 +161,8 @@ class MathTips(commands.Cog):
         self.math_duration_min = 5
         self.math_duration_max = 45
 
-        self.max_ongoing_by_user = 3
-        self.max_ongoing_by_guild = 5
+        self.max_ongoing_by_user = self.bot.config['discord']['max_ongoing_by_user']
+        self.max_ongoing_by_guild = self.bot.config['discord']['max_ongoing_by_guild']
 
     async def async_mathtip(self, ctx, amount: str, token: str, duration: str, math_exp: str = None):
         coin_name = token.upper()

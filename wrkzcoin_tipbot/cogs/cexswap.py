@@ -4,6 +4,7 @@ import uuid
 from hashlib import sha256
 import json
 import asyncio
+from cachetools import TTLCache
 
 import disnake
 from disnake.ext import commands, tasks
@@ -951,7 +952,8 @@ async def cexswap_count_api_usage(
 async def cexswap_sold_by_api(
     ref_log: str, amount_sell: float, sell_token: str, 
     for_token: str, user_id: str, user_server: str,
-    coin_list, config
+    coin_list, config,
+    per_unit_sell, per_unit_get
 ):
     """
     coin_list: list of all coin to get params
@@ -1095,9 +1097,6 @@ async def cexswap_sold_by_api(
                                 liq_users.append([distributed_amount, each_s['user_id'], each_s['user_server']])
                     contract = getattr(getattr(coin_list, for_token), "contract")
                     channel_id = "CEXSWAP API"
-                    # get price per unit
-                    per_unit_sell = 0.0 # TODO
-                    per_unit_get = 0.0 # TODO
 
                     fee = truncate(got_fee_dev, 12) + truncate(got_fee_liquidators, 12) + truncate(got_fee_guild, 12)
                     user_amount_get = num_format_coin(truncate(amount_get - float(fee), 12))
@@ -1171,6 +1170,7 @@ async def cexswap_sold(
                 # Add got coin to user
                 # Remove sell coin from user
                 # Distribute %
+                # TODO: remove this, use trigger instead
                 sql = """
                 UPDATE `cexswap_pools`
                 SET `amount_ticker_1`=`amount_ticker_1`+%s
@@ -1192,6 +1192,7 @@ async def cexswap_sold(
                     float(amount_sell), sell_ticker, pool_id, float(amount_sell), sell_ticker, pool_id, 
                     float(amount_get), got_ticker, pool_id, float(amount_get), got_ticker, pool_id
                 ]
+                ### END TODO
 
                 sql += """
                 UPDATE `cexswap_pools_share`
@@ -1426,6 +1427,7 @@ async def cexswap_insert_new(
                         user_id, ticker_1_name, user_server, -amount_ticker_1, int(time.time()),
                         user_id, ticker_2_name, user_server, -amount_ticker_2, int(time.time())
                     ]
+                    # TODO using trigger instead
                     if existing_pool is True:
                         sql += """ UPDATE `cexswap_pools` 
                         SET `amount_ticker_1`=`amount_ticker_1`+%s,
@@ -1433,6 +1435,7 @@ async def cexswap_insert_new(
                             `updated_date`=%s
                         WHERE `pool_id`=%s LIMIT 1;"""
                         data_row += [amount_ticker_1, amount_ticker_2, int(time.time()), pool_id]
+                    # END OF TODO
                     await cur.execute(sql, tuple(data_row))
                     await conn.commit()
                     return True
@@ -2682,6 +2685,7 @@ class Cexswap(commands.Cog):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
+        self.cache_sold_notify = TTLCache(maxsize=20000, ttl=60.0)
 
         self.botLogChan = None
         self.enable_logchan = True
@@ -3640,9 +3644,9 @@ class Cexswap(commands.Cog):
                             if self.bot.config['cexswap']['ann_sold_limit'] == 2:
                                 # continue without announcement
                                 pass
-                            elif self.bot.config['cexswap']['ann_sold_limit'] == 0 or (min_got is None or min_sold is None or \
-                                (min_sold and amount > min_sold) or \
-                                    (min_got and amount_get > min_got)):
+                            elif self.bot.config['cexswap']['ann_sold_limit'] == 0 or \
+                                (self.bot.config['cexswap']['ann_sold_limit'] == 1 and (min_got is None or min_sold is None or \
+                                (min_sold and amount > min_sold) or (min_got and amount_get > min_got))):
                                 get_guilds = await self.utils.get_trade_channel_list()
                                 if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0:
                                     list_guild_ids = [i.id for i in self.bot.guilds]
@@ -4862,6 +4866,11 @@ class Cexswap(commands.Cog):
                     inline=False
                 )
             else:
+                if int(time.time()) - liq_pair['pool']['initialized_date'] < 90:
+                    msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, this pool is very new, please wait a bit!"
+                    await ctx.edit_original_message(content=msg)
+                    return
+
                 rate_1 = num_format_coin(
                     liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1']
                 )
@@ -5877,6 +5886,7 @@ class Cexswap(commands.Cog):
                 # check current LP user has
                 get_poolshare = await cexswap_get_poolshare(str(ctx.author.id), SERVER_BOT)
                 if len(get_poolshare) > 0:
+                    get_poolshare = sorted(get_poolshare, key=lambda k: k['pairs'], reverse=False)
                     list_coin_lp_user = []
                     for p in get_poolshare:
                         # amount_1 = num_format_coin(p['amount_ticker_1'])
@@ -6366,10 +6376,29 @@ class Cexswap(commands.Cog):
                                     else:
                                         self.bot.tipping_in_progress[find_user['user_id']] = int(time.time())
 
+                                    # get price per unit
+                                    per_unit_sell = 0.0
+                                    price_with = getattr(getattr(self.bot.coin_list, sell_param['sell_token']), "price_with")
+                                    if price_with:
+                                        per_unit_sell = await self.utils.get_coin_price(sell_param['sell_token'], price_with)
+                                        if per_unit_sell and per_unit_sell['price'] and per_unit_sell['price'] > 0:
+                                            per_unit_sell = per_unit_sell['price']
+                                        if per_unit_sell and per_unit_sell < 0.0000000001:
+                                            per_unit_sell = 0.0
+
+                                    per_unit_get = 0.0
+                                    price_with = getattr(getattr(self.bot.coin_list,  sell_param['for_token']), "price_with")
+                                    if price_with:
+                                        per_unit_get = await self.utils.get_coin_price(sell_param['for_token'], price_with)
+                                        if per_unit_get and per_unit_get['price'] and per_unit_get['price'] > 0:
+                                            per_unit_get = per_unit_get['price']
+                                        if per_unit_get and per_unit_get < 0.0000000001:
+                                            per_unit_get = 0.0
+
                                     selling = await cexswap_sold_by_api(
                                         ref_log, amount, sell_param['sell_token'], sell_param['for_token'],
                                         find_user['user_id'], find_user['user_server'],
-                                        self.bot.coin_list, self.bot.config
+                                        self.bot.coin_list, self.bot.config, per_unit_sell, per_unit_get
                                     )
                                     if selling['success'] is True:
                                         # remove /summary cache
@@ -6401,11 +6430,25 @@ class Cexswap(commands.Cog):
                                         try:
                                             get_user = self.bot.get_user(int(find_user['user_id']))
                                             if get_user is not None:
-                                                msg = f"Sold {selling['sell']} {selling['sell_token']}\nGet: {selling['get']} {selling['for_token']}\nRef: {selling['ref']}"
-                                                await get_user.send(
-                                                    f"You executed CEXSwap API sold: ```{msg}```" \
-                                                    "If you haven't done so, please contact our support and change API key immediately!"
-                                                )
+                                                key_cache = find_user['user_id'] + "_" + SERVER_BOT
+                                                if key_cache in self.cache_sold_notify and self.cache_sold_notify[key_cache] == self.bot.config['cexswap']['sold_mute_user']:
+                                                    msg = f"Sold {selling['sell']} {selling['sell_token']}\nGet: {selling['get']} {selling['for_token']}\nRef: {selling['ref']}"
+                                                    await get_user.send(
+                                                        f"You executed CEXSwap API sold: ```{msg}```" \
+                                                        "**You have too many recent trade during last minute. Bot will mute for a few seconds.**"
+                                                    )
+                                                elif key_cache in self.cache_sold_notify and self.cache_sold_notify[key_cache] > 10:
+                                                    pass
+                                                else:
+                                                    msg = f"Sold {selling['sell']} {selling['sell_token']}\nGet: {selling['get']} {selling['for_token']}\nRef: {selling['ref']}"
+                                                    await get_user.send(
+                                                        f"You executed CEXSwap API sold: ```{msg}```" \
+                                                        "If you haven't done so, please contact our support and change API key immediately!"
+                                                    )
+                                                if key_cache not in self.cache_sold_notify:
+                                                    self.cache_sold_notify[key_cache] = 1
+                                                else:
+                                                    self.cache_sold_notify[key_cache] += 1
                                         except Exception:
                                             pass
                                         return web.json_response(result, status=200)
@@ -6498,13 +6541,23 @@ class Cexswap(commands.Cog):
                                             if int(item['serverid']) not in list_guild_ids:
                                                 continue
                                             try:
+                                                key_cache = item['serverid'] + "_" + SERVER_BOT
                                                 get_guild = self.bot.get_guild(int(item['serverid']))
                                                 if get_guild:
                                                     channel = get_guild.get_channel(int(item['trade_channel']))
                                                     if channel is None:
                                                         continue
                                                     else:
-                                                        await channel.send(each_ann['api_messsage'])
+                                                        if key_cache in self.cache_sold_notify and self.cache_sold_notify[key_cache] == self.bot.config['cexswap']['sold_mute_channel']:
+                                                            await channel.send("**[CEXSWAP API] mutes trade notification for a few seconds.**")
+                                                        elif key_cache in self.cache_sold_notify and self.cache_sold_notify[key_cache] > 10:
+                                                            pass
+                                                        else:
+                                                            await channel.send(each_ann['api_messsage'])
+                                                        if key_cache not in self.cache_sold_notify:
+                                                            self.cache_sold_notify[key_cache] = 1
+                                                        else:
+                                                            self.cache_sold_notify[key_cache] += 1
                                             except Exception:
                                                 traceback.print_exc(file=sys.stdout)
                                     # Update announcement

@@ -14793,7 +14793,7 @@ class Wallet(commands.Cog):
         ctx,
         coin: str = None
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /daily ...'
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing __/daily__ ...'
         await ctx.response.send_message(msg)
         await self.bot_log()
 
@@ -14810,7 +14810,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']*5:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using /hourly or /daily."
+                    f"Wait a few days before using __/hourly__ or __/daily__."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -14870,7 +14870,7 @@ class Wallet(commands.Cog):
                 # show summary
                 embed = disnake.Embed(
                     title=f'TipBot Daily Claim',
-                    description=f"You shall only claim one token per 24h. Decide which one you want to do `/daily <token name>`.",
+                    description=f"You shall only claim one token per 24h. Decide which one you want to do __/daily <token name>__.",
                     timestamp=datetime.fromtimestamp(int(time.time()))
                 )
                 list_daily = []
@@ -14926,7 +14926,7 @@ class Wallet(commands.Cog):
                                 style='f'
                             )
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /daily on {last_claim_at}. "\
-                                f"Waiting time {time_waiting} for next `/daily`. "\
+                                f"Waiting time {time_waiting} for next __/daily__. "\
                                 f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
                                 f"{advert_txt}"
                             await ctx.edit_original_message(content=msg)
@@ -14937,7 +14937,7 @@ class Wallet(commands.Cog):
                 coin_name = coin.upper()
                 if coin_name not in self.bot.other_data['daily']:
                     await ctx.edit_original_message(
-                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, __{coin_name}__ is not available for `/daily`."
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, __{coin_name}__ is not available for __/daily__."
                     )
                     return
                 else:
@@ -15001,9 +15001,9 @@ class Wallet(commands.Cog):
                                 str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
                                 coin_decimal, SERVER_BOT, "DAILY"
                             )
-                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got `/daily` "\
+                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got __/daily__ "\
                                 f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
-                                f"Use `/claim` to vote TipBot and get reward and more with `/hourly`.{advert_txt}"
+                                f"Use `/claim` to vote TipBot and get reward and more with __/hourly__.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
@@ -15040,7 +15040,7 @@ class Wallet(commands.Cog):
         ctx,
         coin: str = None
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /hourly ...'
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing __/hourly__ ...'
         await ctx.response.send_message(msg)
         await self.bot_log()
 
@@ -15056,7 +15056,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using /hourly or /daily."
+                    f"Wait a few days before using __/hourly__ or __/daily__."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -15116,7 +15116,7 @@ class Wallet(commands.Cog):
                 # show summary
                 embed = disnake.Embed(
                     title=f'TipBot Hourly Claim',
-                    description=f"You shall only claim one token every 1 hour. Decide which one you want to do `/hourly <token name>`.",
+                    description=f"You shall only claim one token every 1 hour. Decide which one you want to do __/hourly <token name>__.",
                     timestamp=datetime.fromtimestamp(int(time.time()))
                 )
                 list_hourly = []
@@ -15172,7 +15172,7 @@ class Wallet(commands.Cog):
                                 style='f'
                             )
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /hourly on {last_claim_at}. "\
-                                f"Waiting time {time_waiting} for next `/hourly`. "\
+                                f"Waiting time {time_waiting} for next __/hourly__. "\
                                 f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
                                 f"{advert_txt}"
                             await ctx.edit_original_message(content=msg)
@@ -15183,7 +15183,7 @@ class Wallet(commands.Cog):
                 coin_name = coin.upper()
                 if coin_name not in self.bot.other_data['hourly']:
                     await ctx.edit_original_message(
-                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, __{coin_name}__ is not available for `/hourly`."
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, __{coin_name}__ is not available for __/hourly__."
                     )
                     return
                 else:
@@ -15247,9 +15247,9 @@ class Wallet(commands.Cog):
                                 str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
                                 coin_decimal, SERVER_BOT, "HOURLY"
                             )
-                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got `/hourly` "\
+                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got __/hourly__ "\
                                 f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
-                                f"Use `/claim` to vote TipBot and get reward and more with `/daily`.{advert_txt}"
+                                f"Use __/claim__ to vote TipBot and get reward and more with __/daily__.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\

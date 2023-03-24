@@ -4913,7 +4913,7 @@ class Cexswap(commands.Cog):
                         except Exception:
                             pass
                         # End of del key
-                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully remove liqudity:" \
+                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully removed liquidity:" \
                             f"```{amount_1_str} {ticker_1}\n{amount_2_str} {ticker_2}```"
                         await ctx.edit_original_message(content=msg)
                         await log_to_channel(

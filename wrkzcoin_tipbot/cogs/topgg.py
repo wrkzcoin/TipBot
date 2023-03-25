@@ -144,7 +144,7 @@ class TopGGVote(commands.Cog):
 
     async def webserver(self):
         async def handler_get(request):
-            return web.Response(text="Hello, world")
+            return web.Response(status=200, text="Hello, world")
 
         async def handler_post(request):
             try:
@@ -172,7 +172,7 @@ class TopGGVote(commands.Cog):
                                         f"[{SERVER_BOT}] User <@{user_vote}> voted for guild `{guild_id}` at top.gg "\
                                         f"type `{type_vote}` but less than 1h."
                                     )
-                                    return web.Response(text="Thank you!")
+                                    return web.Response(status=200, text="Thank you!")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
 
@@ -252,16 +252,6 @@ class TopGGVote(commands.Cog):
                                                 if per_unit and per_unit['price'] and per_unit['price'] > 0:
                                                     per_unit = per_unit['price']
                                                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount + extra_amount))
-                                            try:
-                                                key_coin = guild_id + "_" + coin_name + "_" + SERVER_BOT
-                                                if key_coin in self.bot.user_balance_cache:
-                                                    del self.bot.user_balance_cache[key_coin]
-
-                                                key_coin = user_vote + "_" + coin_name + "_" + SERVER_BOT
-                                                if key_coin in self.bot.user_balance_cache:
-                                                    del self.bot.user_balance_cache[key_coin]
-                                            except Exception:
-                                                pass
                                             tip = await store.sql_user_balance_mv_single(
                                                 guild_id, user_vote, "TOPGG", "VOTE", amount + extra_amount, coin_name,
                                                 "GUILDVOTE", coin_decimal, SERVER_BOT, contract, amount_in_usd, None
@@ -389,7 +379,7 @@ class TopGGVote(commands.Cog):
                                         )
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
-                                return web.Response(text="Thank you!")
+                                return web.Response(status=200, text="Thank you!")
                             else:
                                 try:
                                     await log_to_channel(
@@ -399,9 +389,9 @@ class TopGGVote(commands.Cog):
                                     )
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
-                                return web.Response(text="No such server by this key! Or not up to date!")
+                                return web.Response(status=404, text="No such server by this key! Or not up to date!")
                         else:
-                            return web.Response(text="No Authorization! Or not up to date!")
+                            return web.Response(status=500, text="No Authorization! Or not up to date!")
                     elif str(request.rel_url).startswith("/topgg_bot_vote/"):
                         # Bot: {'user': '386761001808166912', 'type': 'test', 'query': '', 'bot': '474841349968101386'}
                         if 'Authorization' in request.headers and request.headers['Authorization'] == self.bot.config['topgg']['auth']:
@@ -415,7 +405,7 @@ class TopGGVote(commands.Cog):
                                         f"[{SERVER_BOT}] User <@{user_vote}> voted for bot <@{vote_to}> at top.gg "\
                                         f"type `{type_vote}` but less than 1h."
                                     )
-                                    return web.Response(text="Thank you!")
+                                    return web.Response(status=200, text="Thank you!")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             insert_vote = await self.insert_bot_vote(
@@ -488,7 +478,7 @@ class TopGGVote(commands.Cog):
                                                         await log_to_channel(
                                                             "vote",
                                                             f'[{SERVER_BOT}] vote reward for but TipBot for {coin_name} but empty!!!')
-                                                        return web.Response(text="Thank you!")
+                                                        return web.Response(status=200, text="Thank you!")
                                                     else:
                                                         # move reward
                                                         try:
@@ -502,16 +492,6 @@ class TopGGVote(commands.Cog):
                                                                 if per_unit and per_unit['price'] and per_unit['price'] > 0:
                                                                     per_unit = per_unit['price']
                                                                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
-                                                            try:
-                                                                key_coin = self.bot.config['discord']['bot_id'] + "_" + coin_name + "_" + SERVER_BOT
-                                                                if key_coin in self.bot.user_balance_cache:
-                                                                    del self.bot.user_balance_cache[key_coin]
-
-                                                                key_coin = user_vote + "_" + coin_name + "_" + SERVER_BOT
-                                                                if key_coin in self.bot.user_balance_cache:
-                                                                    del self.bot.user_balance_cache[key_coin]
-                                                            except Exception:
-                                                                pass
                                                             await store.sql_user_balance_mv_single(
                                                                 self.bot.config['discord']['bot_id'], user_vote, "TOPGG", "VOTE",
                                                                 amount, coin_name, "BOTVOTE", coin_decimal, SERVER_BOT,
@@ -599,12 +579,12 @@ class TopGGVote(commands.Cog):
                                             traceback.print_exc(file=sys.stdout)
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
-                            return web.Response(text="Thank you!")
+                            return web.Response(status=200, text="Thank you!")
                     else:
                         await log_to_channel(
                             "vote",
                             f"[{SERVER_BOT}] User <@{user_vote}> voted type `{type_vote}` but not true from top.gg.")
-                        return web.Response(text="Thank you but not topgg!")
+                        return web.Response(status=200, text="Thank you but not topgg!")
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 

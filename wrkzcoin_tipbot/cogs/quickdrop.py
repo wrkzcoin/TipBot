@@ -59,8 +59,8 @@ class QuickDropButton(disnake.ui.View):
 class QuickDrop(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.max_ongoing_by_user = 3
-        self.max_ongoing_by_guild = 5
+        self.max_ongoing_by_user = self.bot.config['discord']['max_ongoing_by_user']
+        self.max_ongoing_by_guild = self.bot.config['discord']['max_ongoing_by_guild']
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
 

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import asyncio
 from hashlib import sha256
 
-import time
+import time, datetime
 import traceback, sys
 import uvicorn
 import os
@@ -12,6 +12,8 @@ from typing import Union
 from decimal import Decimal
 from string import ascii_uppercase
 import random
+import redis
+import pickle
 from attrdict import AttrDict
 
 from config import load_config
@@ -148,6 +150,33 @@ class BackgroundRunner:
 
 runner = BackgroundRunner(app)
 
+try:
+    app.redis_pool = redis.ConnectionPool(host='localhost', port=6379, db=0)
+    app.r = redis.Redis(connection_pool=app.redis_pool)
+except Exception:
+    traceback.print_exc(file=sys.stdout)
+
+def set_cache_kv(appr, table: str, key: str, value):
+    try:
+        p_mydict = pickle.dumps(value)
+        appr.r.set(table + "_" + key, p_mydict, ex=60)
+        return True
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
+def get_cache_kv(appr, table: str, key: str):
+    try:
+        res = appr.r.get(table + "_" + key)
+        result = pickle.loads(res)
+        if result is not None:
+            return result
+    except TypeError:
+        pass
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
 @app.on_event('startup')
 async def app_startup():
     asyncio.create_task(runner.fetch_paprika_price())
@@ -159,7 +188,8 @@ async def get_coin_setting():
         async with store.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 coin_list = {}
-                sql = """ SELECT * FROM `coin_settings` 
+                sql = """
+                SELECT * FROM `coin_settings` 
                 WHERE `enable`=1
                 """
                 await cur.execute(sql, ())
@@ -621,6 +651,17 @@ async def get_summary(
             "time": int(time.time())
         }
 
+    # check cache ...
+    try:
+        data = get_cache_kv(app, config['kv_db']['prefix_cexswap'], key="summary")
+        if data is not None:
+            return {
+                "success": True,
+                "result": data,
+                "time": int(time.time())
+            }
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
     get_coins_pairs = await cexswap_get_list_enable_pair_list()
     get_pools = await cexswap_get_pools()
 
@@ -657,14 +698,23 @@ async def get_summary(
             }
 
     if len(get_pools) > 0:
+        # cache it
+        data = {
+            "markets": list_markets,
+            "enable_coins": get_coins_pairs['coins'],
+            "enable_pairs": get_coins_pairs['pairs'],
+            "active_pools": [i['pairs'] for i in get_pools],
+        }
+        try:
+            set_cache_kv(app, config['kv_db']['prefix_cexswap'], key="summary", value=data)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        print("{} /summary using new data ...".format(
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ))
         return {
             "success": True,
-            "result": {
-                "markets": list_markets,
-                "enable_coins": get_coins_pairs['coins'],
-                "enable_pairs": get_coins_pairs['pairs'],
-                "active_pools": [i['pairs'] for i in get_pools],
-            },
+            "result": data,
             "time": int(time.time())
         }
 

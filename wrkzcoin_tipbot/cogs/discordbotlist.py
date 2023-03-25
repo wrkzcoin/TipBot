@@ -186,16 +186,6 @@ class DiscordBotList(commands.Cog):
                                                         if per_unit and per_unit['price'] and per_unit['price'] > 0:
                                                             per_unit = per_unit['price']
                                                             amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
-                                                    try:
-                                                        key_coin = self.bot.config['discord']['bot_id'] + "_" + coin_name + "_" + SERVER_BOT
-                                                        if key_coin in self.bot.user_balance_cache:
-                                                            del self.bot.user_balance_cache[key_coin]
-
-                                                        key_coin = user_vote + "_" + coin_name + "_" + SERVER_BOT
-                                                        if key_coin in self.bot.user_balance_cache:
-                                                            del self.bot.user_balance_cache[key_coin]
-                                                    except Exception:
-                                                        pass
                                                     tip = await store.sql_user_balance_mv_single(
                                                         self.bot.config['discord']['bot_id'], user_vote, "DISCORDBOTLIST",
                                                         "VOTE", amount, coin_name, "BOTVOTE", coin_decimal, SERVER_BOT, contract,

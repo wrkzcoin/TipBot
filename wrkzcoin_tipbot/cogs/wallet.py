@@ -25,6 +25,7 @@ from cachetools import TTLCache
 from disnake import TextInputStyle
 from disnake.app_commands import Option, OptionChoice
 from disnake.enums import OptionType
+from disnake.enums import ButtonStyle
 from disnake.ext import commands, tasks
 from eth_account import Account
 from eth_utils import is_hex_address  # Check hex only
@@ -92,7 +93,7 @@ from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SE
     seconds_str_days, log_to_channel
 
 from cogs.utils import MenuPage
-from cogs.utils import Utils, num_format_coin
+from cogs.utils import Utils, num_format_coin, chunks
 from cogs.utils import print_color
 
 Account.enable_unaudited_hdwallet_features()
@@ -839,23 +840,407 @@ class ConfirmName(disnake.ui.View):
         self.bot = bot
         self.owner_id = owner_id
 
-    @disnake.ui.button(label="Yes, please!", style=disnake.ButtonStyle.green)
+    @disnake.ui.button(label="Yes, please!", emoji="✅", style=disnake.ButtonStyle.green)
     async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
         else:
-            await inter.response.send_message(f"{inter.author.mention}, confirming ...", delete_after=3.0)
             self.value = True
             self.stop()
+            await inter.response.defer()
 
-    @disnake.ui.button(label="No", style=disnake.ButtonStyle.grey)
+    @disnake.ui.button(label="No", emoji="❌", style=disnake.ButtonStyle.grey)
     async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
             await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
         else:
-            await inter.response.send_message(f"{inter.author.mention}, Rejected.", delete_after=3.0)
             self.value = False
             self.stop()
+            await inter.response.defer()
+
+class DepositMenu(disnake.ui.View):
+    def __init__(
+        self, bot,
+        ctx,
+        owner_id: int,
+        embed,
+        coin_name,
+        is_fav: bool=False
+    ):
+        super().__init__(timeout=120.0)
+        self.bot = bot
+        self.ctx = ctx
+        self.utils = Utils(self.bot)
+        self.wallet = Wallet(self.bot)
+        self.owner_id = owner_id
+        self.embed = embed
+        self.coin_name = coin_name
+        if is_fav is True:
+            self.btn_balance_single_add_fav.disabled = True
+            self.btn_balance_single_remove_fav.disabled = False
+        else:
+            self.btn_balance_single_add_fav.disabled = False
+            self.btn_balance_single_remove_fav.disabled = True
+
+    async def on_timeout(self):
+        await self.ctx.edit_original_message(
+            view=None
+        )
+
+    @disnake.ui.button(label="Add", emoji="💚", style=ButtonStyle.grey, custom_id="deposit_add_fav")
+    async def btn_balance_single_add_fav(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, adding to favorite ...", ephemeral=True)
+            # check if he has so many fav already.
+            counting = await self.utils.check_if_fav_coin(str(inter.author.id), SERVER_BOT, None)
+            if len(counting) >= 15:
+                await inter.edit_original_message(
+                    content=f"{inter.author.mention}, you reached maximum of favorited coins already! ({str(len(counting))})"
+                )
+                return
+            adding = await self.utils.fav_coin_add(str(inter.author.id), SERVER_BOT, self.coin_name)
+            if adding is True:
+                await inter.delete_original_message()
+                view = DepositMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=True)
+                await self.ctx.edit_original_message(view=view)
+
+    @disnake.ui.button(label="Remove", emoji="💙", style=ButtonStyle.grey, custom_id="deposit_remove_fav")
+    async def btn_balance_single_remove_fav(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, removing from favorite ...", ephemeral=True)
+            removing = await self.utils.fav_coin_remove(str(inter.author.id), SERVER_BOT, self.coin_name)
+            if removing is True:
+                await inter.delete_original_message()
+                view = DepositMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=False)
+                await self.ctx.edit_original_message(view=view)
+
+    @disnake.ui.button(label="Balance", emoji="💰", style=ButtonStyle.grey, custom_id="deposit_balance")
+    async def btn_balance_single_balance(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, checking balance ...", ephemeral=True)
+            # check if he has so many fav already.
+            await self.wallet.async_balance(self.ctx, self.coin_name)
+            await inter.delete_original_message()
+
+
+class SingleBalanceMenu(disnake.ui.View):
+    def __init__(
+        self, bot,
+        ctx,
+        owner_id: int,
+        embed,
+        coin_name,
+        is_fav: bool=False
+    ):
+        super().__init__(timeout=120.0)
+        self.bot = bot
+        self.ctx = ctx
+        self.utils = Utils(self.bot)
+        self.wallet = Wallet(self.bot)
+        self.owner_id = owner_id
+        self.embed = embed
+        self.coin_name = coin_name
+        if is_fav is True:
+            self.btn_balance_single_add_fav.disabled = True
+            self.btn_balance_single_remove_fav.disabled = False
+        else:
+            self.btn_balance_single_add_fav.disabled = False
+            self.btn_balance_single_remove_fav.disabled = True
+
+    async def on_timeout(self):
+        await self.ctx.edit_original_message(
+            view=None
+        )
+
+    @disnake.ui.button(label="Add", emoji="💚", style=ButtonStyle.grey, custom_id="balance_single_add_fav")
+    async def btn_balance_single_add_fav(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, adding to favorite ...", ephemeral=True)
+            # check if he has so many fav already.
+            counting = await self.utils.check_if_fav_coin(str(inter.author.id), SERVER_BOT, None)
+            if len(counting) >= 15:
+                await inter.edit_original_message(
+                    content=f"{inter.author.mention}, you reached maximum of favorited coins already! ({str(len(counting))})"
+                )
+                return
+            adding = await self.utils.fav_coin_add(str(inter.author.id), SERVER_BOT, self.coin_name)
+            if adding is True:
+                await inter.delete_original_message()
+                view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=True)
+                await self.ctx.edit_original_message(view=view)
+
+    @disnake.ui.button(label="Remove", emoji="💙", style=ButtonStyle.grey, custom_id="balance_single_remove_fav")
+    async def btn_balance_single_remove_fav(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            await inter.response.send_message(f"{inter.author.mention}, removing from favorite ...", ephemeral=True)
+            removing = await self.utils.fav_coin_remove(str(inter.author.id), SERVER_BOT, self.coin_name)
+            if removing is True:
+                await inter.delete_original_message()
+                view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=False)
+                await self.ctx.edit_original_message(view=view)
+
+    @disnake.ui.button(label="Deposit", emoji="↪️", style=ButtonStyle.grey, custom_id="balance_single_deposit")
+    async def btn_balance_deposit_coin(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            # delete and show other menu
+            await inter.response.send_message(f"{inter.author.mention}, loading ...", ephemeral=True)
+            await self.wallet.async_deposit(self.ctx, self.coin_name)
+            await inter.delete_original_message()
+
+    @disnake.ui.button(label="All coins/tokens", emoji="💰", style=ButtonStyle.grey, custom_id="balance_single_all")
+    async def btn_balance_all_coins(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            # delete and show other menu
+            await inter.response.send_message(f"{inter.author.mention}, loading all your balance ...", ephemeral=True)
+            await self.wallet.async_balances(self.ctx)
+            await inter.delete_original_message()
+
+    @disnake.ui.button(label="Support", emoji="🏢", style=ButtonStyle.link, url="https://discord.com/invite/GpHzURM")
+    async def btn_balance_support(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        pass
+
+class DropdownBalance(disnake.ui.StringSelect):
+    def __init__(
+            self, ctx, owner_id, bot, embed, all_userdata_balance, list_chunks, list_index,
+            bl_list_by_value_chunks, list_index_value,
+            sorted_by, home_embed, selected_index
+        ):
+        self.ctx = ctx
+        self.owner_id = owner_id
+        self.bot = bot
+        self.utils = Utils(self.bot)
+        self.embed = embed
+        self.all_userdata_balance = all_userdata_balance
+        self.list_chunks = list_chunks
+        self.list_index = list_index
+        self.bl_list_by_value_chunks = bl_list_by_value_chunks
+        self.list_index_value = list_index_value
+        self.sorted_by = sorted_by # ALPHA, VALUE
+        self.home_embed = home_embed
+        self.selected_index = selected_index
+        if sorted_by == "ALPHA":
+            self.index_by = list_index
+            self.bulk_list = list_chunks
+            select_text = "Select"
+        elif sorted_by == "VALUE":
+            self.index_by = list_index_value
+            self.bulk_list = bl_list_by_value_chunks
+            select_text = "Between"
+
+        options = [
+            disnake.SelectOption(
+                label=self.index_by[c],
+                description="{} {}".format(select_text, self.index_by[c]),
+                value=c,
+            ) for c, each in enumerate(self.bulk_list)
+        ]
+
+        super().__init__(
+            placeholder="Choose menu..." if self.selected_index is None else self.index_by[self.selected_index],
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
+
+    async def callback(self, inter: disnake.MessageInteraction):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            if self.values[0] is None:
+                await inter.response.send_message(f"{inter.author.mention}, out of range! Try again!", ephemeral=True)
+                return
+            else:
+                self.embed.clear_fields()
+                embed = self.embed.copy()
+                total_section_usd = 0.0
+                for c, i in enumerate(self.bulk_list[int(self.values[0])]):
+                    coin_name = list(i.keys())[0]
+                    token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                    if self.sorted_by == "ALPHA":
+                        v = list(i.values())[0]
+                    elif self.sorted_by == "VALUE":
+                        v = self.all_userdata_balance[coin_name]
+                    equivalent_usd = ""
+                    per_unit = None
+                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
+                            amount_in_usd = float(Decimal(v) * Decimal(per_unit))
+                            total_section_usd += amount_in_usd
+                            if amount_in_usd >= 0.01:
+                                equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
+                            elif amount_in_usd >= 0.0001:
+                                equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
+
+                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                    if hasattr(self.ctx, "guild") and hasattr(self.ctx.guild, "id"):
+                        coin_emoji = None
+                    embed.add_field(
+                        name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, equivalent_usd),
+                        value="{}".format(num_format_coin(v)),
+                        inline=True
+                        )
+                if total_section_usd > 0:
+                    embed.set_footer(text="Estimated {}".format(" ~ {:,.4f}$".format(total_section_usd)))
+                else:
+                    embed.set_footer(text="Estimated N/A")
+                view = BalancesMenu(
+                    self.bot, self.ctx, self.owner_id, embed, self.all_userdata_balance, self.list_chunks, self.list_index,
+                    self.bl_list_by_value_chunks, self.list_index_value,
+                    sorted_by=self.sorted_by, home_embed=self.home_embed, selected_index=int(self.values[0])
+                )
+                await self.ctx.edit_original_message(content=None, embed=embed, view=view)
+                await inter.response.defer()
+
+class BalancesMenu(disnake.ui.View):
+    def __init__(
+        self, bot,
+        ctx,
+        owner_id: int,
+        embed,
+        all_userdata_balance,
+        list_chunks,
+        list_index,
+        bl_list_by_value_chunks,
+        list_index_value,
+        sorted_by,
+        home_embed,
+        selected_index: int=None,
+    ):
+        super().__init__(timeout=120.0)
+        self.bot = bot
+        self.ctx = ctx
+        self.embed = embed
+        self.all_userdata_balance = all_userdata_balance
+        self.owner_id = owner_id
+        self.list_chunks = list_chunks
+        self.list_index = list_index
+        self.bl_list_by_value_chunks = bl_list_by_value_chunks
+        self.list_index_value = list_index_value
+        self.sorted_by = sorted_by
+        self.home_embed = home_embed
+        if len(bl_list_by_value_chunks) <= 1:
+            # disable sort by VALUE
+            self.btn_balance_sort_usd.disabled = True
+        if len(list_chunks) <= 1:
+            self.list_chunks.disabled = True
+
+        self.add_item(DropdownBalance(
+            ctx, owner_id, bot, embed, all_userdata_balance, list_chunks, list_index,
+            bl_list_by_value_chunks, list_index_value,
+            sorted_by, home_embed, selected_index
+        ))
+
+    async def on_timeout(self):
+        await self.ctx.edit_original_message(
+            view=None
+        )
+
+    @disnake.ui.button(label="Home", emoji="🏠", style=ButtonStyle.grey, custom_id="balance_home")
+    async def btn_balance_home(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        view = BalancesMenu(
+            self.bot, self.ctx, self.owner_id, self.embed, self.all_userdata_balance,
+            self.list_chunks, self.list_index,
+            self.bl_list_by_value_chunks, self.list_index_value,
+            sorted_by="ALPHA", home_embed=self.home_embed, selected_index=None
+        )
+        await self.ctx.edit_original_message(content=None, embed=self.home_embed, view=view)
+        await inter.response.defer()
+
+    @disnake.ui.button(label="Sort", emoji="💲", style=ButtonStyle.grey, custom_id="balance_sort_usd")
+    async def btn_balance_sort_usd(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        view = BalancesMenu(
+            self.bot, self.ctx, self.owner_id, self.embed, self.all_userdata_balance,
+            self.list_chunks, self.list_index,
+            self.bl_list_by_value_chunks, self.list_index_value,
+            sorted_by="VALUE", home_embed=self.home_embed, selected_index=None
+        )
+        await self.ctx.edit_original_message(content=None, embed=self.home_embed, view=view)
+        await inter.response.defer()
+
+    @disnake.ui.button(label="Sort", emoji="🇦", style=ButtonStyle.grey, custom_id="balance_sort_alpha")
+    async def btn_balance_sort_alpha(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        view = BalancesMenu(
+            self.bot, self.ctx, self.owner_id, self.embed, self.all_userdata_balance, 
+            self.list_chunks, self.list_index,
+            self.bl_list_by_value_chunks, self.list_index_value,
+            sorted_by="ALPHA", home_embed=self.home_embed, selected_index=None
+        )
+        await self.ctx.edit_original_message(content=None, embed=self.home_embed, view=view)
+        await inter.response.defer()
+
+    @disnake.ui.button(label="Support", emoji="🏢", style=ButtonStyle.link, url="https://discord.com/invite/GpHzURM")
+    async def btn_balance_support(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        pass
 
 class WalletAPI(commands.Cog):
     def __init__(self, bot):
@@ -874,6 +1259,38 @@ class WalletAPI(commands.Cog):
                 )
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+    async def cexswap_get_all_poolshares(self, user_id: str=None, ticker: str=None):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    data_rows = []
+                    sql = """ SELECT * 
+                    FROM `cexswap_pools_share` 
+                    """
+                    if user_id is not None:
+                        sql += """
+                        WHERE `user_id`=%s
+                        """
+                        data_rows += [user_id]
+                    if ticker is not None:
+                        if user_id is not None:
+                            sql += """
+                                AND (`ticker_1_name`=%s OR `ticker_2_name`=%s)
+                            """
+                        else:
+                            sql += """
+                                WHERE `ticker_1_name`=%s OR `ticker_2_name`=%s
+                            """
+                        data_rows += [ticker]*2
+                    await cur.execute(sql, tuple(data_rows))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
 
     async def get_coin_balance(self, coin: str):
         balance = 0.0
@@ -1161,6 +1578,160 @@ class WalletAPI(commands.Cog):
                 return balance / 10 ** coin_decimal
         return balance
 
+    async def all_user_balance(
+        self, user_id: str, user_server: str, coinlist
+    ):
+        user_server = user_server.upper()
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    user_balance_coin = {}
+                    sql = """
+                    SELECT (`balance`-`withdrew`+`deposited`) AS balance, `token_name` 
+                    FROM `user_balance_mv_data` 
+                    WHERE `user_id`=%s AND `user_server`=%s
+                    """
+                    await cur.execute(sql, (user_id, user_server))
+                    result_balance = await cur.fetchall()
+                    if result_balance:
+                        for i in result_balance:
+                            if i['token_name'] not in user_balance_coin:
+                                user_balance_coin[i['token_name']] = Decimal(i['balance'])
+
+                        sql = """
+                        SELECT SUM(`real_amount`) AS airdrop , `token_name`
+                        FROM `discord_airdrop_tmp` 
+                        WHERE `from_userid`=%s AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_airdrop = await cur.fetchall()
+                        if result_airdrop:
+                            for i in result_airdrop:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['airdrop'])
+
+                        sql = """
+                        SELECT SUM(`real_amount`) AS math, `token_name`
+                        FROM `discord_mathtip_tmp` 
+                        WHERE `from_userid`=%s AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_math = await cur.fetchall()
+                        if result_math:
+                            for i in result_math:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['math'])
+
+                        sql = """
+                        SELECT SUM(`real_amount`) AS trivia, `token_name`
+                        FROM `discord_triviatip_tmp` 
+                        WHERE `from_userid`=%s AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_trivia = await cur.fetchall()
+                        if result_trivia:
+                            for i in result_trivia:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['trivia'])
+
+                        sql = """
+                        SELECT SUM(`amount_sell`) AS trade, `coin_sell`
+                        FROM `open_order` 
+                        WHERE `userid_sell`=%s AND `status`=%s
+                        GROUP BY `coin_sell`
+                        """
+                        await cur.execute(sql, (user_id, "OPEN"))
+                        result_trade = await cur.fetchall()
+                        if result_trade:
+                            for i in result_trade:
+                                if i['coin_sell'] not in user_balance_coin:
+                                    user_balance_coin[i['coin_sell']] = 0
+                                user_balance_coin[i['coin_sell']] -= Decimal(i['trade'])
+
+                        sql = """
+                        SELECT SUM(`amount`) AS raffle, `coin_name`
+                        FROM `guild_raffle_entries` 
+                        WHERE `user_id`=%s AND `user_server`=%s AND `status`=%s
+                        GROUP BY `coin_name`
+                        """
+                        await cur.execute(sql, (user_id, user_server, "REGISTERED"))
+                        result_raffle = await cur.fetchall()
+                        if result_raffle:
+                            for i in result_raffle:
+                                if i['coin_name'] not in user_balance_coin:
+                                    user_balance_coin[i['coin_name']] = 0
+                                user_balance_coin[i['coin_name']] -= Decimal(i['raffle'])
+
+                        sql = """
+                        SELECT SUM(`init_amount`) AS party_init, `token_name`
+                        FROM `discord_partydrop_tmp` 
+                        WHERE `from_userid`=%s  AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_party_init = await cur.fetchall()
+                        if result_party_init:
+                            for i in result_party_init:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['party_init'])
+
+                        sql = """
+                        SELECT SUM(`joined_amount`) AS party_join, `token_name`
+                        FROM `discord_partydrop_join` 
+                        WHERE `attendant_id`=%s AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_party_join = await cur.fetchall()
+                        if result_party_join:
+                            for i in result_party_join:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['party_join'])
+
+                        sql = """
+                        SELECT SUM(`real_amount`) AS quick, `token_name`
+                        FROM `discord_quickdrop` 
+                        WHERE `from_userid`=%s AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_quick = await cur.fetchall()
+                        if result_quick:
+                            for i in result_quick:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['quick'])
+
+                        sql = """
+                        SELECT SUM(`real_amount`) AS talk, `token_name`
+                        FROM `discord_talkdrop_tmp` 
+                        WHERE `from_userid`=%s AND `status`=%s
+                        GROUP BY `token_name`
+                        """
+                        await cur.execute(sql, (user_id, "ONGOING"))
+                        result_talk = await cur.fetchall()
+                        if result_talk:
+                            for i in result_talk:
+                                if i['token_name'] not in user_balance_coin:
+                                    user_balance_coin[i['token_name']] = 0
+                                user_balance_coin[i['token_name']] -= Decimal(i['talk'])
+                    for i in coinlist:
+                        if i not in user_balance_coin.keys():
+                            user_balance_coin[i] = Decimal(0)
+                    return user_balance_coin
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot("wallet user_balance " +str(traceback.format_exc()))
+
     async def user_balance(
         self, user_id: str, coin: str, address: str, coin_family: str, top_block: int,
         confirmed_depth: int = 0, user_server: str = 'DISCORD'
@@ -1168,13 +1739,6 @@ class WalletAPI(commands.Cog):
         # address: TRTL/BCN/XMR = paymentId
         token_name = coin.upper()
         user_server = user_server.upper()
-
-        key = user_id + "_" + coin + "_" + user_server
-        try:
-            if key in self.bot.user_balance_cache:
-                return self.bot.user_balance_cache[key]
-        except Exception:
-            pass
         if top_block is None:
             # If we can not get top block, confirm after 20mn. This is second not number of block
             nos_block = 20 * 60
@@ -1269,19 +1833,19 @@ class WalletAPI(commands.Cog):
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(`amount`) 
                             FROM `doge_get_transfers` 
-                            WHERE `address`=%s AND `coin_name`=%s 
+                            WHERE `user_id`=%s AND `coin_name`=%s 
                             AND (`category` = %s or `category` = %s) 
                             AND `confirmations`>=%s AND `amount`>0), 0))
                             """
-                            query_param += [address, token_name, 'receive', 'generate', confirmed_depth]
+                            query_param += [user_id, token_name, 'receive', 'generate', confirmed_depth]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(amount)  
                             FROM `doge_get_transfers` 
-                            WHERE `address`=%s AND `coin_name`=%s AND `category` = %s 
+                            WHERE `user_id`=%s AND `coin_name`=%s AND `category` = %s 
                             AND `confirmations`>=%s AND `amount`>0), 0))
                             """
-                            query_param += [address, token_name, 'receive', confirmed_depth]
+                            query_param += [user_id, token_name, 'receive', confirmed_depth]
                     elif coin_family == "NEO":
                         sql += """
                             - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -1294,20 +1858,20 @@ class WalletAPI(commands.Cog):
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(`amount`)  
                             FROM `neo_get_transfers` 
-                            WHERE `address`=%s 
+                            WHERE `user_id`=%s 
                             AND `coin_name`=%s AND `category` = %s 
                             AND `time_insert`<=%s AND `amount`>0), 0))
                                    """
-                            query_param += [address, token_name, 'received', int(time.time()) - nos_block]
+                            query_param += [user_id, token_name, 'received', int(time.time()) - nos_block]
                         else:
                             sql += """
                             + (SELECT IFNULL((SELECT SUM(`amount`)  
                             FROM `neo_get_transfers` 
-                            WHERE `address`=%s 
+                            WHERE `user_id`=%s 
                             AND `coin_name`=%s AND `category` = %s 
                             AND `confirmations`<=%s AND `amount`>0), 0))
                                    """
-                            query_param += [address, token_name, 'received', nos_block]
+                            query_param += [user_id, token_name, 'received', nos_block]
                     elif coin_family == "NEAR":
                         sql += """
                             - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
@@ -1565,7 +2129,7 @@ class WalletAPI(commands.Cog):
                         - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
                         FROM `cosmos_external_tx` 
                         WHERE `user_id`=%s AND `coin_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s AND `is_failed`=0), 0))
+                        AND `user_server`=%s AND `crediting`=%s AND `success`=1), 0))
                         """
                         query_param += [user_id, token_name, user_server, "YES"]
                         
@@ -1648,10 +2212,6 @@ class WalletAPI(commands.Cog):
                         await logchanbot(msg_negative)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                try:
-                    self.bot.user_balance_cache[key] = balance
-                except Exception:
-                    pass
                 return balance
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -1841,7 +2401,7 @@ class WalletAPI(commands.Cog):
             elif type_coin.upper() == "BTC":
                 naming = self.bot.config['kv_db']['prefix'] + "_" + user_server + "_" + str(user_id)
                 payload = f'"{naming}"'
-                if coin_name in ["BTCZ", "VTC", "ZEC"]:
+                if coin_name in ["BTCZ", "VTC", "ZEC", "FLUX"]:
                     payload = ''
                 elif coin_name in ["HNS"]:
                     payload = '"default"'
@@ -3325,7 +3885,7 @@ class WalletAPI(commands.Cog):
         self, rpc_url: str, chain_id: str, coin_name: str, account_num: int, sequence: int, priv_key: str,
         amount: float, coin_decimal: int, user_id: str, to_address: str, user_server: str,
         withdraw_fee: float, fee: int=1000, gas: int=120000, memo: str ="", timeout: int=20, hrp: str="cosmos",
-        denom: str="uatom"
+        denom: str="uatom",
     ):
         fee_denom: str = denom
         if hrp == "osmo":
@@ -3366,9 +3926,9 @@ class WalletAPI(commands.Cog):
                         await session.close()
                         decoded_data = json.loads(res_data)
                         if decoded_data is not None:
-                            is_failed = 0
+                            success = 1
                             if decoded_data['result']['code'] != 0:
-                                is_failed = 1
+                                success = 0
                             try:
                                 await self.openConnection()
                                 async with self.pool.acquire() as conn:
@@ -3376,13 +3936,13 @@ class WalletAPI(commands.Cog):
                                         sql = """
                                         INSERT INTO `cosmos_external_tx` 
                                         (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
-                                        `decimal`, `to_address`, `date`, `tx_hash`, `tx_dump`, `user_server`, `is_failed`) 
+                                        `decimal`, `to_address`, `date`, `tx_hash`, `tx_dump`, `user_server`, `success`) 
                                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                         """
                                         await cur.execute(sql, (
-                                            coin_name, user_id, amount, None, withdraw_fee, coin_decimal,
+                                            coin_name, user_id, amount, 0, withdraw_fee, coin_decimal,
                                             to_address, int(time.time()), decoded_data['result']['hash'],
-                                            json.dumps(decoded_data), user_server, is_failed
+                                            json.dumps(decoded_data), user_server, success
                                         ))
                                         await conn.commit()
                                         return decoded_data
@@ -3657,13 +4217,13 @@ class WalletAPI(commands.Cog):
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                         await logchanbot(
-                                            f"[BUG] send_external_ada_asset: user_id: `{user_id}` "\
+                                            f"[BUG] send_external_ada_asset: user_id: __{user_id}__ "\
                                             f"failed to insert to DB for withdraw {json.dumps(data_rows)}."
                                         )
                             else:
                                 print(
-                                    f"send_external_ada_asset: cannot get estimated fee for sending asset `{asset_name}`" \
-                                    f"for amount `{str(amount)} {coin_name}`"
+                                    f"send_external_ada_asset: cannot get estimated fee for sending asset __{asset_name}__" \
+                                    f"for amount __{str(amount)} {coin_name}__"
                                 )
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -4708,7 +5268,7 @@ class Wallet(commands.Cog):
         try:
             if self.pool is None:
                 self.pool = await aiomysql.create_pool(
-                    host=self.bot.config['mysql']['host'], port=3306, minsize=3, maxsize=6,
+                    host=self.bot.config['mysql']['host'], port=3306, minsize=2, maxsize=4,
                     user=self.bot.config['mysql']['user'], password=self.bot.config['mysql']['password'],
                     db=self.bot.config['mysql']['db'], cursorclass=DictCursor, autocommit=True
                 )
@@ -5053,12 +5613,6 @@ class Wallet(commands.Cog):
                                             list_receivers = json.loads(each_resp['user_mentions_list'])
                                             list_users = []
                                             for each_u in list_receivers:
-                                                try:
-                                                    key_coin = each_u['id_str'] + "_" + coin_name + "_" + "TWITTER"
-                                                    if key_coin in self.bot.user_balance_cache:
-                                                        del self.bot.user_balance_cache[key_coin]
-                                                except Exception:
-                                                    pass
                                                 if each_u['id_str'] not in ["1343104498722467845", str(
                                                         each_resp['twitter_user_id'])]:  # BotTipsTweet, twitter user
                                                     list_users.append(each_u['id_str'])
@@ -5354,7 +5908,7 @@ class Wallet(commands.Cog):
                                             if height is None:
                                                 # can not pull height, continue
                                                 await logchanbot(
-                                                    f"[{user_server}] - Execute withdraw for `{tw_user}` "\
+                                                    f"[{user_server}] - Execute withdraw for __{tw_user}__ "\
                                                     f"but can not pull height of {coin_name}."
                                                 )
                                                 continue
@@ -5480,11 +6034,11 @@ class Wallet(commands.Cog):
                                                     )
 
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
                                                     try:
-                                                        response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                        response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}'
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         continue
                                                     except Exception:
@@ -5514,10 +6068,10 @@ class Wallet(commands.Cog):
                                                     )
 
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
@@ -5544,7 +6098,7 @@ class Wallet(commands.Cog):
                                                                 coin_name)
                                                             SendTx_hash = send_tx['block']
                                                             response = f'You withdrew {num_format_coin(amount)} "\
-                                                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{SendTx_hash}`{fee_txt}'
+                                                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{SendTx_hash}_{fee_txt}'
                                                             await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                             await log_to_channel(
                                                                 "withdraw",
@@ -5572,10 +6126,10 @@ class Wallet(commands.Cog):
                                                     coin_name, coin_decimal, tx_fee, NetFee, user_server
                                                 )
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
@@ -5603,11 +6157,11 @@ class Wallet(commands.Cog):
                                                     user_server, coin_name, NetFee, 32
                                                 )
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
                                                     response = f"You withdrew {num_format_coin(amount)} "\
-                                                        f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}"
+                                                        f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}"
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
@@ -5642,12 +6196,12 @@ class Wallet(commands.Cog):
                                                     if "status" in send_tx and send_tx['status'] == "pending":
                                                         tx_hash = send_tx['id']
                                                         fee = send_tx['fee']['quantity'] / 10 ** coin_decimal + fee_limit
-                                                        fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                        fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                             num_format_coin(fee),
                                                             coin_name)
                                                         response = f"You withdrew {num_format_coin(amount)} "\
-                                                            f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: "\
-                                                            f"`{tx_hash}`{fee_txt}"
+                                                            f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: "\
+                                                            f"_{tx_hash}_{fee_txt}"
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
                                                             "withdraw",
@@ -5735,15 +6289,15 @@ class Wallet(commands.Cog):
                                                         tx_hash = send_tx['id']
                                                         gas_coin_msg = ""
                                                         if GAS_COIN is not None:
-                                                            gas_coin_msg = " and fee `{} {}` you shall receive additional `{} {}`.".format(
+                                                            gas_coin_msg = " and fee __{} {}__ you shall receive additional __{} {}__.".format(
                                                                 num_format_coin(send_tx['network_fee'] + fee_limit / 20), GAS_COIN,
                                                                 num_format_coin(send_tx['ada_received']), GAS_COIN)
-                                                        fee_txt = "\nWithdrew fee/node: `{} {}`{}.".format(
+                                                        fee_txt = "\nWithdrew fee/node: __{} {}__{}.".format(
                                                             num_format_coin(NetFee),
                                                             coin_name, gas_coin_msg)
                                                         response = f"You withdrew {num_format_coin(amount)} "\
-                                                            f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: "\
-                                                            f"`{tx_hash}`{fee_txt}"
+                                                            f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: "\
+                                                            f"_{tx_hash}_{fee_txt}"
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
                                                             "withdraw",
@@ -5779,10 +6333,10 @@ class Wallet(commands.Cog):
                                                     self.bot.erc_node_list['SOL'], each_msg['sender_id'], amount,
                                                     address, coin_name, coin_decimal, tx_fee, NetFee, user_server)
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
@@ -5803,10 +6357,10 @@ class Wallet(commands.Cog):
                                                     each_msg['sender_id'], amount, address,
                                                     coin_name, 0, NetFee, user_server)  # tx_fee=0
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
@@ -5835,10 +6389,10 @@ class Wallet(commands.Cog):
                                                     wallet_address, header, None
                                                 )  # paymentId: None (end)
                                                 if send_tx:
-                                                    fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                                    fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                                         num_format_coin(NetFee),
                                                         coin_name)
-                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}'
+                                                    response = f'You withdrew {num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}'
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
@@ -6030,17 +6584,6 @@ class Wallet(commands.Cog):
                                                     traceback.print_exc(file=sys.stdout)
                                                     continue
 
-                                                try:
-                                                    key_coin = each_reward['guild_id'] + "_" + coin_name + "_" + "TWITTER"
-                                                    if key_coin in self.bot.user_balance_cache:
-                                                        del self.bot.user_balance_cache[key_coin]
-
-                                                    key_coin = each_discord_user + "_" + coin_name + "_" + "TWITTER"
-                                                    if key_coin in self.bot.user_balance_cache:
-                                                        del self.bot.user_balance_cache[key_coin]
-                                                except Exception:
-                                                    pass
-
                                                 tip = await store.sql_user_balance_mv_single(
                                                     each_reward['guild_id'], each_discord_user,
                                                     "TWITTER", "TWITTER", amount, coin_name,
@@ -6055,7 +6598,7 @@ class Wallet(commands.Cog):
                                                         guild_owner = self.bot.get_user(guild.owner.id)
                                                         try:
                                                             await guild_owner.send(
-                                                                f"User `{each_discord_user}` RT your twitter at <{twitter_link}>. "\
+                                                                f"User __{each_discord_user}__ RT your twitter at <{twitter_link}>. "\
                                                                 f"He/she just got a reward of "\
                                                                 f"{num_format_coin(amount)} {coin_name}."
                                                             )
@@ -6090,7 +6633,7 @@ class Wallet(commands.Cog):
                                                         except Exception:
                                                             traceback.print_exc(file=sys.stdout)
                                                             await logchanbot(
-                                                                f'[TWITTER] Failed to send message to retweet reward to channel in guild: `{guild_id}` / {guild.name}.')
+                                                                f'[TWITTER] Failed to send message to retweet reward to channel in guild: __{guild_id}__ / {guild.name}.')
                                                     except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
                                                         await logchanbot(
                                                             f'[TWITTER] Failed to thank message to <@{each_discord_user}>.')
@@ -6771,7 +7314,7 @@ class Wallet(commands.Cog):
                     'Content-Type': 'application/json',
                     'User-Agent': ua
                 }
-                url = endpoint + "?pagination.limit=50&events=coin_received.receiver={}".format("%27" + account_addr + "%27")
+                url = endpoint + "?pagination.limit=50&events=coin_received.receiver={}&order_by=ORDER_BY_DESC".format("%27" + account_addr + "%27")
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
                         url,
@@ -10929,12 +11472,14 @@ class Wallet(commands.Cog):
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
+                await conn.ping(reconnect=True)
                 async with conn.cursor() as cur:
                     if main_token is False:
-                        sql = """ SELECT * FROM `coin_settings` 
-                            WHERE `type`=%s AND `enable`=%s 
-                            AND `contract` IS NOT NULL AND `net_name` IS NOT NULL
-                            """
+                        sql = """
+                        SELECT * FROM `coin_settings` 
+                        WHERE `type`=%s AND `enable`=%s 
+                        AND `contract` IS NOT NULL AND `net_name` IS NOT NULL
+                        """
                         await cur.execute(sql, (type_token, 1))
                         result = await cur.fetchall()
                         if result and len(result) > 0:
@@ -10949,7 +11494,6 @@ class Wallet(commands.Cog):
                             return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            await logchanbot("wallet get_all_contracts " + str(traceback.format_exc()))
         return []
 
     async def generate_qr_address(
@@ -11017,34 +11561,30 @@ class Wallet(commands.Cog):
     async def async_deposit(self, ctx, token: str = None, plain: str = None):
         coin_name = None
         if token is None:
-            await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, token name is missing.")
             return
         else:
             coin_name = token.upper()
             if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
                 coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
-                await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** does not exist with us.')
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
                 return
             else:
                 if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
-                    await ctx.response.send_message(f'{ctx.author.mention}, **{coin_name}** deposit disable.')
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, **{coin_name}** deposit disable.")
                     return
-
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                            str(ctx.author.id), SERVER_BOT, "/deposit", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         # Do the job
         try:
-            await ctx.response.send_message(
-                f'{ctx.author.mention}, checking your {coin_name} address...',
-                ephemeral=True
-            )
-
-            try:
-                self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
-                                             str(ctx.author.id), SERVER_BOT, "/deposit", int(time.time())))
-                await self.utils.add_command_calls()
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-
             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
             coin_emoji = coin_emoji + " " if coin_emoji else ""
 
@@ -11111,7 +11651,7 @@ class Wallet(commands.Cog):
 
             if type_coin in ["HNT", "XLM", "VITE", "COSMOS"]:
                 plain_address = address_memo[0]
-                plain_address += f"\n📝 MEMO (mandatory!): `{address_memo[2]}`"
+                plain_address += f"\n📝 MEMO (mandatory!): __{address_memo[2]}__"
                 pointer_message += " and do not forget to include MEMO."
 
             main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
@@ -11125,19 +11665,19 @@ class Wallet(commands.Cog):
                 )
                 embed.add_field(
                     name="PaymentID (Must include)",
-                    value="`{}`".format(get_deposit['paymentid']),
+                    value="{}".format(get_deposit['paymentid']),
                     inline=False
                 )
             else:
                 wallet_address_new = wallet_address
                 if " MEMO:" in wallet_address_new:
                     wallet_address_new = wallet_address_new.replace(" MEMO:", "\n📝 MEMO:")
-                embed.add_field(name="Your Deposit Address", value="`{}`".format(wallet_address_new), inline=False)
+                embed.add_field(name="Your Deposit Address", value="```\n{}```".format(wallet_address_new), inline=False)
                 if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"] and getattr(
                     getattr(self.bot.coin_list, coin_name),
                     "split_main_paymentid") != 1:
                     # Add optional address and payment Id
-                    embed.add_field(name="Or Address + PaymentId", value="Address: `{}`\nPaymentId: `{}`".format(main_address, get_deposit['paymentid']), inline=False)
+                    embed.add_field(name="Or Address + PaymentId", value="Address: ```{}```\nPaymentId: ```{}```".format(main_address, get_deposit['paymentid']), inline=False)
                 embed.set_thumbnail(url=self.bot.config['storage']['deposit_url'] + address_path + ".png")
 
             if getattr(getattr(self.bot.coin_list, coin_name), "related_coins"):
@@ -11205,7 +11745,11 @@ class Wallet(commands.Cog):
                 else:
                     if len(other_links) > 0:
                         embed.add_field(name="Other links", value="{}".format(" | ".join(other_links)), inline=False)
-                    await ctx.edit_original_message(embed=embed)
+                    check_fav = await self.utils.check_if_fav_coin(str(ctx.author.id), SERVER_BOT, coin_name)
+                    view = DepositMenu(
+                        self.bot, ctx, ctx.author.id, embed, coin_name, is_fav=check_fav
+                    )
+                    await ctx.edit_original_message(content=None, embed=embed, view=view)
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:
                 traceback.print_exc(file=sys.stdout)
         except Exception:
@@ -11229,6 +11773,7 @@ class Wallet(commands.Cog):
         token: str,
         plain: str = 'embed'
     ):
+        await ctx.response.send_message(f"{ctx.author.mention}, checking deposit ...", ephemeral=True)
         await self.async_deposit(ctx, token, plain)
 
     @deposit.autocomplete("token")
@@ -11239,36 +11784,26 @@ class Wallet(commands.Cog):
 
     # Balance
     async def async_balance(self, ctx, token: str = None):
-        coin_name = None
-        if token is None:
-            await ctx.response.send_message(f'{ctx.author.mention}, token name is missing.')
+        coin_name = token.upper()
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+        if not hasattr(self.bot.coin_list, coin_name):
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
             return
         else:
-            coin_name = token.upper()
-            if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
-                coin_name = self.bot.coin_alias_names[coin_name]
-            if not hasattr(self.bot.coin_list, coin_name):
-                await ctx.response.send_message(f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
+            if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1:
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, **{coin_name}** is currently under maintenance.")
                 return
-            else:
-                if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1:
-                    await ctx.response.send_message(
-                        f"{ctx.author.mention}, **{coin_name}** is currently under maintenance.")
-                    return
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                            str(ctx.author.id), SERVER_BOT, "/balance", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         # Do the job
         try:
-            await ctx.response.send_message(
-                f'{ctx.author.mention}, checking your {coin_name} balance...',
-                ephemeral=True
-            )
-
-            try:
-                self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
-                                             str(ctx.author.id), SERVER_BOT, "/balance", int(time.time())))
-                await self.utils.add_command_calls()
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -11304,16 +11839,6 @@ class Wallet(commands.Cog):
                     height, deposit_confirm_depth, SERVER_BOT
                 )
                 total_balance = userdata_balance['adjust']
-                if total_balance == 0:
-                    # Delete if has key
-                    key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                    try:
-                        if key in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key]
-                    except Exception:
-                        pass
-                    # End of del key
-
                 per_unit = None
                 equivalent_usd = ""
                 if price_with:
@@ -11332,6 +11857,42 @@ class Wallet(commands.Cog):
                         num_format_coin(total_balance), token_display),
                     inline=False
                 )
+                try:
+                    # check pool share of a coin by user
+                    find_other_lp = await self.wallet_api.cexswap_get_all_poolshares(user_id=None, ticker=coin_name)
+                    if len(find_other_lp) > 0:
+                        user_amount = 0
+                        total_pool_coin = 0
+                        user_pools = [i for i in find_other_lp if i['user_id'] == str(ctx.author.id)]
+                        pairs = []
+                        if len(user_pools) > 0:
+                            for i in find_other_lp:
+                                if i['user_id'] != str(ctx.author.id):
+                                    if i['ticker_1_name'] == coin_name:
+                                        total_pool_coin += i['amount_ticker_1']
+                                    elif i['ticker_2_name'] == coin_name:
+                                        total_pool_coin += i['amount_ticker_2']
+                                else:
+                                    if i['ticker_1_name'] == coin_name:
+                                        user_amount += i['amount_ticker_1']
+                                        total_pool_coin += i['amount_ticker_1']
+                                        pairs.append(i['ticker_2_name'])
+                                    elif i['ticker_2_name'] == coin_name:
+                                        user_amount += i['amount_ticker_2']
+                                        total_pool_coin += i['amount_ticker_2']
+                                        pairs.append(i['ticker_1_name'])
+                            embed.description = "CEXSwap: ✅"
+                            list_pairs = "\n```Locked with: " + ", ".join(list(set(pairs))) + "```"
+                            embed.add_field(
+                                name="CEXSwap: Locked in {} LP".format(len(user_pools)),
+                                value="Amount: {} {}{}".format(
+                                    num_format_coin(user_amount), coin_name,
+                                    list_pairs
+                                ),
+                                inline=False
+                            )
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
                 if getattr(getattr(self.bot.coin_list, coin_name), "related_coins"):
                     embed.add_field(name="Related Coins", value="```{}```".format(
                         getattr(getattr(self.bot.coin_list, coin_name), "related_coins")), inline=False)
@@ -11390,7 +11951,9 @@ class Wallet(commands.Cog):
                 link = 'https://cdn.discordapp.com/emojis/' + str(split_id.replace(">", "")) + extension
                 embed.set_thumbnail(url=link)
 
-            await ctx.edit_original_message(embed=embed)
+            check_fav = await self.utils.check_if_fav_coin(str(ctx.author.id), SERVER_BOT, coin_name)
+            view = SingleBalanceMenu(self.bot, ctx, ctx.author.id, embed, coin_name, is_fav=check_fav)
+            await ctx.edit_original_message(content=None, embed=embed, view=view)
             # Add update for future call
             try:
                 await self.utils.update_user_balance_call(str(ctx.author.id), type_coin)
@@ -11400,8 +11963,7 @@ class Wallet(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     # Balances
-    async def async_balances(self, ctx, tokens: str = None):
-        await ctx.response.send_message(content=f"{ctx.author.mention} balance loading...", ephemeral=True)
+    async def async_balances(self, ctx):
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/balances", int(time.time())))
@@ -11409,33 +11971,12 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        coin_name = None
-        mytokens = []
         zero_tokens = []
         unknown_tokens = []
         has_none_balance = True
         start_time = int(time.time())
-        if tokens is None:
-            # do all coins/token which is not under maintenance
-            mytokens = await store.get_coin_settings(coin_type=None)
-        else:
-            # get list of coin/token from tokens
-            get_tokens = await store.get_coin_settings(coin_type=None)
-            token_list = None
-            tokens = tokens.replace(",", " ").replace(";", " ").replace("/", " ")
-            if " " in tokens:
-                token_list = tokens.upper().split()
-            else:
-                # one token
-                token_list = [tokens.upper().strip()]
-            if token_list and len(token_list) > 0:
-                token_list = list(set(token_list))
-                for each_token in token_list:
-                    try:
-                        if getattr(self.bot.coin_list, each_token):
-                            mytokens.append(getattr(self.bot.coin_list, each_token))
-                    except Exception:
-                        unknown_tokens.append(each_token)
+        # do all coins/token which is not under maintenance
+        mytokens = await store.get_coin_settings(coin_type=None)
 
         if len(mytokens) == 0:
             msg = f'{ctx.author.mention}, no token or not exist.'
@@ -11443,31 +11984,15 @@ class Wallet(commands.Cog):
             return
         else:
             total_all_balance_usd = 0.0
-            all_pages = []
-            all_names = [each['coin_name'] for each in mytokens]
-            total_coins = len(mytokens)
+            all_names = [each['coin_name'] for each in mytokens if each['enable'] == 1]
             page = disnake.Embed(
                 title='[ YOUR BALANCE LIST ]',
                 description="Thank you for using TipBot!",
-                color=disnake.Color.blue(),
                 timestamp=datetime.fromtimestamp(int(time.time())),
             )
-            page.add_field(
-                name="Coin/Tokens: [{}]".format(len(all_names)),
-                value="```" + ", ".join(all_names) + "```",
-                inline=False
-            )
-            if len(unknown_tokens) > 0:
-                unknown_tokens = list(set(unknown_tokens))
-                page.add_field(
-                    name="Unknown Tokens: {}".format(len(unknown_tokens)),
-                    value="```" + ", ".join(unknown_tokens) + "```",
-                    inline=False
-                )
             page.set_thumbnail(url=ctx.author.display_avatar)
             page.set_footer(text="Use the reactions to flip pages.")
-            all_pages.append(page)
-            num_coins = 0
+            original_em = page.copy()
             per_page = 20
             # check mutual guild for is_on_mobile
             try:
@@ -11481,151 +12006,162 @@ class Wallet(commands.Cog):
             except Exception:
                 pass
 
-            bstart = time.time()
-            for each_token in mytokens:
-                try:
-                    coin_name = each_token['coin_name']
-                    type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-                    net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                    token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
-                    get_deposit = await self.sql_get_userwallet(
-                        str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
-                    )
-                    if get_deposit is None:
-                        get_deposit = await self.sql_register_user(
-                            str(ctx.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
-                        )
-                    wallet_address = get_deposit['balance_wallet_address']
-                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                        wallet_address = get_deposit['paymentid']
-                    elif type_coin in ["XRP"]:
-                        wallet_address = get_deposit['destination_tag']
-
-                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                    try:
-                        # Add update for future call
-                        await self.utils.update_user_balance_call(str(ctx.author.id), type_coin)
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                    if num_coins == 0 or num_coins % per_page == 0:
-                        page = disnake.Embed(
-                            title='[ YOUR BALANCE LIST ]',
-                            description="Thank you for using TipBot!",
-                            color=disnake.Color.blue(),
-                            timestamp=datetime.fromtimestamp(int(time.time())),
-                        )
-                        page.set_thumbnail(url=ctx.author.display_avatar)
-                        page.set_footer(text="Use the reactions to flip pages.")
-                    # height can be None
-                    userdata_balance = await self.wallet_api.user_balance(
-                        str(ctx.author.id), coin_name, wallet_address, type_coin,
-                        height, deposit_confirm_depth, SERVER_BOT
-                    )
-                    total_balance = userdata_balance['adjust']
-                    if total_balance == 0:
-                        zero_tokens.append(coin_name)
-                        continue
-                    elif total_balance > 0:
-                        has_none_balance = False
-                    equivalent_usd = ""
-                    per_unit = None
-                    if price_with:
-                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
-                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
-                            per_unit = per_unit['price']
-                            amount_in_usd = float(Decimal(total_balance) * Decimal(per_unit))
-                            total_all_balance_usd += amount_in_usd
-                            if amount_in_usd >= 0.01:
-                                equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
-                            elif amount_in_usd >= 0.0001:
-                                equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
-
-                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                    page.add_field(
-                        name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, equivalent_usd),
-                        value="{}".format(
-                            num_format_coin(total_balance)),
-                        inline=True
-                    )
-                    num_coins += 1
-                    if num_coins > 0 and num_coins % per_page == 0:
-                        all_pages.append(page)
-                        if num_coins < total_coins:
-                            page = disnake.Embed(
-                                title='[ YOUR BALANCE LIST ]',
-                                description="Thank you for using TipBot!",
-                                color=disnake.Color.blue(),
-                                timestamp=datetime.fromtimestamp(int(time.time())),
-                            )
-                            page.set_thumbnail(url=ctx.author.display_avatar)
-                            page.set_footer(text="Use the reactions to flip pages.")
-                        else:
-                            all_pages.append(page)
-                            break
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-            # Check if there is remaining
-            if (total_coins - len(zero_tokens)) % per_page > 0:
-                all_pages.append(page)
-            # Replace first page
-            if total_all_balance_usd > 0.01:
-                total_all_balance_usd = "Having ~ {:,.2f}$".format(total_all_balance_usd)
-            elif total_all_balance_usd > 0.0001:
-                total_all_balance_usd = "Having ~ {:,.4f}$".format(total_all_balance_usd)
-            else:
-                total_all_balance_usd = "Thank you for using TipBot!"
-            page = disnake.Embed(
-                title='[ YOUR BALANCE LIST ]',
-                description=f"`{total_all_balance_usd}`",
-                color=disnake.Color.blue(),
-                timestamp=datetime.fromtimestamp(int(time.time())),
-            )
-            # Remove zero from all_names
-            if has_none_balance is True:
-                msg = f'{ctx.author.mention}, you do not have any balance or the inquired tokens are empty.'
-                await ctx.edit_original_message(content=msg)
-                return
-            else:
-                all_names = [each for each in all_names if each not in zero_tokens]
-                page.add_field(
-                    name="Coin/Tokens: [{}]".format(len(all_names)),
-                    value="```" + ", ".join(all_names) + "```",
-                    inline=False
-                )
-                if len(unknown_tokens) > 0:
-                    unknown_tokens = list(set(unknown_tokens))
-                    page.add_field(
-                        name="Unknown Tokens: {}".format(len(unknown_tokens)),
-                        value="```" + ", ".join(unknown_tokens) + "```",
-                        inline=False
-                    )
-                if len(zero_tokens) > 0:
-                    zero_tokens = list(set(zero_tokens))
-                    page.add_field(
-                        name="Zero Balances: [{}]".format(len(zero_tokens)),
-                        value="```" + ", ".join(zero_tokens) + "```",
-                        inline=False
-                    )
-                page.set_thumbnail(url=ctx.author.display_avatar)
-                page.set_footer(text="Use the reactions to flip pages.")
-                all_pages[0] = page
-                try:
-                    view = MenuPage(ctx, all_pages, timeout=30, disable_remove=True)
-                    view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
-                    if int(time.time()) - start_time > 5:
-                        await logchanbot(
-                            f"[LAG] /balances lagging very long with {ctx.author.name}#{ctx.author.discriminator}. "\
-                            f"Time taken {str(int(time.time()) - start_time)}s."
-                        )
-                except Exception:
-                    msg = f"{ctx.author.mention}, internal error when checking /balances. "\
-                        f"Try again later. If problem still persists, contact TipBot dev."
+            # Update balance call
+            try:
+                await self.utils.update_user_balance_call(str(ctx.author.id), type_coin=None)
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+            try:
+                all_userdata_balance = await self.wallet_api.all_user_balance(str(ctx.author.id), SERVER_BOT, all_names)
+                if all_userdata_balance is None:
+                    msg = f"{ctx.author.mention}, you don't have any balance."
                     await ctx.edit_original_message(content=msg)
-                    traceback.print_exc(file=sys.stdout)
-                    await logchanbot(f"[ERROR] /balances with {ctx.author.name}#{ctx.author.discriminator}")
+                    return
+                else:
+                    # delete 0 balance
+                    tmp = all_userdata_balance.copy()
+                    for k, v in tmp.items():
+                        if v == 0 or k not in all_names:
+                            del all_userdata_balance[k]
+
+                    if len(all_userdata_balance) == 0:
+                        msg = f"{ctx.author.mention}, you don't have any balance."
+                        await ctx.edit_original_message(content=msg)
+                        return
+                    
+                    original_em = disnake.Embed(
+                        title='[ YOUR BALANCE LIST ]',
+                        description="Thank you for using TipBot!",
+                        timestamp=datetime.fromtimestamp(int(time.time())),
+                    )
+                    original_em.set_thumbnail(url=ctx.author.display_avatar)
+                    original_em.set_footer(text="Use menu to navigates.")
+
+                    if len(all_userdata_balance) <= per_page:
+                        page = original_em.copy()
+                        for coin_name, v in all_userdata_balance.items():
+                            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                            equivalent_usd = ""
+                            per_unit = None
+                            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                            if price_with:
+                                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                    per_unit = per_unit['price']
+                                    amount_in_usd = float(Decimal(v) * Decimal(per_unit))
+                                    total_all_balance_usd += amount_in_usd
+                                    if amount_in_usd >= 0.01:
+                                        equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
+                                    elif amount_in_usd >= 0.0001:
+                                        equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
+
+                            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                            page.add_field(
+                                name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, equivalent_usd),
+                                value="{}".format(num_format_coin(v)),
+                                inline=True
+                            )
+                        await ctx.edit_original_message(content=None, embed=page)
+                        return
+                    else:
+                        # get favorite coins
+                        fav_coins = await self.utils.check_if_fav_coin(str(ctx.author.id), SERVER_BOT, None)
+                        fav_coin_list = []
+                        if len(fav_coins) > 0:
+                            fav_coin_list = [i['coin_name'] for i in fav_coins]
+                            fav_embed = original_em.copy()
+                            fav_embed.description = "Below are coins you added to favorites. "\
+                                "You can remove or add more and they will list here by default. "\
+                                "Please use the button sort by value or alphabet then use dropdown."
+                        top_balances = []
+                        for coin_name, v in all_userdata_balance.items():
+                            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                            equivalent_usd = ""
+                            per_unit = None
+                            amount_usd = 0.0
+                            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                            if price_with:
+                                per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                    per_unit = per_unit['price']
+                                    amount_usd = float(Decimal(v) * Decimal(per_unit))
+                                    total_all_balance_usd += amount_usd
+                                    top_balances.append({"name": coin_name, "amount": float(Decimal(v)), "value_usd": amount_usd})
+                            if len(fav_coins) > 0 and coin_name in fav_coin_list:
+                                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                fav_embed.add_field(
+                                    name="{}{}{}".format(
+                                        coin_emoji + " " if coin_emoji else "",
+                                        token_display,
+                                        " ~ {:,.4f}$".format(amount_usd) if amount_usd > 0.001 else ""
+                                    ),
+                                    value="{}".format(
+                                        num_format_coin(v)),
+                                    inline=True
+                                )
+                        if len(top_balances) > 0:
+                            top_balances = sorted(top_balances, key=lambda k: k.get('value_usd'), reverse=True)
+
+                        keys = list(sorted(all_userdata_balance.keys()))
+                        new_balance_list = [{i: float(all_userdata_balance[i])} for i in keys]
+
+                        list_bl_chunks = list(chunks(new_balance_list, per_page))
+                        list_index_desc = []
+                        for c, value in enumerate(list_bl_chunks):
+                            if len(value) > 1:
+                                list_index_desc.append("{}-{}".format(list(value[0].keys())[0], list(value[-1].keys())[0]))
+                            elif len(value) == 1:
+                                list_index_desc.append("{}".format(list(value[0].keys())[0]))
+                        embed = original_em.copy()
+
+                        additional_text = ""
+                        if len(top_balances) > 0:
+                            additional_text = " Below are top coins/tokens' amount(s). "\
+                                "Please use the button sort by value or alphabet then use dropdown."
+                        embed.add_field(
+                            name="Your coins/tokens",
+                            value="You currently have {} coin(s)/token(s){}{}".format(
+                                len(new_balance_list),
+                                " ~ {:,.4f}$.".format(total_all_balance_usd) if total_all_balance_usd > 0 else "",
+                                additional_text
+                            ),
+                            inline=False
+                        )
+                        if len(top_balances) > 0:
+                            for i in top_balances[:12]:
+                                coin_emoji = getattr(getattr(self.bot.coin_list, i['name']), "coin_emoji_discord")
+                                if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                                    coin_emoji = None
+                                token_display = getattr(getattr(self.bot.coin_list, i['name']), "display_name")
+                                embed.add_field(
+                                    name="{}{}{}".format(coin_emoji + " " if coin_emoji else "", token_display, " ~ {:,.4f}$".format(i['value_usd'])),
+                                    value="{}".format(
+                                        num_format_coin(i['amount'])),
+                                    inline=True
+                                )
+                        bl_list_by_value_chunks = []
+                        list_index_value = []
+                        if len(top_balances) > 0:
+                            bl_list_by_value = [{i['name']: i['value_usd']} for i in top_balances]
+                            bl_list_by_value_chunks = list(chunks(bl_list_by_value, per_page))
+                            list_index_value = []
+                            for c, value in enumerate(bl_list_by_value_chunks):
+                                if len(value) > 1:
+                                    list_index_value.append("{:,.4f}$-{:,.4f}$".format(list(value[0].values())[0], list(value[-1].values())[0]))
+                                elif len(value) == 1:
+                                    list_index_value.append("{:,.4f}$".format(list(value[0].values())[0]))
+
+                        view = BalancesMenu(
+                            self.bot, ctx, ctx.author.id, embed, all_userdata_balance,
+                            list_bl_chunks, list_index_desc,
+                            bl_list_by_value_chunks, list_index_value,
+                            sorted_by="ALPHA", home_embed = fav_embed if len(fav_coin_list) > 0 else embed,
+                            selected_index=None
+                        )
+                        await ctx.edit_original_message(content=None, embed=fav_embed if len(fav_coin_list) > 0 else embed, view=view)
+                        return
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
 
     @commands.slash_command(
         usage='balance <token>',
@@ -11639,8 +12175,9 @@ class Wallet(commands.Cog):
         ctx,
         token: str
     ):
+        await ctx.response.send_message(content=f"{ctx.author.mention} balance loading...", ephemeral=True)
         if token.upper() == "ALL":
-            await self.async_balances(ctx, None)
+            await self.async_balances(ctx)
         else:
             await self.async_balance(ctx, token)
 
@@ -11651,20 +12188,14 @@ class Wallet(commands.Cog):
 
     @commands.slash_command(
         usage='balances',
-        options=[
-            Option('tokens', 'tokens', OptionType.string, required=False)
-        ],
         description="Get all your token's balance."
     )
     async def balances(
         self,
         ctx,
-        tokens: str = None
     ):
-        if tokens and hasattr(self.bot.coin_list, tokens.upper()):
-            await self.async_balance(ctx, tokens)
-        else:
-            await self.async_balances(ctx, tokens)
+        await ctx.response.send_message(content=f"{ctx.author.mention} balance loading...", ephemeral=True)
+        await self.async_balances(ctx)
     # End of Balance
 
     # Withdraw
@@ -11729,7 +12260,7 @@ class Wallet(commands.Cog):
             try:
                 check_exist = await self.check_withdraw_coin_address(type_coin, address)
                 if check_exist is not None:
-                    msg = f"{EMOJI_ERROR} {ctx.author.mention}, you cannot send to this address `{address}`."
+                    msg = f"{EMOJI_ERROR} {ctx.author.mention}, you cannot send to this address _{address}_."
                     await ctx.edit_original_message(content=msg)
                     return
             except Exception:
@@ -11782,7 +12313,7 @@ class Wallet(commands.Cog):
                     # Check if conversion is allowed for this coin.
                     amount = amount.replace(",", "").replace("$", "")
                     if price_with is None:
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this __{coin_name}__."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
@@ -11869,15 +12400,6 @@ class Wallet(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     return
 
-                # Delete if has key
-                key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                try:
-                    if key in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key]
-                except Exception:
-                    pass
-                # End of del key
-
                 if type_coin in ["ERC-20"]:
                     # Check address
                     valid_address = self.check_address_erc20(address)
@@ -11885,7 +12407,7 @@ class Wallet(commands.Cog):
                     if valid_address and valid_address.upper() == address.upper():
                         valid = True
                     else:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid address:\n`{address}`'
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, invalid address:\n_{address}_'
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -11895,8 +12417,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -11949,12 +12471,12 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                     if send_tx:
-                        fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                        fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                             num_format_coin(NetFee), coin_name)
                         explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                         msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                             f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                            f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                            f"_{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                         await ctx.edit_original_message(content=msg, view=None)
                         await log_to_channel(
                             "withdraw",
@@ -11965,7 +12487,7 @@ class Wallet(commands.Cog):
                         return
                     else:
                         msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                            f"{num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`."
+                            f"{num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_."
                         await ctx.edit_original_message(content=msg, view=None)
                         await log_to_channel(
                             "withdraw",
@@ -11981,8 +12503,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -12035,13 +12557,13 @@ class Wallet(commands.Cog):
                         pass
 
                     if send_tx:
-                        fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                        fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                             num_format_coin(NetFee), coin_name
                         )
                         explorer_link = self.utils.get_explorer_link(coin_name, send_tx)                            
                         msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                             f"{num_format_coin(amount)} "\
-                            f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                            f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                         await ctx.edit_original_message(content=msg, view=None)
                         await log_to_channel(
                             "withdraw",
@@ -12053,7 +12575,7 @@ class Wallet(commands.Cog):
                     else:
                         msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                             f"{num_format_coin(amount)} "\
-                            f"{token_display}{equivalent_usd} to `{address}`."
+                            f"{token_display}{equivalent_usd} to _{address}_."
                         await ctx.edit_original_message(content=msg, view=None)
                         await log_to_channel(
                             "withdraw",
@@ -12064,7 +12586,7 @@ class Wallet(commands.Cog):
                 elif type_coin == "NANO":
                     valid_address = await self.wallet_api.nano_validate_address(coin_name, address)
                     if not valid_address is True:
-                        msg = f"{EMOJI_RED_NO} Address: `{address}` is invalid."
+                        msg = f"{EMOJI_RED_NO} Address: _{address}_ is invalid."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
@@ -12074,14 +12596,14 @@ class Wallet(commands.Cog):
                                 main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                                 if main_address == address:
                                     # can not send
-                                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_.'
                                     await ctx.edit_original_message(content=msg)
                                     return
                                 # Ask for confirm
                                 view = ConfirmName(self.bot, ctx.author.id)
                                 msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                                    f"`{num_format_coin(amount)} {coin_name}` with fee: `0.00 {coin_name}` to "\
-                                    f"`{address}`?"
+                                    f"__{num_format_coin(amount)} {coin_name}__ with fee: `0.00 {coin_name}` to "\
+                                    f"_{address}_?"
                                 await ctx.edit_original_message(content=msg, view=view)
                                 # Wait for the View to stop listening for input...
                                 await view.wait()
@@ -12120,7 +12642,7 @@ class Wallet(commands.Cog):
                                     fee_txt = "\nWithdrew fee/node: `0.00 {}`.".format(coin_name)
                                     msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                         f"{num_format_coin(amount)} "\
-                                        f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                                        f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{tx_hash}_{fee_txt}{explorer_link}"
                                     await ctx.edit_original_message(content=msg, view=None)
                                     await log_to_channel(
                                         "withdraw",
@@ -12131,7 +12653,7 @@ class Wallet(commands.Cog):
                                 else:
                                     msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                         f"{num_format_coin(amount)} "\
-                                        f"{token_display}{equivalent_usd} to `{address}`."
+                                        f"{token_display}{equivalent_usd} to _{address}_."
                                     await ctx.edit_original_message(content=msg, view=None)
                                     await log_to_channel(
                                         "withdraw",
@@ -12162,12 +12684,12 @@ class Wallet(commands.Cog):
                             coin_decimal, tx_fee, NetFee, SERVER_BOT
                         )
                         if send_tx:
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
@@ -12178,7 +12700,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
@@ -12208,12 +12730,12 @@ class Wallet(commands.Cog):
                             SERVER_BOT, coin_name, NetFee, 32
                         )
                         if send_tx:
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
@@ -12224,7 +12746,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
@@ -12251,7 +12773,7 @@ class Wallet(commands.Cog):
                     atomic_amount = str(int(amount*10**coin_decimal))
                     if address == main_address:
                         # can not send
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_.'
                         await ctx.edit_original_message(content=msg)
                         return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
@@ -12263,12 +12785,12 @@ class Wallet(commands.Cog):
                                 str(ctx.author.id), amount, address, coin_name, contract, coin_decimal,
                                 NetFee, send_tx['hash'], json.dumps(send_tx), SERVER_BOT
                             )
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{tx_hash}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
@@ -12279,7 +12801,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
@@ -12298,7 +12820,7 @@ class Wallet(commands.Cog):
                     main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                     if address == main_address:
                         # can not send
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`."
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_."
                         await ctx.edit_original_message(content=msg)
                         return
                     if coin_name != "XLM":  # in case of asset
@@ -12308,7 +12830,7 @@ class Wallet(commands.Cog):
                             url, asset_code, issuer, address, str(ctx.author.id), SERVER_BOT
                         )
                         if check_asset is False:
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`. "\
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_. "\
                                 f"The destination account may not trust the asset you are attempting to send!"
                             await ctx.edit_original_message(content=msg)
                             return
@@ -12323,11 +12845,11 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         extra_txt = ""
                         if extra_option:
-                            extra_txt = " with memo: `{}`".format(extra_option)
+                            extra_txt = " with memo: __{}__".format(extra_option)
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`{extra_txt}?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_{extra_txt}?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -12364,15 +12886,15 @@ class Wallet(commands.Cog):
                             90, extra_option
                         )
                         if send_tx:
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name
                             )
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             if extra_option is not None:
-                                msg += "\nWith memo: `{}`".format(extra_option)
+                                msg += "\nWith memo: __{}__".format(extra_option)
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -12383,7 +12905,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -12405,19 +12927,19 @@ class Wallet(commands.Cog):
                     main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                     if address == main_address:
                         # can not send
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`."
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_."
                         await ctx.edit_original_message(content=msg)
                         return
                     # check address
                     if coin_name == "ATOM" and not address.startswith("cosmos"):
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress `{address}` for {coin_name}."
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress _{address}_ for {coin_name}."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
                         sub_type = getattr(getattr(self.bot.coin_list, coin_name), "sub_type")
                         hrp = getattr(getattr(self.bot.coin_list, coin_name), "header")
                         if sub_type and hrp and not address.startswith(hrp):
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress `{address}` for {coin_name}."
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid adddress _{address}_ for {coin_name}."
                             await ctx.edit_original_message(content=msg)
                             return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
@@ -12435,16 +12957,30 @@ class Wallet(commands.Cog):
                             fee=int(getattr(getattr(self.bot.coin_list, coin_name), "fee_limit") * 10 ** coin_decimal)
                             min_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tx")
                             factor = int(amount/min_tx)
-                            if factor > 1:
-                                fee += int(factor/10 * 10 ** coin_decimal)
-                            if fee/10**coin_decimal > NetFee:
+                            if factor > 1 and coin_name in ["LUNC"]:
+                                fee += int(2.5*factor/10 * 10 ** coin_decimal)
+                            elif factor > 1:
+                                fee += int(1.0*factor/10 * 10 ** coin_decimal)
+                            if fee/(10**coin_decimal) > NetFee:
                                 fee = int(NetFee * 10 ** coin_decimal)
                             NetFee = fee/(10 ** coin_decimal) * 2.0
+                            # re-check NetFee
+                            if amount + NetFee > actual_balance:
+                                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, insufficient balance to send out "\
+                                    f"{num_format_coin(amount)} {token_display}. "\
+                                    f"You need to leave at least (updated) network fee: {num_format_coin(NetFee)}"\
+                                    f" {token_display}."
+                                await ctx.edit_original_message(content=msg)
+                                del self.bot.tx_in_progress[str(ctx.author.id)]
+                                key_withdraw = str(ctx.author.id) + "_" + coin_name
+                                if key_withdraw in self.withdraw_tx:
+                                    del self.withdraw_tx[key_withdraw]
+                                return
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -12486,15 +13022,68 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             del self.bot.tx_in_progress[str(ctx.author.id)]
                             return
+                        gas=120000
+                        if coin_name in ["LUNC"]:
+                            gas = int(1.5*gas)
+                            fee = int(1.5*fee)
                         send_tx = await self.wallet_api.cosmos_send_tx(
                             rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),
                             int(get_wallet_seq['account']['sequence']), key,
                             amount, coin_decimal, str(ctx.author.id), address, SERVER_BOT,
-                            NetFee, fee=fee,gas=120000, memo="", timeout=60, hrp=hrp, denom=denom
+                            NetFee, fee=fee,gas=gas, memo="", timeout=60, hrp=hrp, denom=denom
                         )
                         if send_tx:
+                            # code 13
+                            if send_tx['result']['code'] != 0 and "insufficient fees" in send_tx['result']['log']:
+                                await log_to_channel(
+                                    "withdraw",
+                                    f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"failed to withdraw {num_format_coin(amount)}."\
+                                    f"{token_display}{equivalent_usd}.\nERROR: {send_tx['result']}."
+                                )
+                                # re-send with new fee
+                                if 'required' in send_tx['result']:
+                                    check_fee = send_tx['result']['required'].split(",")
+                                elif 'required:' in send_tx['result']['log']:
+                                    check_fee = send_tx['result']['log'].split("required:")[1].repalce(":", "").split()
+                                for i in check_fee:
+                                    if denom in i:
+                                        gas = int(int(i.replace(denom, ""))*1.20)
+                                        break
+                                    fee = int(1.5*fee)
+                                    await log_to_channel(
+                                        "withdraw",
+                                        f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                        f"failed to withdraw {num_format_coin(amount)}."\
+                                        f"{token_display}{equivalent_usd}.\nERROR: {error}.\n"\
+                                        f"Re-try with a new gas: {str(gas)}{denom}, fee: {str(fee)}{denom}..."
+                                    )
+                                send_tx = await self.wallet_api.cosmos_send_tx(
+                                    rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),
+                                    int(get_wallet_seq['account']['sequence']), key,
+                                    amount, coin_decimal, str(ctx.author.id), address, SERVER_BOT,
+                                    NetFee, fee=fee,gas=gas, memo="", timeout=60, hrp=hrp, denom=denom
+                                )
+                            # code 11
+                            elif send_tx['result']['code'] != 0 and "out of gas" in send_tx['result']['log']:
+                                error = send_tx['result']['log']
+                                gas = int(1.5*gas)
+                                fee = int(1.5*fee)
+                                await log_to_channel(
+                                    "withdraw",
+                                    f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"failed to withdraw {num_format_coin(amount)}."\
+                                    f"{token_display}{equivalent_usd}.\nERROR: {error}.\n"\
+                                    f"Re-try with a new gas: {str(gas)}{denom}, fee: {str(fee)}{denom}..."
+                                )
+                                send_tx = await self.wallet_api.cosmos_send_tx(
+                                    rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),
+                                    int(get_wallet_seq['account']['sequence']), key,
+                                    amount, coin_decimal, str(ctx.author.id), address, SERVER_BOT,
+                                    NetFee, fee=fee,gas=gas, memo="", timeout=60, hrp=hrp, denom=denom
+                                )
                             tx_hash = send_tx['result']['hash']
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name
                             )
                             if send_tx['result']['code'] != 0:
@@ -12507,17 +13096,17 @@ class Wallet(commands.Cog):
                                 )
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                     f"{num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd} to `{address}`.\nERROR: `{error}`"
+                                    f"{token_display}{equivalent_usd} to _{address}_.\nERROR: _{error}_"
                                 if extra_option is not None:
-                                    msg += "\nWith memo: `{}`".format(extra_option)
+                                    msg += "\nWith memo: __{}__".format(extra_option)
                                 await ctx.edit_original_message(content=msg, view=None)
                             else:
                                 explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                     f"{num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                                    f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{tx_hash}_{fee_txt}{explorer_link}"
                                 if extra_option is not None:
-                                    msg += "\nWith memo: `{}`".format(extra_option)
+                                    msg += "\nWith memo: __{}__".format(extra_option)
                                 await ctx.edit_original_message(content=msg, view=None)
                                 await log_to_channel(
                                     "withdraw",
@@ -12528,7 +13117,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -12560,8 +13149,8 @@ class Wallet(commands.Cog):
                             # Ask for confirm
                             view = ConfirmName(self.bot, ctx.author.id)
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                                f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                                f"`{address}`?"
+                                f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                                f"_{address}_?"
                             await ctx.edit_original_message(content=msg, view=view)
                             # Wait for the View to stop listening for input...
                             await view.wait()
@@ -12598,12 +13187,12 @@ class Wallet(commands.Cog):
                             if "status" in send_tx and send_tx['status'] == "pending":
                                 tx_hash = send_tx['id']
                                 fee = send_tx['fee']['quantity'] / 10 ** coin_decimal + fee_limit
-                                fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                                fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                     num_format_coin(fee), coin_name)
                                 explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                     f"{num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                                    f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{tx_hash}_{fee_txt}{explorer_link}"
                                 await ctx.edit_original_message(content=msg, view=None)
                                 await log_to_channel(
                                     "withdraw",
@@ -12648,7 +13237,7 @@ class Wallet(commands.Cog):
                                     GAS_COIN = getattr(getattr(self.bot.coin_list, coin_name), "gas_ticker")
                                     fee_limit = getattr(getattr(self.bot.coin_list, coin_name), "fee_limit")
                                     if GAS_COIN:
-                                        reserved_txt = f" and another reserved fee `{fee_limit} {GAS_COIN}` (will be updated after tx executes) "
+                                        reserved_txt = f" and another reserved fee __{fee_limit} {GAS_COIN}__ (will be updated after tx executes) "
                                         userdata_balance = await self.wallet_api.user_balance(
                                             str(ctx.author.id), GAS_COIN,
                                             wallet_address, type_coin, height,
@@ -12659,7 +13248,7 @@ class Wallet(commands.Cog):
                                         if actual_balance < fee_limit:  # use fee_limit to limit ADA
                                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have sufficient "\
                                                 f"{GAS_COIN} to withdraw {coin_name}. You need to have at least a "\
-                                                f"reserved `{fee_limit} {GAS_COIN}`."
+                                                f"reserved __{fee_limit} {GAS_COIN}__."
                                             await ctx.edit_original_message(content=msg, view=None)
                                             await log_to_channel(
                                                 "withdraw",
@@ -12692,8 +13281,8 @@ class Wallet(commands.Cog):
                             # Ask for confirm
                             view = ConfirmName(self.bot, ctx.author.id)
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                                f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}`{reserved_txt} to "\
-                                f"`{address}`?"
+                                f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__{reserved_txt} to "\
+                                f"_{address}_?"
                             await ctx.edit_original_message(content=msg, view=view)
                             # Wait for the View to stop listening for input...
                             await view.wait()
@@ -12736,15 +13325,15 @@ class Wallet(commands.Cog):
                                 tx_hash = send_tx['id']
                                 gas_coin_msg = ""
                                 if GAS_COIN is not None:
-                                    gas_coin_msg = " and fee `{} {}` you shall receive additional `{} {}`.".format(
+                                    gas_coin_msg = " and fee __{} {}__ you shall receive additional __{} {}__.".format(
                                         num_format_coin(send_tx['network_fee'] + fee_limit / 20),
                                         GAS_COIN, num_format_coin(send_tx['ada_received']), GAS_COIN)
-                                fee_txt = "\nWithdrew fee/node: `{} {}`{}.".format(
+                                fee_txt = "\nWithdrew fee/node: __{} {}__{}.".format(
                                     num_format_coin(NetFee), coin_name, gas_coin_msg)
                                 explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                     f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                                    f"`{address}`.\nTransaction hash: `{tx_hash}`{fee_txt}{explorer_link}"
+                                    f"_{address}_.\nTransaction hash: _{tx_hash}_{fee_txt}{explorer_link}"
                                 await ctx.edit_original_message(content=msg, view=None)
                                 await log_to_channel(
                                     "withdraw",
@@ -12788,7 +13377,7 @@ class Wallet(commands.Cog):
                         main_address = getattr(getattr(self.bot.coin_list, "XTZ"), "MainAddress")
                         if address == main_address:
                             # can not send
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`."
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_."
                             await ctx.edit_original_message(content=msg)
                             return
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
@@ -12796,8 +13385,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -12843,11 +13432,11 @@ class Wallet(commands.Cog):
                             )
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"_{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -12858,7 +13447,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -12881,7 +13470,7 @@ class Wallet(commands.Cog):
                         main_address = getattr(getattr(self.bot.coin_list, "ZIL"), "MainAddress")
                         if address == main_address:
                             # can not send
-                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_.'
                             await ctx.edit_original_message(content=msg)
                             return
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
@@ -12889,8 +13478,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -12934,11 +13523,11 @@ class Wallet(commands.Cog):
                             )
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"_{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -12949,7 +13538,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -12974,7 +13563,7 @@ class Wallet(commands.Cog):
                         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                         if address == main_address:
                             # can not send
-                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_.'
                             await ctx.edit_original_message(content=msg)
                             return
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
@@ -12982,8 +13571,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13024,11 +13613,11 @@ class Wallet(commands.Cog):
                                 coin_decimal, NetFee, send_tx, type_coin, SERVER_BOT
                             )
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} "\
-                                f"to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13039,7 +13628,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to "\
                                 f"withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13064,7 +13653,7 @@ class Wallet(commands.Cog):
                         main_address = getattr(getattr(self.bot.coin_list, "XRP"), "MainAddress")
                         if address == main_address:
                             # can not send
-                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_.'
                             await ctx.edit_original_message(content=msg)
                             return
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
@@ -13072,8 +13661,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13111,11 +13700,11 @@ class Wallet(commands.Cog):
                         )
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"_{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13126,7 +13715,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13151,7 +13740,7 @@ class Wallet(commands.Cog):
                         token_contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                         if address == main_address:
                             # can not send
-                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address `{address}`.'
+                            msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_.'
                             await ctx.edit_original_message(content=msg)
                             return
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
@@ -13159,8 +13748,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13196,11 +13785,11 @@ class Wallet(commands.Cog):
                         )
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13210,7 +13799,7 @@ class Wallet(commands.Cog):
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`."
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13235,8 +13824,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13273,11 +13862,11 @@ class Wallet(commands.Cog):
                         )
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"_{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13288,7 +13877,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13313,8 +13902,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13349,11 +13938,11 @@ class Wallet(commands.Cog):
                         )  # tx_fee=0
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} to "\
-                                f"`{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"_{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13364,7 +13953,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13393,8 +13982,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13426,13 +14015,13 @@ class Wallet(commands.Cog):
 
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name
                             )
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`.\n"\
-                                f"Transaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"{token_display}{equivalent_usd} to _{address}_.\n"\
+                                f"Transaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13441,7 +14030,7 @@ class Wallet(commands.Cog):
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
-                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to `{address}`."
+                                f"{num_format_coin(amount)} {token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13470,8 +14059,8 @@ class Wallet(commands.Cog):
                         # Ask for confirm
                         view = ConfirmName(self.bot, ctx.author.id)
                         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Do you want to withdraw "\
-                            f"`{num_format_coin(amount)} {coin_name}` with fee: `{num_format_coin(NetFee)} {coin_name}` to "\
-                            f"`{address}`?"
+                            f"__{num_format_coin(amount)} {coin_name}__ with fee: __{num_format_coin(NetFee)} {coin_name}__ to "\
+                            f"_{address}_?"
                         await ctx.edit_original_message(content=msg, view=view)
                         # Wait for the View to stop listening for input...
                         await view.wait()
@@ -13510,11 +14099,11 @@ class Wallet(commands.Cog):
                         )  # paymentId: None (end)
                         if send_tx:
                             explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
+                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
                                 num_format_coin(NetFee), coin_name)
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
                                 f"{num_format_coin(amount)} {token_display}{equivalent_usd} "\
-                                f"to `{address}`.\nTransaction hash: `{send_tx}`{fee_txt}{explorer_link}"
+                                f"to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13525,7 +14114,7 @@ class Wallet(commands.Cog):
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to `{address}`."
+                                f"{token_display}{equivalent_usd} to _{address}_."
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
@@ -13764,14 +14353,14 @@ class Wallet(commands.Cog):
         else:
             coin_name = token.upper()
             if coin_name not in list_coin_names:
-                msg = f'{ctx.author.mention}, `{coin_name}` is invalid or does not exist in faucet list!'
+                msg = f'{ctx.author.mention}, __{coin_name}__ is invalid or does not exist in faucet list!'
                 await ctx.edit_original_message(content=msg)
                 return
             else:
                 # Update user setting faucet
                 update = await faucet.update_faucet_user(str(ctx.author.id), coin_name, SERVER_BOT)
                 if update:
-                    msg = f"{ctx.author.mention}, you updated your preferred claimed reward to `{coin_name}`. "\
+                    msg = f"{ctx.author.mention}, you updated your preferred claimed reward to __{coin_name}__. "\
                         f"This preference applies only for TipBot's voting reward."\
                         f" Type `/claim` without token to see the list of voting websites."
                     await ctx.edit_original_message(content=msg)
@@ -13884,8 +14473,8 @@ class Wallet(commands.Cog):
             return
 
         if not hasattr(ctx.guild, "id"):
-            msg = f"{ctx.author.mention}, you can invite me to your guild with `/invite`\'s link and execute `/take`. "\
-                f"`/take` is not available in Direct Message."
+            msg = f"{ctx.author.mention}, you can invite me to your guild with __/invite__\'s link and execute __/take__. "\
+                f"__/take__ is not available in Direct Message."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -13899,7 +14488,7 @@ class Wallet(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
             elif coin_name not in self.bot.faucet_coins:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {coin_name} not available for `/take`."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {coin_name} not available for __/take__."
                 await ctx.edit_original_message(content=msg)
                 return
 
@@ -13938,29 +14527,30 @@ class Wallet(commands.Cog):
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
-                    await ctx.edit_original_message(content=msg)
-                    # add penalty:
-                    try:
-                        key = self.bot.config['kv_db']['prefix_faucet_take_penalty'] + SERVER_BOT + "_" + str(ctx.author.id)
-                        await self.utils.async_set_cache_kv(
-                            "faucet",
-                            key,
-                            {
-                                'penalty_at': int(time.time())
-                            }
-                        )
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                    return
+                    if botChan is not None:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
+                        await ctx.edit_original_message(content=msg)
+                        # add penalty:
+                        try:
+                            key = self.bot.config['kv_db']['prefix_faucet_take_penalty'] + SERVER_BOT + "_" + str(ctx.author.id)
+                            await self.utils.async_set_cache_kv(
+                                "faucet",
+                                key,
+                                {
+                                    'penalty_at': int(time.time())
+                                }
+                            )
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
             if serverinfo and serverinfo['enable_faucet'] == "NO":
                 if self.enable_logchan:
                     await self.botLogChan.send(
-                        f'{ctx.author.name} / {ctx.author.id} tried `/take` in {ctx.guild.name} / {ctx.guild.id} which is disable.')
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, `/take` in this guild is disable."
+                        f'{ctx.author.name} / {ctx.author.id} tried __/take__ in {ctx.guild.name} / {ctx.guild.id} which is disable.')
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, __/take__ in this guild is disable."
                 await ctx.edit_original_message(content=msg)
                 return
             elif serverinfo and serverinfo['enable_faucet'] == "YES" and serverinfo['faucet_channel'] is not None and \
@@ -13989,7 +14579,7 @@ class Wallet(commands.Cog):
                     if time_left > 0:
                         extra_take_text += f"\n⚆ RT <{tweet_link}> and get {rt_amount} {rt_reward_coin} "\
                             f"(Be sure you verified your twitter with TipBot <https://www.youtube.com/watch?v=q79_1M0_Hsw>). "\
-                            f"Time left `{seconds_str_days(time_left)}`."
+                            f"Time left __{seconds_str_days(time_left)}__."
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # end of bot channel check
@@ -14014,9 +14604,9 @@ class Wallet(commands.Cog):
                             style='f'
                         )
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /take on {last_claim_at}. "\
-                            f"Waiting time {time_waiting} for next `/take`. Total user claims: **{total_claimed}** times. "\
+                            f"Waiting time {time_waiting} for next __/take__. Total user claims: **{total_claimed}** times. "\
                             f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. "\
-                            f"Use /claim to vote TipBot and get reward.{extra_take_text}{advert_txt}"
+                            f"Use __/claim__ to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                         await ctx.edit_original_message(content=msg)
                         return
         except Exception:
@@ -14035,7 +14625,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using /take. Alternatively, vote for TipBot to get reward `/claim`.{extra_take_text}{advert_txt}"
+                    f"Wait a few days before using __/take__. Alternatively, vote for TipBot to get reward __/claim__.{extra_take_text}{advert_txt}"
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -14051,7 +14641,7 @@ class Wallet(commands.Cog):
                         time_waiting = "<t:{}:R>".format(half_claim_interval * 3600 + faucet_penalty['penalty_at'])
                         penalty_at = "<t:{}:f>".format(faucet_penalty['penalty_at'])
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel "\
-                            f"{penalty_at}. Waiting time {time_waiting} for next `/take` "\
+                            f"{penalty_at}. Waiting time {time_waiting} for next __/take__ "\
                             f"and be sure to be the right channel set by the guild. Use /claim "\
                             f"to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                         await ctx.edit_original_message(content=msg)
@@ -14143,17 +14733,6 @@ class Wallet(commands.Cog):
                 if per_unit and per_unit > 0:
                     amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
 
-                try:
-                    key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-
-                    key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-                except Exception:
-                    pass
-
                 tip = await store.sql_user_balance_mv_single(
                     str(self.bot.user.id), str(ctx.author.id),
                     str(ctx.guild.id), str(ctx.channel.id), amount, coin_name,
@@ -14165,7 +14744,7 @@ class Wallet(commands.Cog):
                         str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
                         coin_decimal, SERVER_BOT, "TAKE"
                     )
-                    msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random `/take` "\
+                    msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random __/take__ "\
                         f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
                         f"Use /claim to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                     await ctx.edit_original_message(content=msg)
@@ -14180,7 +14759,7 @@ class Wallet(commands.Cog):
             else:
                 try:
                     msg = f"Simulated faucet {coin_emoji}{num_format_coin(amount)} {coin_name}. "\
-                        f"This is a test only. Use without **ticker** to do real faucet claim. Use /claim "\
+                        f"This is a test only. Use without **ticker** to do real faucet claim. Use __/claim__ "\
                         f"to vote TipBot and get reward.{advert_txt}"
                     await ctx.edit_original_message(content=msg)
                 except Exception:
@@ -14214,7 +14793,7 @@ class Wallet(commands.Cog):
         ctx,
         coin: str = None
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /daily ...'
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing __/daily__ ...'
         await ctx.response.send_message(msg)
         await self.bot_log()
 
@@ -14231,7 +14810,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']*5:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using /hourly or /daily."
+                    f"Wait a few days before using __/hourly__ or __/daily__."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -14249,9 +14828,10 @@ class Wallet(commands.Cog):
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
-                    await ctx.edit_original_message(content=msg)
-                    return
+                    if botChan is not None:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
+                        await ctx.edit_original_message(content=msg)
+                        return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
@@ -14290,7 +14870,7 @@ class Wallet(commands.Cog):
                 # show summary
                 embed = disnake.Embed(
                     title=f'TipBot Daily Claim',
-                    description=f"You shall only claim one token per 24h. Decide which one you want to do `/daily <token name>`.",
+                    description=f"You shall only claim one token per 24h. Decide which one you want to do __/daily <token name>__.",
                     timestamp=datetime.fromtimestamp(int(time.time()))
                 )
                 list_daily = []
@@ -14346,7 +14926,7 @@ class Wallet(commands.Cog):
                                 style='f'
                             )
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /daily on {last_claim_at}. "\
-                                f"Waiting time {time_waiting} for next `/daily`. "\
+                                f"Waiting time {time_waiting} for next __/daily__. "\
                                 f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
                                 f"{advert_txt}"
                             await ctx.edit_original_message(content=msg)
@@ -14357,7 +14937,7 @@ class Wallet(commands.Cog):
                 coin_name = coin.upper()
                 if coin_name not in self.bot.other_data['daily']:
                     await ctx.edit_original_message(
-                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, `{coin_name}` is not available for `/daily`."
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, __{coin_name}__ is not available for __/daily__."
                     )
                     return
                 else:
@@ -14421,9 +15001,9 @@ class Wallet(commands.Cog):
                                 str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
                                 coin_decimal, SERVER_BOT, "DAILY"
                             )
-                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got `/daily` "\
+                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got __/daily__ "\
                                 f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
-                                f"Use `/claim` to vote TipBot and get reward and more with `/hourly`.{advert_txt}"
+                                f"Use `/claim` to vote TipBot and get reward and more with __/hourly__.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
@@ -14460,7 +15040,7 @@ class Wallet(commands.Cog):
         ctx,
         coin: str = None
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /hourly ...'
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing __/hourly__ ...'
         await ctx.response.send_message(msg)
         await self.bot_log()
 
@@ -14476,7 +15056,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using /hourly or /daily."
+                    f"Wait a few days before using __/hourly__ or __/daily__."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -14494,9 +15074,10 @@ class Wallet(commands.Cog):
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
-                    await ctx.edit_original_message(content=msg)
-                    return
+                    if botChan is not None:
+                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
+                        await ctx.edit_original_message(content=msg)
+                        return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
@@ -14535,7 +15116,7 @@ class Wallet(commands.Cog):
                 # show summary
                 embed = disnake.Embed(
                     title=f'TipBot Hourly Claim',
-                    description=f"You shall only claim one token every 1 hour. Decide which one you want to do `/hourly <token name>`.",
+                    description=f"You shall only claim one token every 1 hour. Decide which one you want to do __/hourly <token name>__.",
                     timestamp=datetime.fromtimestamp(int(time.time()))
                 )
                 list_hourly = []
@@ -14591,7 +15172,7 @@ class Wallet(commands.Cog):
                                 style='f'
                             )
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /hourly on {last_claim_at}. "\
-                                f"Waiting time {time_waiting} for next `/hourly`. "\
+                                f"Waiting time {time_waiting} for next __/hourly__. "\
                                 f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
                                 f"{advert_txt}"
                             await ctx.edit_original_message(content=msg)
@@ -14602,7 +15183,7 @@ class Wallet(commands.Cog):
                 coin_name = coin.upper()
                 if coin_name not in self.bot.other_data['hourly']:
                     await ctx.edit_original_message(
-                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, `{coin_name}` is not available for `/hourly`."
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, __{coin_name}__ is not available for __/hourly__."
                     )
                     return
                 else:
@@ -14666,9 +15247,9 @@ class Wallet(commands.Cog):
                                 str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
                                 coin_decimal, SERVER_BOT, "HOURLY"
                             )
-                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got `/hourly` "\
+                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got __/hourly__ "\
                                 f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
-                                f"Use `/claim` to vote TipBot and get reward and more with `/daily`.{advert_txt}"
+                                f"Use __/claim__ to vote TipBot and get reward and more with __/daily__.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
@@ -14795,7 +15376,7 @@ class Wallet(commands.Cog):
             # Check if conversion is allowed for this coin.
             amount = amount.replace(",", "").replace("$", "")
             if price_with is None:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this __{coin_name}__."
                 await ctx.edit_original_message(content=msg)
                 return
             else:
@@ -14860,17 +15441,6 @@ class Wallet(commands.Cog):
         if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
             self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
             try:
-                try:
-                    key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-
-                    key_coin = str(self.donate_to) + "_" + coin_name + "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-                except Exception:
-                    pass
-
                 donate = await store.sql_user_balance_mv_single(
                     str(ctx.author.id), str(self.donate_to), "DONATE",
                     "DONATE", amount, coin_name, "DONATE", coin_decimal,
@@ -14901,7 +15471,9 @@ class Wallet(commands.Cog):
     # Swap Tokens
     @commands.slash_command(description="Swap supporting tokens")
     async def swaptokens(self, ctx):
-        pass
+        msg = f"{EMOJI_INFORMATION}, this command is disable now. Please use __/cexswap__."
+        await ctx.response.send_message(msg)
+        return
 
     @swaptokens.sub_command(
         usage="swaptokens disclaimer",
@@ -15108,18 +15680,6 @@ class Wallet(commands.Cog):
                     amount_after_fee = amount * (1 - check_list['fee_percent_from'] / 100)
                     fee_from = amount * check_list['fee_percent_from'] / 100
 
-                    # Delete if has key
-                    key_1 = str(ctx.author.id) + "_" + from_coin + "_" + SERVER_BOT
-                    key_2 = str(ctx.author.id) + "_" + to_coin + "_" + SERVER_BOT
-                    try:
-                        if key_1 in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_1]
-                        if key_2 in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_2]
-                    except Exception:
-                        pass
-                    # End of del key
-
                     # Deduct amount from
                     data_rows.append((
                         from_coin, contract_from, str(ctx.author.id), creditor, guild_id, channel_id,
@@ -15226,7 +15786,7 @@ class Wallet(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         if PAIR_NAME not in self.swap_pair:
-            msg = f'{EMOJI_RED_NO}, {ctx.author.mention} `{PAIR_NAME}` is not available.'
+            msg = f'{EMOJI_RED_NO}, {ctx.author.mention} __{PAIR_NAME}__ is not available.'
             await ctx.edit_original_message(content=msg)
             return
         else:
@@ -15300,14 +15860,14 @@ class Wallet(commands.Cog):
                     if balance / 5 < to_amount:  # We allow 20% to swap
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention} insufficient liquidity to swap "\
                             f"**{num_format_coin(amount)} {token_display}** "\
-                            f"to {to_coin}. Try lower the amount of `{from_coin}`."
+                            f"to {to_coin}. Try lower the amount of __{from_coin}__."
                         await ctx.edit_original_message(content=msg)
                         await logchanbot(
                             f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} wanted to "\
-                            f"swap from `{num_format_coin(amount)} {from_coin} "\
-                            f"to {num_format_coin(to_amount)} {to_coin}` "\
+                            f"swap from __{num_format_coin(amount)} {from_coin}__ "\
+                            f"to __{num_format_coin(to_amount)} {to_coin}__ "\
                             f"but shortage of liquidity. "\
-                            f"Having only `{num_format_coin(balance)} {to_coin}`."
+                            f"Having only __{num_format_coin(balance)} {to_coin}__."
                         )
                         return
                 except Exception:
@@ -15316,19 +15876,6 @@ class Wallet(commands.Cog):
 
                 if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                     self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
-
-                    # Delete if has key
-                    key_1 = str(ctx.author.id) + "_" + from_coin + "_" + SERVER_BOT
-                    key_2 = str(ctx.author.id) + "_" + to_coin + "_" + SERVER_BOT
-                    try:
-                        if key_1 in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_1]
-                        if key_2 in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_2]
-                    except Exception:
-                        pass
-                    # End of del key
-
                     try:
                         swap = await self.swap_coin(
                             str(ctx.author.id), from_coin, amount, contract, coin_decimal,
@@ -15336,13 +15883,13 @@ class Wallet(commands.Cog):
                         )
                         if swap:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, swapped from "\
-                                f"`{num_format_coin(amount)} "\
-                                f"{from_coin} to {num_format_coin(to_amount)} {to_coin}`."
+                                f"__{num_format_coin(amount)} "\
+                                f"{from_coin}__ to __{num_format_coin(to_amount)} {to_coin}__."
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"swapped from `{num_format_coin(amount)} {from_coin} "\
-                                f"to {num_format_coin(to_amount)} {to_coin}`."
+                                f"swapped from __{num_format_coin(amount)} {from_coin}__ "\
+                                f"to __{num_format_coin(to_amount)} {to_coin}__."
                             )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
@@ -16069,7 +16616,6 @@ class Wallet(commands.Cog):
         # Monitoring Tweet command
         self.monitoring_tweet_command.cancel()
         self.monitoring_tweet_mentioned_command.cancel()
-
 
 def setup(bot):
     bot.add_cog(Wallet(bot))

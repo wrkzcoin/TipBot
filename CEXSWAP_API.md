@@ -5,10 +5,16 @@
 First of all, you need to get a unique API key from TipBot by doing Direct Message `/cexswap apikey`. TipBot shall respond with a key and you save them in a safe place and you can reset anytime later with the same command but with extra option `resetkey` = YES. You need to be in our main Discord Guild <https://discord.com/invite/GpHzURM> to be able to execute this command.
 
 #### Example with curl:
-  * get_balance
+  * get_balance (get a single token/coin balance)
 
   ```
   curl -H "Content-Type: application/json" -H "Authorization: xxxx" https://tipbot-private-api.cexswap.cc/get_balance/wrkz
+  ```
+
+  * get_balances (get all balances)
+
+  ```
+  curl -H "Content-Type: application/json" -H "Authorization: xxxx" https://tipbot-private-api.cexswap.cc/get_balances
   ```
 
   * get_address

@@ -5285,8 +5285,9 @@ class Cexswap(commands.Cog):
                         try:
                             self.utils.del_cache_kv(self.bot.config['kv_db']['prefix_cexswap'], "summary")
                         except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully remove liqudity:" \
+                            pass
+                        # End of del key
+                        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully removed liquidity:" \
                             f"```{amount_1_str} {ticker_1}\n{amount_2_str} {ticker_2}```"
                         await ctx.edit_original_message(content=msg)
                         await log_to_channel(

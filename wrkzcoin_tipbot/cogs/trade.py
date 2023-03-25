@@ -29,30 +29,30 @@ class ConfirmName(disnake.ui.View):
         self.bot = bot
         self.owner_id = owner_id
 
-    @disnake.ui.button(label="Yes, please!", style=disnake.ButtonStyle.green)
+    @disnake.ui.button(label="Yes, please!", emoji="✅", style=disnake.ButtonStyle.grey)
     async def confirm(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
-            await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
+            await inter.response.defer()
         else:
-            await inter.response.send_message(f"{inter.author.mention}, confirming ...", delete_after=3.0)
             self.value = True
             self.stop()
+            await inter.response.defer()
 
-    @disnake.ui.button(label="No", style=disnake.ButtonStyle.grey)
+    @disnake.ui.button(label="No", emoji="❌", style=disnake.ButtonStyle.grey)
     async def cancel(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.owner_id:
-            await inter.response.send_message(f"{inter.author.mention}, this is not your menu!", delete_after=5.0)
+            await inter.response.defer()
         else:
-            await inter.response.send_message(f"{inter.author.mention}, Rejected.", delete_after=3.0)
             self.value = False
             self.stop()
+            await inter.response.defer()
 
 class Trade(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
-        self.min_ratio = 0.0000000001
+        self.min_ratio = 0.0000001
         self.message_cexswap = "Try our TipBot's feature with /cexswap for more advanced trading!"
 
         self.botLogChan = None
@@ -67,8 +67,10 @@ class Trade(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT DISTINCT `coin_sell`, `coin_get` 
-                    FROM `open_order` WHERE `status`=%s """
+                    sql = """
+                    SELECT DISTINCT `coin_sell`, `coin_get` 
+                    FROM `open_order` WHERE `status`=%s
+                    """
                     await cur.execute(sql, status)
                     result = await cur.fetchall()
                     return result
@@ -110,12 +112,14 @@ class Trade(commands.Cog):
             ]
             for order_item in get_markets:
                 rate = 0.0
-                if order_item['amount_sell'] / order_item['amount_get'] < 0.000001:
+                if order_item['amount_sell'] / order_item['amount_get'] < 0.0000001:
                     rate = '{:.8f}'.format(round(order_item['amount_sell'] / order_item['amount_get'], 8))
+                elif order_item['amount_sell'] / order_item['amount_get'] < 0.00001:
+                    rate = '{:.6f}'.format(round(order_item['amount_sell'] / order_item['amount_get'], 6))
                 elif order_item['amount_sell'] / order_item['amount_get'] < 0.001:
                     rate = '{:.4f}'.format(round(order_item['amount_sell'] / order_item['amount_get'], 4))
                 else:
-                    rate = '{:.2f}'.format(round(order_item['amount_sell'] / order_item['amount_get'], 2))
+                    rate = '{:.3f}'.format(round(order_item['amount_sell'] / order_item['amount_get'], 3))
                 table_data.append([order_item['pair_name'],
                                    num_format_coin(order_item['amount_sell_after_fee']) + order_item['coin_sell'],
                                    num_format_coin(order_item['amount_get']) + order_item['coin_get'],
@@ -174,13 +178,13 @@ class Trade(commands.Cog):
             buy_amount = Decimal(buy_amount)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            msg = f"{ctx.author.mention}, invalid sell/buy amount."
-            await ctx.edit_original_message(content=msg)
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, invalid sell/buy amount.")
             return
 
         if sell_amount <= 0 or buy_amount <= 0:
-            msg = f'{ctx.author.mention}, amount can not be negative.'
-            await ctx.edit_original_message(content=msg)
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, amount can not be negative.")
             return
 
         if len(self.bot.coin_alias_names) > 0 and sell_ticker in self.bot.coin_alias_names:
@@ -189,12 +193,12 @@ class Trade(commands.Cog):
             buy_ticker = self.bot.coin_alias_names[buy_ticker]
         # Check if both coin with TipBot
         if not hasattr(self.bot.coin_list, sell_ticker):
-            msg = f'{ctx.author.mention}, **{sell_ticker}** does not exist with us.'
-            await ctx.edit_original_message(content=msg)
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, **{sell_ticker}** does not exist with us.")
             return
         elif not hasattr(self.bot.coin_list, buy_ticker):
-            msg = f'{ctx.author.mention}, **{buy_ticker}** does not exist with us.'
-            await ctx.edit_original_message(content=msg)
+            await ctx.edit_original_message(
+                content= f"{ctx.author.mention}, **{buy_ticker}** does not exist with us.")
             return
         # Check if both coin has trade enable
         if getattr(getattr(self.bot.coin_list, sell_ticker), "enable_trade") != 1:
@@ -305,15 +309,6 @@ class Trade(commands.Cog):
             )
             if order_add:
                 try:
-                    key_coin = str(ctx.author.id) + "_" + sell_ticker+ "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-                    key_coin = str(ctx.author.id) + "_" + buy_ticker + "_" + SERVER_BOT
-                    if key_coin in self.bot.user_balance_cache:
-                        del self.bot.user_balance_cache[key_coin]
-                except Exception:
-                    pass
-                try:
                     del self.bot.tipping_in_progress[str(self.ctx.author.id)]
                 except Exception:
                     pass
@@ -368,8 +363,8 @@ class Trade(commands.Cog):
                     int(serverinfo['trade_channel']) != ctx.channel.id:
                     channel = ctx.guild.get_channel(int(serverinfo['trade_channel']))
                     if channel is not None:
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, trade channel was assigned to {channel.mention}."
-                        await ctx.response.send_message(msg)
+                        await ctx.response.send_message(
+                            f"{EMOJI_RED_NO} {ctx.author.mention}, trade channel was assigned to {channel.mention}.")
         except Exception:
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                 return
@@ -467,16 +462,15 @@ class Trade(commands.Cog):
                 if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
                     coin_name = self.bot.coin_alias_names[coin_name]
                 if not hasattr(self.bot.coin_list, coin_name):
-                    msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(content=f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
                     return
                 if coin_name not in self.bot.coin_name_list:
-                    msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{coin_name}** is not in our supported list.'
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_ERROR}, {ctx.author.mention}, **{coin_name}** is not in our supported list.")
                     return
                 elif getattr(getattr(self.bot.coin_list, coin_name), "enable_trade") != 1:
-                    msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{coin_name}** is not in our trade list.'
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_ERROR}, {ctx.author.mention}, **{coin_name}** is not in our trade list.")
                     return
                 else:
                     get_open_order = await store.sql_get_open_order_by_sellerid(str(ctx.author.id), coin_name, 'OPEN')
@@ -499,8 +493,8 @@ class Trade(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
-                        msg = f'{ctx.author.mention}, you do not have any active selling of **{coin_name}**.'
-                        await ctx.edit_original_message(content=msg)
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, you do not have any active selling of **{coin_name}**.")
                         return
             else:
                 # assume this is reference number
@@ -565,8 +559,8 @@ class Trade(commands.Cog):
                 msg = f'**[ OPEN SELLING LIST ]**\n```{table.table}```'
                 await ctx.edit_original_message(content=msg, view=RowButtonRowCloseAnyMessage())
             else:
-                msg = f'{ctx.author.mention}, you do not have any active selling.'
-                await ctx.edit_original_message(content=msg)
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, you do not have any active selling.")
 
     @myorder.autocomplete("ticker")
     async def myorder_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
@@ -605,13 +599,13 @@ class Trade(commands.Cog):
         if order_num.upper() == 'ALL':
             get_open_order = await store.sql_get_open_order_by_sellerid_all(str(ctx.author.id), 'OPEN')
             if len(get_open_order) == 0:
-                msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you do not have any open order.'
-                await ctx.edit_original_message(content=msg)
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have any open order.")
                 return
             else:
                 cancel_order = await store.sql_cancel_open_order_by_sellerid(str(ctx.author.id), 'ALL')
-                msg = f'{ctx.author.mention}, you have cancelled all opened order(s).'
-                await ctx.edit_original_message(content=msg)
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, you have cancelled all opened order(s).")
                 return
         else:
             if len(order_num) < 6:
@@ -621,16 +615,16 @@ class Trade(commands.Cog):
                 if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
                     coin_name = self.bot.coin_alias_names[coin_name]
                 if not hasattr(self.bot.coin_list, coin_name):
-                    msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
                     return
                 if coin_name not in self.bot.coin_name_list:
-                    msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{coin_name}** is not in our supported list.'
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_ERROR}, {ctx.author.mention}, **{coin_name}** is not in our supported list.")
                     return
                 elif getattr(getattr(self.bot.coin_list, coin_name), "enable_trade") != 1:
-                    msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{coin_name}** is not in our trade list.'
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_ERROR}, {ctx.author.mention}, **{coin_name}** is not in our trade list.")
                     return
                 else:
                     get_open_order = await store.sql_get_open_order_by_sellerid(str(ctx.author.id), coin_name, 'OPEN')
@@ -640,15 +634,15 @@ class Trade(commands.Cog):
                         return
                     else:
                         cancel_order = await store.sql_cancel_open_order_by_sellerid(str(ctx.author.id), coin_name)
-                        msg = f'{ctx.author.mention}, you have cancelled all opened sell(s) for **{coin_name}**.'
-                        await ctx.edit_original_message(content=msg)
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, you have cancelled all opened sell(s) for **{coin_name}**.")
                         return
             else:
                 # open order number
                 get_open_order = await store.sql_get_open_order_by_sellerid_all(str(ctx.author.id), 'OPEN')
                 if len(get_open_order) == 0:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, you do not have any open order.'
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have any open order.")
                     return
                 else:
                     cancelled = False
@@ -692,7 +686,8 @@ class Trade(commands.Cog):
         try:
             is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
             if is_user_locked is True:
-                await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
                     "Please contact bot dev by /about link."
                 )
                 return
@@ -710,16 +705,16 @@ class Trade(commands.Cog):
             if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
                 coin_name = self.bot.coin_alias_names[coin_name]
             if not hasattr(self.bot.coin_list, coin_name):
-                msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-                await ctx.edit_original_message(content=msg)
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
                 return
             if coin_name not in self.bot.coin_name_list:
-                msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{coin_name}** is not in our supported list.'
-                await ctx.edit_original_message(content=msg)
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_ERROR}, {ctx.author.mention}, **{coin_name}** is not in our supported list.")
                 return
             if getattr(getattr(self.bot.coin_list, coin_name), "enable_trade") != 1:
-                msg = f'{EMOJI_ERROR}, {ctx.author.mention}, **{coin_name}** is not in our trade list.'
-                await ctx.edit_original_message(content=msg)
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_ERROR}, {ctx.author.mention}, **{coin_name}** is not in our trade list.")
                 return
 
             # get list of all coin where they sell XXX
@@ -756,8 +751,8 @@ class Trade(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
             else:
-                msg = f"{ctx.author.mention}, no opening selling **{coin_name}**. Please make some open order for others."
-                await ctx.edit_original_message(content=msg)
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, no opening selling **{coin_name}**. Please make some open order for others.")
                 return
         else:
             # assume reference number
@@ -806,25 +801,6 @@ class Trade(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
-                        try:
-                            key_coin = str(ctx.author.id) + "_" + get_order_num['coin_get'] + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-
-                            key_coin = get_order_num['userid_sell'] + "_" + get_order_num['coin_get'] + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-
-                            key_coin = str(ctx.author.id) + "_" + get_order_num['coin_sell'] + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-
-                            key_coin = get_order_num['userid_sell'] + "_" + get_order_num['coin_sell'] + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-                        except Exception:
-                            pass
-
                         got_amount = num_format_coin(
                             get_order_num['amount_sell_after_fee']
                         )
@@ -845,7 +821,8 @@ class Trade(commands.Cog):
                         # Check the value to determine which button was pressed, if any.
                         if view.value is False:
                             await ctx.edit_original_message(
-                                content=f"{EMOJI_INFORMATION} {ctx.author.mention}, the order is not cancelled. Thank you!", view=None
+                                content=f"{EMOJI_INFORMATION} {ctx.author.mention}, the order is not cancelled. Thank you!",
+                                view=None
                             )
                             return
                         elif view.value is None:
@@ -858,14 +835,15 @@ class Trade(commands.Cog):
                         # re-check order if already gone
                         re_check_order_num = await store.sql_get_order_numb(ref_number)
                         if re_check_order_num is None:
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** does not exist or already completed."
-                            await ctx.edit_original_message(content=msg, view=None)
+                            await ctx.edit_original_message(
+                                content=f"{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** does not exist or already completed.",
+                                view=None)
                             return
 
                         if str(ctx.author.id) in self.bot.tipping_in_progress and \
                             int(time.time()) - self.bot.tipping_in_progress[str(ctx.author.id)] < 30:
-                            msg = f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress."
-                            await ctx.edit_original_message(content=msg, view=None)
+                            await ctx.edit_original_message(
+                                content=f"{EMOJI_ERROR} {ctx.author.mention}, you have another transaction in progress.", view=None)
                             return
                         else:
                             self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
@@ -930,8 +908,8 @@ class Trade(commands.Cog):
                                 pass
                             return
                         else:
-                            msg = f'{EMOJI_RED_NO} {ctx.author.mention} **{ref_number}** internal error, please report.'
-                            await ctx.edit_original_message(content=msg, view=None)
+                            await ctx.edit_original_message(
+                                content=f"{EMOJI_RED_NO} {ctx.author.mention} **{ref_number}** internal error, please report.", view=None)
                             return
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} #**{ref_number}** does not exist or already completed."
@@ -992,28 +970,28 @@ class Trade(commands.Cog):
                 if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
                     coin_name = self.bot.coin_alias_names[coin_name]
                 if not hasattr(self.bot.coin_list, coin_name):
-                    msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
                     return
 
                 if getattr(getattr(self.bot.coin_list, coin_name), "enable_trade") != 1:
-                    msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {coin_name} in not in our list of trade.'
-                    await ctx.edit_original_message(content=msg)
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, {coin_name} in not in our list of trade.")
                     return
 
             await ctx.edit_original_message(content=f"{ctx.author.mention}, Bot's checking trading..")
             get_list_orders = await self.get_open_orders(ctx, option_order, coin_name, None)
         elif coin_pair and len(coin_pair) == 2:
             if getattr(getattr(self.bot.coin_list, coin_pair[0]), "enable_trade") != 1:
-                msg = f'{EMOJI_ERROR} {ctx.author.mention}, **{coin_pair[0]}** is not in our list of trade.'
-                await ctx.edit_original_message(content=msg)
+                await ctx.edit_original_message(content=f"{EMOJI_ERROR} {ctx.author.mention}, **{coin_pair[0]}** is not in our list of trade.")
                 return
             elif getattr(getattr(self.bot.coin_list, coin_pair[1]), "enable_trade") != 1:
-                msg = f'{EMOJI_ERROR} {ctx.author.mention}, **{coin_pair[1]}** is not in our list.'
-                await ctx.edit_original_message(content=msg)
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, **{coin_pair[1]}** is not in our list.")
                 return
             else:
-                await ctx.edit_original_message(content=f"{ctx.author.mention}, Bot's checking trading..")
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, Bot's checking trading..")
                 get_list_orders = await self.get_open_orders(ctx, option_order, coin_pair[0], coin_pair[1])
         if 'result' in get_list_orders and len(get_list_orders['result']) > 0:
             all_pages = []
@@ -1058,8 +1036,8 @@ class Trade(commands.Cog):
             no_open = ""
             if coin_pair and len(coin_pair) == 2:
                 no_open = " for {}/{}".format(coin_pair[0], coin_pair[1])
-            msg = f"{ctx.author.mention}, there is no result{no_open}. Please create opened order with /market sell command."
-            await ctx.edit_original_message(content=msg)
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, there is no result{no_open}. Please create opened order with /market sell command.")
             return
 
     @list.autocomplete("coin")
@@ -1102,9 +1080,11 @@ class Trade(commands.Cog):
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, list of supported coins/tokens for /market:```{coin_list_names}```")
             else:
-                await ctx.edit_original_message(content=f"{ctx.author.mention}, please check again later. I got none now.")
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, please check again later. I got none now.")
         else:
-            await ctx.edit_original_message(content=f"{ctx.author.mention}, please check again later. I got none now.")
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, please check again later. I got none now.")
 
     @market.sub_command(
         usage="market listpairs",
@@ -1138,9 +1118,11 @@ class Trade(commands.Cog):
                     content=f"{ctx.author.mention}, list of available opened pairs:```{coin_pairs}```"
                 )
             else:
-                await ctx.edit_original_message(content=f"{ctx.author.mention}, please check again later. I got none now.")
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, please check again later. I got none now.")
         else:
-            await ctx.edit_original_message(content=f"{ctx.author.mention}, please check again later. I got none now.")
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, please check again later. I got none now.")
 
 def setup(bot):
     bot.add_cog(Trade(bot))

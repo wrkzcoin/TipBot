@@ -77,8 +77,8 @@ class PartyDrop(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.utils = Utils(self.bot)
-        self.max_ongoing_by_user = 3
-        self.max_ongoing_by_guild = 5
+        self.max_ongoing_by_user = self.bot.config['discord']['max_ongoing_by_user']
+        self.max_ongoing_by_guild = self.bot.config['discord']['max_ongoing_by_guild']
         self.party_cache = TTLCache(maxsize=2000, ttl=60.0) # if previous value and new value the same, no need to edit
         self.wallet_api = WalletAPI(self.bot)
 
@@ -184,17 +184,6 @@ class PartyDrop(commands.Cog):
                                 # Update balance
                                 mv_partydrop = await store.sql_user_balance_mv_multple_amount(user_tos, "PARTYDROP", SERVER_BOT)
                                 if mv_partydrop is True:
-                                    try:
-                                        key_coin = str(self.bot.user.id) + "_" + coin_name + "_" + SERVER_BOT
-                                        if key_coin in self.bot.user_balance_cache:
-                                            del self.bot.user_balance_cache[key_coin]
-
-                                        for each in all_name_list:
-                                            key_coin = each + "_" + coin_name + "_" + SERVER_BOT
-                                            if key_coin in self.bot.user_balance_cache:
-                                                del self.bot.user_balance_cache[key_coin]
-                                    except Exception:
-                                        pass
                                     party = await store.sql_user_balance_mv_multiple(str(self.bot.user.id), all_name_list, get_message['guild_id'], get_message['channel_id'], indiv_amount, coin_name, "PARTYDROP", coin_decimal, SERVER_BOT, get_message['contract'], float(amount_in_usd), None)
                                     if party is True:
                                         await store.update_party_id(each_party['message_id'], "COMPLETED" if len(attend_list) > 0 else "NOCOLLECT")
@@ -562,15 +551,6 @@ class PartyDrop(commands.Cog):
                 total_in_usd = float(Decimal(sponsor_amount) * Decimal(per_unit))
                 if total_in_usd >= 0.0001:
                     equivalent_usd = " ~ {:,.4f} USD".format(total_in_usd)
-
-        # Delete if has key
-        key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-        try:
-            if key in self.bot.user_balance_cache:
-                del self.bot.user_balance_cache[key]
-        except Exception:
-            pass
-        # End of del key
 
         party_end = int(time.time()) + duration_s
         owner_displayname = "{}#{}".format(ctx.author.name, ctx.author.discriminator)

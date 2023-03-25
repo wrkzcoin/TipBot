@@ -147,16 +147,15 @@ class Paprika(commands.Cog):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
-    @tasks.loop(seconds=300)
+    @tasks.loop(seconds=1800)
     async def fetch_paprika_pricelist(self):
-        time_lap = 300  # seconds
-        await self.bot.wait_until_ready()
+        time_lap = 30  # seconds
         # Check if task recently run @bot_task_logs
         task_name = "fetch_paprika_pricelist"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
-        await asyncio.sleep(30.0)
+        await asyncio.sleep(time_lap)
         url = "https://api.coinpaprika.com/v1/tickers"
         try:
             print(f"/paprika fetching: {url}")
@@ -231,6 +230,8 @@ class Paprika(commands.Cog):
                                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
                                         %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY 
                                         UPDATE 
+                                        `symbol`=VALUES(`symbol`),
+                                        `name`=VALUES(`name`),
                                         `rank`=VALUES(`rank`), 
                                         `circulating_supply`=VALUES(`circulating_supply`), 
                                         `total_supply`=VALUES(`total_supply`), 

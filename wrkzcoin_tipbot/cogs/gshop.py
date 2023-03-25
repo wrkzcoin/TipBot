@@ -591,17 +591,6 @@ class GShop(commands.Cog):
                                     real_amount_usd = float(Decimal(amount) * Decimal(per_unit))
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
-
-                        try:
-                            key_coin = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-
-                            key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                            if key_coin in self.bot.user_balance_cache:
-                                del self.bot.user_balance_cache[key_coin]
-                        except Exception:
-                            pass
                         move_balance = await store.sql_user_balance_mv_single(
                             str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id),
                             str(ctx.channel.id), amount, coin_name, "GSHOP",

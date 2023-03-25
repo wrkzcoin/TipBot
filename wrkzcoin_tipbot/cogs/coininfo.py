@@ -38,7 +38,7 @@ class Coininfo(commands.Cog):
             coin_name = self.bot.coin_alias_names[coin_name]
         if not hasattr(self.bot.coin_list, coin_name):
             msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
-            await ctx.response.edit_original_message(content=msg)
+            await ctx.edit_original_message(content=msg)
             return
 
         confim_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")

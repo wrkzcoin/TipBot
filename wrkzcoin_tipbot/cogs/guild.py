@@ -244,18 +244,6 @@ class Guild(commands.Cog):
                                             json.dumps(list_receivers), json.dumps(list_receiver_names), int(time.time())
                                         )
 
-                                        try:
-                                            key_coin = each_drop['serverid'] + "_" + coin_name + "_" + SERVER_BOT
-                                            if key_coin in self.bot.user_balance_cache:
-                                                del self.bot.user_balance_cache[key_coin]
-
-                                            for each in list_receivers:
-                                                key_coin = each + "_" + coin_name + "_" + SERVER_BOT
-                                                if key_coin in self.bot.user_balance_cache:
-                                                    del self.bot.user_balance_cache[key_coin]
-                                        except Exception:
-                                            pass
-
                                         tiptalk = await store.sql_user_balance_mv_multiple(
                                             each_drop['serverid'], list_receivers, each_drop['serverid'],
                                             each_drop['tiptalk_channel'], each_drop['tiptalk_amount']/len(list_receivers),
@@ -982,7 +970,7 @@ class Guild(commands.Cog):
 
     async def vote_logchan(self, content: str):
         try:
-            webhook = AsyncDiscordWebhook(url=self.bot.config['topgg']['topgg_votehook'], content=content)
+            webhook = AsyncDiscordWebhook(url=self.bot.config['discord']['vote_webhook'], content=content)
             await webhook.execute()
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -1257,8 +1245,8 @@ class Guild(commands.Cog):
 
         if amount < min_tip or amount > max_tip:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, amount has to be between "\
-                f"`{num_format_coin(min_tip)} {token_display}` "\
-                f"and `{num_format_coin(max_tip)} {token_display}`."
+                f"__{num_format_coin(min_tip)} {token_display}__ "\
+                f"and __{num_format_coin(max_tip)} {token_display}__."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -1290,7 +1278,7 @@ class Guild(commands.Cog):
                 return
             try:
                 start_ts = int(time.time())
-                message_raffle = "{}#{} created a raffle for **{} {}** in guild `{}`. Raffle in **{}**.".format(
+                message_raffle = "{}#{} created a raffle for **{} {}** in guild __{}__. Raffle in **{}**.".format(
                     ctx.author.name, ctx.author.discriminator,
                     num_format_coin(amount),
                     coin_name, ctx.guild.name, duration
@@ -1940,7 +1928,7 @@ class Guild(commands.Cog):
                 # Check if conversion is allowed for this coin.
                 amount = amount.replace(",", "").replace("$", "")
                 if price_with is None:
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this `{coin_name}`."
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, dollar conversion is not enabled for this __{coin_name}__."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -1998,18 +1986,6 @@ class Guild(commands.Cog):
                     if amount_in_usd > 0.0001:
                         equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
 
-            # Delete if has key
-            key = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-            try:
-                if key in self.bot.user_balance_cache:
-                    del self.bot.user_balance_cache[key]
-                key = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
-                if key in self.bot.user_balance_cache:
-                    del self.bot.user_balance_cache[key]
-            except Exception:
-                pass
-            # End of del key
-
             # OK, move fund
             if str(ctx.author.id) in self.bot.tipping_in_progress:
                 await ctx.edit_original_message(
@@ -2019,16 +1995,6 @@ class Guild(commands.Cog):
             else:
                 self.bot.tipping_in_progress[str(ctx.author.id)] = int(time.time())
                 try:
-                    try:
-                        key_coin = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
-                        if key_coin in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_coin]
-
-                        key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                        if key_coin in self.bot.user_balance_cache:
-                            del self.bot.user_balance_cache[key_coin]
-                    except Exception:
-                        pass
                     tip = await store.sql_user_balance_mv_single(
                         str(ctx.author.id), str(ctx.guild.id), str(ctx.guild.id), str(ctx.channel.id),
                         amount, coin_name, 'GUILDDEPOSIT', coin_decimal, SERVER_BOT, contract, amount_in_usd, None
@@ -2105,8 +2071,8 @@ class Guild(commands.Cog):
             if insert_key:
                 try:
                     await ctx.edit_original_message(
-                        content=f"Your guild {ctx.guild.name}\'s topgg key: `{random_string}`\nWebook URL: "\
-                            f"`{self.bot.config['topgg']['guild_vote_url']}`"
+                        content=f"Your guild {ctx.guild.name}\'s topgg key: __{random_string}__\nWebook URL: "\
+                            f"__{self.bot.config['topgg']['guild_vote_url']}__"
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -2119,8 +2085,8 @@ class Guild(commands.Cog):
             # Just display
             try:
                 await ctx.edit_original_message(
-                    content=f"Your guild {ctx.guild.name}\'s topgg key: `{get_guild_by_key}`\n"\
-                        f"Webook URL: `{self.bot.config['topgg']['guild_vote_url']}`"
+                    content=f"Your guild {ctx.guild.name}\'s topgg key: __{get_guild_by_key}__\n"\
+                        f"Webook URL: __{self.bot.config['topgg']['guild_vote_url']}__"
                 )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -2131,8 +2097,8 @@ class Guild(commands.Cog):
             if insert_key:
                 try:
                     await ctx.edit_original_message(
-                        content=f"Your guild {ctx.guild.name}\'s topgg updated key: `{random_string}`\n"\
-                            f"Webook URL: `{self.bot.config['topgg']['guild_vote_url']}`"
+                        content=f"Your guild {ctx.guild.name}\'s topgg updated key: __{random_string}__\n"\
+                            f"Webook URL: __{self.bot.config['topgg']['guild_vote_url']}__"
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -2178,8 +2144,8 @@ class Guild(commands.Cog):
             if insert_key:
                 try:
                     await ctx.edit_original_message(
-                        content=f"Your guild {ctx.guild.name}\'s discordlist key: `{random_string}`\n"\
-                            f"Webook URL: `{self.bot.config['discordlist']['guild_vote_url']}`"
+                        content=f"Your guild {ctx.guild.name}\'s discordlist key: __{random_string}__\n"\
+                            f"Webook URL: __{self.bot.config['discordlist']['guild_vote_url']}__"
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -2192,8 +2158,8 @@ class Guild(commands.Cog):
             # Just display
             try:
                 await ctx.edit_original_message(
-                    content=f"Your guild {ctx.guild.name}\'s discordlist key: `{get_guild_by_key}`\n"\
-                        f"Webook URL: `{self.bot.config['discordlist']['guild_vote_url']}`"
+                    content=f"Your guild {ctx.guild.name}\'s discordlist key: __{get_guild_by_key}__\n"\
+                        f"Webook URL: __{self.bot.config['discordlist']['guild_vote_url']}__"
                 )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -2204,8 +2170,8 @@ class Guild(commands.Cog):
             if insert_key:
                 try:
                     await ctx.edit_original_message(
-                        content=f"Your guild {ctx.guild.name}\'s discordlist updated key: `{random_string}`\n"\
-                            f"Webook URL: `{self.bot.config['discordlist']['guild_vote_url']}`"
+                        content=f"Your guild {ctx.guild.name}\'s discordlist updated key: __{random_string}__\n"\
+                            f"Webook URL: __{self.bot.config['discordlist']['guild_vote_url']}__"
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
@@ -2280,7 +2246,7 @@ class Guild(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             plain_msg = 'Guild {} deposit address: ```{}```'.format(ctx.guild.name, wallet_address)
-            embed.add_field(name="Guild {}".format(ctx.guild.name), value="`{}`".format(wallet_address), inline=False)
+            embed.add_field(name="Guild {}".format(ctx.guild.name), value="__{}__".format(wallet_address), inline=False)
             if getattr(getattr(self.bot.coin_list, coin_name), "explorer_link") and \
                 len(getattr(getattr(self.bot.coin_list, coin_name), "explorer_link")) > 0:
                 embed.add_field(
@@ -2669,9 +2635,9 @@ class Guild(commands.Cog):
             get_channel = self.bot.get_channel(int(channel.id))
             channel_str = str(channel.id)
             # Test message
-            msg = f"New guild's active drop set to `{num_format_coin(amount)} "\
-                f"{token_display}` by {ctx.author.name}#{ctx.author.discriminator} and always rewards "\
-                f"to active users in this channel every `{original_duration}`."
+            msg = f"New guild's active drop set to __{num_format_coin(amount)} "\
+                f"{token_display}__ by {ctx.author.name}#{ctx.author.discriminator} and always rewards "\
+                f"to active users in this channel every __{original_duration}__."
             try:
                 await get_channel.send(msg)
             except Exception:
@@ -3040,7 +3006,7 @@ class Guild(commands.Cog):
                     f"**New values**:\nFaucet (x): {new_faucet_str}\nFaucet cutting time: {new_cut_str}\nGuild Vote (x): {new_vote_str}"
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(
-                        f"[FEATUREROLE] User `{str(ctx.author.id)}` "
+                        f"[FEATUREROLE] User {str(ctx.author.id)} "
                         f"adjusted role in Guild {ctx.guild.name} / `{str(ctx.guild.id)}`.\n"
                         f"**Previous values**:\nFaucet (x): {prev_faucet}\nFaucet cutting time: {prev_cut}\nGuild Vote (x): {prev_vote}\n\n"
                         f"**New values**:\nFaucet (x): {new_faucet_str}\nFaucet cutting time: {new_cut_str}\nGuild Vote (x): {new_vote_str}"
@@ -3049,8 +3015,8 @@ class Guild(commands.Cog):
                     msg = f"{ctx.author.mention}, internal error. Please report."
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(
-                        f"[FEATUREROLE] Failed to adjust by User `{str(ctx.author.id)}` "\
-                        f"in Guild {ctx.guild.name} / `{str(ctx.guild.id)}`."
+                        f"[FEATUREROLE] Failed to adjust by User {str(ctx.author.id)} "\
+                        f"in Guild {ctx.guild.name} / {str(ctx.guild.id)}."
                     )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
@@ -3092,11 +3058,11 @@ class Guild(commands.Cog):
                     msg = f"{ctx.author.mention}, successfully deleted feature role for `{role.name}`. You can add again later!"
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(
-                        f"[FEATUREROLE] User `{str(ctx.author.id)}` in Guild {ctx.guild.name} / `{str(ctx.guild.id)}` "\
-                        f"deleted feature role `{role.name}`."
+                        f"[FEATUREROLE] User {str(ctx.author.id)} in Guild {ctx.guild.name} / {str(ctx.guild.id)} "\
+                        f"deleted feature role {role.name}."
                     )
             else:
-                msg = f"{ctx.author.mention}, there\'s no featurerole set for role `{role.name}`."
+                msg = f"{ctx.author.mention}, there's no featurerole set for role __{role.name}__."
                 await ctx.edit_original_message(content=msg)
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -3204,8 +3170,8 @@ class Guild(commands.Cog):
                         style='R'
                     )
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed in this guild "\
-                        f"`{ctx.guild.name}` on {last_duration}. Waiting time {waiting_time}."\
-                        f"{extra_msg} Other reward command `/take`, `/claim`, `/daily` and `/hourly`."
+                        f"__{ctx.guild.name}__ on {last_duration}. Waiting time {waiting_time}."\
+                        f"{extra_msg} Other reward command __/take__, __/claim__, __/daily__ and __/hourly__."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -3254,7 +3220,7 @@ class Guild(commands.Cog):
                         return
 
                     if amount + extra_amount <= 0:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, please topup guild with more **{coin_name}**. `/guild deposit`'
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please topup guild with more **{coin_name}**. __/guild deposit__"
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -3282,16 +3248,6 @@ class Guild(commands.Cog):
                     if str(ctx.guild.id) not in self.bot.tipping_in_progress:
                         self.bot.tipping_in_progress[str(ctx.guild.id)] = int(time.time())
                         try:
-                            try:
-                                key_coin = str(ctx.guild.id) + "_" + coin_name + "_" + SERVER_BOT
-                                if key_coin in self.bot.user_balance_cache:
-                                    del self.bot.user_balance_cache[key_coin]
-
-                                key_coin = str(ctx.author.id) + "_" + coin_name + "_" + SERVER_BOT
-                                if key_coin in self.bot.user_balance_cache:
-                                    del self.bot.user_balance_cache[key_coin]
-                            except Exception:
-                                pass
                             tip = await store.sql_user_balance_mv_single(
                                 str(ctx.guild.id), str(ctx.author.id), str(ctx.guild.id), str(ctx.channel.id),
                                 amount + extra_amount, coin_name, 'GUILDFAUCET', coin_decimal, SERVER_BOT, contract, amount_in_usd, None
@@ -3303,8 +3259,8 @@ class Guild(commands.Cog):
                                         num_format_coin(extra_amount) + " " + coin_name + "**."
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of "\
                                     f"{coin_emoji}**{num_format_coin(amount + extra_amount)}"\
-                                    f" {coin_name}**{equivalent_usd} from `{ctx.guild.name}`.{extra_msg} "\
-                                    f"Other reward command `/take`, `/claim`, `/daily` and `/hourly`. Invite me to your guild? "\
+                                    f" {coin_name}**{equivalent_usd} from __{ctx.guild.name}__.{extra_msg} "\
+                                    f"Other reward command __/take__, __/claim__, __/daily__ and __/hourly__. Invite me to your guild? "\
                                     f"Click on my name and `Add to Server`."
                                 await ctx.edit_original_message(content=msg)
                                 await logchanbot(
@@ -3319,8 +3275,8 @@ class Guild(commands.Cog):
                         except Exception:
                             pass
             else:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, this guild `{ctx.guild.name}` has no guild's faucet. "\
-                    f"You can ask Guild'owner to deposit to Guild with `/guild deposit` and create it with `/guild faucetclaim`."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, this guild __{ctx.guild.name}__ has no guild's faucet. "\
+                    f"You can ask Guild'owner to deposit to Guild with __/guild deposit__ and create it with __/guild faucetclaim__."
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(
                     f"[{SERVER_BOT}] [ERROR] User {ctx.author.name}#{ctx.author.discriminator} "\
@@ -3368,7 +3324,7 @@ class Guild(commands.Cog):
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', "ALLCOIN")
             if self.enable_logchan:
                 await self.botLogChan.send(
-                    f"{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `ALLCOIN`"
+                    f"{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to __ALLCOIN__"
                 )
             msg = f"{ctx.author.mention}, all coins will be allowed in here."
             await ctx.edit_original_message(content=msg)
@@ -3390,13 +3346,13 @@ class Guild(commands.Cog):
                 tiponly_value = ','.join(contained)
                 if self.enable_logchan:
                     await self.botLogChan.send(
-                        f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{tiponly_value}`'
+                        f'{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to __{tiponly_value}__'
                     )
                 msg = f'{ctx.author.mention} TIPONLY for guild {ctx.guild.name} set to: **{tiponly_value}**.'
                 await ctx.edit_original_message(content=msg)
                 await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
             else:
-                msg = f"{ctx.author.mention} No known coin in **{coin_list}**. TIPONLY is remained unchanged in guild `{ctx.guild.name}`."
+                msg = f"{ctx.author.mention} No known coin in **{coin_list}**. TIPONLY is remained unchanged in guild __{ctx.guild.name}__."
                 await ctx.edit_original_message(content=msg)
         else:
             # Single coin
@@ -3408,9 +3364,9 @@ class Guild(commands.Cog):
                 await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', coin_list)
                 if self.enable_logchan:
                     await self.botLogChan.send(
-                        f"{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to `{coin_list}`"
+                        f"{ctx.author.name} / {ctx.author.id} changed tiponly in {ctx.guild.name} / {ctx.guild.id} to __{coin_list}__"
                     )
-                msg = f"{ctx.author.mention} {coin_list} will be the only tip here in guild `{ctx.guild.name}`."
+                msg = f"{ctx.author.mention} {coin_list} will be the only tip here in guild __{ctx.guild.name}__."
                 await ctx.edit_original_message(content=msg)
 
     @commands.has_permissions(manage_channels=True)

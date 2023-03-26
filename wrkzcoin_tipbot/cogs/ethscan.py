@@ -51,6 +51,70 @@ class EthScan(commands.Cog):
         await asyncio.sleep(10.0)
 
     @tasks.loop(seconds=10.0)
+    async def fetch_arb1eth_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_arb1eth_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
+            return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
+        else:
+            if "local_node_arb1eth" in bot_settings and bot_settings['local_node_arb1eth'] is not None:
+                self.bot.erc_node_list['ARB1ETH'] = bot_settings['local_node_arb1eth']
+            else:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        bot_settings['api_best_node_arb1eth'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            # ARB1ETH needs to fetch best node from their public
+                            self.bot.erc_node_list['ARB1ETH'] = res_data.replace('"', '')
+                        else:
+                            await logchanbot(f"Can not fetch best node for ARB1ETH.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(10.0)
+
+    @tasks.loop(seconds=10.0)
+    async def fetch_opeth_node(self):
+        # Check if task recently run @bot_task_logs
+        task_name = "ethscan_fetch_opeth_node"
+        check_last_running = await self.utils.bot_task_logs_check(task_name)
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15:
+            # not running if less than 15s
+            return
+        bot_settings = await self.utils.get_bot_settings()
+        if bot_settings is None:
+            return
+        else:
+            if "local_node_opeth" in bot_settings and bot_settings['local_node_opeth'] is not None:
+                self.bot.erc_node_list['OPETH'] = bot_settings['local_node_opeth']
+            else:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        bot_settings['api_best_node_opeth'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            # OPETH needs to fetch best node from their public
+                            self.bot.erc_node_list['OPETH'] = res_data.replace('"', '')
+                        else:
+                            await logchanbot(f"Can not fetch best node for OPETH.")
+        # Update @bot_task_logs
+        await self.utils.bot_task_logs_add(task_name, int(time.time()))
+        await asyncio.sleep(10.0)
+
+    @tasks.loop(seconds=10.0)
     async def fetch_bsc_node(self):
         # Check if task recently run @bot_task_logs
         task_name = "ethscan_fetch_bsc_node"
@@ -968,6 +1032,10 @@ class EthScan(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.fetch_arb1eth_node.is_running():
+                self.fetch_arb1eth_node.start()
+            if not self.fetch_opeth_node.is_running():
+                self.fetch_opeth_node.start()
             if not self.fetch_bsc_node.is_running():
                 self.fetch_bsc_node.start()
             if not self.fetch_sol_node.is_running():
@@ -1013,6 +1081,10 @@ class EthScan(commands.Cog):
 
     async def cog_load(self):
         if self.bot.config['discord']['enable_bg_tasks'] == 1:
+            if not self.fetch_arb1eth_node.is_running():
+                self.fetch_arb1eth_node.start()
+            if not self.fetch_opeth_node.is_running():
+                self.fetch_opeth_node.start()
             if not self.fetch_bsc_node.is_running():
                 self.fetch_bsc_node.start()
             if not self.fetch_sol_node.is_running():
@@ -1057,6 +1129,8 @@ class EthScan(commands.Cog):
 
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
+        self.fetch_arb1eth_node.cancel()
+        self.fetch_opeth_node.cancel()
         self.fetch_bsc_node.cancel()
         self.fetch_sol_node.cancel()
         self.fetch_trx_node.cancel()

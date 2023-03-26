@@ -157,6 +157,358 @@ async def address_pre_validation_check(
         pass
     return False
 
+# moved from store.py
+
+async def sql_check_minimum_deposit_erc20(
+    url: str, net_name: str, coin: str, contract: str, coin_decimal: int,
+    min_move_deposit: float, min_gas_tx: float, gas_ticker: str,
+    move_gas_amount: float, chainId: str, real_deposit_fee: float,
+    config, erc20_approve_spend: int = 0, time_lap: int = 0
+):
+    global pool
+    async def send_gas(url: str, chainId: str, to_address: str, move_gas_amount: float, min_gas_tx: float):
+        # HTTPProvider:
+        w3 = Web3(Web3.HTTPProvider(url))
+
+        # inject the poa compatibility middleware to the innermost layer
+        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        # TODO: Let's move gas from main to have sufficient to move
+        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(config['eth']['MainAddress']))
+
+        # get gas price
+        gasPrice = w3.eth.gasPrice
+
+        estimateGas = w3.eth.estimateGas(
+            {'to': w3.toChecksumAddress(to_address),
+             'from': w3.toChecksumAddress(config['eth']['MainAddress']),
+             'value': int(move_gas_amount * 10 ** 18)})
+
+        est_gas_amount = float(gasPrice * estimateGas / 10 ** 18)
+        if est_gas_amount > min_gas_tx:
+            await logchanbot(
+                "[ERROR GAS {}]: Est. {} > minimum gas {}".format(
+                    url, est_gas_amount, min_gas_tx)
+            )
+            return False
+        else:
+            amount_gas_move = int(move_gas_amount * 10 ** 18)
+            if amount_gas_move < move_gas_amount * 10 ** 18: amount_gas_move = int(
+                move_gas_amount * 10 ** 18)
+            transaction = {
+                'from': w3.toChecksumAddress(config['eth']['MainAddress']),
+                'to': w3.toChecksumAddress(to_address),
+                'value': amount_gas_move,
+                'nonce': nonce,
+                'gasPrice': gasPrice,
+                'gas': estimateGas,
+                'chainId': int(chainId, 16)
+            }
+            acct = Account.from_mnemonic(
+                mnemonic=config['eth']['MainAddress_seed'])
+            signed = w3.eth.account.sign_transaction(transaction, private_key=acct.key)
+            # send Transaction for gas:
+            send_gas_tx = w3.eth.sendRawTransaction(signed.rawTransaction)
+            tx_receipt = w3.eth.waitForTransactionReceipt(send_gas_tx)
+            return tx_receipt.transactionHash.hex() # hash Tx
+
+    token_name = coin.upper()
+    if net_name == token_name:
+        list_user_addresses = await store.sql_get_all_erc_user(net_name, time_lap)
+    else:
+        list_user_addresses = await store.sql_get_all_erc_user("ERC-20", time_lap)
+    if contract is None:
+        # Main Token
+        # we do not need gas, we move straight
+        balance_below_min = 0
+        balance_above_min = 0
+        msg_deposit = ""
+        if len(list_user_addresses) > 0:
+            # OK check them one by one, gas token is **18
+            for each_address in list_user_addresses:
+                deposited_balance = await store.http_wallet_getbalance(
+                    url, each_address['balance_wallet_address'], None, 64
+                )
+                if deposited_balance is None:
+                    continue
+                real_deposited_balance = float("%.6f" % (int(deposited_balance) / 10 ** 18))
+                if real_deposited_balance < min_move_deposit:
+                    balance_below_min += 1
+                    # skip balance move below this
+                    if real_deposited_balance > 0:
+                        # print("Skipped {}, {}. Having {}, minimum {}".format(token_name, each_address['balance_wallet_address'], real_deposited_balance, min_move_deposit))
+                        pass
+                # config['eth']['MainAddress'] => each_address['balance_wallet_address']
+                else:
+                    balance_above_min += 1
+                    try:
+                        w3 = Web3(Web3.HTTPProvider(url))
+
+                        # inject the poa compatibility middleware to the innermost layer
+                        # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+                        if net_name == "MATIC":
+                            nonce = w3.eth.getTransactionCount(
+                                w3.toChecksumAddress(each_address['balance_wallet_address']), 'pending')
+                        else:
+                            nonce = w3.eth.getTransactionCount(
+                                w3.toChecksumAddress(each_address['balance_wallet_address']))
+
+                        # get gas price
+                        gasPrice = w3.eth.gasPrice
+                        estimateGas = w3.eth.estimateGas(
+                            {
+                                'to': w3.toChecksumAddress(config['eth']['MainAddress']),
+                                'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
+                                'value': deposited_balance
+                            })
+                        est_gas_amount = float(gasPrice * estimateGas / 10 ** 18)
+                        if min_gas_tx is None: min_gas_tx = est_gas_amount
+                        if est_gas_amount > min_gas_tx:
+                            await logchanbot(
+                                "[ERROR GAS {}]: Est. {} > minimum gas {}".format(
+                                    token_name, est_gas_amount, min_gas_tx
+                                )
+                            )
+                            await asyncio.sleep(5.0)
+                            continue
+
+                        print("TX {} deposited_balance: {}, gasPrice*estimateGas: {}*{}={}, ".format(
+                            token_name, deposited_balance / 10 ** 18, gasPrice,
+                            estimateGas, gasPrice * estimateGas / 10 ** 18)
+                        )
+                        est_tx_fee = gasPrice * estimateGas
+                        # hard-coded gas. Optimistic always failed without this over-estimation
+                        if est_tx_fee < int(0.000075 * 10**18):
+                            est_tx_fee = int(0.000075 * 10**18)
+                        moving_balance = deposited_balance - est_tx_fee
+                        print("{}: {} moving {} with gas*gasPrice: {}, total: {}".format(
+                            net_name, each_address['balance_wallet_address'],
+                            moving_balance/10**18, gasPrice*estimateGas/10**18,
+                            moving_balance/10**18 + gasPrice*estimateGas/10**18
+                        ))
+                        transaction = {
+                            'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
+                            'to': w3.toChecksumAddress(config['eth']['MainAddress']),
+                            'value': moving_balance,
+                            'nonce': nonce,
+                            'gasPrice': gasPrice,
+                            'gas': estimateGas,
+                            'chainId': chainId
+                        }
+                        acct = Account.from_mnemonic(mnemonic=decrypt_string(each_address['seed']))
+                        signed_txn = w3.eth.account.sign_transaction(transaction, private_key=acct.key)
+
+                        # send Transaction for gas:
+                        sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+                        if signed_txn is not None and sent_tx is not None:
+                            # Add to SQL
+                            try:
+                                await store.sql_move_deposit_for_spendable(
+                                    token_name, None, each_address['user_id'], each_address['balance_wallet_address'],
+                                    config['eth']['MainAddress'], real_deposited_balance,
+                                    real_deposit_fee, coin_decimal, sent_tx.hex(), each_address['user_server'],
+                                    net_name
+                                )
+                                await asyncio.sleep(10.0)
+                            except Exception as e:
+                                traceback.print_exc(file=sys.stdout)
+                                # await logchanbot("store " +str(traceback.format_exc()))
+                        if sent_tx.hex() is not None:
+                            await logchanbot("[DEPOSIT] from user {}@{} amount {} {} to main balance. Tx: {}".format(
+                                each_address['user_id'], each_address['user_server'], real_deposited_balance, token_name, sent_tx.hex()
+                                )
+                            )
+                    except Exception as e:
+                        print("ERROR TOKEN: {} - from {} to {}".format(
+                            token_name, each_address['balance_wallet_address'], config['eth']['MainAddress'])
+                        )
+                        traceback.print_exc(file=sys.stdout)
+                        # await logchanbot("store " +str(traceback.format_exc()))
+            msg_deposit += "TOKEN {}: Total deposit address: {}: Below min.: {} Above min. {}".format(
+                token_name, len(list_user_addresses), balance_below_min, balance_above_min
+            )
+        else:
+            msg_deposit += "TOKEN {}: No deposit address.".format(token_name)
+    else:
+        # ERC-20
+        # get withdraw gas balance    
+        gas_main_balance = await store.http_wallet_getbalance(url, config['eth']['MainAddress'], None, 64)
+
+        # main balance has gas?
+        main_balance_gas_sufficient = True
+        if gas_main_balance and gas_main_balance / 10 ** 18 >= min_gas_tx:
+            pass
+        else:
+            main_balance_gas_sufficient = False
+            pass
+
+        if list_user_addresses and len(list_user_addresses) > 0:
+            # OK check them one by one
+            # print("{} addresses for updating balance".format(len(list_user_addresses)))
+            if main_balance_gas_sufficient is False:
+                await logchanbot("Main address not having enough gas! net_name {}, main address: {}".format(
+                    net_name, config['eth']['MainAddress']
+                    )
+                )
+                return
+
+            for each_address in list_user_addresses:
+                deposited_balance = await store.http_wallet_getbalance(
+                    url, each_address['balance_wallet_address'], contract, 64
+                )
+                if deposited_balance is None:
+                    continue
+                real_deposited_balance = deposited_balance / 10 ** coin_decimal
+                if real_deposited_balance >= min_move_deposit:
+                    # Check if there is gas remaining to spend there
+                    gas_of_address = await store.http_wallet_getbalance(
+                        url, each_address['balance_wallet_address'], None, 64
+                    )
+                    if erc20_approve_spend == 1:
+                        # Check if in approved DB
+                        check_approved = await store.check_approved_erc20(
+                            each_address['user_id'], contract, each_address['balance_wallet_address'], 
+                            each_address['user_server'], net_name
+                        )
+                        if check_approved is False:
+                            # Check if it's previously approved but not in DB
+                            check_if_approved = await store.erc20_if_approved(
+                                url, contract, each_address['balance_wallet_address'],
+                                config['eth']['MainAddress']
+                            )
+                            if check_if_approved is True:
+                                # Insert to DB with transaction as AUTO
+                                added = await store.insert_approved_erc20(
+                                    each_address['user_id'], contract, 
+                                    each_address['balance_wallet_address'], 
+                                    each_address['user_server'], net_name, 
+                                    "APPROVED"
+                                )
+                                await asyncio.sleep(5.0)
+                                continue
+                            else:
+                                # Not in DB, Check gas and set approve
+                                if gas_of_address / 10 ** 18 >= min_gas_tx:
+                                    transaction = await store.erc20_approve_spender(
+                                        url, int(chainId, 16), contract, 
+                                        each_address['balance_wallet_address'],
+                                        decrypt_string(each_address['seed']),
+                                        config['eth']['MainAddress']
+                                    )
+                                    if transaction:
+                                        added = await store.insert_approved_erc20(
+                                            each_address['user_id'], contract, 
+                                            each_address['balance_wallet_address'], 
+                                            each_address['user_server'], net_name, 
+                                            transaction
+                                        )
+                                        await asyncio.sleep(5.0)
+                                        continue
+                                elif gas_of_address / 10 ** 18 < min_gas_tx and main_balance_gas_sufficient:
+                                    send_gas_tx = await send_gas(
+                                        url, chainId, each_address['balance_wallet_address'], move_gas_amount, 
+                                        min_gas_tx
+                                    )
+                                    if send_gas_tx:
+                                        await logchanbot("[{}] Sent gas {} to to {}".format(
+                                            net_name, move_gas_amount/10**18, 
+                                            each_address['balance_wallet_address']
+                                            )
+                                        )
+                                    await asyncio.sleep(5.0)
+                                    continue
+                        else:
+                            # Transfer
+                            if main_balance_gas_sufficient:
+                                transaction = await store.erc20_transfer_token_to_operator(
+                                    url, int(chainId, 16), contract, 
+                                    each_address['balance_wallet_address'],
+                                    config['eth']['MainAddress'], config['eth']['MainAddress_seed'], 
+                                    deposited_balance
+                                )
+                                if transaction is not None:
+                                    # Add to SQL
+                                    try:
+                                        await store.sql_move_deposit_for_spendable(
+                                            token_name, contract, each_address['user_id'],
+                                            each_address['balance_wallet_address'], config['eth']['MainAddress'],
+                                            real_deposited_balance, real_deposit_fee, coin_decimal,
+                                            transaction, each_address['user_server'], net_name
+                                        )
+                                    except Exception as e:
+                                        traceback.print_exc(file=sys.stdout)
+                                        await logchanbot("store " +str(traceback.format_exc()))
+                                    print("[DEPOSIT] from user {}@{} amount {} {} to main balance. Tx: {}".format(
+                                        each_address['user_id'], each_address['user_server'], real_deposited_balance, token_name, transaction
+                                        )
+                                    )
+                                    await logchanbot("[DEPOSIT] from user {}@{} amount {} {} to main balance. Tx: {}".format(
+                                        each_address['user_id'], each_address['user_server'], real_deposited_balance, token_name, transaction
+                                        )
+                                    )
+                                    await asyncio.sleep(5.0)
+                    else:
+                        if gas_of_address / 10 ** 18 >= min_gas_tx:
+                            print('Address {} still has gas {}{} or Zero gas is needed.'.format(
+                                each_address['balance_wallet_address'], gas_ticker, gas_of_address / 10 ** 18))
+                            # TODO: Let's move balance from there to withdraw address and save Tx
+                            # HTTPProvider:
+                            w3 = Web3(Web3.HTTPProvider(url))
+
+                            # inject the poa compatibility middleware to the innermost layer
+                            w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+                            unicorns = w3.eth.contract(address=w3.toChecksumAddress(contract), abi=EIP20_ABI)
+                            nonce = w3.eth.getTransactionCount(
+                                w3.toChecksumAddress(each_address['balance_wallet_address'])
+                            )
+
+                            unicorn_txn = unicorns.functions.transfer(
+                                w3.toChecksumAddress(config['eth']['MainAddress']),
+                                deposited_balance  # amount to send
+                            ).buildTransaction({
+                                'from': w3.toChecksumAddress(each_address['balance_wallet_address']),
+                                'gasPrice': w3.eth.gasPrice,
+                                'nonce': nonce
+                            })
+
+                            acct = Account.from_mnemonic(
+                                mnemonic=decrypt_string(each_address['seed']))
+                            signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=acct.key)
+                            sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+                            if signed_txn is not None and sent_tx is not None:
+                                # Add to SQL
+                                try:
+                                    await store.sql_move_deposit_for_spendable(
+                                        token_name, contract, each_address['user_id'],
+                                        each_address['balance_wallet_address'], config['eth']['MainAddress'],
+                                        real_deposited_balance, real_deposit_fee, coin_decimal,
+                                        sent_tx.hex(), each_address['user_server'], net_name
+                                    )
+                                    await asyncio.sleep(10.0)
+                                except Exception as e:
+                                    traceback.print_exc(file=sys.stdout)
+                                    await logchanbot("store " +str(traceback.format_exc()))
+                            if sent_tx.hex() is not None:
+                                await logchanbot("[DEPOSIT] from user {}@{} amount {} {} to main balance. Tx: {}".format(
+                                    each_address['user_id'], each_address['user_server'], real_deposited_balance, token_name, sent_tx.hex()
+                                    )
+                                )
+                        elif gas_of_address / 10 ** 18 < min_gas_tx and main_balance_gas_sufficient:
+                            send_gas_tx = await send_gas(
+                                url, chainId, each_address['balance_wallet_address'], move_gas_amount, min_gas_tx
+                            )
+                            if send_gas_tx:
+                                await logchanbot(
+                                    "[{}] Sent gas {} to to {}".format(
+                                        net_name, move_gas_amount/10**18, each_address['balance_wallet_address']
+                                    )
+                                )
+                            await asyncio.sleep(5.0)
+                        elif gas_of_address / 10 ** 18 < min_gas_tx and main_balance_gas_sufficient == False:
+                            print('Main address has no sufficient balance to supply gas {}'.format(each_address['balance_wallet_address']))
+
+
 async def cosmos_get_height(url: str, timeout: int=16):
     try:
         async with aiohttp.ClientSession() as session:
@@ -9436,13 +9788,14 @@ class Wallet(commands.Cog):
                 tasks = []
                 for each_c in erc_contracts:
                     check_min_deposit = functools.partial(
-                        store.sql_check_minimum_deposit_erc20,
+                        sql_check_minimum_deposit_erc20,
                         self.bot.erc_node_list[each_c['net_name']],
                         each_c['net_name'], each_c['coin_name'],
                         each_c['contract'], each_c['decimal'],
                         each_c['min_move_deposit'], each_c['min_gas_tx'],
                         each_c['gas_ticker'], each_c['move_gas_amount'],
                         each_c['chain_id'], each_c['real_deposit_fee'],
+                        self.bot.config,
                         each_c['erc20_approve_spend'], 7200
                     )
                     check_min_deposit_exec = await self.bot.loop.run_in_executor(None, check_min_deposit)
@@ -9458,13 +9811,15 @@ class Wallet(commands.Cog):
                 tasks = []
                 for each_c in main_tokens:
                     check_min_deposit = functools.partial(
-                        store.sql_check_minimum_deposit_erc20,
+                        sql_check_minimum_deposit_erc20,
                         self.bot.erc_node_list[each_c['net_name']],
                         each_c['net_name'], each_c['coin_name'], None,
                         each_c['decimal'], each_c['min_move_deposit'],
                         each_c['min_gas_tx'], each_c['gas_ticker'],
                         each_c['move_gas_amount'], each_c['chain_id'],
-                        each_c['real_deposit_fee'], 0, 7200
+                        each_c['real_deposit_fee'],
+                        self.bot.config,
+                        0, 7200
                     )
                     check_min_deposit_exec = await self.bot.loop.run_in_executor(None, check_min_deposit)
                     tasks.append(check_min_deposit_exec)

@@ -41,7 +41,7 @@ This TipBot's code is not ready for deployment. We keep it here for easier bug t
 |------------------------------------------------------------------------------------	|-------------	|--------	|
 | Cryptonote (XMR/BCN/etc)                                                           	| ✅           	| -      	|
 | BTC / DOGE / LTC                                                                   	| ✅           	| -      	|
-| ERC-20 / TRC-20 (Token)<br>(xDai, MATIC, BNB, FTM, TLOS, <br>AVAX, ETH, CELO, ONE) 	| ✅           	| ✅      	|
+| ERC-20 / TRC-20 (Token)<br>(Gnosis, MATIC, BNB, FTM, <br>AVAX, ETH, CELO, OP, Arbitrum)    	| ✅           	| ✅      	|
 | Cardano asset token                                                                	| ✅           	| ✅      	|
 | Tezos asset token                                                                  	| ✅           	| ✅      	|
 | Stellar asset token                                                                	| ✅           	| ✅      	|

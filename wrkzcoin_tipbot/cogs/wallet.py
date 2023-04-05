@@ -230,7 +230,7 @@ async def sql_check_minimum_deposit_erc20(
                 )
                 if deposited_balance is None:
                     continue
-                real_deposited_balance = float("%.6f" % (int(deposited_balance) / 10 ** 18))
+                real_deposited_balance = float("%.8f" % (int(deposited_balance) / 10 ** 18))
                 if real_deposited_balance < min_move_deposit:
                     balance_below_min += 1
                     # skip balance move below this
@@ -2551,8 +2551,8 @@ class WalletAPI(commands.Cog):
                 balance = {}
                 try:
                     balance['adjust'] = 0
-                    balance['mv_balance'] = float("%.6f" % mv_balance) if mv_balance else 0
-                    balance['adjust'] = float("%.6f" % balance['mv_balance'])
+                    balance['mv_balance'] = float("%.12f" % mv_balance) if mv_balance else 0
+                    balance['adjust'] = float("%.12f" % balance['mv_balance'])
                 except Exception:
                     print("issue user_balance coin name: {}".format(token_name))
                     traceback.print_exc(file=sys.stdout)

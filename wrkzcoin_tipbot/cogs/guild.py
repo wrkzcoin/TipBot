@@ -2748,19 +2748,20 @@ class Guild(commands.Cog):
         if private is True:
             # show some permission
             permission_list = []
-            if ctx.channel.permissions_for(ctx.channel.guild.me).send_messages:
+            bot_user = ctx.guild.get_member(self.bot.user.id)
+            if ctx.channel.permissions_for(bot_user).send_messages:
                 permission_list.append("✅ send_messages")
             else:
                 permission_list.append("❌ send_messages")
-            if ctx.channel.permissions_for(ctx.channel.guild.me).external_emojis:
+            if ctx.channel.permissions_for(bot_user).external_emojis:
                 permission_list.append("✅ external_emojis")
             else:
                 permission_list.append("❌ external_emojis")
-            if ctx.channel.permissions_for(ctx.channel.guild.me).embed_links:
+            if ctx.channel.permissions_for(bot_user).embed_links:
                 permission_list.append("✅ embed_links")
             else:
                 permission_list.append("❌ embed_links")
-            if ctx.channel.permissions_for(ctx.channel.guild.me).manage_roles:
+            if ctx.channel.permissions_for(bot_user).manage_roles:
                 permission_list.append("✅ manage_roles")
             else:
                 permission_list.append("❌ manage_roles")

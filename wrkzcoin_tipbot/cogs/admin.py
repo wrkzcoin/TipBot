@@ -1333,8 +1333,7 @@ class Admin(commands.Cog):
                             checked_lines.append("    diff ({})[share - pool] = {} {}".format(p['pairs'], num_format_coin(diff_1), p['ticker_1_name']))
                         if truncate(abs(diff_2), 6) != Decimal(0):
                             checked_lines.append("    diff ({})[share - pool] = {} {}".format(p['pairs'], num_format_coin(diff_2), p['ticker_2_name']))
-                        if truncate(abs(diff_1), 6) != Decimal(0) and truncate(abs(diff_2), 6) != Decimal(0):
-                            # audit_update_poolshare
+                        if truncate(abs(diff_1), 6) != Decimal(0) or truncate(abs(diff_2), 6) != Decimal(0):
                             updating = await self.audit_update_poolshare(diff_1, diff_2, p['pool_id'])
                             if updating is True:
                                 checked_lines.append("    Fixed amount pool: {} {} / {} {} for pool_id: {}".format(

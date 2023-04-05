@@ -4549,7 +4549,7 @@ class Cexswap(commands.Cog):
         user: disnake.User,
     ):
         if ctx.author.id != self.bot.config['discord']['owner_id']:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, checking other user's LP is restricted to Admin only."
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, checking other user's LP is restricted to Admin only. Please us `/cexswap mypool` instead."
             await ctx.response.send_message(msg, ephemeral=True)
             await log_to_channel(
                 "cexswap",

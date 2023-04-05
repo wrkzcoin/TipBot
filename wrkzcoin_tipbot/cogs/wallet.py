@@ -5592,18 +5592,8 @@ class Wallet(commands.Cog):
         self.botLogChan = None
 
         # Swap
-        self.swap_pair = {
-            "WRKZ-BWRKZ": 1,
-            "BWRKZ-WRKZ": 1,
-            "WRKZ-XWRKZ": 1,
-            "XWRKZ-WRKZ": 1,
-            "WRKZ-PWRKZ": 1,
-            "PWRKZ-WRKZ": 1,
-            "DEGO-WDEGO": 0.001,
-            "WDEGO-DEGO": 1000,
-            "PGO-WPGO": 1,
-            "WPGO-PGO": 1
-        }
+        self.swap_pair = self.bot.config['wrap_list']
+
         # Donate
         self.donate_to = 386761001808166912  # pluton#8888
 
@@ -7681,6 +7671,8 @@ class Wallet(commands.Cog):
                         else:
                             print(url)
                             print("update_balance_cosmos return status: {}".format(response.status))
+            except asyncio.exceptions.TimeoutError:
+                print("update_balance_cosmos timeout for {}".format(url))
             except Exception:
                 traceback.print_exc(file=sys.stdout)
             return []
@@ -15100,7 +15092,7 @@ class Wallet(commands.Cog):
                         coin_decimal, SERVER_BOT, "TAKE"
                     )
                     msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random __/take__ "\
-                        f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
+                        f"{coin_emoji} {num_format_coin(amount)} {coin_name}. "\
                         f"Use /claim to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(
@@ -15113,7 +15105,7 @@ class Wallet(commands.Cog):
                     await logchanbot("wallet /take_action " + str(traceback.format_exc()))
             else:
                 try:
-                    msg = f"Simulated faucet {coin_emoji}{num_format_coin(amount)} {coin_name}. "\
+                    msg = f"Simulated faucet {coin_emoji} {num_format_coin(amount)} {coin_name}. "\
                         f"This is a test only. Use without **ticker** to do real faucet claim. Use __/claim__ "\
                         f"to vote TipBot and get reward.{advert_txt}"
                     await ctx.edit_original_message(content=msg)
@@ -15357,7 +15349,7 @@ class Wallet(commands.Cog):
                                 coin_decimal, SERVER_BOT, "DAILY"
                             )
                             msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got __/daily__ "\
-                                f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
+                                f"{coin_emoji} {num_format_coin(amount)} {coin_name}. "\
                                 f"Use `/claim` to vote TipBot and get reward and more with __/hourly__.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
@@ -15603,7 +15595,7 @@ class Wallet(commands.Cog):
                                 coin_decimal, SERVER_BOT, "HOURLY"
                             )
                             msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got __/hourly__ "\
-                                f"{coin_emoji}{num_format_coin(amount)} {coin_name}. "\
+                                f"{coin_emoji} {num_format_coin(amount)} {coin_name}. "\
                                 f"Use __/claim__ to vote TipBot and get reward and more with __/daily__.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
@@ -16139,6 +16131,11 @@ class Wallet(commands.Cog):
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+        if self.bot.config['wrap']['enable'] != 1:
+            await ctx.edit_original_message(
+                content=f"{EMOJI_RED_NO} {ctx.author.mention}, this feature is currently not enabled. Try again later!")
+            return
 
         if PAIR_NAME not in self.swap_pair:
             msg = f'{EMOJI_RED_NO}, {ctx.author.mention} __{PAIR_NAME}__ is not available.'

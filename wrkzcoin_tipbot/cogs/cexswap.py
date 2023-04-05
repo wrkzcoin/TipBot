@@ -3227,7 +3227,7 @@ class Cexswap(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         if sell_token == for_token:
-            msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you can cexswap for the same token."
+            msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you cannot do /cexswap for the same token."
             await ctx.edit_original_message(content=msg)
             return
 

@@ -432,8 +432,8 @@ class Admin(commands.Cog):
                 balance = {}
                 try:
                     balance['adjust'] = 0
-                    balance['mv_balance'] = float("%.6f" % mv_balance) if mv_balance else 0
-                    balance['adjust'] = float("%.6f" % balance['mv_balance'])
+                    balance['mv_balance'] = float("%.12f" % mv_balance) if mv_balance else 0
+                    balance['adjust'] = float("%.12f" % balance['mv_balance'])
                 except Exception:
                     print("issue user_balance coin name: {}".format(token_name))
                     traceback.print_exc(file=sys.stdout)
@@ -2096,7 +2096,7 @@ class Admin(commands.Cog):
                 price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
                 if num_coins == 0 or num_coins % per_page == 0:
                     page = original_em.copy()
-                total_balance = float("%.6f" % userdata_balances[coin_name])
+                total_balance = float("%.8f" % userdata_balances[coin_name])
                 if total_balance == 0:
                     zero_tokens.append(coin_name)
                     continue

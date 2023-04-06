@@ -22,7 +22,7 @@ from Bot import get_token_list, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMO
     encrypt_string, decrypt_string
 
 from cogs.wallet import WalletAPI
-from cogs.utils import Utils, num_format_coin, chunks, stellar_get_tx_info
+from cogs.utils import Utils, num_format_coin, chunks, stellar_get_tx_info, btc_get_tx_info
 
 
 async def nanswap_get_pendings(status: str="ONGOING"):
@@ -46,7 +46,9 @@ async def nanswap_credit(
     coin_family: str, coin_name: str, user_id: str, user_server: str,
     from_address: str, to_address: str, amount: float, decimal: int, tx_hash: str, json_data: str,
     amountFrom: float, amountTo: float, nanswap_id: str,
-    height: int=None, memo: str=None, fee: float=None
+    height: int=None, memo: str=None, fee: float=None,
+    confirmations: int=None, blockhash: str=None, blocktime: int=None, category: str=None
+
 ):
     try:
         await store.openConnection()
@@ -84,6 +86,17 @@ async def nanswap_credit(
                         coin_name, user_id, tx_hash, height, amount, fee,
                         decimal, to_address, memo, int(time.time()), user_server
                     ]
+                elif coin_family == "BTC":
+                    sql += """
+                    INSERT INTO `doge_get_transfers` 
+                    (`coin_name`, `user_id`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, 
+                    `fee`, `confirmations`, `category`, `time_insert`, `user_server`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                    """
+                    data_rows += [
+                        coin_name, user_id, tx_hash, blockhash, to_address, blocktime, amount,
+                        fee, confirmations, category, int(time.time()), user_server
+                    ]
                 await cur.execute(sql, tuple(data_rows))
                 await conn.commit()
                 return True
@@ -92,7 +105,7 @@ async def nanswap_credit(
     return False
 
 async def nanswap_create_order(
-    coin_name: str, user_id: str, user_server: str, from_amount: float, from_decimal: int, to_address: str, tx_hash: str,
+    coin_name: str, coin_family: str, user_id: str, user_server: str, from_amount: float, from_decimal: int, to_address: str, tx_hash: str,
     nanswap_id: str, expectedAmountFrom: float, expectedAmountTo: float, amountFrom: float, amountTo: float,
     payinAddress: str, payoutAddress: str, from_coin: str, to_coin: str, json_order: str, fee: float
 ):
@@ -107,7 +120,7 @@ async def nanswap_create_order(
                     status = "FAILED"
 
                 if tx_hash is not None:
-                    if coin_name in ["BAN", "XDG", "XNO"]:
+                    if coin_family == "NANO":
                         # add to nano_external_tx
                         sql += """
                         INSERT INTO nano_external_tx 
@@ -117,7 +130,7 @@ async def nanswap_create_order(
                         data_rows += [
                             coin_name, user_id, user_server, from_amount, from_decimal, to_address, int(time.time()), tx_hash
                         ]
-                    elif coin_name in ["XLM"]:
+                    elif coin_family == "XLM":
                         sql += """
                         INSERT INTO xlm_external_tx 
                         (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
@@ -127,6 +140,16 @@ async def nanswap_create_order(
                         data_rows += [
                             coin_name, user_id, from_amount, fee, fee,
                             from_decimal, to_address, int(time.time()), tx_hash, user_server
+                        ]
+                    elif coin_family == "BTC":
+                        sql += """
+                        INSERT INTO doge_external_tx (`coin_name`, `user_id`, `amount`, `tx_fee`, 
+                        `withdraw_fee`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+                        """
+                        data_rows += [
+                            coin_name, user_id, from_amount, fee, fee,
+                            to_address, int(time.time()), tx_hash, user_server
                         ]
                 sql += """
                 INSERT INTO `nanswap_trades` 
@@ -440,6 +463,20 @@ class Nanswap(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
+        # check if the selling coin is disable with withdraw
+        if getattr(getattr(self.bot.coin_list, sell_token), "enable_withdraw") != 1:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, **{sell_token}** withdraw is currently disable. "\
+                "Hence, you can not sell this coin with /nanswap. Check again later!"
+            await ctx.edit_original_message(content=msg)
+            return        
+
+        # check if deposit is disable for_token
+        if getattr(getattr(self.bot.coin_list, for_token), "enable_deposit") != 1:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, **{for_token}** deposit is currently disable. "\
+                "Hence, you can not sell a token/coin for this coin with /nanswap. Check again later!"
+            await ctx.edit_original_message(content=msg)
+            return      
+
         sell_coin_emoji = getattr(getattr(self.bot.coin_list, sell_token), "coin_emoji_discord")
         for_coin_emoji = getattr(getattr(self.bot.coin_list, for_token), "coin_emoji_discord")
 
@@ -479,20 +516,30 @@ class Nanswap(commands.Cog):
             type_coin = getattr(getattr(self.bot.coin_list, sell_token), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, sell_token), "deposit_confirm_depth")
             contract = getattr(getattr(self.bot.coin_list, sell_token), "contract")
+            sell_net_fee = getattr(getattr(self.bot.coin_list, sell_token), "real_withdraw_fee")
 
             amount = Decimal(amount)
             if amount <= 0:
                 await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.')
                 return
             get_limit = await nanswap_get_limit(sell_token, for_token, timeout=30)
+            max_sell_tx = getattr(getattr(self.bot.coin_list, sell_token), "real_max_tx")
             if get_limit is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, fetching limit error. Try again later!"
                 await ctx.edit_original_message(content=msg)
                 return
             elif truncate(amount, 12) < truncate(Decimal(get_limit['min']), 12) or \
                 (get_limit['max'] is not None and truncate(amount, 12) > truncate(Decimal(get_limit['max']), 12)):
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the order amount is not in limit range "\
-                    f"{str(get_limit['min'])} - {str(get_limit['max'])} {sell_token}!"
+                max_limit = str(get_limit['max'])
+                if get_limit['max'] is None:
+                    max_limit = "unlimited"
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your order amount in Nanswap is not in limit range "\
+                    f"{str(get_limit['min'])} - {max_limit} {sell_token}!"
+                await ctx.edit_original_message(content=msg)
+                return
+            elif truncate(Decimal(amount), 12) > truncate(Decimal(max_sell_tx), 12):
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the sell amount {num_format_coin(amount)} {sell_token}"\
+                    f" is more than tx limit {num_format_coin(max_sell_tx)} {sell_token}."
                 await ctx.edit_original_message(content=msg)
                 return
             else:
@@ -528,9 +575,13 @@ class Nanswap(commands.Cog):
                     type_coin, height, deposit_confirm_depth, SERVER_BOT
                 )
                 actual_balance = Decimal(userdata_balance['adjust'])
-                if truncate(actual_balance, 12) < truncate(amount, 12):
+                incl_fee = ""
+                if sell_net_fee > 0:
+                    incl_fee = " (+ network fee: {} {})".format(num_format_coin(sell_net_fee), sell_token)
+                if truncate(actual_balance, 12) < truncate(amount + Decimal(sell_net_fee), 12):
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you don't have sufficient balance to do such swap! "\
-                        f"Needed __{num_format_coin(amount)} {sell_token}__ but having __{num_format_coin(actual_balance)} {sell_token}__."
+                        f"Needed __{num_format_coin(amount)} {sell_token}__{incl_fee} but "\
+                        f"having __{num_format_coin(actual_balance)} {sell_token}__."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -542,6 +593,7 @@ class Nanswap(commands.Cog):
                     else:
                         # check minimum receive
                         real_min_deposit = getattr(getattr(self.bot.coin_list, for_token), "real_min_deposit")
+                        print(get_estimate)
                         if Decimal(get_estimate['amountTo']) < Decimal(real_min_deposit):
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the receiving amount is less "\
                                 f"than minimum deposit __{str(get_estimate['amountTo'])} < {str(real_min_deposit)}__ {for_token}!"
@@ -559,12 +611,17 @@ class Nanswap(commands.Cog):
                                 self.bot.config['discord']['nanswap']
                             )
                             return
-                        text = "{} {}, you should get __{} {}__ from selling __{} {}__.".format(
+                        NetFee = getattr(getattr(self.bot.coin_list, sell_token), "real_withdraw_fee")
+                        incl_fee = ""
+                        if NetFee > 0:
+                            incl_fee = " (+ network fee: {} {})".format(num_format_coin(NetFee), sell_token)
+                        text = "{} {}, you should get __{} {}__ from selling __{} {}__{}.".format(
                             EMOJI_INFORMATION, ctx.author.mention,
                             num_format_coin(get_estimate['amountTo']),
                             for_token,
                             str(get_estimate['amountFrom']),
-                            sell_token
+                            sell_token,
+                            incl_fee
                         )
                         # If there is progress
                         if str(ctx.author.id) in self.bot.tipping_in_progress and \
@@ -596,22 +653,27 @@ class Nanswap(commands.Cog):
                                 pass
                             return
                         elif view.value:
+                            # Disable button view first
+                            await ctx.edit_original_message(view=None)
+                            sell_coin_family = getattr(getattr(self.bot.coin_list, sell_token), "type")
                             memo_tag = ""
                             for_type_coin = getattr(getattr(self.bot.coin_list, for_token), "type")
                             for_net_name = getattr(getattr(self.bot.coin_list, for_token), "net_name")
                             for_type_coin = getattr(getattr(self.bot.coin_list, for_token), "type")
-                            if for_type_coin in ["XLM", "VITE", "COSMOS"]:
-
-                                # get for token
-                                get_deposit = await self.wallet_api.sql_get_userwallet(
-                                    str(ctx.author.id), for_token, for_net_name, for_type_coin, SERVER_BOT, 0
+                            get_deposit = await self.wallet_api.sql_get_userwallet(
+                                str(ctx.author.id), for_token, for_net_name, for_type_coin, SERVER_BOT, 0
+                            )
+                            if get_deposit is None:
+                                get_deposit = await self.wallet_api.sql_register_user(
+                                    str(ctx.author.id), for_token, for_net_name, for_type_coin, SERVER_BOT, 0, 0
                                 )
-                                if get_deposit is None:
-                                    get_deposit = await self.wallet_api.sql_register_user(
-                                        str(ctx.author.id), for_token, for_net_name, for_type_coin, SERVER_BOT, 0, 0
-                                    )
+                            if for_type_coin in ["XLM", "VITE", "COSMOS"]:
+                                # get for token
                                 address_memo = get_deposit['balance_wallet_address'].split()
                                 memo_tag = address_memo[2]
+                            elif for_type_coin == "BTC":
+                                # change main address to user deposit
+                                main_address = get_deposit['balance_wallet_address']
                             # execute trade
                             # insert to data
                             data_json = {
@@ -643,7 +705,7 @@ class Nanswap(commands.Cog):
                                 coin_decimal = getattr(getattr(self.bot.coin_list, sell_token), "decimal")
                                 tx_hash = None
                                 fee = 0.0
-                                if sell_token in ["BAN", "XDG", "XNO"]:
+                                if sell_coin_family == "NANO":
                                     sender_addr = getattr(getattr(self.bot.coin_list, sell_token), "MainAddress")
                                     send_tx = await self.wallet_api.nano_sendtoaddress(
                                         sender_addr, trade['payinAddress'], int(amount * 10 ** coin_decimal), sell_token
@@ -672,7 +734,39 @@ class Nanswap(commands.Cog):
                                             f"{str(amount)} {sell_token} to {for_token}!",
                                             self.bot.config['discord']['nanswap']
                                         )
-                                elif sell_token in ["XLM"]:
+                                elif sell_coin_family == "BTC":
+                                    NetFee = getattr(getattr(self.bot.coin_list, sell_token), "real_withdraw_fee")
+                                    fee = NetFee
+                                    print("nanswap", truncate(amount, 8), trade['payinAddress'], sell_token)
+                                    send_tx = await self.wallet_api.send_external_doge_nostore(
+                                        "nanswap", truncate(amount, 8), trade['payinAddress'], sell_token
+                                    )
+                                    print(send_tx)
+                                    if send_tx is None:
+                                        await ctx.edit_original_message(
+                                            content=f"{EMOJI_ERROR} {ctx.author.mention}, failed to send tx after "\
+                                                f"created an order from __{sell_token}__ to __{for_token}__.",
+                                            view=None
+                                        )
+                                        await log_to_channel(
+                                            "nanswap",
+                                            f"[NANSWAP] 🔴 User {ctx.author.mention} failed to send tx after creating order "\
+                                            f" {sell_token} to {for_token}!",
+                                            self.bot.config['discord']['nanswap']
+                                        )
+                                    else:
+                                        tx_hash = send_tx
+                                        await ctx.edit_original_message(
+                                            content=f"{ctx.author.mention}, successfully created an order from "\
+                                                f"{sell_coin_emoji} __{str(amount)} {sell_token}__ "\
+                                                f"to {for_coin_emoji} __{for_token}__. You shall be credited very soon!", view=None)
+                                        await log_to_channel(
+                                            "nanswap",
+                                            f"[NANSWAP] User {ctx.author.mention} successfully created an order "\
+                                            f"{str(amount)} {sell_token} to {for_token}!",
+                                            self.bot.config['discord']['nanswap']
+                                        )
+                                elif sell_coin_family == "XLM":
                                     # fetch the order
                                     check_id = await nanswap_check_id_partner(trade['id'])
                                     if "error" in check_id:
@@ -729,7 +823,7 @@ class Nanswap(commands.Cog):
                                         )
                                 # insert to database
                                 inserting = await nanswap_create_order(
-                                    sell_token, str(ctx.author.id), SERVER_BOT, truncate(amount, 12), coin_decimal,
+                                    sell_token, sell_coin_family, str(ctx.author.id), SERVER_BOT, truncate(amount, 12), coin_decimal,
                                     trade['payinAddress'], tx_hash, trade['id'], trade['expectedAmountFrom'],
                                     trade['expectedAmountTo'], None, None,
                                     trade['payinAddress'], trade['payoutAddress'], sell_token, for_token, json.dumps(trade),
@@ -750,7 +844,7 @@ class Nanswap(commands.Cog):
                                     await ctx.edit_original_message(content=sold_text, view=None)
                                     await log_to_channel(
                                         "nanswap",
-                                        f"[NANSWAP SOLD]: User {ctx.author.mention} successfully sold "\
+                                        f"[NANSWAP SOLD]: User {ctx.author.mention} successfully created an order "\
                                         f"{str(trade['expectedAmountFrom'])} {sell_token} for "\
                                         f"{str(trade['expectedAmountTo'])} {for_token}. Nanswap ID: `{trade['id']}`.",
                                         self.bot.config['discord']['nanswap']
@@ -845,6 +939,20 @@ class Nanswap(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
+        # check if the selling coin is disable with withdraw
+        if getattr(getattr(self.bot.coin_list, sell_token), "enable_withdraw") != 1:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, **{sell_token}** withdraw is currently disable. "\
+                "Hence, you can not sell this coin with /nanswap. Check again later!"
+            await ctx.edit_original_message(content=msg)
+            return
+
+        # check if deposit is disable for_token
+        if getattr(getattr(self.bot.coin_list, for_token), "enable_deposit") != 1:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, **{for_token}** deposit is currently disable. "\
+                "Hence, you can not sell a token/coin for this coin with /nanswap. Check again later!"
+            await ctx.edit_original_message(content=msg)
+            return
+
         sell_coin_emoji = getattr(getattr(self.bot.coin_list, sell_token), "coin_emoji_discord")
         for_coin_emoji = getattr(getattr(self.bot.coin_list, for_token), "coin_emoji_discord")
 
@@ -888,6 +996,7 @@ class Nanswap(commands.Cog):
             amount = Decimal(amount)
             # check minimum receive
             real_min_deposit = getattr(getattr(self.bot.coin_list, for_token), "real_min_deposit")
+            sell_net_fee = getattr(getattr(self.bot.coin_list, sell_token), "real_withdraw_fee")
             if amount < Decimal(real_min_deposit):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the receiving amount is less "\
                     f"than minimum deposit __{str(amount)} < {str(real_min_deposit)}__ {for_token}!"
@@ -901,6 +1010,7 @@ class Nanswap(commands.Cog):
                 return
             else:
                 amount_sell = get_estimate['amountFrom']
+                max_sell_tx = getattr(getattr(self.bot.coin_list, sell_token), "real_max_tx")
                 get_limit = await nanswap_get_limit(sell_token, for_token, timeout=30)
                 if get_limit is None:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, fetching limit error. Try again later!"
@@ -908,8 +1018,16 @@ class Nanswap(commands.Cog):
                     return
                 elif truncate(amount_sell, 12) < truncate(Decimal(get_limit['min']), 12) or \
                     truncate(amount_sell, 12) > truncate(Decimal(get_limit['max']), 12):
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the order amount is not in limit range "\
-                        f"{str(get_limit['min'])} - {num_format_coin(str['max'])} {sell_token}. Estimation got {str(amount_sell)} {sell_token}!"
+                    max_limit = str(get_limit['max'])
+                    if get_limit['max'] is None:
+                        max_limit = "unlimited"
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your order amount in Nanswap is not in limit range "\
+                        f"{str(get_limit['min'])} - {max_limit} {sell_token}. Estimation got {str(amount_sell)} {sell_token}!"
+                    await ctx.edit_original_message(content=msg)
+                    return
+                elif truncate(Decimal(amount_sell), 12) > truncate(Decimal(max_sell_tx), 12):
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the sell amount {num_format_coin(amount_sell)} {sell_token}"\
+                        f" is more than tx limit {num_format_coin(max_sell_tx)} {sell_token}."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -944,9 +1062,13 @@ class Nanswap(commands.Cog):
                         type_coin, height, deposit_confirm_depth, SERVER_BOT
                     )
                     actual_balance = Decimal(userdata_balance['adjust'])
-                    if truncate(actual_balance, 12) < truncate(amount_sell, 12):
+                    if truncate(actual_balance, 12) < truncate(amount_sell + Decimal(sell_net_fee), 12):
+                        incl_fee = ""
+                        if sell_net_fee > 0:
+                            incl_fee = " (+ network fee: {} {})".format(num_format_coin(sell_net_fee), sell_token)
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you don't have sufficient balance to do such swap! "\
-                            f"Needed __{num_format_coin(amount_sell)} {sell_token}__ but having __{num_format_coin(actual_balance)} {sell_token}__."
+                            f"Needed __{num_format_coin(amount_sell)} {sell_token}__{incl_fee} "\
+                            f"but having __{num_format_coin(actual_balance)} {sell_token}__."
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
@@ -962,12 +1084,17 @@ class Nanswap(commands.Cog):
                                 self.bot.config['discord']['nanswap']
                             )
                             return
-                        text = "{} {}, you should get __{} {}__ from selling __{} {}__.".format(
+                        NetFee = getattr(getattr(self.bot.coin_list, sell_token), "real_withdraw_fee")
+                        incl_fee = ""
+                        if NetFee > 0:
+                            incl_fee = " (+ network fee: {} {})".format(num_format_coin(NetFee), sell_token)
+                        text = "{} {}, you should get __{} {}__ from selling __{} {}__{}.".format(
                             EMOJI_INFORMATION, ctx.author.mention,
                             num_format_coin(get_estimate['amountTo']),
                             for_token,
                             str(get_estimate['amountFrom']),
-                            sell_token
+                            sell_token,
+                            incl_fee
                         )
                         # If there is progress
                         if str(ctx.author.id) in self.bot.tipping_in_progress and \
@@ -1001,6 +1128,9 @@ class Nanswap(commands.Cog):
                             await ctx.delete_original_message()
                             return
                         elif view.value:
+                            # Disable button view first
+                            await ctx.edit_original_message(view=None)
+                            sell_coin_family = getattr(getattr(self.bot.coin_list, sell_token), "type")
                             # execute trade
                             # insert to data
                             data_json = {
@@ -1061,7 +1191,7 @@ class Nanswap(commands.Cog):
                                         )                                
                                 # insert to database
                                 inserting = await nanswap_create_order(
-                                    sell_token, str(ctx.author.id), SERVER_BOT, truncate(amount_sell, 12), coin_decimal,
+                                    sell_token, sell_coin_family, str(ctx.author.id), SERVER_BOT, truncate(amount_sell, 12), coin_decimal,
                                     trade['payinAddress'], tx_hash, trade['id'], trade['expectedAmountFrom'],
                                     trade['expectedAmountTo'], None, None,
                                     trade['payinAddress'], trade['payoutAddress'], sell_token, for_token, json.dumps(trade),
@@ -1162,8 +1292,8 @@ class Nanswap(commands.Cog):
                         content=f"{ctx.author.mention}, there is no such Nanswap ID: __{id}__."
                     )
                     return
-            else:
-                content = """
+
+            content = """
 Id: {}
 status: {}
 [expectedAmountFrom] from: {} {} to {} {}
@@ -1171,15 +1301,14 @@ status: {}
 payinAddress: {}
 payoutAddress: {}
 """.format(
-                    id, check_id['status'], check_id['expectedAmountFrom'], check_id['from'],
-                    check_id['expectedAmountTo'], check_id['to'],
-                    check_id['amountFrom'], check_id['from'], check_id['amountTo'], check_id['to'],
-                    check_id['payinAddress'], check_id['payoutAddress']
-                )
-                await ctx.edit_original_message(
-                    content="```{}```".format(content)
-                )
-                return
+                id, check_id['status'], check_id['expectedAmountFrom'], check_id['from'],
+                check_id['expectedAmountTo'], check_id['to'],
+                check_id['amountFrom'], check_id['from'], check_id['amountTo'], check_id['to'],
+                check_id['payinAddress'], check_id['payoutAddress']
+            )
+            await ctx.edit_original_message(
+                content="```{}```".format(content)
+            )
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1191,7 +1320,7 @@ payoutAddress: {}
             list_guild_ids = [i.id for i in self.bot.guilds]
             for i in get_pending:
                 try:
-                    if i['to_coin'] in ["XLM"] or i['from_coin'] in ["XLM"]:
+                    if i['to_coin'] in self.bot.config['nanswap']['partner_list'] or i['from_coin'] in self.bot.config['nanswap']['partner_list']:
                         check_id = await nanswap_check_id_partner(i['nanswap_id'], timeout=20)
                     else:
                         check_id = await nanswap_check_id(i['nanswap_id'], timeout=20)
@@ -1203,6 +1332,10 @@ payoutAddress: {}
                         height = None
                         memo = None
                         fee = None
+                        confirmations = None
+                        blockhash = None
+                        blocktime = None
+                        category = None
                         if coin_family == "XLM":
                             try:
                                 # Fetch transaction
@@ -1216,6 +1349,25 @@ payoutAddress: {}
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                                 continue
+                        elif coin_family == "BTC":
+                            try:
+                                url = getattr(getattr(self.bot.coin_list, i['to_coin']), "daemon_address")
+                                get_tx = await btc_get_tx_info(url, check_id['payoutHash'])
+                                if get_tx and "confirmations" in get_tx:
+                                    confirmations = get_tx['confirmations']
+                                    blockhash = get_tx['blockhash']
+                                    blocktime = get_tx['blocktime']
+                                    category = get_tx['details']['category']
+                                    if category != "receive":
+                                        continue
+                                    if main_address != get_tx['details']['address']:
+                                        continue
+                                    get_confirm_depth = getattr(getattr(self.bot.coin_list, i['to_coin']), "deposit_confirm_depth")
+                                    if get_confirm_depth > confirmations:
+                                        continue
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                                continue
                         if 'senderAddress' in check_id:
                             sender = check_id['senderAddress']
                         else:
@@ -1225,7 +1377,9 @@ payoutAddress: {}
                             sender, main_address, check_id['amountTo'], coin_decimal,
                             check_id['payoutHash'], json.dumps(check_id),
                             check_id['amountFrom'], check_id['amountTo'], i['nanswap_id'],
-                            height=height, memo=memo, fee=fee
+                            height=height, memo=memo, fee=fee,
+                            confirmations=confirmations, blockhash=blockhash,
+                            blocktime=blocktime, category=category
                         )
                         sell_coin_emoji = getattr(getattr(self.bot.coin_list, i['from_coin']), "coin_emoji_discord")
                         for_coin_emoji = getattr(getattr(self.bot.coin_list, i['to_coin']), "coin_emoji_discord")
@@ -1293,6 +1447,6 @@ payoutAddress: {}
         self.check_pending.cancel()
 
 def setup(bot):
-    cex = Nanswap(bot)
-    bot.add_cog(cex)
+    nanswap = Nanswap(bot)
+    bot.add_cog(nanswap)
 

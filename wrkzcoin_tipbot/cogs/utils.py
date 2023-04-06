@@ -188,6 +188,19 @@ async def stellar_get_tx_info(tx: str, timeout: int=30):
         traceback.print_exc(file=sys.stdout)
     return None
 
+async def btc_get_tx_info(url: str, tx: str, timeout: int=30):
+    try:
+        data = '{"jsonrpc": "1.0", "id": "curltest", "method": "gettransaction", "params": ["' + tx + '"] }'
+        async with aiohttp.ClientSession() as cs:
+            async with cs.post(url, data=data, timeout=timeout) as r:
+                res_data = await r.read()
+                res_data = res_data.decode('utf-8')
+                result = json.loads(res_data)
+                return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
 # Defines a simple paginator of buttons for the embed.
 class MenuPage(disnake.ui.View):
     message: disnake.Message

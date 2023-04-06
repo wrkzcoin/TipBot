@@ -3510,6 +3510,23 @@ class WalletAPI(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    async def send_external_doge_nostore(
+        self, user_from: str, amount: float, to_address: str, coin: str
+    ):
+        coin_name = coin.upper()
+        try:
+            comment = user_from
+            comment_to = to_address
+            payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}", false'
+            if getattr(getattr(self.bot.coin_list, coin_name), "coin_has_pos") == 1:
+                payload = f'"{to_address}", {amount}, "{comment}", "{comment_to}"'
+            txHash = await self.call_doge('sendtoaddress', coin_name, payload=payload)
+            if txHash is not None:
+                return txHash
+        except Exception:
+            await logchanbot("wallet send_external_doge " + str(traceback.format_exc()))
+        return None
+
     async def send_external_doge(
         self, user_from: str, amount: float, to_address: str, coin: str, tx_fee: float,
         withdraw_fee: float, user_server: str

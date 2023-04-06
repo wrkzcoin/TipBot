@@ -9594,14 +9594,14 @@ class Wallet(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-    @tasks.loop(seconds=60.0)
+    @tasks.loop(seconds=10.0)
     async def notify_balance_nano(self):
-        time_lap = 20  # seconds
+        time_lap = 5  # seconds
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "notify_balance_nano"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
-        if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+        if check_last_running and int(time.time()) - check_last_running['run_at'] < 5: # not running if less than 15s
             return
         await asyncio.sleep(time_lap)
         try:

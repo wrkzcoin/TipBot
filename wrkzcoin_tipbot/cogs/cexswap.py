@@ -3261,6 +3261,9 @@ class Cexswap(commands.Cog):
                 additional_msg = "\n__**More {} LP**__:\n   {}.".format(for_token, ", ".join(items))
                 if len(items) > limit_show:
                     additional_msg = "\n__**More {} LP**__:\n   {} and {} more...".format(for_token, ", ".join(items[:limit_show]), len(items) - limit_show)
+            
+            if sell_token in self.bot.config['nanswap']['coin_list'] or for_token in self.bot.config['nanswap']['coin_list']:
+                additional_msg += "\n__**/Nanswap's coin list:**__:\n   {}".format(", ".join(self.bot.config['nanswap']['coin_list']))
             if len(find_route) > 0:
                 list_paths = []
                 for i in find_route:

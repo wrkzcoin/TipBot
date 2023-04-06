@@ -220,8 +220,6 @@ async def nanswap_check_id(id_str: str, timeout: int=30):
         traceback.print_exc(file=sys.stdout)
     return None
 
-
-
 class ConfirmSell(disnake.ui.View):
     def __init__(self, bot, owner_id: int):
         super().__init__(timeout=30.0)
@@ -389,7 +387,7 @@ class Nanswap(commands.Cog):
             msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you cannot do /nanswap for the same token."
             await ctx.edit_original_message(content=msg)
             return
-
+        
         # check if enable in Nanswap
         if sell_token not in self.bot.config['nanswap']['coin_list']:
             msg = f"{EMOJI_ERROR}, {ctx.author.mention}, __{sell_token}__ is not available in our /nanswap right now."
@@ -399,6 +397,10 @@ class Nanswap(commands.Cog):
             msg = f"{EMOJI_ERROR}, {ctx.author.mention}, __{for_token}__ is not available in our /nanswap right now."
             await ctx.edit_original_message(content=msg)
             return
+
+        sell_coin_emoji = getattr(getattr(self.bot.coin_list, sell_token), "coin_emoji_discord")
+        for_coin_emoji = getattr(getattr(self.bot.coin_list, for_token), "coin_emoji_discord")
+
         # Check min./max. through 3rd party of amount
         # Check user's balance
         # Execute trade
@@ -437,6 +439,9 @@ class Nanswap(commands.Cog):
             contract = getattr(getattr(self.bot.coin_list, sell_token), "contract")
 
             amount = Decimal(amount)
+            if amount <= 0:
+                await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.')
+                return
             get_limit = await nanswap_get_limit(sell_token, for_token, timeout=30)
             if get_limit is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, fetching limit error. Try again later!"
@@ -444,7 +449,7 @@ class Nanswap(commands.Cog):
                 return
             elif amount < Decimal(get_limit['min']) or amount > Decimal(get_limit['max']):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the order amount is not in limit range "\
-                    f"{num_format_coin(get_limit['min'])} - {num_format_coin(get_limit['max'])}!"
+                    f"{str(get_limit['min'])} - {str(get_limit['max'])}!"
                 await ctx.edit_original_message(content=msg)
                 return
             else:
@@ -490,6 +495,13 @@ class Nanswap(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
+                        # check minimum receive
+                        real_min_deposit = getattr(getattr(self.bot.coin_list, for_token), "real_min_deposit")
+                        if Decimal(get_estimate['amountTo']) < Decimal(real_min_deposit):
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the receiving amount is less "\
+                                f"than minimum deposit __{str(get_estimate['amountTo'])} < {str(real_min_deposit)}__ {for_token}!"
+                            await ctx.edit_original_message(content=msg)
+                            return
                         # always check main_address for new coin
                         main_address = getattr(getattr(self.bot.coin_list, for_token), "MainAddress")
                         if main_address is None:
@@ -506,7 +518,7 @@ class Nanswap(commands.Cog):
                             EMOJI_INFORMATION, ctx.author.mention,
                             num_format_coin(get_estimate['amountTo']),
                             for_token,
-                            num_format_coin(get_estimate['amountFrom']),
+                            str(get_estimate['amountFrom']),
                             sell_token
                         )
                         # If there is progress
@@ -521,8 +533,8 @@ class Nanswap(commands.Cog):
                         await log_to_channel(
                             "nanswap",
                             f"[ESTIMATE]: User {ctx.author.mention} estimated selling "\
-                            f"{num_format_coin(get_estimate['amountFrom'])} {sell_token} to "\
-                            f"{num_format_coin(get_estimate['amountTo'])} {for_token} ",
+                            f"{str(get_estimate['amountFrom'])} {sell_token} to "\
+                            f"{str(get_estimate['amountTo'])} {for_token} ",
                             self.bot.config['discord']['nanswap']
                         )
                         # Wait for the View to stop listening for input...
@@ -589,11 +601,12 @@ class Nanswap(commands.Cog):
                                         tx_hash = send_tx['block']
                                         await ctx.edit_original_message(
                                             content=f"{ctx.author.mention}, successfully created an order from "\
-                                                f"__{num_format_coin(amount)} {sell_token}__ to __{for_token}__. You shall be credited very soon!", view=None)
+                                                f"{sell_coin_emoji} __{str(amount)} {sell_token}__ "\
+                                                f"to {for_coin_emoji} __{for_token}__. You shall be credited very soon!", view=None)
                                         await log_to_channel(
                                             "nanswap",
                                             f"[NANSWAP] User {ctx.author.mention} successfully created an order "\
-                                            f"{num_format_coin(amount)} {sell_token} to {for_token}!",
+                                            f"{str(amount)} {sell_token} to {for_token}!",
                                             self.bot.config['discord']['nanswap']
                                         )                                
                                 # insert to database
@@ -604,32 +617,38 @@ class Nanswap(commands.Cog):
                                     trade['payinAddress'], trade['payoutAddress'], sell_token, for_token, json.dumps(trade)
                                 )
                                 if inserting is True:
-                                    sold_text = "{} {}, you should credit (expected) __{} {}__ from selling __{} {}__. Bot should notify the deposit soon!".format(
+                                    sold_text = "{} {}, you should be credited (expectedly) {} __{} {}__ from selling {} __{} {}__. Bot should notify the deposit soon!".format(
                                         EMOJI_INFORMATION, ctx.author.mention,
+                                        for_coin_emoji,
                                         num_format_coin(trade['expectedAmountTo']),
                                         for_token,
-                                        num_format_coin(trade['expectedAmountFrom']),
+                                        sell_coin_emoji,
+                                        str(trade['expectedAmountFrom']),
                                         sell_token
                                     )
                                     await ctx.edit_original_message(content=sold_text, view=None)
                                     await log_to_channel(
                                         "nanswap",
                                         f"[NANSWAP SOLD]: User {ctx.author.mention} successfully sold "\
-                                        f"{num_format_coin(trade['expectedAmountFrom'])} {sell_token} for "\
-                                        f"{num_format_coin(trade['expectedAmountTo'])} {for_token}.",
+                                        f"{str(trade['expectedAmountFrom'])} {sell_token} for "\
+                                        f"{str(trade['expectedAmountTo'])} {for_token}.",
                                         self.bot.config['discord']['nanswap']
                                     )
                                 else:
                                     await ctx.edit_original_message(
                                         content=f"{EMOJI_ERROR} {ctx.author.mention}, failed to close an order from "\
-                                            f"__{num_format_coin(amount)} {sell_token}__ to __{for_token}__."
+                                            f"__{str(amount)} {sell_token}__ to __{for_token}__."
                                     )
                                     await log_to_channel(
                                         "nanswap",
                                         f"[NANSWAP] 🔴🔴🔴 User {ctx.author.mention} successfully created order "\
-                                        f"{num_format_coin(amount)} {sell_token} to {for_token} but failed to insert to database!",
+                                        f"{str(amount)} {sell_token} to {for_token} but failed to insert to database!",
                                         self.bot.config['discord']['nanswap']
                                     )
+                                try:
+                                    del self.bot.tipping_in_progress[str(ctx.author.id)]
+                                except Exception:
+                                    pass
                         else:
                             await ctx.edit_original_message(
                                 content=text + "\n**🛑 Cancelled!**",
@@ -700,6 +719,9 @@ class Nanswap(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
+        sell_coin_emoji = getattr(getattr(self.bot.coin_list, sell_token), "coin_emoji_discord")
+        for_coin_emoji = getattr(getattr(self.bot.coin_list, for_token), "coin_emoji_discord")
+
         try:
             if "$" in amount[-1] or "$" in amount[0]:  # last is $
                 # Check if conversion is allowed for this coin.
@@ -728,12 +750,23 @@ class Nanswap(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     return
 
+            if amount <= 0:
+                await ctx.edit_original_message(content=f'{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount.')
+                return
+
             net_name = getattr(getattr(self.bot.coin_list, sell_token), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, sell_token), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, sell_token), "deposit_confirm_depth")
             contract = getattr(getattr(self.bot.coin_list, sell_token), "contract")
 
             amount = Decimal(amount)
+            # check minimum receive
+            real_min_deposit = getattr(getattr(self.bot.coin_list, for_token), "real_min_deposit")
+            if amount < Decimal(real_min_deposit):
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the receiving amount is less "\
+                    f"than minimum deposit __{str(amount)} < {str(real_min_deposit)}__ {for_token}!"
+                await ctx.edit_original_message(content=msg)
+                return
             # get reverse order first
             get_estimate = await nanswap_get_estimate_rev(from_coin=sell_token, to_coin=for_token, amount=truncate(amount, 12), timeout=30)
             if get_estimate is None:
@@ -749,7 +782,7 @@ class Nanswap(commands.Cog):
                     return
                 elif amount_sell < Decimal(get_limit['min']) or amount_sell > Decimal(get_limit['max']):
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the order amount is not in limit range "\
-                        f"{num_format_coin(get_limit['min'])} - {num_format_coin(get_limit['max'])}. Estimation got {num_format_coin(amount_sell)} {sell_token}!"
+                        f"{str(get_limit['min'])} - {num_format_coin(str['max'])}. Estimation got {str(amount_sell)} {sell_token}!"
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -805,7 +838,7 @@ class Nanswap(commands.Cog):
                             EMOJI_INFORMATION, ctx.author.mention,
                             num_format_coin(get_estimate['amountTo']),
                             for_token,
-                            num_format_coin(get_estimate['amountFrom']),
+                            str(get_estimate['amountFrom']),
                             sell_token
                         )
                         # If there is progress
@@ -820,8 +853,8 @@ class Nanswap(commands.Cog):
                         await log_to_channel(
                             "nanswap",
                             f"[ESTIMATE]: User {ctx.author.mention} estimated selling "\
-                            f"{num_format_coin(get_estimate['amountFrom'])} {sell_token} to "\
-                            f"{num_format_coin(get_estimate['amountTo'])} {for_token} ",
+                            f"{str(get_estimate['amountFrom'])} {sell_token} to "\
+                            f"{str(get_estimate['amountTo'])} {for_token} ",
                             self.bot.config['discord']['nanswap']
                         )
                         # Wait for the View to stop listening for input...
@@ -836,6 +869,8 @@ class Nanswap(commands.Cog):
                                 del self.bot.tipping_in_progress[str(ctx.author.id)]
                             except Exception:
                                 pass
+                            await asyncio.sleep(5.0)
+                            await ctx.delete_original_message()
                             return
                         elif view.value:
                             # execute trade
@@ -888,11 +923,11 @@ class Nanswap(commands.Cog):
                                         tx_hash = send_tx['block']
                                         await ctx.edit_original_message(
                                             content=f"{ctx.author.mention}, successfully created an order from "\
-                                                f"__{num_format_coin(amount_sell)} {sell_token}__ to __{for_token}__. You shall be credited very soon!", view=None)
+                                                f"__{str(amount_sell)} {sell_token}__ to __{for_token}__. You shall be credited very soon!", view=None)
                                         await log_to_channel(
                                             "nanswap",
                                             f"[NANSWAP] User {ctx.author.mention} successfully created an order "\
-                                            f"{num_format_coin(amount_sell)} {sell_token} to {for_token}!",
+                                            f"{str(amount_sell)} {sell_token} to {for_token}!",
                                             self.bot.config['discord']['nanswap']
                                         )                                
                                 # insert to database
@@ -903,30 +938,32 @@ class Nanswap(commands.Cog):
                                     trade['payinAddress'], trade['payoutAddress'], sell_token, for_token, json.dumps(trade)
                                 )
                                 if inserting is True:
-                                    sold_text = "{} {}, you should credit (expected) __{} {}__ from selling __{} {}__. Bot should notify the deposit soon!".format(
+                                    sold_text = "{} {}, you should be credited (expectedly) {} __{} {}__ from selling {} __{} {}__. Bot should notify the deposit soon!".format(
                                         EMOJI_INFORMATION, ctx.author.mention,
+                                        for_coin_emoji,
                                         num_format_coin(trade['expectedAmountTo']),
                                         for_token,
-                                        num_format_coin(trade['expectedAmountFrom']),
+                                        sell_coin_emoji,
+                                        trade['expectedAmountFrom'],
                                         sell_token
                                     )
                                     await ctx.edit_original_message(content=sold_text, view=None)
                                     await log_to_channel(
                                         "nanswap",
                                         f"[NANSWAP SOLD]: User {ctx.author.mention} successfully sold "\
-                                        f"{num_format_coin(trade['expectedAmountFrom'])} {sell_token} for "\
-                                        f"{num_format_coin(trade['expectedAmountTo'])} {for_token}.",
+                                        f"{str(trade['expectedAmountFrom'])} {sell_token} for "\
+                                        f"{str(trade['expectedAmountTo'])} {for_token}.",
                                         self.bot.config['discord']['nanswap']
                                     )
                                 else:
                                     await ctx.edit_original_message(
                                         content=f"{EMOJI_ERROR} {ctx.author.mention}, failed to close an order from "\
-                                            f"__{num_format_coin(amount_sell)} {sell_token}__ to __{for_token}__."
+                                            f"__{str(amount_sell)} {sell_token}__ to __{for_token}__."
                                     )
                                     await log_to_channel(
                                         "nanswap",
                                         f"[NANSWAP] 🔴🔴🔴 User {ctx.author.mention} successfully created order "\
-                                        f"{num_format_coin(amount_sell)} {sell_token} to {for_token} but failed to insert to database!",
+                                        f"{str(amount_sell)} {sell_token} to {for_token} but failed to insert to database!",
                                         self.bot.config['discord']['nanswap']
                                     )
                         else:
@@ -996,11 +1033,12 @@ payoutAddress: {}
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-
     @tasks.loop(seconds=10.0)
     async def check_pending(self):
         get_pending = await nanswap_get_pendings(status="ONGOING")
         if len(get_pending) > 0:
+            get_guilds = await self.utils.get_trade_channel_list()
+            list_guild_ids = [i.id for i in self.bot.guilds]
             for i in get_pending:
                 try:
                     check_id = await nanswap_check_id(i['nanswap_id'], timeout=20)
@@ -1015,25 +1053,53 @@ payoutAddress: {}
                             check_id['payoutHash'], json.dumps(check_id),
                             check_id['amountFrom'], check_id['amountTo'], i['nanswap_id']
                         )
+                        sell_coin_emoji = getattr(getattr(self.bot.coin_list, i['from_coin']), "coin_emoji_discord")
+                        for_coin_emoji = getattr(getattr(self.bot.coin_list, i['to_coin']), "coin_emoji_discord")
                         if crediting is True and i['user_id'].isdigit and i['user_server'] == SERVER_BOT:
-                            completed_text = "{} <@{}>, you are credited __{} {}__ from selling __{} {}__. Nanswap ID: {}. It could take a few seconds to be in.".format(
+                            completed_text = "{} <@{}>, you are credited {} __{} {}__ from selling {} __{} {}__. Nanswap ID: {}. It could take a few seconds to be in.".format(
                                 EMOJI_INFORMATION, i['user_id'],
+                                for_coin_emoji,
                                 num_format_coin(check_id['amountTo']),
                                 i['to_coin'],
-                                num_format_coin(check_id['amountFrom']),
+                                sell_coin_emoji,
+                                check_id['amountFrom'],
                                 i['from_coin'],
                                 i['nanswap_id']
                             )
-                            member = self.bot.get_user(int(i['user_id']))
-                            if member is not None:
-                                await member.send(completed_text)
-                                await log_to_channel(
-                                    "nanswap",
-                                    f"[NANSWAP] User <@{i['user_id']}> completed an order "\
-                                    f"selling {num_format_coin(check_id['amountFrom'])} {i['from_coin']} to "\
-                                    f"{num_format_coin(check_id['amountTo'])} {i['to_coin']}. Nanswap ID: {i['nanswap_id']}!",
-                                    self.bot.config['discord']['nanswap']
+                            try:
+                                member = self.bot.get_user(int(i['user_id']))
+                                if member is not None:
+                                    await member.send(completed_text)
+                                    await log_to_channel(
+                                        "nanswap",
+                                        f"[NANSWAP] User <@{i['user_id']}> completed an order "\
+                                        f"selling {str(check_id['amountFrom'])} {i['from_coin']} to "\
+                                        f"{str(check_id['amountTo'])} {i['to_coin']}. Nanswap ID: {i['nanswap_id']}!",
+                                        self.bot.config['discord']['nanswap']
+                                    )
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            if self.bot.config['nanswap']['enable_trade_ann'] == 1:
+                                ann_nanswap_msg = "[NANSWAP] A user sold {} {} for {} {}.".format(
+                                    check_id['amountFrom'],
+                                    num_format_coin(i['from_coin']),
+                                    num_format_coin(check_id['amountTo']),
+                                    i['to_coin']
                                 )
+                                for item in get_guilds:
+                                    if int(item['serverid']) not in list_guild_ids:
+                                        continue
+                                    try:
+                                        get_guild = self.bot.get_guild(int(item['serverid']))
+                                        if get_guild:
+                                            channel = get_guild.get_channel(int(item['trade_channel']))
+                                            if channel is None:
+                                                continue
+                                            else:
+                                                await channel.send(ann_nanswap_msg)
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
         else:

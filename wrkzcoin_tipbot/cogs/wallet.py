@@ -4150,6 +4150,53 @@ class WalletAPI(commands.Cog):
             )
         return found
 
+    async def send_external_xlm_nostore(
+        self, url: str, withdraw_keypair: str, user_id: str, amount: float, to_address: str,
+        coin_decimal: int, user_server: str, coin: str, withdraw_fee: float,
+        asset_ticker: str = None, asset_issuer: str = None, time_out=60, memo=None
+    ):
+        coin_name = coin.upper()
+        asset_sending = Asset.native()
+        if coin_name != "XLM":
+            asset_sending = Asset(asset_ticker, asset_issuer)
+        tipbot_keypair = Stella_Keypair.from_secret(withdraw_keypair)
+        async with ServerAsync(
+                horizon_url=url, client=AiohttpClient()
+        ) as server:
+            try:
+                tipbot_account = await server.load_account(tipbot_keypair.public_key)
+                base_fee = 50000
+                if memo is not None:
+                    transaction = (
+                        TransactionBuilder(
+                            source_account=tipbot_account,
+                            network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
+                            base_fee=base_fee,
+                        )
+                        .add_text_memo(memo)
+                        .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
+                        .set_timeout(30)
+                        .build()
+                    )
+                else:
+                    transaction = (
+                        TransactionBuilder(
+                            source_account=tipbot_account,
+                            network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
+                            base_fee=base_fee,
+                        )
+                        # .add_text_memo("Hello, Stellar!")
+                        .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
+                        .set_timeout(30)
+                        .build()
+                    )
+                transaction.sign(tipbot_keypair)
+                response = await server.submit_transaction(transaction)
+                return response['hash']
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+            return None
+
     async def send_external_xlm(
         self, url: str, withdraw_keypair: str, user_id: str, amount: float, to_address: str,
         coin_decimal: int, user_server: str, coin: str, withdraw_fee: float,

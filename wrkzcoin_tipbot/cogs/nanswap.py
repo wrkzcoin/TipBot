@@ -106,6 +106,28 @@ async def nanswap_credit(
         traceback.print_exc(file=sys.stdout)
     return False
 
+async def nanswap_failed_tx(
+    nanswap_id: str, user_id: str, user_server: str, json_order: str, amountFrom: float, coin_name: str
+):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """
+                INSERT INTO `nanswap_trades_failed_tx`
+                (`nanswap_id`, `user_id`, `user_server`, `json_order`, `amountFrom`, `from_coin`, `create_time`)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """
+                data_rows = [
+                    nanswap_id, user_id, user_server, json_order, amountFrom, coin_name, int(time.time())
+                ]
+                await cur.execute(sql, tuple(data_rows))
+                await conn.commit()
+                return True
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return False
+
 async def nanswap_create_order(
     coin_name: str, coin_family: str, user_id: str, user_server: str, from_amount: float, from_decimal: int, to_address: str, tx_hash: str,
     nanswap_id: str, expectedAmountFrom: float, expectedAmountTo: float, amountFrom: float, amountTo: float,
@@ -243,9 +265,10 @@ async def nanswap_get_estimate_rev(from_coin: str, to_coin: str, amount: float, 
 
 async def nanswap_get_limit(from_coin: str, to_coin: str, timeout: int=30):
     try:
+        url = "https://api.nanswap.com/v1/get-limits?from="+from_coin+"&to="+to_coin
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                "https://api.nanswap.com/v1/get-limits?from="+from_coin+"&to="+to_coin,
+                url,
                 headers={'Content-Type': 'application/json'},
                 timeout=timeout
             ) as response:
@@ -254,7 +277,7 @@ async def nanswap_get_limit(from_coin: str, to_coin: str, timeout: int=30):
                     return res_data
     except asyncio.TimeoutError:
         await logchanbot(
-            "nanswap_get_limit timeout: {}".format(timeout)
+            "nanswap_get_limit timeout: {}".format(url)
         )
     except Exception:
         traceback.print_exc(file=sys.stdout)
@@ -262,9 +285,10 @@ async def nanswap_get_limit(from_coin: str, to_coin: str, timeout: int=30):
 
 async def nanswap_check_id_partner(id_str: str, timeout: int=30):
     try:
+        url = "https://api.nanswap.com/get-order-partner?id="+id_str
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                "https://api.nanswap.com/get-order-partner?id="+id_str,
+                url,
                 headers={'Content-Type': 'application/json'},
                 timeout=timeout
             ) as response:
@@ -273,7 +297,7 @@ async def nanswap_check_id_partner(id_str: str, timeout: int=30):
                     return res_data
     except asyncio.TimeoutError:
         await logchanbot(
-            "nanswap_check_id timeout: {}".format(timeout)
+            "nanswap_check_id_partner timeout: {}".format(url)
         )
     except Exception:
         traceback.print_exc(file=sys.stdout)
@@ -281,9 +305,10 @@ async def nanswap_check_id_partner(id_str: str, timeout: int=30):
 
 async def nanswap_check_id(id_str: str, timeout: int=30):
     try:
+        url = "https://api.nanswap.com/v1/get-order?id="+id_str
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                "https://api.nanswap.com/v1/get-order?id="+id_str,
+                url,
                 headers={'Content-Type': 'application/json'},
                 timeout=timeout
             ) as response:
@@ -292,7 +317,7 @@ async def nanswap_check_id(id_str: str, timeout: int=30):
                     return res_data
     except asyncio.TimeoutError:
         await logchanbot(
-            "nanswap_check_id timeout: {}".format(timeout)
+            "nanswap_check_id timeout: {}".format(url)
         )
     except Exception:
         traceback.print_exc(file=sys.stdout)
@@ -729,6 +754,14 @@ class Nanswap(commands.Cog):
                                             f" {sell_token} to {for_token}!",
                                             self.bot.config['discord']['nanswap']
                                         )
+                                        # add to failed tx table
+                                        try:
+                                            await nanswap_failed_tx(
+                                                trade['id'], str(ctx.author.id), SERVER_BOT, json.dumps(trade),
+                                                trade['expectedAmountFrom'], sell_token
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                     else:
                                         tx_hash = send_tx['block']
                                         await ctx.edit_original_message(
@@ -760,6 +793,14 @@ class Nanswap(commands.Cog):
                                             f" {sell_token} to {for_token}!",
                                             self.bot.config['discord']['nanswap']
                                         )
+                                        # add to failed tx table
+                                        try:
+                                            await nanswap_failed_tx(
+                                                trade['id'], str(ctx.author.id), SERVER_BOT, json.dumps(trade),
+                                                trade['expectedAmountFrom'], sell_token
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                     else:
                                         tx_hash = send_tx['tx_hash']
                                         tx_key = send_tx['tx_key']
@@ -791,6 +832,14 @@ class Nanswap(commands.Cog):
                                             f" {sell_token} to {for_token}!",
                                             self.bot.config['discord']['nanswap']
                                         )
+                                        # add to failed tx table
+                                        try:
+                                            await nanswap_failed_tx(
+                                                trade['id'], str(ctx.author.id), SERVER_BOT, json.dumps(trade),
+                                                trade['expectedAmountFrom'], sell_token
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                     else:
                                         tx_hash = send_tx
                                         await ctx.edit_original_message(
@@ -846,6 +895,14 @@ class Nanswap(commands.Cog):
                                             f" {sell_token} to {for_token}!",
                                             self.bot.config['discord']['nanswap']
                                         )
+                                        # add to failed tx table
+                                        try:
+                                            await nanswap_failed_tx(
+                                                trade['id'], str(ctx.author.id), SERVER_BOT, json.dumps(trade),
+                                                trade['expectedAmountFrom'], sell_token
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                     else:
                                         tx_hash = send_tx
                                         await ctx.edit_original_message(
@@ -910,7 +967,6 @@ class Nanswap(commands.Cog):
                                 del self.bot.tipping_in_progress[str(ctx.author.id)]
                             except Exception:
                                 pass
-                            return
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1219,6 +1275,14 @@ class Nanswap(commands.Cog):
                                             f" {sell_token} to {for_token}!",
                                             self.bot.config['discord']['nanswap']
                                         )
+                                        # add to failed tx table
+                                        try:
+                                            await nanswap_failed_tx(
+                                                trade['id'], str(ctx.author.id), SERVER_BOT, json.dumps(trade),
+                                                trade['expectedAmountFrom'], sell_token
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                     else:
                                         tx_hash = send_tx['block']
                                         await ctx.edit_original_message(
@@ -1353,7 +1417,7 @@ payoutAddress: {}
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    @tasks.loop(seconds=10.0)
+    @tasks.loop(seconds=15.0)
     async def check_pending(self):
         get_pending = await nanswap_get_pendings(status="ONGOING")
         if len(get_pending) > 0:
@@ -1362,9 +1426,9 @@ payoutAddress: {}
             for i in get_pending:
                 try:
                     if i['to_coin'] in self.bot.config['nanswap']['partner_list'] or i['from_coin'] in self.bot.config['nanswap']['partner_list']:
-                        check_id = await nanswap_check_id_partner(i['nanswap_id'], timeout=20)
+                        check_id = await nanswap_check_id_partner(i['nanswap_id'], timeout=10)
                     else:
-                        check_id = await nanswap_check_id(i['nanswap_id'], timeout=20)
+                        check_id = await nanswap_check_id(i['nanswap_id'], timeout=10)
                     if check_id and check_id['status'] == "completed":
                         # credit user
                         main_address = getattr(getattr(self.bot.coin_list, i['to_coin']), "MainAddress")
@@ -1471,7 +1535,6 @@ payoutAddress: {}
                                                 await channel.send(ann_nanswap_msg)
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
-
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
         else:

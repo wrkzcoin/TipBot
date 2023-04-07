@@ -22,7 +22,8 @@ from Bot import get_token_list, logchanbot, EMOJI_ZIPPED_MOUTH, EMOJI_ERROR, EMO
     encrypt_string, decrypt_string
 
 from cogs.wallet import WalletAPI
-from cogs.utils import Utils, num_format_coin, chunks, stellar_get_tx_info, btc_get_tx_info, erc20_get_tx_info, erc20_get_block_number
+from cogs.utils import Utils, num_format_coin, chunks, stellar_get_tx_info, btc_get_tx_info, \
+    erc20_get_tx_info, erc20_get_block_number, tezos_get_tx
 
 
 async def nanswap_get_pendings(status: str="ONGOING"):
@@ -89,6 +90,20 @@ async def nanswap_credit(
                         0.0, decimal, tx_hash, int(time.time()),
                         user_server, network, status, height, confirmations
                     ]
+                elif coin_family == "XTZ":
+                    sql += """
+                    INSERT IGNORE INTO `tezos_move_deposit` 
+                    (`token_name`, `contract`, `user_id`, `balance_wallet_address`, 
+                    `to_main_address`, `real_amount`, `real_deposit_fee`, `token_decimal`, `txn`,
+                    `content`, `time_insert`, `user_server`, `network`, `blockNumber`, `confirmed_depth`, `status`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                    """
+                    data_rows += [
+                        coin_name, contract,
+                        user_id, from_address, to_address, amount,
+                        0.0, decimal, tx_hash, None, int(time.time()),
+                        user_server, network, height, confirmations, status
+                    ]
                 elif coin_family == "XLM":
                     sql += """
                     INSERT INTO `xlm_get_transfers` 
@@ -139,7 +154,7 @@ async def nanswap_create_order(
     coin_name: str, coin_family: str, user_id: str, user_server: str, from_amount: float, from_decimal: int, to_address: str, tx_hash: str,
     nanswap_id: str, expectedAmountFrom: float, expectedAmountTo: float, amountFrom: float, amountTo: float,
     payinAddress: str, payoutAddress: str, from_coin: str, to_coin: str, json_order: str, fee: float, tx_key: str=None,
-    contract: str=None, network: str=None
+    contract: str=None, network: str=None, contents: str=None
 ):
     try:
         await store.openConnection()
@@ -174,6 +189,17 @@ async def nanswap_create_order(
                             coin_name, contract, user_id, from_amount,
                             fee, from_decimal, to_address, int(time.time()), tx_hash,
                             user_server, network
+                        ]
+                    elif coin_family == "XTZ":
+                        sql += """
+                        INSERT INTO `tezos_external_tx` (`token_name`, `contract`,
+                        `user_id`, `real_amount`, `real_external_fee`, `token_decimal`,
+                        `to_address`, `date`, `txn`, `contents`, `user_server`, `network`) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                        """
+                        data_rows += [
+                            coin_name, contract, user_id, from_amount, fee, from_decimal,
+                            to_address, int(time.time()), tx_hash, contents, user_server, network
                         ]
                     elif coin_family == "XLM":
                         sql += """
@@ -677,7 +703,7 @@ class Nanswap(commands.Cog):
                         # always check main_address for new coin
                         main_address = getattr(getattr(self.bot.coin_list, for_token), "MainAddress")
                         for_type_coin = getattr(getattr(self.bot.coin_list, for_token), "type")
-                        if main_address is None and for_type_coin not in ["BTC", "ERC-20"]:
+                        if main_address is None and for_type_coin not in ["BTC", "ERC-20", "XTZ"]:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no address to exchange. Please report!"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
@@ -752,6 +778,8 @@ class Nanswap(commands.Cog):
                                 main_address = get_deposit['balance_wallet_address']
                             elif for_type_coin in ["ERC-20"]:
                                 main_address = self.bot.config['eth']['MainAddress']
+                            elif for_type_coin in ["XTZ"]:
+                                main_address = getattr(getattr(self.bot.coin_list, "XTZ"), "MainAddress")
                             # execute trade
                             # insert to data
                             from_token_json = sell_token
@@ -791,6 +819,7 @@ class Nanswap(commands.Cog):
                                 tx_hash = None
                                 fee = 0.0
                                 tx_key = None
+                                contents = None
                                 if sell_coin_family == "NANO":
                                     sender_addr = getattr(getattr(self.bot.coin_list, sell_token), "MainAddress")
                                     send_tx = await self.wallet_api.nano_sendtoaddress(
@@ -873,6 +902,53 @@ class Nanswap(commands.Cog):
                                         return
                                     else:
                                         tx_hash = send_tx
+                                        await ctx.edit_original_message(
+                                            content=f"{ctx.author.mention}, successfully created an order from "\
+                                                f"{sell_coin_emoji} __{str(amount)} {sell_token}__ "\
+                                                f"to {for_coin_emoji} __{for_token}__. You shall be credited very soon! Nanswap ID: {trade['id']}.", view=None)
+                                        await log_to_channel(
+                                            "nanswap",
+                                            f"[NANSWAP] User {ctx.author.mention} successfully created an order "\
+                                            f"{str(amount)} {sell_token} to {for_token}!",
+                                            self.bot.config['discord']['nanswap']
+                                        )
+                                elif sell_coin_family == "XTZ":
+                                    NetFee = getattr(getattr(self.bot.coin_list, sell_token), "real_withdraw_fee")
+                                    fee = NetFee
+                                    sell_coin_decimal = getattr(getattr(self.bot.coin_list, sell_token), "decimal")
+                                    url = self.bot.erc_node_list[sell_coin_family]
+                                    key = decrypt_string(getattr(getattr(self.bot.coin_list, "XTZ"), "walletkey"))
+                                    send_tx = await self.wallet_api.send_external_xtz_nostore(
+                                        url, key, truncate(amount, 8), trade['payinAddress'], sell_coin_decimal
+                                    )
+                                    if send_tx is None:
+                                        await ctx.edit_original_message(
+                                            content=f"{EMOJI_ERROR} {ctx.author.mention}, failed to send tx after "\
+                                                f"created an order from __{sell_token}__ to __{for_token}__.",
+                                            view=None
+                                        )
+                                        await log_to_channel(
+                                            "nanswap",
+                                            f"[NANSWAP] 🔴 User {ctx.author.mention} failed to send tx after creating order "\
+                                            f" {sell_token} to {for_token}!",
+                                            self.bot.config['discord']['nanswap']
+                                        )
+                                        # add to failed tx table
+                                        try:
+                                            await nanswap_failed_tx(
+                                                trade['id'], str(ctx.author.id), SERVER_BOT, json.dumps(trade),
+                                                trade['expectedAmountFrom'], sell_token
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
+                                        try:
+                                            del self.bot.tipping_in_progress[str(ctx.author.id)]
+                                        except Exception:
+                                            pass
+                                        return
+                                    else:
+                                        tx_hash = send_tx['hash']
+                                        contents = send_tx['contents']
                                         await ctx.edit_original_message(
                                             content=f"{ctx.author.mention}, successfully created an order from "\
                                                 f"{sell_coin_emoji} __{str(amount)} {sell_token}__ "\
@@ -1047,7 +1123,7 @@ class Nanswap(commands.Cog):
                                     trade['payinAddress'], tx_hash, trade['id'], trade['expectedAmountFrom'],
                                     trade['expectedAmountTo'], None, None,
                                     trade['payinAddress'], trade['payoutAddress'], sell_token, for_token, json.dumps(trade),
-                                    fee, tx_key, sell_contract, sell_network
+                                    fee, tx_key, sell_contract, sell_network, contents
                                 )
                                 if inserting is True:
                                     sold_text = "{} {}, you should be credited (expectedly) {} __{} {}__ from selling {} __{} {}__. "\
@@ -1307,7 +1383,7 @@ class Nanswap(commands.Cog):
                         # always check main_address for new coin
                         main_address = getattr(getattr(self.bot.coin_list, for_token), "MainAddress")
                         for_type_coin = getattr(getattr(self.bot.coin_list, for_token), "type")
-                        if main_address is None and for_type_coin not in ["BTC", "ERC-20"]:
+                        if main_address is None and for_type_coin not in ["BTC", "ERC-20", "XTZ"]:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no address to exchange. Please report!"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
@@ -1395,6 +1471,7 @@ class Nanswap(commands.Cog):
                                 tx_hash = None
                                 fee = 0.0
                                 tx_key = None
+                                contents = None
                                 if sell_token in ["BAN", "XDG", "XNO"]:
                                     sender_addr = getattr(getattr(self.bot.coin_list, sell_token), "MainAddress")
                                     send_tx = await self.wallet_api.nano_sendtoaddress(
@@ -1445,7 +1522,8 @@ class Nanswap(commands.Cog):
                                     trade['expectedAmountTo'], None, None,
                                     trade['payinAddress'], trade['payoutAddress'], sell_token, for_token, json.dumps(trade),
                                     fee, tx_key,
-                                    sell_contract, sell_network
+                                    sell_contract, sell_network,
+                                    contents
                                 )
                                 if inserting is True:
                                     sold_text = "{} {}, you should be credited (expectedly) {} __{} {}__ from selling {} __{} {}__. Bot should notify the deposit soon!".format(
@@ -1642,6 +1720,20 @@ payoutAddress: {}
                         elif coin_family == "XMR":
                             # We only update credit table but no notification
                             continue
+                        elif coin_family == "XTZ":
+                            rpchost = getattr(getattr(self.bot.coin_list, coin_family), "rpchost")
+                            net_name = getattr(getattr(self.bot.coin_list, coin_family), "net_name")
+                            confirmation_depth = getattr(getattr(self.bot.coin_list, i['to_coin']), "deposit_confirm_depth")
+                            get_tx = await tezos_get_tx(rpchost, check_id['payoutHash'], 32)
+                            if get_tx is None:
+                                continue
+                            else:
+                                height = await self.wallet_api.get_block_height(coin_family, "XTZ", net_name)
+                                if height and height - get_tx['level'] > confirmation_depth:
+                                    status_tx = "CONFIRMED"
+                                    confirmations = height - get_tx['level']
+                                else:
+                                    continue
                         elif coin_family == "ERC-20":
                             # check tx status
                             confirmation_depth = getattr(getattr(self.bot.coin_list, i['to_coin']), "deposit_confirm_depth")

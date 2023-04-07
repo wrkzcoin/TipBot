@@ -245,6 +245,25 @@ async def erc20_get_block_number(url: str, timeout: int = 64):
         traceback.print_exc(file=sys.stdout)
     return None
 
+async def tezos_get_tx(url: str, tx_hash: str, timeout: int=16):
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url + "operations/transactions/" + tx_hash,
+                headers=headers,
+                timeout=timeout
+            ) as response:
+                json_resp = await response.json()
+                if response.status == 200 or response.status == 201:
+                    if len(json_resp) == 1 and "status" in json_resp[0] and "level" in json_resp[0]:
+                        return json_resp[0]
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
 # Defines a simple paginator of buttons for the embed.
 class MenuPage(disnake.ui.View):
     message: disnake.Message

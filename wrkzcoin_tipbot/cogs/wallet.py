@@ -4876,6 +4876,21 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
+    async def send_external_xtz_nostore(
+        self, url: str, key: str, amount: float, to_address: str, coin_decimal: int
+    ):
+        try:
+            transaction = functools.partial(self.tezos_move_balance, url, key, to_address, int(amount*10**coin_decimal))
+            send_tx = await self.bot.loop.run_in_executor(None, transaction)
+            if send_tx:
+                try:
+                    return {"hash": send_tx.hash(), "contents": json.dumps(send_tx.contents)}
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
     async def send_external_xtz(
         self, url: str, key: str, user_from: str, amount: float, to_address: str, coin: str,
         coin_decimal: int, withdraw_fee: float, network: str, user_server: str = 'DISCORD'
@@ -11257,9 +11272,9 @@ class Wallet(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-    @tasks.loop(seconds=60.0)
+    @tasks.loop(seconds=15.0)
     async def notify_new_confirmed_tezos(self):
-        time_lap = 20  # seconds
+        time_lap = 10  # seconds
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "notify_new_confirmed_tezos"

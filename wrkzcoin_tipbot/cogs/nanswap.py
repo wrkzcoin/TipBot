@@ -507,11 +507,21 @@ class Nanswap(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # Check coin exist with us
+        if not hasattr(self.bot.coin_list, sell_token):
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, **{sell_token}** does not exist with us.")
+            return
+        if not hasattr(self.bot.coin_list, for_token):
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, **{for_token}** does not exist with us.")
+            return
+
         if sell_token == for_token:
             msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you cannot do /nanswap for the same token."
             await ctx.edit_original_message(content=msg)
             return
-        
+
         # check if enable in Nanswap
         nanswap_coin_list = ", ".join(self.bot.config['nanswap']['coin_list'])
         if sell_token not in self.bot.config['nanswap']['coin_list']:
@@ -667,7 +677,7 @@ class Nanswap(commands.Cog):
                         # always check main_address for new coin
                         main_address = getattr(getattr(self.bot.coin_list, for_token), "MainAddress")
                         for_type_coin = getattr(getattr(self.bot.coin_list, for_token), "type")
-                        if main_address is None and for_type_coin not in ["BTC"]:
+                        if main_address is None and for_type_coin not in ["BTC", "ERC-20"]:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no address to exchange. Please report!"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
@@ -1123,10 +1133,20 @@ class Nanswap(commands.Cog):
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
-                                         str(ctx.author.id), SERVER_BOT, "/nanswap sell", int(time.time())))
+                                         str(ctx.author.id), SERVER_BOT, "/nanswap buy", int(time.time())))
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
+
+        # Check coin exist with us
+        if not hasattr(self.bot.coin_list, sell_token):
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, **{sell_token}** does not exist with us.")
+            return
+        if not hasattr(self.bot.coin_list, for_token):
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, **{for_token}** does not exist with us.")
+            return
 
         if sell_token == for_token:
             msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you cannot do /nanswap for the same token."
@@ -1287,7 +1307,7 @@ class Nanswap(commands.Cog):
                         # always check main_address for new coin
                         main_address = getattr(getattr(self.bot.coin_list, for_token), "MainAddress")
                         for_type_coin = getattr(getattr(self.bot.coin_list, for_token), "type")
-                        if main_address is None and for_type_coin not in ["BTC"]:
+                        if main_address is None and for_type_coin not in ["BTC", "ERC-20"]:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no address to exchange. Please report!"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
@@ -1490,6 +1510,14 @@ class Nanswap(commands.Cog):
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /nanswap loading..."
         await ctx.response.send_message(msg)
+
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/nanswap coinlist", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         try:
             list_coins = ", ".join(self.bot.config['nanswap']['coin_list'])
             await ctx.edit_original_message(
@@ -1512,7 +1540,15 @@ class Nanswap(commands.Cog):
         id: str
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /nanswap loading..."
+
         await ctx.response.send_message(msg)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/nanswap check", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         try:
             check_id = await nanswap_check_id(id, timeout=20)
             if check_id is None or "error" in check_id:

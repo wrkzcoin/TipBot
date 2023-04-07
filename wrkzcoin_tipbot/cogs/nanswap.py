@@ -1597,9 +1597,10 @@ class Nanswap(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         try:
-            list_coins = ", ".join(self.bot.config['nanswap']['coin_list'])
+            list_coins = ", ".join(list(sorted(self.bot.config['nanswap']['coin_list'])))
             await ctx.edit_original_message(
-                content=f"{EMOJI_INFORMATION} {ctx.author.mention}, list supported coin for /nanswap: __{list_coins}__."
+                content=f"{EMOJI_INFORMATION} {ctx.author.mention}, list supported coin for "\
+                    f"/nanswap ({str(len(self.bot.config['nanswap']['coin_list']))}): __{list_coins}__."
             )
         except Exception:
             traceback.print_exc(file=sys.stdout)

@@ -3742,6 +3742,31 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("wallet call_aiohttp_wallet_xmr_bcn " + str(traceback.format_exc()))
 
+    async def send_external_xmr_nostore(
+        self, amount: float, to_address: str,
+        coin_name: str, coin_decimal: int, timeout: int=120
+    ):
+        try:
+            acc_index = 0
+            payload = {
+                "destinations": [{'amount': int(amount * 10 ** coin_decimal), 'address': to_address}],
+                "account_index": acc_index,
+                "subaddr_indices": [],
+                "priority": 1,
+                "unlock_time": 0,
+                "get_tx_key": True,
+                "get_tx_hex": False,
+                "get_tx_metadata": False
+            }
+            result = await self.call_aiohttp_wallet_xmr_bcn(
+                'transfer', coin_name, time_out=timeout, payload=payload
+            )
+            if result and 'tx_hash' in result and 'tx_key' in result:
+                return result
+        except Exception:
+            await logchanbot("wallet send_external_xmr " + str(traceback.format_exc()))
+        return None
+
     async def send_external_xmr(
         self, type_coin: str, from_address: str, user_from: str, amount: float, to_address: str,
         coin: str, coin_decimal: int, tx_fee: float, withdraw_fee: float, is_fee_per_byte: int,

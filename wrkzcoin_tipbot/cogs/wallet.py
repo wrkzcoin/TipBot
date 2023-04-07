@@ -3344,6 +3344,75 @@ class WalletAPI(commands.Cog):
             await logchanbot("wallet send_external_nano " + str(traceback.format_exc()))
         return None
 
+    async def send_external_erc20_nostore(
+        self, url: str, network: str, from_address: str, from_key: str,
+        to_address: str, amount: float,
+        coin_decimal: int, chain_id: str = None, contract: str = None
+    ):
+        try:
+            # HTTPProvider:
+            w3 = Web3(Web3.HTTPProvider(url))
+            signed_txn = None
+            sent_tx = None
+            if contract is None:
+                # Main Token
+                if network == "MATIC":
+                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(from_address), 'pending')
+                else:
+                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(from_address))
+                # get gas price
+                gasPrice = w3.eth.gasPrice
+
+                estimateGas = w3.eth.estimateGas(
+                    {'to': w3.toChecksumAddress(to_address), 'from': w3.toChecksumAddress(from_address),
+                     'value': int(amount * 10 ** coin_decimal)})
+
+                atomic_amount = int(amount * 10 ** 18)
+                transaction = {
+                    'from': w3.toChecksumAddress(from_address),
+                    'to': w3.toChecksumAddress(to_address),
+                    'value': atomic_amount,
+                    'nonce': nonce,
+                    'gasPrice': gasPrice,
+                    'gas': estimateGas,
+                    'chainId': chain_id
+                }
+                try:
+                    signed_txn = w3.eth.account.sign_transaction(transaction, private_key=from_key)
+                    # send Transaction for gas:
+                    sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            else:
+                # Token ERC-20
+                # inject the poa compatibility middleware to the innermost layer
+                w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+                unicorns = w3.eth.contract(address=w3.toChecksumAddress(contract), abi=EIP20_ABI)
+                if network == "MATIC":
+                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(from_address), 'pending')
+                else:
+                    nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(from_address))
+
+                unicorn_txn = unicorns.functions.transfer(
+                    w3.toChecksumAddress(to_address),
+                    int(amount * 10 ** coin_decimal)  # amount to send
+                ).buildTransaction({
+                    'from': w3.toChecksumAddress(from_address),
+                    'gasPrice': w3.eth.gasPrice,
+                    'nonce': nonce,
+                    'chainId': chain_id
+                })
+
+                signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=from_key)
+                sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+            if signed_txn and sent_tx:
+                return sent_tx.hex()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot("wallet send_external_erc20 " + str(traceback.format_exc()))
+        return None
+
     async def call_xch(
         self, method_name: str, coin: str, payload: Dict = None
     ) -> Dict:
@@ -11347,7 +11416,7 @@ class Wallet(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-    @tasks.loop(seconds=60.0)
+    @tasks.loop(seconds=15.0)
     async def unlocked_move_pending_erc20(self):
         time_lap = 5  # seconds
         await self.bot.wait_until_ready()

@@ -11,7 +11,7 @@ import json
 import secrets
 import string
 import random
-
+import asyncio
 # chart
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -198,6 +198,50 @@ async def btc_get_tx_info(url: str, tx: str, timeout: int=30):
                 result = json.loads(res_data)
                 return result
     except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def erc20_get_tx_info(url: str, tx: str, timeout: int = 64):
+    data = '{"jsonrpc":"2.0", "method": "eth_getTransactionReceipt", "params":["' + tx + '"], "id":1}'
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url, headers={'Content-Type': 'application/json'},
+                json=json.loads(data),
+                timeout=timeout
+            ) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data and 'result' in decoded_data:
+                        return decoded_data['result']
+    except asyncio.TimeoutError:
+        print('TIMEOUT: {} get block number {}s'.format(url, timeout))
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def erc20_get_block_number(url: str, timeout: int = 64):
+    data = '{"jsonrpc":"2.0", "method":"eth_blockNumber", "params":[], "id":1}'
+    try:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+            async with session.post(
+                url, headers={'Content-Type': 'application/json'},
+                json=json.loads(data),
+                timeout=timeout
+            ) as response:
+                if response.status == 200:
+                    res_data = await response.read()
+                    res_data = res_data.decode('utf-8')
+                    await session.close()
+                    decoded_data = json.loads(res_data)
+                    if decoded_data and 'result' in decoded_data:
+                        return int(decoded_data['result'], 16)
+    except asyncio.TimeoutError:
+        print('TIMEOUT: {} get block number {}s'.format(url, timeout))
+    except Exception as e:
         traceback.print_exc(file=sys.stdout)
     return None
 

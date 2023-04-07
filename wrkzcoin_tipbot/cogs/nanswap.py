@@ -101,16 +101,8 @@ async def nanswap_credit(
                         decimal, to_address, memo, int(time.time()), user_server
                     ]
                 elif coin_family == "BTC":
-                    sql += """
-                    INSERT INTO `doge_get_transfers` 
-                    (`coin_name`, `user_id`, `txid`, `blockhash`, `address`, `blocktime`, `amount`, 
-                    `fee`, `confirmations`, `category`, `time_insert`, `user_server`) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
-                    """
-                    data_rows += [
-                        coin_name, user_id, tx_hash, blockhash, to_address, blocktime, amount,
-                        fee, confirmations, category, int(time.time()), user_server
-                    ]
+                    # We have function get transfer already
+                    pass
                 elif coin_family == "XMR":
                     # We have function get transfer already
                     pass
@@ -674,7 +666,8 @@ class Nanswap(commands.Cog):
                             return
                         # always check main_address for new coin
                         main_address = getattr(getattr(self.bot.coin_list, for_token), "MainAddress")
-                        if main_address is None:
+                        for_type_coin = getattr(getattr(self.bot.coin_list, for_token), "type")
+                        if main_address is None and for_type_coin not in ["BTC"]:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no address to exchange. Please report!"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
@@ -1293,7 +1286,8 @@ class Nanswap(commands.Cog):
                     else:
                         # always check main_address for new coin
                         main_address = getattr(getattr(self.bot.coin_list, for_token), "MainAddress")
-                        if main_address is None:
+                        for_type_coin = getattr(getattr(self.bot.coin_list, for_token), "type")
+                        if main_address is None and for_type_coin not in ["BTC"]:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no address to exchange. Please report!"
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
@@ -1600,6 +1594,8 @@ payoutAddress: {}
                                     if category != "receive":
                                         continue
                                     if main_address != get_tx['details']['address']:
+                                        continue
+                                    if blockhash is None or confirmations == 0:
                                         continue
                                     get_confirm_depth = getattr(getattr(self.bot.coin_list, i['to_coin']), "deposit_confirm_depth")
                                     if get_confirm_depth > confirmations:

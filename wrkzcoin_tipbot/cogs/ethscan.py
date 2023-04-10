@@ -33,19 +33,23 @@ class EthScan(commands.Cog):
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
             return
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                bot_settings['api_best_node_trx'],
-                headers={'Content-Type': 'application/json'},
-                timeout=5.0
-            ) as response:
-                if response.status == 200:
-                    res_data = await response.read()
-                    res_data = res_data.decode('utf-8')
-                    # trx needs to fetch best node from their public
-                    self.bot.erc_node_list['TRX'] = res_data.replace('"', '')
-                else:
-                    await logchanbot(f"Can not fetch best node for TRX.")
+        else:
+            if "local_node_trx" in bot_settings and bot_settings['local_node_trx'] is not None:
+                self.bot.erc_node_list['TRX'] = bot_settings['local_node_trx']
+            else:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        bot_settings['api_best_node_trx'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            # trx needs to fetch best node from their public
+                            self.bot.erc_node_list['TRX'] = res_data.replace('"', '')
+                        else:
+                            await logchanbot(f"Can not fetch best node for TRX.")
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)

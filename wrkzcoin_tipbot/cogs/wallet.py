@@ -1217,6 +1217,8 @@ class DepositMenu(disnake.ui.View):
         owner_id: int,
         embed,
         coin_name,
+        plain_addr: str,
+        pointer_message: str,
         is_fav: bool=False
     ):
         super().__init__(timeout=120.0)
@@ -1227,6 +1229,8 @@ class DepositMenu(disnake.ui.View):
         self.owner_id = owner_id
         self.embed = embed
         self.coin_name = coin_name
+        self.plain_addr =  plain_addr
+        self.pointer_message = pointer_message
         if is_fav is True:
             self.btn_balance_single_add_fav.disabled = True
             self.btn_balance_single_remove_fav.disabled = False
@@ -1238,6 +1242,18 @@ class DepositMenu(disnake.ui.View):
         await self.ctx.edit_original_message(
             view=None
         )
+
+    @disnake.ui.button(label="Plain", emoji="📋", style=ButtonStyle.grey, custom_id="deposit_plain_address")
+    async def btn_balance_single_plain(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            await self.ctx.edit_original_message(content=self.plain_addr, embed=None, view=None)
+            await self.ctx.followup.send(self.pointer_message, ephemeral=True)
 
     @disnake.ui.button(label="Add", emoji="💚", style=ButtonStyle.grey, custom_id="deposit_add_fav")
     async def btn_balance_single_add_fav(
@@ -1259,7 +1275,10 @@ class DepositMenu(disnake.ui.View):
             adding = await self.utils.fav_coin_add(str(inter.author.id), SERVER_BOT, self.coin_name)
             if adding is True:
                 await inter.delete_original_message()
-                view = DepositMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=True)
+                view = DepositMenu(
+                    self.bot, self.ctx, self.owner_id, self.embed, self.coin_name,
+                    self.plain_addr, self.pointer_message, is_fav=True
+                )
                 await self.ctx.edit_original_message(view=view)
 
     @disnake.ui.button(label="Remove", emoji="💙", style=ButtonStyle.grey, custom_id="deposit_remove_fav")
@@ -1275,7 +1294,10 @@ class DepositMenu(disnake.ui.View):
             removing = await self.utils.fav_coin_remove(str(inter.author.id), SERVER_BOT, self.coin_name)
             if removing is True:
                 await inter.delete_original_message()
-                view = DepositMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=False)
+                view = DepositMenu(
+                    self.bot, self.ctx, self.owner_id, self.embed, self.coin_name,
+                    self.plain_addr, self.pointer_message, is_fav=False
+                )
                 await self.ctx.edit_original_message(view=view)
 
     @disnake.ui.button(label="Balance", emoji="💰", style=ButtonStyle.grey, custom_id="deposit_balance")
@@ -12165,8 +12187,8 @@ class Wallet(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
 
             plain_address = wallet_address
-            pointer_message = "{}#{}, your deposit address for **{}** {}👆".format(
-                ctx.author.name, ctx.author.discriminator, coin_name, coin_emoji
+            pointer_message = "{}, your deposit address for **{}** {}👆".format(
+                ctx.author.mention, coin_name, coin_emoji
             )
 
             if type_coin in ["HNT", "XLM", "VITE", "COSMOS"]:
@@ -12267,7 +12289,7 @@ class Wallet(commands.Cog):
                         embed.add_field(name="Other links", value="{}".format(" | ".join(other_links)), inline=False)
                     check_fav = await self.utils.check_if_fav_coin(str(ctx.author.id), SERVER_BOT, coin_name)
                     view = DepositMenu(
-                        self.bot, ctx, ctx.author.id, embed, coin_name, is_fav=check_fav
+                        self.bot, ctx, ctx.author.id, embed, coin_name, plain_address, pointer_message, is_fav=check_fav
                     )
                     await ctx.edit_original_message(content=None, embed=embed, view=view)
             except (disnake.Forbidden, disnake.errors.Forbidden) as e:

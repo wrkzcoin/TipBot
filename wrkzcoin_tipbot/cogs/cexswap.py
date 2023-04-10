@@ -3644,12 +3644,12 @@ class Cexswap(commands.Cog):
                             # . Fee {fee_str} {for_token}\n
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully traded!\n"\
                                 f"```Get {user_amount_get} {for_token}\n"\
-                                f"From selling {user_amount_sell} {sell_token}{price_impact_text}```✅ Ref: __{ref_log}__"
+                                f"From selling {user_amount_sell} {sell_token}{price_impact_text}```✅ Ref: {ref_log}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "cexswap",
                                 f"[SOLD]: User {ctx.author.mention} Sold: " \
-                                f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}. Ref: __{ref_log}__",
+                                f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}. Ref: {ref_log}",
                                 self.bot.config['discord']['cexswap']
                             )
                             # check if the amount is more than minimum.

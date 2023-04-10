@@ -3079,6 +3079,16 @@ class Guild(commands.Cog):
         self, 
         ctx
     ):
+
+        try:
+            cmd_name = ctx.application_command.qualified_name
+            command_mention = f"__/{cmd_name}__"
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name)
+                command_mention = f"</{cmd_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         await self.bot_log()
         msg = f'{ctx.author.mention}, checking guild\'s faucet...'
         await ctx.response.send_message(msg)
@@ -3105,7 +3115,7 @@ class Guild(commands.Cog):
                         f"{ctx.author.name} / {ctx.author.id} tried `/faucet` in "\
                         f"{ctx.guild.name} / {ctx.guild.id} which is disable."
                     )
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **/faucet** in this guild is disable."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {command_mention} in this guild is disable."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -3156,8 +3166,8 @@ class Guild(commands.Cog):
                 get_last_claim = await self.get_faucet_claim_user_guild(str(ctx.author.id), str(ctx.guild.id), SERVER_BOT)
                 extra_msg = ""
                 if cutting_duration > 0:
-                    extra_msg = " You have active guild's role(s) that cut /faucet's waiting time by: **{}**.".format(
-                        seconds_str_days(cutting_duration)
+                    extra_msg = " You have active guild's role(s) that cut {}'s waiting time by: **{}**.".format(
+                        command_mention, seconds_str_days(cutting_duration)
                     )
                 if get_last_claim is not None and int(time.time()) - get_last_claim['date'] < duration - cutting_duration:
                     # last_duration = seconds_str(int(time.time()) - get_last_claim['date'])

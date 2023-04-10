@@ -1061,7 +1061,16 @@ class Tips(commands.Cog):
     async def async_freetip(
         self, ctx, amount: str, token: str, duration: int, comment: str = None, verify: str="OFF"
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /freetip...'
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {command_mention}"
         await ctx.response.send_message(msg)
 
         try:

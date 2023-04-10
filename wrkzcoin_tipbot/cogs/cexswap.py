@@ -2163,7 +2163,7 @@ class ConfirmSell(disnake.ui.View):
             await inter.response.defer()
 
 class add_liqudity(disnake.ui.Modal):
-    def __init__(self, ctx, bot, ticker_1: str, ticker_2: str, owner_userid: str, balances_str) -> None:
+    def __init__(self, ctx, bot, ticker_1: str, ticker_2: str, owner_userid: str, balances_str, command_mention) -> None:
         self.ctx = ctx
         self.bot = bot
         self.ticker_1 = ticker_1.upper()
@@ -2171,6 +2171,7 @@ class add_liqudity(disnake.ui.Modal):
         self.wallet_api = WalletAPI(self.bot)
         self.owner_userid = owner_userid
         self.balances_str = balances_str
+        self.command_mention = command_mention
 
         components = [
             disnake.ui.TextInput(
@@ -2391,7 +2392,7 @@ class add_liqudity(disnake.ui.Modal):
                 content = None,
                 embed = embed,
                 view = add_liquidity_btn(self.ctx, self.bot, self.owner_userid, "{}/{}".format(
-                    self.ticker_1, self.ticker_2), self.balances_str, accepted,  amount_1, amount_2
+                    self.ticker_1, self.ticker_2), self.balances_str, self.command_mention, accepted,  amount_1, amount_2
                 )
             )
 
@@ -2403,7 +2404,7 @@ class add_liqudity(disnake.ui.Modal):
 # Defines a simple view of row buttons.
 class add_liquidity_btn(disnake.ui.View):
     def __init__(
-        self, ctx, bot, owner_id: str, pool_name: str, balances_str, accepted: bool=False,
+        self, ctx, bot, owner_id: str, pool_name: str, balances_str, command_mention: str, accepted: bool=False,
         amount_1: float=None, amount_2: float=None,
     ):
         super().__init__(timeout=42.0)
@@ -2414,6 +2415,7 @@ class add_liquidity_btn(disnake.ui.View):
         self.owner_id = owner_id
         self.pool_name = pool_name
         self.balances_str = balances_str
+        self.command_mention = command_mention
         self.accepted = accepted
         self.amount_1 = amount_1
         self.amount_2 = amount_2
@@ -2440,7 +2442,7 @@ class add_liquidity_btn(disnake.ui.View):
             return
         ticker = self.pool_name.split("/")
         await inter.response.send_modal(
-                modal=add_liqudity(inter, self.bot, ticker[0], ticker[1], self.owner_id, self.balances_str))
+                modal=add_liqudity(inter, self.bot, ticker[0], ticker[1], self.owner_id, self.balances_str, self.command_mention))
 
     @disnake.ui.button(label="Accept", style=disnake.ButtonStyle.green, custom_id="cexswap_acceptliquidity_btn")
     async def accept_click(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
@@ -2518,6 +2520,10 @@ class add_liquidity_btn(disnake.ui.View):
                     self.bot.config['discord']['cexswap']
                 )
                 await self.ctx.delete_original_message()
+                try:
+                    del self.bot.tipping_in_progress[str(inter.author.id)]
+                except Exception:
+                    pass
                 return
 
             get_deposit = await self.wallet_api.sql_get_userwallet(
@@ -2650,7 +2656,7 @@ class add_liquidity_btn(disnake.ui.View):
                                 if hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel.id != inter.channel.id:
                                     continue
                                 elif channel is not None:
-                                    await channel.send(f"[CEXSWAP]: A user added more liquidity pool __{self.pool_name}__! {add_msg}")
+                                    await channel.send(f"{self.command_mention}: A user added more liquidity pool __{self.pool_name}__! {add_msg}")
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
             else:
@@ -3197,12 +3203,21 @@ class Cexswap(commands.Cog):
         sell_token: str,
         for_token: str
     ):
-        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading..."
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, {command_mention} loading..."
         await ctx.response.send_message(msg)
         sell_amount_old = amount
 
         if self.bot.config['cexswap']['enable_sell'] != 1 and ctx.author.id != self.bot.config['discord']['owner_id']:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, CEXSwap sell is temporarily offline! Check again soon."
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {command_mention} is temporarily offline! Check again soon."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -3227,7 +3242,7 @@ class Cexswap(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         if sell_token == for_token:
-            msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you cannot do /cexswap for the same token."
+            msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you cannot do {command_mention} for the same token."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -3676,7 +3691,7 @@ class Cexswap(commands.Cog):
                                                 if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id:
                                                     continue
                                                 elif channel is not None:
-                                                    await channel.send(f"[CEXSWAP]: A user sold {user_amount_sell} {sell_token} for "\
+                                                    await channel.send(f"{command_mention} A user sold {user_amount_sell} {sell_token} for "\
                                                         f"{user_amount_get} {for_token}."
                                                     )
                                         except disnake.errors.Forbidden:
@@ -4783,6 +4798,15 @@ class Cexswap(commands.Cog):
         ctx,
         pool_name: str,
     ):
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading..."
         await ctx.response.send_message(msg)
         try:
@@ -5009,8 +5033,10 @@ class Cexswap(commands.Cog):
             await ctx.edit_original_message(
                 content=None,
                 embed=embed,
-                view=add_liquidity_btn(ctx, self.bot, str(ctx.author.id), pool_name, balances_str, accepted=False,
-                amount_1=None, amount_2=None)
+                view=add_liquidity_btn(
+                    ctx, self.bot, str(ctx.author.id), pool_name, balances_str, command_mention, accepted=False,
+                    amount_1=None, amount_2=None
+                )
             )
         except Exception:
             traceback.print_exc(file=sys.stdout)

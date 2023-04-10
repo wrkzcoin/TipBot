@@ -14986,7 +14986,16 @@ class Wallet(commands.Cog):
         ctx,
         info: str = None
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /take ...'
+        try:
+            cmd_name = ctx.application_command.qualified_name
+            command_mention = f"__/{cmd_name}__"
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name)
+                command_mention = f"</{cmd_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing {command_mention} ...'
         await ctx.response.send_message(msg)
         await self.bot_log()
 
@@ -15015,8 +15024,8 @@ class Wallet(commands.Cog):
             return
 
         if not hasattr(ctx.guild, "id"):
-            msg = f"{ctx.author.mention}, you can invite me to your guild with __/invite__\'s link and execute __/take__. "\
-                f"__/take__ is not available in Direct Message."
+            msg = f"{ctx.author.mention}, you can invite me to your guild with __/invite__\'s link and execute {command_mention}. "\
+                f"{command_mention} is not available in Direct Message."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -15030,14 +15039,14 @@ class Wallet(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
             elif coin_name not in self.bot.faucet_coins:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {coin_name} not available for __/take__."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {coin_name} not available for {command_mention}."
                 await ctx.edit_original_message(content=msg)
                 return
 
         total_claimed = '{:,.0f}'.format(await store.sql_faucet_count_all())
         if info and info.upper() == "INFO":
             remaining = await self.bot_faucet(ctx, self.bot.faucet_coins) or ''
-            msg = f"{ctx.author.mention} /take balance:\n```{remaining}```Total user claims: **{total_claimed}** times. "\
+            msg = f"{ctx.author.mention} {command_mention} balance:\n```{remaining}```Total user claims: **{total_claimed}** times. "\
                 f"Tip me if you want to feed these faucets. Use `/claim` to vote TipBot and get reward."
             await ctx.edit_original_message(content=msg)
             return
@@ -15091,8 +15100,8 @@ class Wallet(commands.Cog):
             if serverinfo and serverinfo['enable_faucet'] == "NO":
                 if self.enable_logchan:
                     await self.botLogChan.send(
-                        f'{ctx.author.name} / {ctx.author.id} tried __/take__ in {ctx.guild.name} / {ctx.guild.id} which is disable.')
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, __/take__ in this guild is disable."
+                        f'{ctx.author.name} / {ctx.author.id} tried {command_mention} in {ctx.guild.name} / {ctx.guild.id} which is disable.')
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {command_mention} in this guild is disable."
                 await ctx.edit_original_message(content=msg)
                 return
             elif serverinfo and serverinfo['enable_faucet'] == "YES" and serverinfo['faucet_channel'] is not None and \
@@ -15145,8 +15154,8 @@ class Wallet(commands.Cog):
                             check_claimed['claimed_at'],
                             style='f'
                         )
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /take on {last_claim_at}. "\
-                            f"Waiting time {time_waiting} for next __/take__. Total user claims: **{total_claimed}** times. "\
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed {command_mention} on {last_claim_at}. "\
+                            f"Waiting time {time_waiting} for next {command_mention}. Total user claims: **{total_claimed}** times. "\
                             f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. "\
                             f"Use __/claim__ to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                         await ctx.edit_original_message(content=msg)
@@ -15167,7 +15176,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using __/take__. Alternatively, vote for TipBot to get reward __/claim__.{extra_take_text}{advert_txt}"
+                    f"Wait a few days before using {command_mention}. Alternatively, vote for TipBot to get reward __/claim__.{extra_take_text}{advert_txt}"
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -15183,7 +15192,7 @@ class Wallet(commands.Cog):
                         time_waiting = "<t:{}:R>".format(half_claim_interval * 3600 + faucet_penalty['penalty_at'])
                         penalty_at = "<t:{}:f>".format(faucet_penalty['penalty_at'])
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel "\
-                            f"{penalty_at}. Waiting time {time_waiting} for next __/take__ "\
+                            f"{penalty_at}. Waiting time {time_waiting} for next {command_mention} "\
                             f"and be sure to be the right channel set by the guild. Use /claim "\
                             f"to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                         await ctx.edit_original_message(content=msg)
@@ -15286,7 +15295,7 @@ class Wallet(commands.Cog):
                         str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
                         coin_decimal, SERVER_BOT, "TAKE"
                     )
-                    msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random __/take__ "\
+                    msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random {command_mention} "\
                         f"{coin_emoji} {num_format_coin(amount)} {coin_name}. "\
                         f"Use /claim to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                     await ctx.edit_original_message(content=msg)

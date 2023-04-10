@@ -302,8 +302,17 @@ class PartyDrop(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
 
     async def async_partydrop(self, ctx, min_amount: str, sponsor_amount: str, token: str, duration: str):
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         coin_name = token.upper()
-        await ctx.response.send_message(f"{ctx.author.mention}, /partydrop preparation... ")
+        await ctx.response.send_message(f"{ctx.author.mention}, {command_mention} preparation... ")
 
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -597,9 +606,9 @@ class PartyDrop(commands.Cog):
                 equivalent_usd, per_unit, coin_decimal, 
                 party_end, "ONGOING"
             )
-            await ctx.edit_original_message(content="/partydrop created 👇")
+            await ctx.edit_original_message(content=f"{command_mention} created 👇")
         except disnake.errors.Forbidden:
-            await ctx.edit_original_message(content="Missing permission! Or failed to send embed message.")
+            await ctx.edit_original_message(content=f"Missing permission! Or failed to send embed message {command_mention}.")
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:

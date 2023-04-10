@@ -519,7 +519,16 @@ class Nanswap(commands.Cog):
         sell_token: str,
         for_token: str
     ):
-        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /nanswap loading..."
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, {command_mention} loading..."
         await ctx.response.send_message(msg)
         sell_amount_old = amount
 
@@ -544,7 +553,7 @@ class Nanswap(commands.Cog):
             return
 
         if sell_token == for_token:
-            msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you cannot do /nanswap for the same token."
+            msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you cannot do {command_mention} for the same token."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -571,7 +580,7 @@ class Nanswap(commands.Cog):
         # check if deposit is disable for_token
         if getattr(getattr(self.bot.coin_list, for_token), "enable_deposit") != 1:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, **{for_token}** deposit is currently disable. "\
-                "Hence, you can not sell a token/coin for this coin with /nanswap. Check again later!"
+                f"Hence, you can not sell a token/coin for this coin with {command_mention}. Check again later!"
             await ctx.edit_original_message(content=msg)
             return      
 
@@ -1663,6 +1672,15 @@ payoutAddress: {}
 
     @tasks.loop(seconds=15.0)
     async def check_pending(self):
+        cmd_name = "nanswap sell"
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{cmd_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         get_pending = await nanswap_get_pendings(status="ONGOING")
         if len(get_pending) > 0:
             get_guilds = await self.utils.get_trade_channel_list()
@@ -1810,7 +1828,8 @@ payoutAddress: {}
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             if self.bot.config['nanswap']['enable_trade_ann'] == 1:
-                                ann_nanswap_msg = "[NANSWAP] A user sold {} {} for {} {}.".format(
+                                ann_nanswap_msg = "{} A user sold {} {} for {} {}.".format(
+                                    command_mention,
                                     num_format_coin(check_id['amountFrom']),
                                     i['from_coin'],
                                     num_format_coin(check_id['amountTo']),

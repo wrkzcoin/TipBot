@@ -317,7 +317,7 @@ class Guild(commands.Cog):
                                 embed.add_field(name="ROLE", value=role.name, inline=False)
                             embed.add_field(
                                 name="NEXT DROP",
-                                value=seconds_str(each_drop['tiptalk_duration']),
+                                value="<t:{}:f>".format(int(time.time()) + each_drop['tiptalk_duration']),
                                 inline=False
                             )
                             if len(coin_emoji) > 0:

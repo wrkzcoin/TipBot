@@ -105,16 +105,8 @@ async def nanswap_credit(
                         user_server, network, height, confirmations, status
                     ]
                 elif coin_family == "XLM":
-                    sql += """
-                    INSERT INTO `xlm_get_transfers` 
-                    (`coin_name`, `user_id`, `txid`, `height`, `amount`, `fee`, 
-                    `decimal`, `address`, `memo`, `time_insert`, `user_server`) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
-                    """
-                    data_rows += [
-                        coin_name, user_id, tx_hash, height, amount, fee,
-                        decimal, to_address, memo, int(time.time()), user_server
-                    ]
+                    # We have function get transfer already
+                    pass
                 elif coin_family == "BTC":
                     # We have function get transfer already
                     pass
@@ -1713,9 +1705,13 @@ payoutAddress: {}
                                 if get_tx is None:
                                     continue
                                 else:
-                                    height = get_tx['ledger']
-                                    memo = get_tx['memo'] if 'memo' in get_tx else None
-                                    fee = int(get_tx['fee_charged']) / (10 ** coin_decimal)
+                                    if 'ledger' in get_tx:
+                                        height = get_tx['ledger']
+                                        memo = get_tx['memo'] if 'memo' in get_tx else None
+                                        fee = int(get_tx['fee_charged']) / (10 ** coin_decimal)
+                                    else:
+                                        print("Failed to get tx: {}, id: {}".format(check_id['payoutHash'], i['nanswap_id']))
+                                        print(get_tx)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                                 continue

@@ -415,13 +415,19 @@ class Tips(commands.Cog):
                                 continue
                     _msg: disnake.Message = await channel.fetch_message(int(each_message_data['message_id']))
                     if _msg:
+                        # check if coin exist?
+                        coin_name = each_message_data['token_name']
+                        if not hasattr(self.bot.coin_list, coin_name):
+                            change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                            await _msg.edit(view=None)
+                            continue
+
                         verify = "ON" if each_message_data['verify'] == 1 else "OFF"
                         view = FreeTip_Button(self.bot, verify, int(each_message_data['from_userid']))
                         try:
                             embed = _msg.embeds[0] # embeds is list, we take 0
                             embed.clear_fields()
                             amount = each_message_data['real_amount']
-                            coin_name = each_message_data['token_name']
                             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                             coin_emoji = coin_emoji + " " if coin_emoji else ""
                             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
@@ -1372,6 +1378,15 @@ class Tips(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing /tipall..."
         await ctx.response.send_message(msg)
 
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/tipall", int(time.time())))
@@ -1502,7 +1517,7 @@ class Tips(commands.Cog):
                 coin_emoji = coin_emoji + " " if coin_emoji else ""
             if len(coin_emoji) > 0:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, executing /tipall with {coin_emoji} "\
+                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {command_mention} with {coin_emoji} "\
                         f"amount {num_format_coin(amount)} {coin_name}..."
                 )
         except Exception:

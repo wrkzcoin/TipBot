@@ -12195,7 +12195,7 @@ class Wallet(commands.Cog):
 
             if type_coin in ["HNT", "XLM", "VITE", "COSMOS"]:
                 plain_address = address_memo[0]
-                plain_address += f"\n📝 MEMO (mandatory!): __{address_memo[2]}__"
+                plain_address += f"\n📝 MEMO (mandatory!) 👉 {address_memo[2]}"
                 pointer_message += " and do not forget to include MEMO."
 
             main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")

@@ -1071,9 +1071,14 @@ async def cexswap_sold_by_api(
                 
                 # If the amount get is too small.
                 if amount_get < config['cexswap']['minimum_receive_or_reject']:
-                    num_receive = num_format_coin(amount_get)
-                    msg = f"The received amount is too small "\
-                        f"{num_receive} {for_token}. Please increase your sell amount!"
+                    msg = f"The received amount is too small below "\
+                        f"{str(config['cexswap']['minimum_receive_or_reject'])} {for_token}. Please increase your sell amount of {sell_token}!"
+                    await log_to_channel(
+                        "cexswap",
+                        f"🔴 API User <@{user_id}> wanted to sell: " \
+                        f"{str(amount_sell)} {sell_token} for {str(amount_get)} {for_token} (Below receiving amount)",
+                        config['discord']['cexswap']
+                    )
                     return {
                         "success": False,
                         "error": msg,
@@ -3438,10 +3443,15 @@ class Cexswap(commands.Cog):
                 
                 # If the amount get is too small.
                 if amount_get < self.bot.config['cexswap']['minimum_receive_or_reject']:
-                    num_receive = num_format_coin(amount_get)
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the received amount is too small "\
-                        f"{num_receive} {for_token}. Please increase your sell amount!"
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the received amount is too small and below "\
+                        f"{str(self.bot.config['cexswap']['minimum_receive_or_reject'])} {for_token}. Please increase your sell amount of {sell_token}!"
                     await ctx.edit_original_message(content=msg)
+                    await log_to_channel(
+                        "cexswap",
+                        f"🔴 User {ctx.author.mention} wanted to sell: " \
+                        f"{sell_amount_old} {sell_token} for {str(amount_get)} {for_token} (Below receiving amount)",
+                        self.bot.config['discord']['cexswap']
+                    )
                     return
 
                 if truncate(amount, 8) < truncate(cexswap_min, 8):

@@ -6647,7 +6647,7 @@ class Wallet(commands.Cog):
                                                         else:
                                                             await log_to_channel(
                                                                 "withdraw",
-                                                                f"[{user_server}] User {tw_user} failed to withdraw "\
+                                                                f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                                 f"{num_format_coin(amount)} "\
                                                                 f"{token_display}{equivalent_usd}."
                                                             )
@@ -6678,7 +6678,7 @@ class Wallet(commands.Cog):
                                                 else:
                                                     await log_to_channel(
                                                         "withdraw",
-                                                        f"[{user_server}] User {tw_user} failed to withdraw "\
+                                                        f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                         f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}."
                                                     )
@@ -6710,7 +6710,7 @@ class Wallet(commands.Cog):
                                                 else:
                                                     await log_to_channel(
                                                         "withdraw",
-                                                        f"[{user_server}] [FAILED] User {tw_user} failed to withdraw "\
+                                                        f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                         f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}."
                                                     )
@@ -6754,7 +6754,7 @@ class Wallet(commands.Cog):
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
                                                             "withdraw",
-                                                            f"[{user_server}] [FAILED] User {tw_user} failed to withdraw "\
+                                                            f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                             f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
                                                         )
@@ -6764,7 +6764,7 @@ class Wallet(commands.Cog):
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
                                                             "withdraw",
-                                                            f"[{user_server}] [FAILED] User {tw_user} failed to withdraw "\
+                                                            f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                             f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}."
                                                         )
@@ -6849,7 +6849,7 @@ class Wallet(commands.Cog):
                                                         response = f'Internal error, please try again later!'
                                                         await log_to_channel(
                                                             "withdraw",
-                                                            f"[{user_server}] [FAILED] Uer {tw_user} failed to withdraw "\
+                                                            f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                             f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
                                                         )
@@ -6858,7 +6858,7 @@ class Wallet(commands.Cog):
                                                         await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                         await log_to_channel(
                                                             "withdraw",
-                                                            f"[{user_server}] [FAILED] User {tw_user} failed to withdraw "\
+                                                            f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                             f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}."
                                                         )
@@ -6885,7 +6885,7 @@ class Wallet(commands.Cog):
                                                 else:
                                                     await log_to_channel(
                                                         "withdraw",
-                                                        f"[{user_server}] [FAILED] User {tw_user} failed to withdraw "\
+                                                        f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                         f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}."
                                                     )
@@ -7666,6 +7666,8 @@ class Wallet(commands.Cog):
         # Get status
         try:
             coin_name = "VITE"
+            if not hasattr(self.bot.coin_list, coin_name):
+                return
             url = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
             main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
             height = await vite_get_height(url)
@@ -13121,7 +13123,7 @@ class Wallet(commands.Cog):
                         await ctx.edit_original_message(content=msg, view=None)
                         await log_to_channel(
                             "withdraw",
-                            f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                            f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                             f"failed to withdraw {num_format_coin(amount)} "\
                             f"{token_display}{equivalent_usd}."
                         )
@@ -13199,7 +13201,7 @@ class Wallet(commands.Cog):
                                     await ctx.edit_original_message(content=msg, view=None)
                                     await log_to_channel(
                                         "withdraw",
-                                        f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                        f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                         f"failed to withdraw {num_format_coin(amount)} "\
                                         f"{token_display}{equivalent_usd}."
                                     )
@@ -13246,7 +13248,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -13292,7 +13294,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -13347,7 +13349,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -13451,7 +13453,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -13579,7 +13581,7 @@ class Wallet(commands.Cog):
                             if send_tx['result']['code'] != 0 and "insufficient fees" in send_tx['result']['log']:
                                 await log_to_channel(
                                     "withdraw",
-                                    f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)}."\
                                     f"{token_display}{equivalent_usd}.\nERROR: {send_tx['result']}."
                                 )
@@ -13595,7 +13597,7 @@ class Wallet(commands.Cog):
                                     fee = int(1.5*fee)
                                     await log_to_channel(
                                         "withdraw",
-                                        f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                        f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                         f"failed to withdraw {num_format_coin(amount)}."\
                                         f"{token_display}{equivalent_usd}.\nERROR: {error}.\n"\
                                         f"Re-try with a new gas: {str(gas)}{denom}, fee: {str(fee)}{denom}..."
@@ -13613,7 +13615,7 @@ class Wallet(commands.Cog):
                                 fee = int(1.5*fee)
                                 await log_to_channel(
                                     "withdraw",
-                                    f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)}."\
                                     f"{token_display}{equivalent_usd}.\nERROR: {error}.\n"\
                                     f"Re-try with a new gas: {str(gas)}{denom}, fee: {str(fee)}{denom}..."
@@ -13632,7 +13634,7 @@ class Wallet(commands.Cog):
                                 error = send_tx['result']['log']
                                 await log_to_channel(
                                     "withdraw",
-                                    f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)} "\
                                     f"{token_display}{equivalent_usd}.\nERROR: {error}"
                                 )
@@ -13663,7 +13665,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -13747,7 +13749,7 @@ class Wallet(commands.Cog):
                                 message = send_tx['message']
                                 await log_to_channel(
                                     "withdraw",
-                                    f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)} "\
                                     f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
                                 )
@@ -13756,7 +13758,7 @@ class Wallet(commands.Cog):
                             else:
                                 await log_to_channel(
                                     "withdraw",
-                                    f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)} "\
                                     f"{token_display}{equivalent_usd}."
                                 )
@@ -13888,7 +13890,7 @@ class Wallet(commands.Cog):
                                 message = send_tx['message']
                                 await log_to_channel(
                                     "withdraw",
-                                    f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)} "\
                                     f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
                                 )
@@ -13897,7 +13899,7 @@ class Wallet(commands.Cog):
                             else:
                                 await log_to_channel(
                                     "withdraw",
-                                    f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)} "\
                                     f"{token_display}{equivalent_usd}."
                                 )
@@ -13993,7 +13995,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -14084,7 +14086,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -14174,7 +14176,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -14261,7 +14263,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -14345,7 +14347,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -14423,7 +14425,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -14499,7 +14501,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -14576,7 +14578,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
-                                f"[FAILED] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -14660,7 +14662,7 @@ class Wallet(commands.Cog):
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "withdraw",
-                                f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to execute to withdraw {num_format_coin(amount)} "\
                                 f"{token_display}{equivalent_usd}."
                             )
@@ -15348,6 +15350,15 @@ class Wallet(commands.Cog):
         await ctx.response.send_message(msg)
         await self.bot_log()
 
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/daily", int(time.time())))
@@ -15361,7 +15372,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']*5:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using __/hourly__ or __/daily__."
+                    f"Wait a few days before using __/hourly__ or {command_mention}."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -15477,7 +15488,7 @@ class Wallet(commands.Cog):
                                 style='f'
                             )
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /daily on {last_claim_at}. "\
-                                f"Waiting time {time_waiting} for next __/daily__. "\
+                                f"Waiting time {time_waiting} for next {command_mention}. "\
                                 f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
                                 f"{advert_txt}"
                             await ctx.edit_original_message(content=msg)
@@ -15488,7 +15499,7 @@ class Wallet(commands.Cog):
                 coin_name = coin.upper()
                 if coin_name not in self.bot.other_data['daily']:
                     await ctx.edit_original_message(
-                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, __{coin_name}__ is not available for __/daily__."
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, __{coin_name}__ is not available for {command_mention}."
                     )
                     return
                 else:
@@ -15552,7 +15563,7 @@ class Wallet(commands.Cog):
                                 str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
                                 coin_decimal, SERVER_BOT, "DAILY"
                             )
-                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got __/daily__ "\
+                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got {command_mention} "\
                                 f"{coin_emoji} {num_format_coin(amount)} {coin_name}. "\
                                 f"Use `/claim` to vote TipBot and get reward and more with __/hourly__.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
@@ -15595,6 +15606,15 @@ class Wallet(commands.Cog):
         await ctx.response.send_message(msg)
         await self.bot_log()
 
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/hourly", int(time.time())))
@@ -15607,7 +15627,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using __/hourly__ or __/daily__."
+                    f"Wait a few days before using {command_mention} or __/daily__."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -15723,7 +15743,7 @@ class Wallet(commands.Cog):
                                 style='f'
                             )
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /hourly on {last_claim_at}. "\
-                                f"Waiting time {time_waiting} for next __/hourly__. "\
+                                f"Waiting time {time_waiting} for next {command_mention}. "\
                                 f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
                                 f"{advert_txt}"
                             await ctx.edit_original_message(content=msg)
@@ -15734,7 +15754,7 @@ class Wallet(commands.Cog):
                 coin_name = coin.upper()
                 if coin_name not in self.bot.other_data['hourly']:
                     await ctx.edit_original_message(
-                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, __{coin_name}__ is not available for __/hourly__."
+                        content=f"{EMOJI_RED_NO} {ctx.author.mention}, __{coin_name}__ is not available for {command_mention}."
                     )
                     return
                 else:
@@ -15798,7 +15818,7 @@ class Wallet(commands.Cog):
                                 str(ctx.author.id), str(ctx.guild.id), coin_name, amount,
                                 coin_decimal, SERVER_BOT, "HOURLY"
                             )
-                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got __/hourly__ "\
+                            msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got {command_mention} "\
                                 f"{coin_emoji} {num_format_coin(amount)} {coin_name}. "\
                                 f"Use __/claim__ to vote TipBot and get reward and more with __/daily__.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
@@ -16326,12 +16346,21 @@ class Wallet(commands.Cog):
         to_coin = to_token.upper()
         PAIR_NAME = from_coin + "-" + to_coin
 
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking /swap ...'
+        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, checking /wrap ...'
         await ctx.response.send_message(msg)
 
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+    
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
-                                         str(ctx.author.id), SERVER_BOT, "/swap", int(time.time())))
+                                         str(ctx.author.id), SERVER_BOT, "/wrap", int(time.time())))
             await self.utils.add_command_calls()
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -16438,18 +16467,18 @@ class Wallet(commands.Cog):
                             to_coin, to_amount, to_contract, to_coin_decimal, SERVER_BOT
                         )
                         if swap:
-                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, swapped from "\
+                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, {command_mention} from "\
                                 f"__{num_format_coin(amount)} "\
                                 f"{from_coin}__ to __{num_format_coin(to_amount)} {to_coin}__."
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"swapped from __{num_format_coin(amount)} {from_coin}__ "\
+                                f"{command_mention} from __{num_format_coin(amount)} {from_coin}__ "\
                                 f"to __{num_format_coin(to_amount)} {to_coin}__."
                             )
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
-                        await logchanbot("wallet /swap " + str(traceback.format_exc()))
+                        await logchanbot("wallet /wrap " + str(traceback.format_exc()))
                     try:
                         del self.bot.tx_in_progress[str(ctx.author.id)]
                     except Exception:

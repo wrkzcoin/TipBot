@@ -144,7 +144,7 @@ async def cexswap_get_pools(ticker: str=None):
             async with conn.cursor() as cur:
                 data_rows = []
                 sql = """ SELECT * 
-                FROM `cexswap_pools` 
+                FROM `a_cexswap_pools` 
                 """
                 if ticker is not None:
                     sql += """
@@ -199,7 +199,7 @@ async def cexswap_get_all_lp_pools():
                 sql = """
                 SELECT SUM(`amount_ticker_1`) as amount_ticker_1, SUM(`amount_ticker_2`) 
                     AS amount_ticker_2, `ticker_1_name`, `ticker_2_name`, `pairs`
-                FROM `cexswap_pools`
+                FROM `a_cexswap_pools`
                 GROUP BY `pairs`;
                 """
                 await cur.execute(sql,)
@@ -218,7 +218,7 @@ async def cexswap_get_add_remove_user(user_id: str, user_server: str, pool_id: i
                 sql = """
                 SELECT SUM(a.amount) AS amount, a.`token_name`, a.`user_id`, a.`action`, a.`pool_id`, b.`pairs`
                 FROM `cexswap_add_remove_logs` a
-                    INNER JOIN `cexswap_pools` b
+                    INNER JOIN `a_cexswap_pools` b
                         ON a.pool_id= b.pool_id
                 WHERE a.`user_id`=%s AND a.`user_server`=%s
                 """
@@ -247,7 +247,7 @@ async def cexswap_get_pool_details(ticker_1: str, ticker_2: str, user_id: str=No
         async with store.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ SELECT * 
-                FROM `cexswap_pools` 
+                FROM `a_cexswap_pools` 
                 WHERE `enable`=1 
                 AND ((`ticker_1_name`=%s AND `ticker_2_name`=%s)
                     OR (`ticker_1_name`=%s AND `ticker_2_name`=%s)) """
@@ -288,7 +288,7 @@ async def cexswap_get_poolshare(user_id: str, user_server: str):
                 SELECT a.pairs, a.amount_ticker_1 AS pool_amount_1,
                 a.amount_ticker_2 AS pool_amount_2, b.* 
                 FROM `cexswap_pools_share` b
-                INNER JOIN `cexswap_pools` a
+                INNER JOIN `a_cexswap_pools` a
                     ON a.pool_id = b.pool_id
                 WHERE b.`user_id`=%s AND b.`user_server`=%s
                 """
@@ -335,7 +335,7 @@ async def get_cexswap_get_sell_logs(
                     a.`sold_ticker`, a.`got_ticker`,
                     COUNT(*) AS `total_swap`, b.`pairs`
                     FROM `cexswap_sell_logs` a
-                    INNER JOIN `cexswap_pools` b
+                    INNER JOIN `a_cexswap_pools` b
                         ON a.pool_id = b.pool_id
                     GROUP BY a.`sold_ticker`, a.`got_ticker`
                     WHERE a.`sell_user_id`=%s AND a.`user_server`=%s """ + extra_sql + """ """ + pool_sql + """
@@ -357,7 +357,7 @@ async def get_cexswap_get_sell_logs(
                     a.`sold_ticker`, a.`got_ticker`,
                     COUNT(*) AS `total_swap`, b.`pairs`
                     FROM `cexswap_sell_logs` a
-                    INNER JOIN `cexswap_pools` b
+                    INNER JOIN `a_cexswap_pools` b
                         ON a.pool_id = b.pool_id
                      """ + extra_sql + """ """ + pool_sql + """
                     GROUP BY a.`sold_ticker`, a.`got_ticker`
@@ -453,7 +453,7 @@ async def get_cexswap_earning(user_id: str=None, from_time: int=None, pool_id: i
                         SUM(a.`distributed_amount`) AS collected_amount, SUM(a.`got_total_amount`) AS got_total_amount,
                         COUNT(*) AS total_swap
                     FROM `cexswap_distributing_fee` a
-                        INNER JOIN `cexswap_pools` b
+                        INNER JOIN `a_cexswap_pools` b
                             ON a.pool_id= b.pool_id
                     WHERE a.`distributed_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
                     GROUP BY a.`got_ticker`
@@ -781,7 +781,7 @@ async def cexswap_route_trade(
                 from_coin_pairs = []
                 to_coin_pairs = []
                 sql = """
-                SELECT * FROM `cexswap_pools`
+                SELECT * FROM `a_cexswap_pools`
                 WHERE (`ticker_1_name`=%s AND `ticker_2_name`<>%s)
                     OR (`ticker_2_name`=%s AND `ticker_1_name`<>%s)
                 """
@@ -796,7 +796,7 @@ async def cexswap_route_trade(
 
                 # TO
                 sql = """
-                SELECT * FROM `cexswap_pools`
+                SELECT * FROM `a_cexswap_pools`
                 WHERE (`ticker_1_name`=%s AND `ticker_2_name`<>%s)
                     OR (`ticker_2_name`=%s AND `ticker_1_name`<>%s)
                 """
@@ -837,7 +837,7 @@ async def cexswap_find_possible_trade(
                 from_coin_pairs = []
                 to_coin_pairs = []
                 sql = """
-                SELECT * FROM `cexswap_pools`
+                SELECT * FROM `a_cexswap_pools`
                 WHERE (`ticker_1_name`=%s AND `amount_ticker_1`>%s AND `ticker_2_name`<>%s)
                     OR (`ticker_2_name`=%s AND `amount_ticker_2`>%s AND `ticker_1_name`<>%s)
                 """
@@ -851,7 +851,7 @@ async def cexswap_find_possible_trade(
 
                 # TO
                 sql = """
-                SELECT * FROM `cexswap_pools`
+                SELECT * FROM `a_cexswap_pools`
                 WHERE (`ticker_1_name`=%s AND `ticker_2_name`<>%s)
                     OR (`ticker_2_name`=%s AND `ticker_1_name`<>%s)
                 """

@@ -622,6 +622,20 @@ class Tips(commands.Cog):
                     ))
                     change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
                     await asyncio.sleep(0.5)
+                except disnake.errors.Forbidden:
+                    # disnake.errors.Forbidden: 403 Forbidden (error code: 50001): Missing Access
+                    change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                    await asyncio.sleep(0.5)
+                    await logchanbot("[FREETIP]: I have no permission for message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
+                        each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],
+                        each_message_data['from_ownername']
+                    ))
+                    # Tell owner that Bot has no permission
+                    get_member = self.bot.get_user(int(each_message_data['from_userid']))
+                    if get_member is not None:
+                        await get_member.send("/freetip failed: I have no permission to get message: {} of channel {} in guild: {}.".format(
+                            each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id']
+                        ))
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(2.0)

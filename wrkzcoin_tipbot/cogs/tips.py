@@ -415,13 +415,19 @@ class Tips(commands.Cog):
                                 continue
                     _msg: disnake.Message = await channel.fetch_message(int(each_message_data['message_id']))
                     if _msg:
+                        # check if coin exist?
+                        coin_name = each_message_data['token_name']
+                        if not hasattr(self.bot.coin_list, coin_name):
+                            change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                            await _msg.edit(view=None)
+                            continue
+
                         verify = "ON" if each_message_data['verify'] == 1 else "OFF"
                         view = FreeTip_Button(self.bot, verify, int(each_message_data['from_userid']))
                         try:
                             embed = _msg.embeds[0] # embeds is list, we take 0
                             embed.clear_fields()
                             amount = each_message_data['real_amount']
-                            coin_name = each_message_data['token_name']
                             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                             coin_emoji = coin_emoji + " " if coin_emoji else ""
                             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
@@ -616,6 +622,20 @@ class Tips(commands.Cog):
                     ))
                     change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
                     await asyncio.sleep(0.5)
+                except disnake.errors.Forbidden:
+                    # disnake.errors.Forbidden: 403 Forbidden (error code: 50001): Missing Access
+                    change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                    await asyncio.sleep(0.5)
+                    await logchanbot("[FREETIP]: I have no permission for message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
+                        each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],
+                        each_message_data['from_ownername']
+                    ))
+                    # Tell owner that Bot has no permission
+                    get_member = self.bot.get_user(int(each_message_data['from_userid']))
+                    if get_member is not None:
+                        await get_member.send("/freetip failed: I have no permission to get message: {} of channel {} in guild: {}.".format(
+                            each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id']
+                        ))
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(2.0)
@@ -1061,7 +1081,16 @@ class Tips(commands.Cog):
     async def async_freetip(
         self, ctx, amount: str, token: str, duration: int, comment: str = None, verify: str="OFF"
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing /freetip...'
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {command_mention}"
         await ctx.response.send_message(msg)
 
         try:
@@ -1363,6 +1392,15 @@ class Tips(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing /tipall..."
         await ctx.response.send_message(msg)
 
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/tipall", int(time.time())))
@@ -1493,7 +1531,7 @@ class Tips(commands.Cog):
                 coin_emoji = coin_emoji + " " if coin_emoji else ""
             if len(coin_emoji) > 0:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, executing /tipall with {coin_emoji} "\
+                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {command_mention} with {coin_emoji} "\
                         f"amount {num_format_coin(amount)} {coin_name}..."
                 )
         except Exception:

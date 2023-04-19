@@ -144,7 +144,7 @@ async def cexswap_get_pools(ticker: str=None):
             async with conn.cursor() as cur:
                 data_rows = []
                 sql = """ SELECT * 
-                FROM `cexswap_pools` 
+                FROM `a_cexswap_pools` 
                 """
                 if ticker is not None:
                     sql += """
@@ -199,7 +199,7 @@ async def cexswap_get_all_lp_pools():
                 sql = """
                 SELECT SUM(`amount_ticker_1`) as amount_ticker_1, SUM(`amount_ticker_2`) 
                     AS amount_ticker_2, `ticker_1_name`, `ticker_2_name`, `pairs`
-                FROM `cexswap_pools`
+                FROM `a_cexswap_pools`
                 GROUP BY `pairs`;
                 """
                 await cur.execute(sql,)
@@ -218,7 +218,7 @@ async def cexswap_get_add_remove_user(user_id: str, user_server: str, pool_id: i
                 sql = """
                 SELECT SUM(a.amount) AS amount, a.`token_name`, a.`user_id`, a.`action`, a.`pool_id`, b.`pairs`
                 FROM `cexswap_add_remove_logs` a
-                    INNER JOIN `cexswap_pools` b
+                    INNER JOIN `a_cexswap_pools` b
                         ON a.pool_id= b.pool_id
                 WHERE a.`user_id`=%s AND a.`user_server`=%s
                 """
@@ -247,7 +247,7 @@ async def cexswap_get_pool_details(ticker_1: str, ticker_2: str, user_id: str=No
         async with store.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sql = """ SELECT * 
-                FROM `cexswap_pools` 
+                FROM `a_cexswap_pools` 
                 WHERE `enable`=1 
                 AND ((`ticker_1_name`=%s AND `ticker_2_name`=%s)
                     OR (`ticker_1_name`=%s AND `ticker_2_name`=%s)) """
@@ -288,7 +288,7 @@ async def cexswap_get_poolshare(user_id: str, user_server: str):
                 SELECT a.pairs, a.amount_ticker_1 AS pool_amount_1,
                 a.amount_ticker_2 AS pool_amount_2, b.* 
                 FROM `cexswap_pools_share` b
-                INNER JOIN `cexswap_pools` a
+                INNER JOIN `a_cexswap_pools` a
                     ON a.pool_id = b.pool_id
                 WHERE b.`user_id`=%s AND b.`user_server`=%s
                 """
@@ -335,7 +335,7 @@ async def get_cexswap_get_sell_logs(
                     a.`sold_ticker`, a.`got_ticker`,
                     COUNT(*) AS `total_swap`, b.`pairs`
                     FROM `cexswap_sell_logs` a
-                    INNER JOIN `cexswap_pools` b
+                    INNER JOIN `a_cexswap_pools` b
                         ON a.pool_id = b.pool_id
                     GROUP BY a.`sold_ticker`, a.`got_ticker`
                     WHERE a.`sell_user_id`=%s AND a.`user_server`=%s """ + extra_sql + """ """ + pool_sql + """
@@ -357,7 +357,7 @@ async def get_cexswap_get_sell_logs(
                     a.`sold_ticker`, a.`got_ticker`,
                     COUNT(*) AS `total_swap`, b.`pairs`
                     FROM `cexswap_sell_logs` a
-                    INNER JOIN `cexswap_pools` b
+                    INNER JOIN `a_cexswap_pools` b
                         ON a.pool_id = b.pool_id
                      """ + extra_sql + """ """ + pool_sql + """
                     GROUP BY a.`sold_ticker`, a.`got_ticker`
@@ -453,7 +453,7 @@ async def get_cexswap_earning(user_id: str=None, from_time: int=None, pool_id: i
                         SUM(a.`distributed_amount`) AS collected_amount, SUM(a.`got_total_amount`) AS got_total_amount,
                         COUNT(*) AS total_swap
                     FROM `cexswap_distributing_fee` a
-                        INNER JOIN `cexswap_pools` b
+                        INNER JOIN `a_cexswap_pools` b
                             ON a.pool_id= b.pool_id
                     WHERE a.`distributed_user_id`=%s """ + extra_sql + """ """ + pool_sql + """
                     GROUP BY a.`got_ticker`
@@ -781,7 +781,7 @@ async def cexswap_route_trade(
                 from_coin_pairs = []
                 to_coin_pairs = []
                 sql = """
-                SELECT * FROM `cexswap_pools`
+                SELECT * FROM `a_cexswap_pools`
                 WHERE (`ticker_1_name`=%s AND `ticker_2_name`<>%s)
                     OR (`ticker_2_name`=%s AND `ticker_1_name`<>%s)
                 """
@@ -796,7 +796,7 @@ async def cexswap_route_trade(
 
                 # TO
                 sql = """
-                SELECT * FROM `cexswap_pools`
+                SELECT * FROM `a_cexswap_pools`
                 WHERE (`ticker_1_name`=%s AND `ticker_2_name`<>%s)
                     OR (`ticker_2_name`=%s AND `ticker_1_name`<>%s)
                 """
@@ -837,7 +837,7 @@ async def cexswap_find_possible_trade(
                 from_coin_pairs = []
                 to_coin_pairs = []
                 sql = """
-                SELECT * FROM `cexswap_pools`
+                SELECT * FROM `a_cexswap_pools`
                 WHERE (`ticker_1_name`=%s AND `amount_ticker_1`>%s AND `ticker_2_name`<>%s)
                     OR (`ticker_2_name`=%s AND `amount_ticker_2`>%s AND `ticker_1_name`<>%s)
                 """
@@ -851,7 +851,7 @@ async def cexswap_find_possible_trade(
 
                 # TO
                 sql = """
-                SELECT * FROM `cexswap_pools`
+                SELECT * FROM `a_cexswap_pools`
                 WHERE (`ticker_1_name`=%s AND `ticker_2_name`<>%s)
                     OR (`ticker_2_name`=%s AND `ticker_1_name`<>%s)
                 """
@@ -1071,9 +1071,14 @@ async def cexswap_sold_by_api(
                 
                 # If the amount get is too small.
                 if amount_get < config['cexswap']['minimum_receive_or_reject']:
-                    num_receive = num_format_coin(amount_get)
-                    msg = f"The received amount is too small "\
-                        f"{num_receive} {for_token}. Please increase your sell amount!"
+                    msg = f"The received amount is too small below "\
+                        f"{str(config['cexswap']['minimum_receive_or_reject'])} {for_token}. Please increase your sell amount of {sell_token}!"
+                    await log_to_channel(
+                        "cexswap",
+                        f"🔴 API User <@{user_id}> wanted to sell: " \
+                        f"{str(amount_sell)} {sell_token} for {str(amount_get)} {for_token} (Below receiving amount)",
+                        config['discord']['cexswap']
+                    )
                     return {
                         "success": False,
                         "error": msg,
@@ -2163,7 +2168,7 @@ class ConfirmSell(disnake.ui.View):
             await inter.response.defer()
 
 class add_liqudity(disnake.ui.Modal):
-    def __init__(self, ctx, bot, ticker_1: str, ticker_2: str, owner_userid: str, balances_str) -> None:
+    def __init__(self, ctx, bot, ticker_1: str, ticker_2: str, owner_userid: str, balances_str, command_mention) -> None:
         self.ctx = ctx
         self.bot = bot
         self.ticker_1 = ticker_1.upper()
@@ -2171,6 +2176,7 @@ class add_liqudity(disnake.ui.Modal):
         self.wallet_api = WalletAPI(self.bot)
         self.owner_userid = owner_userid
         self.balances_str = balances_str
+        self.command_mention = command_mention
 
         components = [
             disnake.ui.TextInput(
@@ -2391,7 +2397,7 @@ class add_liqudity(disnake.ui.Modal):
                 content = None,
                 embed = embed,
                 view = add_liquidity_btn(self.ctx, self.bot, self.owner_userid, "{}/{}".format(
-                    self.ticker_1, self.ticker_2), self.balances_str, accepted,  amount_1, amount_2
+                    self.ticker_1, self.ticker_2), self.balances_str, self.command_mention, accepted,  amount_1, amount_2
                 )
             )
 
@@ -2403,7 +2409,7 @@ class add_liqudity(disnake.ui.Modal):
 # Defines a simple view of row buttons.
 class add_liquidity_btn(disnake.ui.View):
     def __init__(
-        self, ctx, bot, owner_id: str, pool_name: str, balances_str, accepted: bool=False,
+        self, ctx, bot, owner_id: str, pool_name: str, balances_str, command_mention: str, accepted: bool=False,
         amount_1: float=None, amount_2: float=None,
     ):
         super().__init__(timeout=42.0)
@@ -2414,6 +2420,7 @@ class add_liquidity_btn(disnake.ui.View):
         self.owner_id = owner_id
         self.pool_name = pool_name
         self.balances_str = balances_str
+        self.command_mention = command_mention
         self.accepted = accepted
         self.amount_1 = amount_1
         self.amount_2 = amount_2
@@ -2440,7 +2447,7 @@ class add_liquidity_btn(disnake.ui.View):
             return
         ticker = self.pool_name.split("/")
         await inter.response.send_modal(
-                modal=add_liqudity(inter, self.bot, ticker[0], ticker[1], self.owner_id, self.balances_str))
+                modal=add_liqudity(inter, self.bot, ticker[0], ticker[1], self.owner_id, self.balances_str, self.command_mention))
 
     @disnake.ui.button(label="Accept", style=disnake.ButtonStyle.green, custom_id="cexswap_acceptliquidity_btn")
     async def accept_click(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
@@ -2518,6 +2525,10 @@ class add_liquidity_btn(disnake.ui.View):
                     self.bot.config['discord']['cexswap']
                 )
                 await self.ctx.delete_original_message()
+                try:
+                    del self.bot.tipping_in_progress[str(inter.author.id)]
+                except Exception:
+                    pass
                 return
 
             get_deposit = await self.wallet_api.sql_get_userwallet(
@@ -2650,7 +2661,7 @@ class add_liquidity_btn(disnake.ui.View):
                                 if hasattr(inter, "guild") and hasattr(inter.guild, "id") and channel.id != inter.channel.id:
                                     continue
                                 elif channel is not None:
-                                    await channel.send(f"[CEXSWAP]: A user added more liquidity pool __{self.pool_name}__! {add_msg}")
+                                    await channel.send(f"{self.command_mention}: A user added more liquidity pool __{self.pool_name}__! {add_msg}")
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
             else:
@@ -3197,12 +3208,21 @@ class Cexswap(commands.Cog):
         sell_token: str,
         for_token: str
     ):
-        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading..."
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, {command_mention} loading..."
         await ctx.response.send_message(msg)
         sell_amount_old = amount
 
         if self.bot.config['cexswap']['enable_sell'] != 1 and ctx.author.id != self.bot.config['discord']['owner_id']:
-            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, CEXSwap sell is temporarily offline! Check again soon."
+            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {command_mention} is temporarily offline! Check again soon."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -3227,7 +3247,7 @@ class Cexswap(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         if sell_token == for_token:
-            msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you can cexswap for the same token."
+            msg = f"{EMOJI_ERROR}, {ctx.author.mention}, you cannot do {command_mention} for the same token."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -3261,6 +3281,9 @@ class Cexswap(commands.Cog):
                 additional_msg = "\n__**More {} LP**__:\n   {}.".format(for_token, ", ".join(items))
                 if len(items) > limit_show:
                     additional_msg = "\n__**More {} LP**__:\n   {} and {} more...".format(for_token, ", ".join(items[:limit_show]), len(items) - limit_show)
+            
+            if sell_token in self.bot.config['nanswap']['coin_list'] or for_token in self.bot.config['nanswap']['coin_list']:
+                additional_msg += "\n__**/Nanswap's coin list:**__:\n   {}".format(", ".join(self.bot.config['nanswap']['coin_list']))
             if len(find_route) > 0:
                 list_paths = []
                 for i in find_route:
@@ -3420,10 +3443,15 @@ class Cexswap(commands.Cog):
                 
                 # If the amount get is too small.
                 if amount_get < self.bot.config['cexswap']['minimum_receive_or_reject']:
-                    num_receive = num_format_coin(amount_get)
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the received amount is too small "\
-                        f"{num_receive} {for_token}. Please increase your sell amount!"
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the received amount is too small and below "\
+                        f"{str(self.bot.config['cexswap']['minimum_receive_or_reject'])} {for_token}. Please increase your sell amount of {sell_token}!"
                     await ctx.edit_original_message(content=msg)
+                    await log_to_channel(
+                        "cexswap",
+                        f"🔴 User {ctx.author.mention} wanted to sell: " \
+                        f"{sell_amount_old} {sell_token} for {str(amount_get)} {for_token} (Below receiving amount)",
+                        self.bot.config['discord']['cexswap']
+                    )
                     return
 
                 if truncate(amount, 8) < truncate(cexswap_min, 8):
@@ -3641,12 +3669,12 @@ class Cexswap(commands.Cog):
                             # . Fee {fee_str} {for_token}\n
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully traded!\n"\
                                 f"```Get {user_amount_get} {for_token}\n"\
-                                f"From selling {user_amount_sell} {sell_token}{price_impact_text}```✅ Ref: __{ref_log}__"
+                                f"From selling {user_amount_sell} {sell_token}{price_impact_text}```✅ Ref: {ref_log}"
                             await ctx.edit_original_message(content=msg, view=None)
                             await log_to_channel(
                                 "cexswap",
                                 f"[SOLD]: User {ctx.author.mention} Sold: " \
-                                f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}. Ref: __{ref_log}__",
+                                f"{user_amount_sell} {sell_token} Get: {user_amount_get} {for_token}. Ref: {ref_log}",
                                 self.bot.config['discord']['cexswap']
                             )
                             # check if the amount is more than minimum.
@@ -3673,7 +3701,7 @@ class Cexswap(commands.Cog):
                                                 if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and channel.id != ctx.channel.id:
                                                     continue
                                                 elif channel is not None:
-                                                    await channel.send(f"[CEXSWAP]: A user sold {user_amount_sell} {sell_token} for "\
+                                                    await channel.send(f"{command_mention} A user sold {user_amount_sell} {sell_token} for "\
                                                         f"{user_amount_get} {for_token}."
                                                     )
                                         except disnake.errors.Forbidden:
@@ -4780,6 +4808,15 @@ class Cexswap(commands.Cog):
         ctx,
         pool_name: str,
     ):
+        cmd_name = ctx.application_command.qualified_name
+        command_mention = f"__/{cmd_name}__"
+        try:
+            if self.bot.config['discord']['enable_command_mention'] == 1:
+                cmd = self.bot.get_global_command_named(cmd_name.split()[0])
+                command_mention = f"</{ctx.application_command.qualified_name}:{cmd.id}>"
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading..."
         await ctx.response.send_message(msg)
         try:
@@ -5006,8 +5043,10 @@ class Cexswap(commands.Cog):
             await ctx.edit_original_message(
                 content=None,
                 embed=embed,
-                view=add_liquidity_btn(ctx, self.bot, str(ctx.author.id), pool_name, balances_str, accepted=False,
-                amount_1=None, amount_2=None)
+                view=add_liquidity_btn(
+                    ctx, self.bot, str(ctx.author.id), pool_name, balances_str, command_mention, accepted=False,
+                    amount_1=None, amount_2=None
+                )
             )
         except Exception:
             traceback.print_exc(file=sys.stdout)

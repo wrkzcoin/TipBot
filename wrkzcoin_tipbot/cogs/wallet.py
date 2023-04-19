@@ -158,6 +158,39 @@ async def address_pre_validation_check(
     return False
 
 # moved from store.py
+# approve spender to operator
+async def erc20_approve_spender(
+    url: str, chainId: int, contract: str, 
+    sender_address: str, sender_seed: str, 
+    operator_address: str
+):
+    try:
+        w3 = Web3(Web3.HTTPProvider(url))
+
+        # inject the poa compatibility middleware to the innermost layer
+        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+        unicorns = w3.eth.contract(address=w3.toChecksumAddress(contract), abi=EIP20_ABI)
+        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(sender_address))
+        acct = Account.from_mnemonic(
+            mnemonic=sender_seed)
+
+        max_amount = w3.toWei(2**64-1,'ether')
+        tx = unicorns.functions.approve(w3.toChecksumAddress(operator_address), max_amount).buildTransaction({
+            "chainId": chainId,
+            "nonce": nonce,
+            "from": w3.toChecksumAddress(sender_address)
+        })
+
+        signed_tx = w3.eth.account.signTransaction(tx, acct.key)
+        tx_hash = w3.eth.sendRawTransaction(signed_tx.rawTransaction)
+        tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+        return tx_hash.hex()
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        print("url: {}, sender: {}, operator: {}".format(url, sender_address, operator_address))
+        await logchanbot(traceback.format_exc())
+    return None
 
 async def sql_check_minimum_deposit_erc20(
     url: str, net_name: str, coin: str, contract: str, coin_decimal: int,
@@ -389,7 +422,7 @@ async def sql_check_minimum_deposit_erc20(
                             else:
                                 # Not in DB, Check gas and set approve
                                 if gas_of_address / 10 ** 18 >= min_gas_tx:
-                                    transaction = await store.erc20_approve_spender(
+                                    transaction = await erc20_approve_spender(
                                         url, int(chainId, 16), contract, 
                                         each_address['balance_wallet_address'],
                                         decrypt_string(each_address['seed']),
@@ -6649,7 +6682,7 @@ class Wallet(commands.Cog):
                                                                 "withdraw",
                                                                 f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                                 f"{num_format_coin(amount)} "\
-                                                                f"{token_display}{equivalent_usd}."
+                                                                f"{token_display}{equivalent_usd} to address {address}."
                                                             )
                                                     except Exception:
                                                         traceback.print_exc(file=sys.stdout)
@@ -6680,7 +6713,7 @@ class Wallet(commands.Cog):
                                                         "withdraw",
                                                         f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                         f"{num_format_coin(amount)} "\
-                                                        f"{token_display}{equivalent_usd}."
+                                                        f"{token_display}{equivalent_usd} to address {address}."
                                                     )
                                             elif type_coin == "HNT":
                                                 wallet_host = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
@@ -6712,7 +6745,7 @@ class Wallet(commands.Cog):
                                                         "withdraw",
                                                         f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                         f"{num_format_coin(amount)} "\
-                                                        f"{token_display}{equivalent_usd}."
+                                                        f"{token_display}{equivalent_usd} to address {address}."
                                                     )
 
                                             elif type_coin == "ADA":
@@ -6756,7 +6789,7 @@ class Wallet(commands.Cog):
                                                             "withdraw",
                                                             f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                             f"{num_format_coin(amount)} "\
-                                                            f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
+                                                            f"{token_display}{equivalent_usd} to address {address}.```code: {code}\nmessage: {message}```"
                                                         )
                                                         continue
                                                     else:
@@ -6766,7 +6799,7 @@ class Wallet(commands.Cog):
                                                             "withdraw",
                                                             f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                             f"{num_format_coin(amount)} "\
-                                                            f"{token_display}{equivalent_usd}."
+                                                            f"{token_display}{equivalent_usd} to address {address}."
                                                         )
                                                         continue
                                                 else:
@@ -6851,7 +6884,7 @@ class Wallet(commands.Cog):
                                                             "withdraw",
                                                             f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                             f"{num_format_coin(amount)} "\
-                                                            f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
+                                                            f"{token_display}{equivalent_usd} to address {address}.```code: {code}\nmessage: {message}```"
                                                         )
                                                     else:
                                                         response = f'Internal error, please try again later!'
@@ -6860,7 +6893,7 @@ class Wallet(commands.Cog):
                                                             "withdraw",
                                                             f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                             f"{num_format_coin(amount)} "\
-                                                            f"{token_display}{equivalent_usd}."
+                                                            f"{token_display}{equivalent_usd} to address {address}."
                                                         )
                                                         continue
                                                     continue
@@ -6887,7 +6920,7 @@ class Wallet(commands.Cog):
                                                         "withdraw",
                                                         f"[{user_server}] 🔴 User {tw_user} failed to withdraw "\
                                                         f"{num_format_coin(amount)} "\
-                                                        f"{token_display}{equivalent_usd}."
+                                                        f"{token_display}{equivalent_usd} to address {address}."
                                                     )
                                             elif type_coin == "BTC":
                                                 send_tx = await self.wallet_api.send_external_doge(
@@ -6941,7 +6974,7 @@ class Wallet(commands.Cog):
                                                     await log_to_channel(
                                                         "withdraw",
                                                         f"[{user_server}] User {tw_user} failed to execute to withdraw "\
-                                                        f"{num_format_coin(amount)} {token_display}{equivalent_usd}."
+                                                        f"{num_format_coin(amount)} {token_display}{equivalent_usd} to address {address}."
                                                     )  # ctx
                                         except Exception:
                                             traceback.print_exc(file=sys.stdout)
@@ -13119,13 +13152,13 @@ class Wallet(commands.Cog):
                     else:
                         msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                             f"{num_format_coin(amount)} "\
-                            f"{token_display}{equivalent_usd} to _{address}_."
+                            f"{token_display}{equivalent_usd} to {address}."
                         await ctx.edit_original_message(content=msg, view=None)
                         await log_to_channel(
                             "withdraw",
                             f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                             f"failed to withdraw {num_format_coin(amount)} "\
-                            f"{token_display}{equivalent_usd}."
+                            f"{token_display}{equivalent_usd} to address {address}."
                         )
                 elif type_coin == "NANO":
                     valid_address = await self.wallet_api.nano_validate_address(coin_name, address)
@@ -13203,7 +13236,7 @@ class Wallet(commands.Cog):
                                         "withdraw",
                                         f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                         f"failed to withdraw {num_format_coin(amount)} "\
-                                        f"{token_display}{equivalent_usd}."
+                                        f"{token_display}{equivalent_usd} to address {address}."
                                     )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
@@ -13250,7 +13283,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -13296,7 +13329,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -13351,7 +13384,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -13455,7 +13488,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -13582,7 +13615,7 @@ class Wallet(commands.Cog):
                                 await log_to_channel(
                                     "withdraw",
                                     f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                    f"failed to withdraw {num_format_coin(amount)}."\
+                                    f"failed to withdraw {num_format_coin(amount)} to address {address}."\
                                     f"{token_display}{equivalent_usd}.\nERROR: {send_tx['result']}."
                                 )
                                 # re-send with new fee
@@ -13599,7 +13632,7 @@ class Wallet(commands.Cog):
                                         "withdraw",
                                         f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                         f"failed to withdraw {num_format_coin(amount)}."\
-                                        f"{token_display}{equivalent_usd}.\nERROR: {error}.\n"\
+                                        f"{token_display}{equivalent_usd} to address {address}.\nERROR: {error}.\n"\
                                         f"Re-try with a new gas: {str(gas)}{denom}, fee: {str(fee)}{denom}..."
                                     )
                                 send_tx = await self.wallet_api.cosmos_send_tx(
@@ -13617,7 +13650,7 @@ class Wallet(commands.Cog):
                                     "withdraw",
                                     f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)}."\
-                                    f"{token_display}{equivalent_usd}.\nERROR: {error}.\n"\
+                                    f"{token_display}{equivalent_usd} to address {address}.\nERROR: {error}.\n"\
                                     f"Re-try with a new gas: {str(gas)}{denom}, fee: {str(fee)}{denom}..."
                                 )
                                 send_tx = await self.wallet_api.cosmos_send_tx(
@@ -13636,7 +13669,7 @@ class Wallet(commands.Cog):
                                     "withdraw",
                                     f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd}.\nERROR: {error}"
+                                    f"{token_display}{equivalent_usd} to address {address}.\nERROR: {error}"
                                 )
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                     f"{num_format_coin(amount)} "\
@@ -13667,7 +13700,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -13751,7 +13784,7 @@ class Wallet(commands.Cog):
                                     "withdraw",
                                     f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
+                                    f"{token_display}{equivalent_usd} to address {address}.```code: {code}\nmessage: {message}```"
                                 )
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
                                 await ctx.edit_original_message(content=msg, view=None)
@@ -13760,7 +13793,7 @@ class Wallet(commands.Cog):
                                     "withdraw",
                                     f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd}."
+                                    f"{token_display}{equivalent_usd} to address {address}."
                                 )
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
                                 await ctx.edit_original_message(content=msg, view=None)
@@ -13892,7 +13925,7 @@ class Wallet(commands.Cog):
                                     "withdraw",
                                     f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd}.```code: {code}\nmessage: {message}```"
+                                    f"{token_display}{equivalent_usd} to address {address}.```code: {code}\nmessage: {message}```"
                                 )
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
                                 await ctx.edit_original_message(content=msg, view=None)
@@ -13901,7 +13934,7 @@ class Wallet(commands.Cog):
                                     "withdraw",
                                     f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"failed to withdraw {num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd}."
+                                    f"{token_display}{equivalent_usd} to address {address}."
                                 )
                                 msg = f'{EMOJI_RED_NO} {ctx.author.mention}, internal error, please try again later!'
                                 await ctx.edit_original_message(content=msg, view=None)
@@ -13997,7 +14030,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -14088,7 +14121,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -14178,7 +14211,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -14265,7 +14298,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -14349,7 +14382,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -14427,7 +14460,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -14503,7 +14536,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -14580,7 +14613,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait
@@ -14664,7 +14697,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"failed to execute to withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}."
+                                f"{token_display}{equivalent_usd} to address {address}."
                             )
                     else:
                         # reject and tell to wait

@@ -686,6 +686,14 @@ class Admin(commands.Cog):
                         await cur.execute(sql, )
                         result = await cur.fetchall()
                         if result: return result
+                    elif type_coin.upper() == "XTZ":
+                        sql = """
+                        SELECT * FROM `tezos_user`
+                        GROUP by `user_id`
+                        """
+                        await cur.execute(sql, )
+                        result = await cur.fetchall()
+                        if result: return result
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("admin " +str(traceback.format_exc()))

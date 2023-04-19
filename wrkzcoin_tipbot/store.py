@@ -3133,39 +3133,6 @@ async def erc20_if_approved(
         await logchanbot(traceback.format_exc())
     return False
 
-## approve spender to operator
-async def erc20_approve_spender(
-    url: str, chainId: int, contract: str, 
-    sender_address: str, sender_seed: str, 
-    operator_address: str
-):
-    try:
-        w3 = Web3(Web3.HTTPProvider(url))
-
-        # inject the poa compatibility middleware to the innermost layer
-        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-
-        unicorns = w3.eth.contract(address=w3.toChecksumAddress(contract), abi=EIP20_ABI)
-        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(sender_address))
-        acct = Account.from_mnemonic(
-            mnemonic=sender_seed)
-
-        max_amount = w3.toWei(2**64-1,'ether')
-        tx = unicorns.functions.approve(w3.toChecksumAddress(operator_address), max_amount).buildTransaction({
-            "chainId": chainId,
-            "nonce": nonce,
-            "from": w3.toChecksumAddress(sender_address)
-          })
-
-        signed_tx = w3.eth.account.signTransaction(tx, acct.key)
-        tx_hash = w3.eth.sendRawTransaction(signed_tx.rawTransaction)
-        tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
-        return tx_hash.hex()
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-        await logchanbot(traceback.format_exc())
-    return None
-
 async def erc20_transfer_token_to_operator(
     url: str, chainId: int, contract: str, 
     sender_address: str, operator_address: str, 

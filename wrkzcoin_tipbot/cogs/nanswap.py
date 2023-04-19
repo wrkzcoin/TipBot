@@ -1679,6 +1679,14 @@ payoutAddress: {}
             list_guild_ids = [i.id for i in self.bot.guilds]
             for i in get_pending:
                 try:
+                    # if any is too long, let's post in log channel
+                    if i['create_time'] < int(time.time()) - 3600: # 1 hr
+                        await log_to_channel(
+                            "nanswap",
+                            f"⌛: Nanswap trade ref: {i['nanswap_id']} still pending since <t:{i['create_time']}:f>. "\
+                            f"From {i['from_coin']} to {i['to_coin']}.",
+                            self.bot.config['discord']['nanswap']
+                        )
                     if i['to_coin'] in self.bot.config['nanswap']['partner_list'] or i['from_coin'] in self.bot.config['nanswap']['partner_list']:
                         check_id = await nanswap_check_id_partner(i['nanswap_id'], timeout=10)
                     else:

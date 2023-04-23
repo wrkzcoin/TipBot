@@ -793,7 +793,6 @@ class Nanswap(commands.Cog):
                             data_json = {
                                 "from": from_token_json,
                                 "to": to_token_json,
-                                "itemName": "",
                                 "extraId": memo_tag,
                                 "amount": float(truncate(amount, 12)),
                                 "toAddress": main_address
@@ -1446,7 +1445,6 @@ class Nanswap(commands.Cog):
                             data_json = {
                                 "from": sell_token,
                                 "to": for_token,
-                                "itemName": "",
                                 "amount": float(truncate(amount_sell, 12)),
                                 "toAddress": main_address
                             }
@@ -1687,6 +1685,7 @@ payoutAddress: {}
                             f"From {i['from_coin']} to {i['to_coin']}.",
                             self.bot.config['discord']['nanswap']
                         )
+                        await asyncio.sleep(30.0)
                     if i['to_coin'] in self.bot.config['nanswap']['partner_list'] or i['from_coin'] in self.bot.config['nanswap']['partner_list']:
                         check_id = await nanswap_check_id_partner(i['nanswap_id'], timeout=10)
                     else:

@@ -12807,7 +12807,7 @@ class Wallet(commands.Cog):
             is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
             if is_user_locked is True:
                 await ctx.edit_original_message(
-                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked from using the Bot. "\
                     "Please contact bot dev by /about link."
                 )
                 return
@@ -14754,7 +14754,7 @@ class Wallet(commands.Cog):
         try:
             is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
             if is_user_locked is True:
-                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                await ctx.response.send_message(f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked from using the Bot. "\
                     "Please contact bot dev by /about link."
                 )
                 return

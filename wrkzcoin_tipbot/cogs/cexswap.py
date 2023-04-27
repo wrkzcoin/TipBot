@@ -2786,7 +2786,7 @@ class Cexswap(commands.Cog):
                         await ctx.response.send_message(msg)
             is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
             if is_user_locked is True:
-                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. Please contact bot dev by /about link."
+                msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked from using the Bot. Please contact bot dev by /about link."
                 await ctx.response.send_message(msg)
                 return
             if self.bot.config['cexswap']['disable'] == 1 and ctx.author.id != self.bot.config['discord']['owner_id']:

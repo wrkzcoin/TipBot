@@ -727,7 +727,7 @@ class Tips(commands.Cog):
             is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
             if is_user_locked is True:
                 await ctx.edit_original_message(
-                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked from using the Bot. "\
                     "Please contact bot dev by /about link."
                 )
                 return
@@ -1105,7 +1105,7 @@ class Tips(commands.Cog):
             is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
             if is_user_locked is True:
                 await ctx.edit_original_message(
-                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked from using the Bot. "\
                     "Please contact bot dev by /about link."
                 )
                 return
@@ -1413,7 +1413,7 @@ class Tips(commands.Cog):
             is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
             if is_user_locked is True:
                 await ctx.edit_original_message(
-                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked from using the Bot. "\
                     "Please contact bot dev by /about link."
                 )
                 return
@@ -1577,23 +1577,25 @@ class Tips(commands.Cog):
             return
 
         print("Number of tip-all in {}: {}".format(ctx.guild.name, len(listMembers)))
-        max_allowed = 400
+        default_max_tip = 400
+        max_allowed = default_max_tip # default
+        if serverinfo and serverinfo['max_tip_users']:
+            max_allowed = serverinfo['max_tip_users']
+        if len(listMembers) > default_max_tip:
+            await logchanbot(
+                f"⚠️ {ctx.guild.id} / {ctx.guild.name} reaches number of receivers: __{str(len(listMembers))}__ "\
+                f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
+            )
         if len(listMembers) > max_allowed:
-            # Check if premium guild
-            if serverinfo and serverinfo['is_premium'] == 0:
-                msg = f"{ctx.author.mention}, there are more than maximum allowed __{str(max_allowed)}__. "\
-                    f"You can request pluton#8888 to allow this for your guild."
-                await ctx.edit_original_message(content=msg)
-                await logchanbot(
-                    f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: __{str(len(listMembers))}__ "\
-                    f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
-                )
-                return
-            else:
-                await logchanbot(
-                    f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: __{str(len(listMembers))}__ "\
-                    f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
-                )
+            msg = f"{ctx.author.mention}, there are more than maximum allowed __{str(max_allowed)}__. "\
+                f"You can request pluton#8888 to increase this for your guild."
+            await ctx.edit_original_message(content=msg)
+            await logchanbot(
+                f"🔴 {ctx.guild.id} / {ctx.guild.name} couldreaches number of receivers: __{str(len(listMembers))}__ "\
+                f"/tipall issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
+            )
+            return
+
         memids = []  # list of member ID
         for member in listMembers:
             if ctx.author.id != member.id:
@@ -1800,7 +1802,7 @@ class Tips(commands.Cog):
             is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
             if is_user_locked is True:
                 await ctx.edit_original_message(
-                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked from using the Bot. "\
                     "Please contact bot dev by /about link."
                 )
                 return
@@ -2416,7 +2418,7 @@ class Tips(commands.Cog):
                 is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
                 if is_user_locked is True:
                     await ctx.edit_original_message(
-                        content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked for using the Bot. "\
+                        content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked from using the Bot. "\
                         "Please contact bot dev by /about link."
                     )
                     return
@@ -2644,26 +2646,26 @@ class Tips(commands.Cog):
                     await ctx.edit_original_message(content=f"{ctx.author.mention}, invalid amount or token.")
                     return
 
-                # This one should limit by 100 (Testing)
-                max_allowed = 50
+                default_max_tip = 400
+                max_allowed = default_max_tip # default
+                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                if serverinfo and serverinfo['max_tip_users']:
+                    max_allowed = serverinfo['max_tip_users']
+                if len(list_member_ids) > default_max_tip:
+                    await logchanbot(
+                        f"⚠️ {ctx.guild.id} / {ctx.guild.name} reaches number of receivers: __{str(len(list_member_ids))}__ "\
+                        f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
+                    )
                 try:
-                    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                     if len(list_member_ids) > max_allowed:
-                        # Check if premium guild
-                        if serverinfo and serverinfo['is_premium'] == 0:
-                            msg = f"{ctx.author.mention}, there are more than maximum allowed __{str(max_allowed)}__. "\
-                                f"You can request pluton#8888 to allow this for your guild."
-                            await ctx.edit_original_message(content=msg)
-                            await logchanbot(
-                                f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: __{str(len(list_member_ids))}__ "\
-                                f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
-                            )
-                            return
-                        else:
-                            await logchanbot(
-                                f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: __{str(len(list_member_ids))}__ "\
-                                f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
-                            )
+                        msg = f"{ctx.author.mention}, there are more than maximum allowed __{str(max_allowed)}__. "\
+                            f"You can request pluton#8888 to increase this for your guild."
+                        await ctx.edit_original_message(content=msg)
+                        await logchanbot(
+                            f"🔴 {ctx.guild.id} / {ctx.guild.name} reaches number of receivers: __{str(len(list_member_ids))}__ "\
+                            f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
+                        )
+                        return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
@@ -2926,27 +2928,28 @@ class Tips(commands.Cog):
                 if total_amount_in_usd > 0.0001:
                     total_equivalent_usd = " ~ {:,.4f} USD".format(total_amount_in_usd)
 
-        max_allowed = 400
         try:
+            default_max_tip = 400
+            max_allowed = default_max_tip # default
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo and serverinfo['max_tip_users']:
+                max_allowed = serverinfo['max_tip_users']
+            if len(memids) > default_max_tip:
+                await logchanbot(
+                    f"⚠️ {ctx.guild.id} / {ctx.guild.name} reaches number of receivers: __{str(len(memids))}__ "\
+                    f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
+                )
             if serverinfo and serverinfo['mute_tip'] == "YES":
                 mute_tip = True
             if len(memids) > max_allowed:
-                # Check if premium guild
-                if serverinfo and serverinfo['is_premium'] == 0:
-                    msg = f"{ctx.author.mention}, there are more than maximum allowed __{str(max_allowed)}__. "\
-                        f"You can request pluton#8888 to allow this for your guild."
-                    await ctx.edit_original_message(content=msg)
-                    await logchanbot(
-                        f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: __{str(len(memids))}__ "\
-                        f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
-                        )
-                    return
-                else:
-                    await logchanbot(
-                        f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: __{str(len(memids))}__ "\
-                        f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
+                msg = f"{ctx.author.mention}, there are more than maximum allowed __{str(max_allowed)}__. "\
+                    f"You can request pluton#8888 to increase this for your guild."
+                await ctx.edit_original_message(content=msg)
+                await logchanbot(
+                    f"🔴 {ctx.guild.id} / {ctx.guild.name} reaches number of receivers: __{str(len(memids))}__ "\
+                    f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
                     )
+                return
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -3161,26 +3164,26 @@ class Tips(commands.Cog):
                 f"{tip_type_text} of **{num_format_coin(amount)} {token_display}**."
             await ctx.edit_original_message(content=msg)
             return
-
-        max_allowed = 400
         try:
             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            default_max_tip = 400
+            max_allowed = default_max_tip # default
+            if serverinfo and serverinfo['max_tip_users']:
+                max_allowed = serverinfo['max_tip_users']
+            if len(list_receivers) > default_max_tip:
+                await logchanbot(
+                    f"⚠️ {ctx.guild.id} / {ctx.guild.name} reaches number of receivers: __{str(len(list_receivers))}__ "\
+                    f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
+                )
             if len(list_receivers) > max_allowed:
-                # Check if premium guild
-                if serverinfo and serverinfo['is_premium'] == 0:
-                    msg = f"{ctx.author.mention}, there are more than maximum allowed __{str(max_allowed)}__. "\
-                        f"You can request pluton#8888 to allow this for your guild."
-                    await ctx.edit_original_message(content=msg)
-                    await logchanbot(
-                        f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: __{str(len(list_receivers))}__ "\
-                        f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
-                    )
-                    return
-                else:
-                    await logchanbot(
-                        f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: __{str(len(list_receivers))}__ "\
-                        f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
-                    )
+                msg = f"{ctx.author.mention}, there are more than maximum allowed __{str(max_allowed)}__. "\
+                    f"You can request pluton#8888 to increase this for your guild."
+                await ctx.edit_original_message(content=msg)
+                await logchanbot(
+                    f"🔴 {ctx.guild.id} / {ctx.guild.name} reaches number of receivers: __{str(len(list_receivers))}__ "\
+                    f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
+                )
+                return
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -3497,25 +3500,25 @@ class Tips(commands.Cog):
                     await ctx.reply(f"{EMOJI_RED_NO} {ctx.author.mention}, there is no one to tip to.")
                     return
                 else:
-                    max_allowed = 400
+                    default_max_tip = 400
+                    max_allowed = default_max_tip # default
+                    if serverinfo and serverinfo['max_tip_users']:
+                        max_allowed = serverinfo['max_tip_users']
+                    if len(list_receivers) > default_max_tip:
+                        await logchanbot(
+                            f"⚠️ {ctx.guild.id} / {ctx.guild.name} reaches number of receivers: __{str(len(list_receivers))}__ "\
+                            f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
+                        )
                     try:
-                        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                         if len(list_users) > max_allowed:
-                            # Check if premium guild
-                            if serverinfo and serverinfo['is_premium'] == 0:
-                                msg = f'{ctx.author.mention}, there are more than maximum allowed __{str(max_allowed)}__. "\
-                                    f"You can request pluton#8888 to allow this for your guild.'
-                                await ctx.reply(msg)
-                                await logchanbot(
-                                    f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: __{str(len(list_users))}__ "\
-                                    f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
-                                )
-                                return
-                            else:
-                                await logchanbot(
-                                    f"{ctx.guild.id} / {ctx.guild.name} reaches number of recievers: __{str(len(list_users))}__ "\
-                                    f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
-                                )
+                            msg = f'{ctx.author.mention}, there are more than maximum allowed __{str(max_allowed)}__. "\
+                                f"You can request pluton#8888 to increase this for your guild.'
+                            await ctx.reply(msg)
+                            await logchanbot(
+                                f"🔴 {ctx.guild.id} / {ctx.guild.name} reaches number of receivers: __{str(len(list_users))}__ "\
+                                f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
+                            )
+                            return
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
 

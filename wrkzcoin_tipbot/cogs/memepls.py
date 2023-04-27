@@ -1685,8 +1685,13 @@ class MemePls(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     async def meme_disclaimer(self, ctx):
-        disclaimer = """1] You have permission to use the uploaded file\n2] We reserved right to reject it\n"\
-            "3] Comply to https://discord.com/terms\n4] No NSFW"""
+        disclaimer = """
+1] You have permission to use the uploaded file
+2] We reserved right to reject it
+3] Follow each Discord Guild's rule
+4] Comply to https://discord.com/terms
+5] No NSFW
+"""
         await ctx.response.send_message(f"{ctx.author.mention}, ```{disclaimer}```")
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",

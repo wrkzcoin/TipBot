@@ -9311,17 +9311,17 @@ class Wallet(commands.Cog):
                                         await member.send(msg)
                                         sql = """ UPDATE `doge_get_transfers` 
                                             SET `notified_confirmation`=%s, `time_notified`=%s 
-                                            WHERE `txid`=%s LIMIT 1
+                                            WHERE `txid`=%s AND `address`=%s LIMIT 1
                                             """
-                                        await cur.execute(sql, ("YES", int(time.time()), eachTx['txid']))
+                                        await cur.execute(sql, ("YES", int(time.time()), eachTx['txid'], eachTx['address']))
                                         await conn.commit()
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
                                         sql = """ UPDATE `doge_get_transfers` 
                                             SET `notified_confirmation`=%s, `failed_notification`=%s 
-                                            WHERE `txid`=%s LIMIT 1
+                                            WHERE `txid`=%s AND `address`=%s LIMIT 1
                                             """
-                                        await cur.execute(sql, ("NO", "YES", eachTx['txid']))
+                                        await cur.execute(sql, ("NO", "YES", eachTx['txid'], eachTx['address']))
                                         await conn.commit()
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -9371,7 +9371,7 @@ class Wallet(commands.Cog):
                             """
                         await cur.execute(sql, (coin_name, 'receive', 'send'))
                         result = await cur.fetchall()
-                        d = [i['txid'] for i in result]
+                        d = ["{}_{}".format(i['txid'], i['address']) for i in result]
                         # print('=================='+coin_name+'===========')
                         # print(d)
                         # print('=================='+coin_name+'===========')
@@ -9387,7 +9387,7 @@ class Wallet(commands.Cog):
                                     'amount'] > 0:
                                     list_balance_user[tx['address']] = tx['amount']
                                 try:
-                                    if tx['txid'] not in d:
+                                    if "{}_{}".format(tx['txid'], tx['address']) not in d:
                                         user_paymentId = await store.sql_get_userwallet_by_paymentid(
                                             tx['address'], coin_name,
                                             getattr(getattr(self.bot.coin_list, coin_name), "type"))
@@ -12949,9 +12949,9 @@ class Wallet(commands.Cog):
                 try:
                     key_withdraw = str(ctx.author.id) + "_" + coin_name
                     if key_withdraw in self.withdraw_tx and \
-                        int(time.time()) - self.withdraw_tx[key_withdraw] < 120:
+                        int(time.time()) - self.withdraw_tx[key_withdraw] < 60:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you recently executed a withdraw of "\
-                            f"this coin/token **{coin_name}**. Waiting till <t:{self.withdraw_tx[key_withdraw]+120}:f>."
+                            f"this coin/token **{coin_name}**. Waiting till <t:{self.withdraw_tx[key_withdraw]+60}:f>."
                         await ctx.edit_original_message(content=msg)
                         return
                 except Exception:

@@ -635,7 +635,7 @@ class Nanswap(commands.Cog):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, fetching limit error. Try again later!"
                 await ctx.edit_original_message(content=msg)
                 return
-            elif truncate(amount, 12) < truncate(Decimal(get_limit['min']), 12) or \
+            elif truncate(amount, 12) < (get_limit['min'] is not None and truncate(Decimal(get_limit['min']), 12)) or \
                 (get_limit['max'] is not None and truncate(amount, 12) > truncate(Decimal(get_limit['max']), 12)):
                 max_limit = str(get_limit['max'])
                 if get_limit['max'] is None:
@@ -694,6 +694,13 @@ class Nanswap(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
+                        if "error" in get_estimate:
+                            error_msg = ""
+                            if "message" in get_estimate:
+                                error_msg = "```{}```".format(get_estimate['message'])
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there's an error from Nanswap API endpoint.{error_msg}"
+                            await ctx.edit_original_message(content=msg)
+                            return
                         # check minimum receive
                         real_min_deposit = getattr(getattr(self.bot.coin_list, for_token), "real_min_deposit")
                         if Decimal(get_estimate['amountTo']) < Decimal(real_min_deposit):

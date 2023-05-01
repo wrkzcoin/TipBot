@@ -196,7 +196,8 @@ async def sql_check_minimum_deposit_erc20(
     url: str, net_name: str, coin: str, contract: str, coin_decimal: int,
     min_move_deposit: float, min_gas_tx: float, gas_ticker: str,
     move_gas_amount: float, chainId: str, real_deposit_fee: float,
-    config, erc20_approve_spend: int = 0, time_lap: int = 0
+    config, erc20_approve_spend: int = 0, time_lap: int = 0,
+    dev_tax_percent: float=0.0
 ):
     global pool
     async def send_gas(url: str, chainId: str, to_address: str, move_gas_amount: float, min_gas_tx: float):
@@ -339,7 +340,8 @@ async def sql_check_minimum_deposit_erc20(
                                 await store.sql_move_deposit_for_spendable(
                                     token_name, None, each_address['user_id'], each_address['balance_wallet_address'],
                                     config['eth']['MainAddress'], real_deposited_balance,
-                                    real_deposit_fee, coin_decimal, sent_tx.hex(), each_address['user_server'],
+                                    real_deposit_fee + dev_tax_percent*real_deposited_balance, coin_decimal,
+                                    sent_tx.hex(), each_address['user_server'],
                                     net_name
                                 )
                                 await asyncio.sleep(10.0)
@@ -465,7 +467,7 @@ async def sql_check_minimum_deposit_erc20(
                                         await store.sql_move_deposit_for_spendable(
                                             token_name, contract, each_address['user_id'],
                                             each_address['balance_wallet_address'], config['eth']['MainAddress'],
-                                            real_deposited_balance, real_deposit_fee, coin_decimal,
+                                            real_deposited_balance, real_deposit_fee + dev_tax_percent*real_deposited_balance, coin_decimal,
                                             transaction, each_address['user_server'], net_name
                                         )
                                     except Exception as e:
@@ -515,7 +517,7 @@ async def sql_check_minimum_deposit_erc20(
                                     await store.sql_move_deposit_for_spendable(
                                         token_name, contract, each_address['user_id'],
                                         each_address['balance_wallet_address'], config['eth']['MainAddress'],
-                                        real_deposited_balance, real_deposit_fee, coin_decimal,
+                                        real_deposited_balance, real_deposit_fee + dev_tax_percent*real_deposited_balance, coin_decimal,
                                         sent_tx.hex(), each_address['user_server'], net_name
                                     )
                                     await asyncio.sleep(10.0)
@@ -10018,7 +10020,8 @@ class Wallet(commands.Cog):
                         each_c['gas_ticker'], each_c['move_gas_amount'],
                         each_c['chain_id'], each_c['real_deposit_fee'],
                         self.bot.config,
-                        each_c['erc20_approve_spend'], 7200
+                        each_c['erc20_approve_spend'], 7200,
+                        each_c['tax_fee_percent']
                     )
                     check_min_deposit_exec = await self.bot.loop.run_in_executor(None, check_min_deposit)
                     tasks.append(check_min_deposit_exec)
@@ -10041,7 +10044,7 @@ class Wallet(commands.Cog):
                         each_c['move_gas_amount'], each_c['chain_id'],
                         each_c['real_deposit_fee'],
                         self.bot.config,
-                        0, 7200
+                        0, 7200, each_c['tax_fee_percent']
                     )
                     check_min_deposit_exec = await self.bot.loop.run_in_executor(None, check_min_deposit)
                     tasks.append(check_min_deposit_exec)

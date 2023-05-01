@@ -1278,7 +1278,7 @@ async def cexswap_sold(
                 """
                 data_rows += [
                     pool_id, "{}->{}".format(sell_ticker, got_ticker), ref_log, sell_ticker, float(amount_sell),
-                    float(amount_sell)*float(per_unit_sell), guild_id, float(amount_get),float(amount_get)*float(per_unit_get),
+                    float(amount_sell)*float(per_unit_sell) if per_unit_sell else 0.0, guild_id, float(amount_get), float(amount_get)*float(per_unit_get) if per_unit_get else 0.0,
                     float(got_fee_dev), float(got_fee_liquidators), float(got_fee_guild), got_ticker, user_id,
                     user_server, api, api_message, int(time.time())
                 ]
@@ -3872,7 +3872,7 @@ class Cexswap(commands.Cog):
                                         sum_amount += i['got']
                                 if sum_amount > 0:
                                     equi_usd = ""
-                                    if per_unit > 0:
+                                    if per_unit and per_unit > 0:
                                         sub_total_in_usd = float(Decimal(sum_amount) * Decimal(per_unit))
                                         if sub_total_in_usd > 0.01:
                                             equi_usd = "\n~ {:,.2f}$".format(sub_total_in_usd)
@@ -6251,6 +6251,7 @@ class Cexswap(commands.Cog):
 
         async def handler_post(request):
             try:
+                payload = None
                 if request.body_exists:
                     # check if api is ready only
                     api_readonly = self.bot.config['cexswap_api']['api_readonly']
@@ -6531,6 +6532,9 @@ class Cexswap(commands.Cog):
                         "time": int(time.time())
                     }
                     return web.json_response(result, status=404)
+            except json.decoder.JSONDecodeError:
+                print("CEXSWap Json read error:")
+                print(payload)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 

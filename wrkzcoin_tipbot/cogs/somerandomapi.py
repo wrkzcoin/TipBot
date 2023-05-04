@@ -22,7 +22,7 @@ class SomeRandomAPI(commands.Cog):
         self.bot = bot
         self.utils = Utils(self.bot)
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-        self.poweredby = "https://some-random-api.ml/"
+        self.poweredby = "https://some-random-api.com/"
         # animal
         self.some_random_api_path_animal = "some_random_api/animal/"
 
@@ -178,7 +178,7 @@ class SomeRandomAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         try:
-            url = "https://some-random-api.ml/animal/" + name
+            url = "https://some-random-api.com/animal/" + name
             fetch = await self.fetch_sra(url, 16)
             if fetch:
                 if "image" in fetch:
@@ -245,7 +245,7 @@ class SomeRandomAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         try:
-            url = "https://some-random-api.ml/facts/" + name
+            url = "https://some-random-api.com/facts/" + name
             fetch = await self.fetch_sra(url, 16)
             if fetch:
                 if "fact" in fetch:
@@ -302,7 +302,7 @@ class SomeRandomAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         try:
-            url = "https://some-random-api.ml/img/" + name
+            url = "https://some-random-api.com/img/" + name
             fetch = await self.fetch_sra(url, 16)
             if fetch:
                 if "link" in fetch:
@@ -358,7 +358,7 @@ class SomeRandomAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         try:
-            url = "https://some-random-api.ml/joke"
+            url = "https://some-random-api.com/joke"
             fetch = await self.fetch_sra(url, 16)
             if fetch:
                 if "joke" in fetch:

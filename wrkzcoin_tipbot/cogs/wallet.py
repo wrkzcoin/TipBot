@@ -9948,6 +9948,8 @@ class Wallet(commands.Cog):
                             all_deposit_address[each['balance_wallet_address']] = each
                     if get_balance and len(get_balance) > 0:
                         for address, balance in get_balance.items():
+                            if each['coin_name'] == "XDG" and float(balance['pending']) > 0:
+                                 print("pending {}: {}".format(address, float(balance['pending'])/10**coin_decimal))
                             try:
                                 # if bigger than minimum deposit, and no pending and the address is in user database addresses
                                 real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
@@ -10579,7 +10581,6 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=60.0)
     async def check_confirming_vet(self):
         time_lap = 5  # seconds
-
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "check_confirming_vet"
@@ -10588,6 +10589,8 @@ class Wallet(commands.Cog):
             return
         await asyncio.sleep(time_lap)
         coin_name = "VET"
+        if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") != 0:
+            return
         get_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -10617,7 +10620,6 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=60.0)
     async def update_balance_vet(self):
         time_lap = 5  # seconds
-
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "update_balance_vet"
@@ -10629,6 +10631,8 @@ class Wallet(commands.Cog):
             vet_contracts = await self.get_all_contracts("VET", False)
             # Check native
             coin_name = "VET"
+            if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") != 0:
+                return
             get_status = await vet_get_status(self.bot.erc_node_list['VET'], 16)
             if get_status:
                 height = int(get_status['number'])
@@ -10761,7 +10765,6 @@ class Wallet(commands.Cog):
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
-
 
     @tasks.loop(seconds=60.0)
     async def notify_new_confirmed_zil(self):

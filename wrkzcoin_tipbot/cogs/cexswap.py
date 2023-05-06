@@ -557,7 +557,7 @@ async def cexswap_airdrop_count(
                 sql = """
                 SELECT COUNT(*) AS counts FROM `cexswap_airdroper_op_logs`
                 WHERE `user_id`=%s AND `user_server`=%s AND `pool_name`=%s
-                AND `cexswap_airdroper_op_logs`>%s
+                AND `drop_time`>%s
                 """
                 await cur.execute(sql, (user_id, user_server, pool_name, lap_time))
                 result = await cur.fetchone()

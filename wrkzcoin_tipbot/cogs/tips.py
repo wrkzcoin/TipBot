@@ -3504,9 +3504,9 @@ class Tips(commands.Cog):
                     max_allowed = default_max_tip # default
                     if serverinfo and serverinfo['max_tip_users']:
                         max_allowed = serverinfo['max_tip_users']
-                    if len(list_receivers) > default_max_tip:
+                    if len(list_users) > default_max_tip:
                         await logchanbot(
-                            f"⚠️ {ctx.guild.id} / {ctx.guild.name} reaches number of receivers: __{str(len(list_receivers))}__ "\
+                            f"⚠️ {ctx.guild.id} / {ctx.guild.name} reaches number of receivers: __{str(len(list_users))}__ "\
                             f"issued by {ctx.author.id} / {ctx.author.name}#{ctx.author.discriminator}."
                         )
                     try:

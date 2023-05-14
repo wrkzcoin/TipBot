@@ -13,7 +13,6 @@ from disnake.ext import commands
 
 
 class About(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.utils = Utils(self.bot)
@@ -23,8 +22,10 @@ class About(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT (SELECT COUNT(*) FROM user_balance_mv) AS nos_tipping,
-                              (SELECT COUNT(*) FROM user_balance_mv_data) AS nos_user """
+                    sql = """
+                    SELECT (SELECT COUNT(*) FROM user_balance_mv) AS nos_tipping,
+                    (SELECT COUNT(*) FROM user_balance_mv_data) AS nos_user
+                    """
                     await cur.execute(sql, ())
                     result = await cur.fetchone()
                     return result
@@ -103,8 +104,10 @@ class About(commands.Cog):
             botdetails.add_field(name='Add Coin/Token', value=bot_settings['link_listing_form'], inline=False)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        botdetails.set_footer(text='Made in Python',
-                              icon_url='http://findicons.com/files/icons/2804/plex/512/python.png')
+        botdetails.set_footer(
+            text='Made in Python',
+            icon_url='http://findicons.com/files/icons/2804/plex/512/python.png'
+        )
         botdetails.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
         return botdetails
 

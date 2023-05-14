@@ -79,11 +79,11 @@ class Trade(commands.Cog):
         return []
 
     async def get_open_orders(
-            self,
-            ctx,
-            option: str,
-            coin1: str,
-            coin2: str = None
+        self,
+        ctx,
+        option: str,
+        coin1: str,
+        coin2: str = None
     ):
         await self.bot_log()
         table_list = []
@@ -159,12 +159,12 @@ class Trade(commands.Cog):
             return {"error": no_trading_msg}
 
     async def make_open_order(
-            self,
-            ctx,
-            sell_amount: str,
-            sell_ticker: str,
-            buy_amount: str,
-            buy_ticker: str
+        self,
+        ctx,
+        sell_amount: str,
+        sell_ticker: str,
+        buy_amount: str,
+        buy_ticker: str
     ):
         await self.bot_log()
         sell_ticker = sell_ticker.upper()

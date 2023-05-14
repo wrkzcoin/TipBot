@@ -80,7 +80,9 @@ class Admin(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `bot_settings` WHERE `name`=%s LIMIT 1 """
+                    sql = """
+                    SELECT * FROM `bot_settings` WHERE `name`=%s LIMIT 1
+                    """
                     await cur.execute(sql, ('local_db_extra'))
                     result = await cur.fetchone()
                     if result:
@@ -90,54 +92,14 @@ class Admin(commands.Cog):
             await logchanbot("admin " +str(traceback.format_exc()))
         return None
 
-    async def restore_msg(self, number_msg: int = 10000):
-        try:
-            await self.openConnection_extra()
-            async with self.pool_local_db_extra.acquire() as conn_extra:
-                async with conn_extra.cursor() as cur_extra:
-                    sql = """ SELECT * FROM `discord_messages` ORDER BY `id` DESC LIMIT %s """
-                    await cur_extra.execute(sql, number_msg)
-                    result = await cur_extra.fetchall()
-                    if result and len(result) > 0:
-                        # Insert to original DB and delete
-                        data_rows = []
-                        delete_ids = []
-                        for each in result:
-                            data_rows.append((each['id'], each['serverid'], each['server_name'], each['channel_id'],
-                                              each['channel_name'], each['user_id'], each['message_author'],
-                                              each['message_id'], each['message_time']))
-                            delete_ids.append(each['id'])
-                        await store.openConnection()
-                        async with store.pool.acquire() as conn:
-                            async with conn.cursor() as cur:
-                                sql = """ INSERT INTO `discord_messages` (`id`, `serverid`, `server_name`, `channel_id`, 
-                                `channel_name`, `user_id`, `message_author`, `message_id`, `message_time`) 
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                await cur.executemany(sql, data_rows)
-                                await conn.commit()
-                                inserted = cur.rowcount
-                                if inserted > 0:
-                                    # Delete from message
-                                    await self.openConnection_extra()
-                                    async with self.pool_local_db_extra.acquire() as conn_extra:
-                                        async with conn_extra.cursor() as cur_extra:
-                                            sql = " DELETE FROM `discord_messages` WHERE `id` IN (%s)" % ",".join(
-                                                ["%s"] * len(delete_ids))
-                                            await cur_extra.execute(sql, tuple(delete_ids))
-                                            await conn_extra.commit()
-                                            deleted = cur.rowcount
-                                            return deleted
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await logchanbot("admin " +str(traceback.format_exc()))
-        return 0
-
     async def purge_msg(self, number_msg: int = 1000):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_messages` ORDER BY `id` ASC LIMIT %s """
+                    sql = """
+                    SELECT * FROM `discord_messages` ORDER BY `id` ASC LIMIT %s
+                    """
                     await cur.execute(sql, number_msg)
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -146,19 +108,23 @@ class Admin(commands.Cog):
                         delete_ids = []
                         for each in result:
                             if each['message_time'] < int(time.time()) - self.old_message_data_age:
-                                data_rows.append((each['id'], each['serverid'], each['server_name'], each['channel_id'],
-                                                  each['channel_name'], each['user_id'], each['message_author'],
-                                                  each['message_id'], each['message_time']))
+                                data_rows.append((
+                                    each['id'], each['serverid'], each['server_name'], each['channel_id'],
+                                    each['channel_name'], each['user_id'], each['message_author'],
+                                    each['message_id'], each['message_time']
+                                ))
                                 delete_ids.append(each['id'])
                         if len(data_rows) > 50:
                             await self.openConnection_extra()
                             async with self.pool_local_db_extra.acquire() as conn_extra:
                                 async with conn_extra.cursor() as cur_extra:
-                                    sql = """ INSERT INTO `discord_messages` (`id`, `serverid`, `server_name`, `channel_id`, 
+                                    sql = """
+                                    INSERT INTO `discord_messages` (`id`, `serverid`, `server_name`, `channel_id`, 
                                     `channel_name`, `user_id`, `message_author`, `message_id`, `message_time`) 
                                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) 
                                     ON DUPLICATE KEY UPDATE 
-                                    `message_time`=VALUES(`message_time`) """
+                                    `message_time`=VALUES(`message_time`)
+                                    """
                                     await cur_extra.executemany(sql, data_rows)
                                     await conn_extra.commit()
                                     inserted = cur_extra.rowcount
@@ -184,9 +150,13 @@ class Admin(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list_name = []
-                    sql = """ SELECT `coin_name` FROM `coin_settings` WHERE `enable`=1 """
+                    sql = """
+                    SELECT `coin_name` FROM `coin_settings` WHERE `enable`=1
+                    """
                     if including_disable is True:
-                        sql = """ SELECT `coin_name` FROM `coin_settings` """
+                        sql = """
+                        SELECT `coin_name` FROM `coin_settings`
+                        """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -595,7 +565,9 @@ class Admin(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list = {}
-                    sql = """ SELECT * FROM `coin_settings` WHERE `enable`=1 """
+                    sql = """
+                    SELECT * FROM `coin_settings` WHERE `enable`=1
+                    """
                     await cur.execute(sql, ())
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -616,52 +588,70 @@ class Admin(commands.Cog):
                 await conn.ping(reconnect=True)
                 async with conn.cursor() as cur:
                     if type_coin.upper() == "CHIA":
-                        sql = """ SELECT * FROM `xch_user` 
-                                  WHERE `coin_name`=%s """
+                        sql = """
+                        SELECT * FROM `xch_user` 
+                        WHERE `coin_name`=%s
+                        """
                         await cur.execute(sql, (coin_name))
                         result = await cur.fetchall()
                         if result: return result
                     elif type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                        sql = """ SELECT * FROM `cn_user_paymentid` 
-                                  WHERE `coin_name`=%s """
+                        sql = """
+                        SELECT * FROM `cn_user_paymentid` 
+                        WHERE `coin_name`=%s
+                        """
                         await cur.execute(sql, (coin_name))
                         result = await cur.fetchall()
                         if result: return result
                     elif type_coin.upper() == "BTC":
-                        sql = """ SELECT * FROM `doge_user` 
-                                  WHERE `coin_name`=%s """
+                        sql = """
+                        SELECT * FROM `doge_user` 
+                        WHERE `coin_name`=%s
+                        """
                         await cur.execute(sql, (coin_name))
                         result = await cur.fetchall()
                         if result: return result
                     elif type_coin.upper() == "NANO":
-                        sql = """ SELECT * FROM `nano_user` 
-                                  WHERE `coin_name`=%s """
+                        sql = """
+                        SELECT * FROM `nano_user` 
+                        WHERE `coin_name`=%s
+                        """
                         await cur.execute(sql, (coin_name))
                         result = await cur.fetchall()
                         if result: return result
                     elif type_coin.upper() == "ERC-20":
-                        sql = """ SELECT * FROM `erc20_user` """
+                        sql = """
+                        SELECT * FROM `erc20_user`
+                        """
                         await cur.execute(sql, )
                         result = await cur.fetchall()
                         if result: return result
                     elif type_coin.upper() == "TRC-20":
-                        sql = """ SELECT * FROM `trc20_user` """
+                        sql = """
+                        SELECT * FROM `trc20_user`
+                        """
                         await cur.execute(sql, )
                         result = await cur.fetchall()
                         if result: return result
                     elif type_coin.upper() == "HNT":
-                        sql = """ SELECT * FROM `hnt_user` 
-                                  WHERE `coin_name`=%s """
+                        sql = """
+                        SELECT * FROM `hnt_user` 
+                        WHERE `coin_name`=%s
+                        """
                         await cur.execute(sql, (coin_name))
                         result = await cur.fetchall()
                         if result: return result
                     elif type_coin.upper() == "ADA":
-                        sql = """ SELECT * FROM `ada_user` """
+                        sql = """
+                        SELECT * FROM `ada_user`
+                        """
                         await cur.execute(sql, )
                         result = await cur.fetchall()
                         if result: return result
                     elif type_coin.upper() == "XLM":
-                        sql = """ SELECT * FROM `xlm_user` """
+                        sql = """
+                        SELECT * FROM `xlm_user`
+                        """
                         await cur.execute(sql, )
                         result = await cur.fetchall()
                         if result: return result
@@ -850,8 +840,14 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='admin disableuser <user id> <user_server> <reasons>', description="Disable a user from using command.")
-    async def disableuser(self, ctx, user_id: str, user_server: str="DISCORD", *, reasons: str=None):
+    @admin.command(
+        hidden=True,
+        usage="admin disableuser <user id> <user_server> <reasons>",
+        description="Disable a user from using command."
+    )
+    async def disableuser(
+        self, ctx, user_id: str, user_server: str="DISCORD", *, reasons: str=None
+    ):
         try:
             if reasons is None:
                 msg = f"{ctx.author.mention}, please have reasons!"
@@ -899,7 +895,11 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='admin updatebalance <coin>', description='Force update a balance of a coin/token')
+    @admin.command(
+        hidden=True,
+        usage="admin updatebalance <coin>",
+        description="Force update a balance of a coin/token"
+    )
     async def updatebalance(self, ctx, coin: str):
         coin_name = coin.upper()
         if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
@@ -944,7 +944,11 @@ class Admin(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='admin status <text>', description='set bot\'s status.')
+    @admin.command(
+        hidden=True,
+        usage="admin status <text>",
+        description="set bot\'s status."
+    )
     async def status(self, ctx, *, msg: str):
         await self.bot.wait_until_ready()
         game = disnake.Game(name=msg)
@@ -954,7 +958,11 @@ class Admin(commands.Cog):
         return
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='admin ada <action> [param]', description='ADA\'s action')
+    @admin.command(
+        hidden=True,
+        usage="admin ada <action> [param]",
+        description="ADA\'s action"
+    )
     async def ada(self, ctx, action: str, param: str = None):
         action = action.upper()
         if action == "CREATE":
@@ -1257,7 +1265,11 @@ class Admin(commands.Cog):
             await ctx.reply(msg)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='admin guildlist', description='Dump guild list, name, number of users.')
+    @admin.command(
+        hidden=True,
+        usage="admin guildlist",
+        description="Dump guild list, name, number of users."
+    )
     async def guildlist(self, ctx):
         try:
             list_g = []
@@ -1271,8 +1283,11 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='admin clearbutton <channel id> <msg id>',
-                   description='Clear all buttons of a message ID.')
+    @admin.command(
+        hidden=True,
+        usage="admin clearbutton <channel id> <msg id>",
+        description="Clear all buttons of a message ID."
+    )
     async def clearbutton(self, ctx, channel_id: str, msg_id: str):
         try:
             _channel: disnake.TextChannel = await self.bot.fetch_channel(int(channel_id))
@@ -1292,7 +1307,11 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='admin leave <guild id>', description='Bot to leave a server by ID.')
+    @admin.command(
+        hidden=True,
+        usage="admin leave <guild id>",
+        description="Bot to leave a server by ID."
+    )
     async def leave(self, ctx, guild_id: str):
         try:
             guild = self.bot.get_guild(int(guild_id))
@@ -1309,7 +1328,11 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='checkshare', description='run check pool share of CEXSwap')
+    @admin.command(
+        hidden=True,
+        usage="checkshare",
+        description="run check pool share of CEXSwap"
+    )
     async def checkshare(self, ctx):
         if ctx.author.id != self.bot.config['discord']['owner_id']:
             await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying checkshare!".format(
@@ -1360,7 +1383,11 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='auditshare', description='Audit share of CEXSwap')
+    @admin.command(
+        hidden=True,
+        usage="auditshare",
+        description="Audit share of CEXSwap"
+    )
     async def auditshare(self, ctx):
         if ctx.author.id != self.bot.config['discord']['owner_id']:
             await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying auditshare!".format(
@@ -1443,7 +1470,11 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='auditlp', description='Audit LP of CEXSwap')
+    @admin.command(
+        hidden=True,
+        usage="auditlp",
+        description="Audit LP of CEXSwap"
+    )
     async def auditlp(self, ctx):
         if ctx.author.id != self.bot.config['discord']['owner_id']:
             await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying auditlp!".format(
@@ -1611,7 +1642,11 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='auditcoin <coin name>', description='Audit coin\'s balance')
+    @admin.command(
+        hidden=True,
+        usage="auditcoin <coin name>",
+        description="Audit coin\'s balance"
+    )
     async def auditcoin(self, ctx, coin: str):
         if ctx.author.id != self.bot.config['discord']['owner_id']:
             await logchanbot("⚠️⚠️⚠️⚠️ {}#{} / {} is trying auditcoin!".format(
@@ -1770,7 +1805,11 @@ class Admin(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='printbal <user> <coin>', description='print user\'s balance.')
+    @admin.command(
+        hidden=True,
+        usage="printbal <user> <coin>",
+        description="print user\'s balance."
+    )
     async def printbal(self, ctx, member_id: str, coin: str, user_server: str = "DISCORD"):
         coin_name = coin.upper()
         if member_id.upper() == "SWAP":
@@ -1825,7 +1864,9 @@ class Admin(commands.Cog):
 
     @commands.is_owner()
     @admin.command(
-        hidden=True, usage='creditlist <message>', description='Credit a list of users'
+        hidden=True,
+        usage="creditlist <message>",
+        description="Credit a list of users"
     )
     async def creditlist(self, ctx, *, credit_msg: str=None):
         if ctx.author.id != self.bot.config['discord']['owner_id']:
@@ -1893,7 +1934,9 @@ class Admin(commands.Cog):
 
     @commands.is_owner()
     @admin.command(
-        hidden=True, usage='credit <user> <amount> <coin> <server>', description='Credit a user'
+        hidden=True,
+        usage="credit <user> <amount> <coin> <server>",
+        description="Credit a user with amount of a coin/token"
     )
     async def credit(self, ctx, member_id: str, amount: str, coin: str, user_server: str = "DISCORD"):
         user_server = user_server.upper()
@@ -1989,55 +2032,11 @@ class Admin(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='purge <item> <number>', description='Purge some items')
-    async def purge(self, ctx, item: str, numbers: int = 100):
-        item = item.upper()
-        if item not in ["MESSAGE"]:
-            msg = f"{ctx.author.mention}, nothing to do. ITEM not exist!"
-            await ctx.reply(msg)
-            return
-        elif item == "MESSAGE":
-            # purgeg message
-            if numbers <= 0 or numbers >= 10 ** 6:
-                msg = f"{ctx.author.mention}, nothing to do with <=0 or a million."
-                await ctx.reply(msg)
-            else:
-                start = time.time()
-                purged_items = await self.purge_msg(numbers)
-                if purged_items >= 0:
-                    msg = f"{ctx.author.mention}, successfully purged `{item}` {str(purged_items)}. "\
-                        f"Time taken: {str(time.time() - start)}s.."
-                    await ctx.reply(msg)
-                else:
-                    msg = f"{ctx.author.mention}, internal error."
-                    await ctx.reply(msg)
-
-    @commands.is_owner()
-    @admin.command(hidden=True, usage='restore <item> <number>', description='Purge some items')
-    async def restore(self, ctx, item: str, numbers: int = 100):
-        item = item.upper()
-        if item not in ["MESSAGE"]:
-            msg = f"{ctx.author.mention}, nothing to do. ITEM not exist!"
-            await ctx.reply(msg)
-            return
-        elif item == "MESSAGE":
-            # purgeg message
-            if numbers <= 0 or numbers >= 10 ** 6:
-                msg = f"{ctx.author.mention}, nothing to do with <=0 or a million."
-                await ctx.reply(msg)
-            else:
-                start = time.time()
-                purged_items = await self.restore_msg(numbers)
-                if purged_items >= 0:
-                    msg = f"{ctx.author.mention}, successfully restored `{item}` {str(purged_items)}. "\
-                        f"Time taken: {str(time.time() - start)}s.."
-                    await ctx.reply(msg)
-                else:
-                    msg = f"{ctx.author.mention}, internal error."
-                    await ctx.reply(msg)
-
-    @commands.is_owner()
-    @admin.command(hidden=True, usage='baluser <user>', description='Check user balances')
+    @admin.command(
+        hidden=True,
+        usage="baluser <user>",
+        description="Check a user's balances"
+    )
     async def baluser(self, ctx, member_id: str, user_server: str = "DISCORD"):
         if member_id.upper() == "SWAP":
             member_id = member_id.upper()
@@ -2184,7 +2183,11 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='pending', description='Check pending things')
+    @admin.command(
+        hidden=True,
+        usage="pending",
+        description="Check pending things"
+    )
     async def pending(self, ctx):
         ts = datetime.utcnow()
         embed = disnake.Embed(title='Pending Actions', timestamp=ts)
@@ -2202,7 +2205,11 @@ class Admin(commands.Cog):
         return
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='withdraw <coin>', description='Enable/Disable withdraw for a coin')
+    @admin.command(
+        hidden=True,
+        usage="withdraw <coin/token>",
+        description="Enable/Disable withdraw for a coin/token"
+    )
     async def withdraw(self, ctx, coin: str):
         coin_name = coin.upper()
         command = "withdraw"
@@ -2234,7 +2241,11 @@ class Admin(commands.Cog):
                 self.bot.coin_name_list = coin_list_name
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='tip  <coin>', description='Enable/Disable tip for a coin')
+    @admin.command(
+        hidden=True,
+        usage="tip <coin/token>",
+        description="Enable/Disable tip for a coin/token"
+    )
     async def tip(self, ctx, coin: str):
         coin_name = coin.upper()
         command = "tip"
@@ -2266,7 +2277,11 @@ class Admin(commands.Cog):
                 self.bot.coin_name_list = coin_list_name
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='partydrop <coin>', description='Enable/Disable /partydrop for a coin')
+    @admin.command(
+        hidden=True,
+        usage="partydrop <coin/token>",
+        description="Enable/Disable /partydrop for a coin/token"
+    )
     async def partydrop(self, ctx, coin: str):
         coin_name = coin.upper()
         command = "partydrop"
@@ -2298,7 +2313,11 @@ class Admin(commands.Cog):
                 self.bot.coin_name_list = coin_list_name
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='quickdrop <coin>', description='Enable/Disable /quickdrop for a coin')
+    @admin.command(
+        hidden=True,
+        usage="quickdrop <coin/token>",
+        description="Enable/Disable /quickdrop for a coin/token"
+    )
     async def quickdrop(self, ctx, coin: str):
         coin_name = coin.upper()
         command = "quickdrop"
@@ -2330,7 +2349,11 @@ class Admin(commands.Cog):
                 self.bot.coin_name_list = coin_list_name
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='talkdrop <coin>', description='Enable/Disable /talkdrop for a coin')
+    @admin.command(
+        hidden=True,
+        usage="talkdrop <coin/token>",
+        description="Enable/Disable /talkdrop for a coin/token"
+    )
     async def talkdrop(self, ctx, coin: str):
         coin_name = coin.upper()
         command = "talkdrop"
@@ -2362,7 +2385,11 @@ class Admin(commands.Cog):
                 self.bot.coin_name_list = coin_list_name
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='enablecoin <coin>', description='Enable/Disable a coin')
+    @admin.command(
+        hidden=True,
+        usage="enablecoin <coin/token>",
+        description="Enable/Disable a coin/token"
+    )
     async def enablecoin(self, ctx, coin: str):
         coin_name = coin.upper()
         command = "enable"
@@ -2413,7 +2440,11 @@ class Admin(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='deposit  <coin>', description='Enable/Disable deposit for a coin')
+    @admin.command(
+        hidden=True,
+        usage="deposit <coin/token>",
+        description="Enable/Disable deposit for a coin/token"
+    )
     async def deposit(self, ctx, coin: str):
         coin_name = coin.upper()
         command = "deposit"
@@ -2473,7 +2504,11 @@ class Admin(commands.Cog):
         await ctx.reply(f"```{str_obj.getvalue()}```")
 
     @commands.is_owner()
-    @admin.command(hidden=True, usage='create', description='Create an address')
+    @admin.command(
+        hidden=True,
+        usage="create [option]",
+        description="Create an address erc-20, trc-20, xtz, near, vet, uuid"
+    )
     async def create(self, ctx, token: str):
         if token.upper() not in ["ERC-20", "TRC-20", "XTZ", "NEAR", "VET", "UUID"]:
             await ctx.reply(f"{ctx.author.mention}, only with ERC-20 and TRC-20.")
@@ -2572,7 +2607,6 @@ class Admin(commands.Cog):
     def cog_unload(self):
         # Ensure the task is stopped when the cog is unloaded.
         self.auto_purge_old_message.cancel()
-
 
 def setup(bot):
     bot.add_cog(Admin(bot))

@@ -25,7 +25,8 @@ class Stats(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT COUNT(*) AS numb_tip, 
+                    sql = """
+                    SELECT COUNT(*) AS numb_tip, 
                     SUM(real_amount) AS amount_tip, 
                     (SELECT `date` FROM `user_balance_mv` 
                     WHERE `token_name`=%s ORDER BY `id` DESC LIMIT 1) AS last_tip 

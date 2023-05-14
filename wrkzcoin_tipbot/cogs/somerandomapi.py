@@ -22,7 +22,7 @@ class SomeRandomAPI(commands.Cog):
         self.bot = bot
         self.utils = Utils(self.bot)
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
-        self.poweredby = "https://some-random-api.com/"
+        self.poweredby = "https://some-random-api.com"
         # animal
         self.some_random_api_path_animal = "some_random_api/animal/"
 
@@ -31,7 +31,8 @@ class SomeRandomAPI(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `some_random_api_fact` 
+                    sql = """
+                    INSERT INTO `some_random_api_fact` 
                     (`name`, `fact`, `requested_by_uid`, `requested_by_name`, `requested_time`) 
                     VALUES (%s, %s, %s, %s, %s)
                     """
@@ -47,7 +48,8 @@ class SomeRandomAPI(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `some_random_api_joke` 
+                    sql = """
+                    INSERT INTO `some_random_api_joke` 
                     (`joke`, `requested_by_uid`, `requested_by_name`, `requested_time`) 
                     VALUES (%s, %s, %s, %s)
                     """
@@ -66,7 +68,8 @@ class SomeRandomAPI(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `some_random_api_animal` 
+                    sql = """
+                    INSERT INTO `some_random_api_animal` 
                     (`image_url`, `local_path`, `sha256`, `jsondump`, 
                     `requested_by_uid`, `requested_by_name`, `inserted_date`) 
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -85,7 +88,8 @@ class SomeRandomAPI(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `some_random_api_animal` 
+                    sql = """
+                    SELECT * FROM `some_random_api_animal` 
                     WHERE `image_url`=%s LIMIT 1 """
                     await cur.execute(sql, image_url)
                     result = await cur.fetchone()
@@ -102,7 +106,7 @@ class SomeRandomAPI(commands.Cog):
     async def fetch_image(self, image_url: str, saved_path: str, timeout):
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+                'User-Agent': self.bot.config['selenium_setting']['user_agent']
             }
             async with aiohttp.ClientSession() as session:
                 async with session.get(image_url, headers=headers, timeout=timeout) as response:
@@ -126,7 +130,7 @@ class SomeRandomAPI(commands.Cog):
     async def fetch_sra(self, url, timeout):
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+                'User-Agent': self.bot.config['selenium_setting']['user_agent']
             }
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers, timeout=timeout) as response:
@@ -178,7 +182,7 @@ class SomeRandomAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         try:
-            url = "https://some-random-api.com/animal/" + name
+            url = self.poweredby + "/animal/" + name
             fetch = await self.fetch_sra(url, 16)
             if fetch:
                 if "image" in fetch:
@@ -245,7 +249,7 @@ class SomeRandomAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         try:
-            url = "https://some-random-api.com/facts/" + name
+            url = self.poweredby + "/facts/" + name
             fetch = await self.fetch_sra(url, 16)
             if fetch:
                 if "fact" in fetch:
@@ -302,7 +306,7 @@ class SomeRandomAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         try:
-            url = "https://some-random-api.com/img/" + name
+            url = self.poweredby + "/img/" + name
             fetch = await self.fetch_sra(url, 16)
             if fetch:
                 if "link" in fetch:
@@ -358,7 +362,7 @@ class SomeRandomAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         try:
-            url = "https://some-random-api.com/joke"
+            url = self.poweredby + "/joke"
             fetch = await self.fetch_sra(url, 16)
             if fetch:
                 if "joke" in fetch:

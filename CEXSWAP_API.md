@@ -36,5 +36,18 @@ First of all, you need to get a unique API key from TipBot by doing Direct Messa
   {"success": true, "sell": "10,000", "sell_token": "WRKZ", "get": "956,782.68", "for_token": "DEGO", "price_impact_percent": 0.0, "message": "Successfully traded! Get 956,782.68 DEGO from selling 10,000 WRKZ Ref: JDQCMWXJMVJZAABI", "error": null, "time": 1675655061}
   ```
 
+  * withdraw
+
+  ```
+  curl --header "Authorization: xxx" \
+  --request POST \
+  --data '{"method": "withdraw", "params": [{"amount": "1.69", "address": "xxxxxx", "coin": "coin_name"}], "id": 99}' \
+  https://tipbot-private-api.cexswap.cc
+  ```
+
+  ```
+  {"success": true, "data": {"hash": "......"}, "error": null, "id": 99, "time": 1684138746}
+  ```
+
 #### Other note:
 Bot will reject your selling through API if you are not inside our Discord Guild. This is to easier troubleshooting in case there is any issue.

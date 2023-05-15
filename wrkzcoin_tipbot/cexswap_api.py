@@ -25,7 +25,7 @@ cexswap_count_api_usage
 
 from Bot import truncate, text_to_num, logchanbot
 import store
-from cogs.utils import num_format_coin
+from cogs.utils import num_format_coin, get_all_coin_names
 
 
 app = FastAPI(
@@ -537,7 +537,8 @@ async def get_summary_detail(
     slug: str, request: Request
 ):
     """
-    slug: coin name or pool pairs. Example: WRKZ, WRKZ-DEGO
+    slug: coin name or pool pairs. Example: WRKZ, WRKZ-DEGO\n
+    Get CEXSwap market summary including liquidity, rate, minimum, maxium
     """
     if config['cexswap_api']['api_enable'] != 1:
         return {
@@ -675,6 +676,9 @@ async def get_summary_detail(
 async def get_summary(
     request: Request
 ):
+    """
+    Get CEXSwap market summary including liquidity, rate, etc
+    """
     if config['cexswap_api']['api_enable'] != 1:
         return {
             "success": False,
@@ -749,6 +753,56 @@ async def get_summary(
             "result": data,
             "time": int(time.time())
         }
+
+@app.get("/withdraw_coins")
+async def get_withdraw_list(
+    request: Request
+):
+    """
+    List all possible coins to withdraw through API\n
+    Refer to: https://github.com/wrkzcoin/TipBot/blob/development/CEXSWAP_API.md
+    """
+    if config['cexswap_api']['api_enable'] != 1:
+        return {
+            "success": False,
+            "data": None,
+            "error": "API is currently disabled!",
+            "time": int(time.time())
+        }
+
+    # check cache ...
+    try:
+        data = get_cache_kv(app, config['kv_db']['prefix_cexswap'], key="withdraw_list")
+        if data is not None:
+            return {
+                "success": True,
+                "result": data,
+                "time": int(time.time())
+            }
+        else:
+            all_coin_withdraw = await get_all_coin_names("cexswap_withdraw", 1, 100)
+            app.coin_list = await get_coin_setting()
+            list_coins = {}
+            if len(all_coin_withdraw) > 0:
+                for i in all_coin_withdraw:
+                    min_tx = getattr(getattr(app.coin_list, i), "real_min_tx")
+                    max_tx = getattr(getattr(app.coin_list, i), "real_max_tx")
+                    list_coins[i] = {
+                        "api_withdraw": 1,
+                        "min_amount": truncate(min_tx, 8),
+                        "max_amount": truncate(max_tx, 8),
+                    }
+                try:
+                    set_cache_kv(app, config['kv_db']['prefix_cexswap'], key="withdraw_list", value=list_coins)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+            return {
+                "success": True,
+                "result": list_coins,
+                "time": int(time.time())
+            }
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
 
 if __name__ == "__main__":
     uvicorn.run(

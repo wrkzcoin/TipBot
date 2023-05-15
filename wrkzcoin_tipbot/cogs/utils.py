@@ -154,7 +154,8 @@ def print_color(prt, color: str):
 
 async def get_all_coin_names(
     what: str,
-    value: int
+    value: int,
+    limit: int=25
 ):
     try:
         await store.openConnection()
@@ -163,8 +164,8 @@ async def get_all_coin_names(
                 sql = """
                 SELECT `coin_name` FROM `coin_settings` 
                 WHERE `"""+what+"""`=%s
-                LIMIT 25
-                """
+                LIMIT 
+                """ + str(limit)
                 await cur.execute(sql, value)
                 result = await cur.fetchall()
                 if result:

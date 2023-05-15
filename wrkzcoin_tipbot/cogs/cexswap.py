@@ -2167,7 +2167,7 @@ class ConfirmSell(disnake.ui.View):
             self.stop()
             await inter.response.defer()
 
-class add_liqudity(disnake.ui.Modal):
+class add_liquidity(disnake.ui.Modal):
     def __init__(self, ctx, bot, ticker_1: str, ticker_2: str, owner_userid: str, balances_str, command_mention) -> None:
         self.ctx = ctx
         self.bot = bot
@@ -2447,7 +2447,7 @@ class add_liquidity_btn(disnake.ui.View):
             return
         ticker = self.pool_name.split("/")
         await inter.response.send_modal(
-                modal=add_liqudity(inter, self.bot, ticker[0], ticker[1], self.owner_id, self.balances_str, self.command_mention))
+                modal=add_liquidity(inter, self.bot, ticker[0], ticker[1], self.owner_id, self.balances_str, self.command_mention))
 
     @disnake.ui.button(label="Accept", style=disnake.ButtonStyle.green, custom_id="cexswap_acceptliquidity_btn")
     async def accept_click(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
@@ -2697,6 +2697,7 @@ class Cexswap(commands.Cog):
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
         self.cache_sold_notify = TTLCache(maxsize=20000, ttl=60.0)
+        self.withdraw_tx = TTLCache(maxsize=2048, ttl=300.0) # key = user_id + coin => time
 
         self.botLogChan = None
         self.enable_logchan = True
@@ -6325,7 +6326,477 @@ class Cexswap(commands.Cog):
                                 await call_cexswap_api(find_user['user_id'], find_user['user_server'], method, json.dumps(full_payload))
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
-                            if method == "sell":
+                            if method == "withdraw":
+                                # tipping_in_progress
+                                if find_user['user_id'] in self.bot.tipping_in_progress and \
+                                    int(time.time()) - self.bot.tipping_in_progress[find_user['user_id']] < 30:
+                                    result = {
+                                        "success": False,
+                                        "error": "You have another transaction in progress!",
+                                        "time": int(time.time())
+                                    }
+                                    return web.json_response(result, status=500)
+                                # tx_in_progress
+                                if find_user['user_id'] in self.bot.tx_in_progress and \
+                                    int(time.time()) - self.bot.tx_in_progress[find_user['user_id']] < 30:
+                                    result = {
+                                        "success": False,
+                                        "error": "You have another transaction in progress!",
+                                        "time": int(time.time())
+                                    }
+                                    return web.json_response(result, status=500)
+                                if len(params) > 1:
+                                    result = {
+                                        "success": False,
+                                        "data": None,
+                                        "error": "Currently, only one coin is allow!",
+                                        "id": id_call,
+                                        "time": int(time.time())
+                                    }
+                                    return web.json_response(result, status=200)
+                                elif len(params) == 1:
+                                    w_param = params[0]
+                                    coin_name = w_param['coin'].upper()
+                                    address = w_param['address']
+                                    extra = ""
+                                    extra_option = ""
+                                    try:
+                                        extra = w_param['extra']
+                                        extra_option = extra
+                                    except Exception:
+                                        pass
+                                    if not hasattr(self.bot.coin_list, coin_name):
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": f"{coin_name} doesn't exist with us!",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+
+                                    if getattr(getattr(self.bot.coin_list, coin_name), "enable_withdraw") != 1:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": f"{coin_name}: withdraw is currently disable.",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+            
+                                    amount = w_param['amount'].replace(",", "")
+                                    amount = text_to_num(amount)
+                                    if amount is None or amount <= 0:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": "Invalid given amount!",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+                                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                                    net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                                    type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                                    is_withdraw = getattr(getattr(self.bot.coin_list, coin_name), "cexswap_withdraw")
+                                    min_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tx")
+                                    max_tx = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tx")
+
+                                    NetFee = getattr(getattr(self.bot.coin_list, coin_name), "real_withdraw_fee")
+                                    tx_fee = getattr(getattr(self.bot.coin_list, coin_name), "tx_fee")
+                                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+
+                                    token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                                    contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                                    fee_limit = getattr(getattr(self.bot.coin_list, coin_name), "fee_limit")
+                                    get_deposit = await self.wallet_api.sql_get_userwallet(
+                                        find_user['user_id'], coin_name, net_name, type_coin, SERVER_BOT, 0
+                                    )
+                                    if get_deposit is None:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": "Internal error during getting account information!",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+
+                                    wallet_address = get_deposit['balance_wallet_address']
+                                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                        wallet_address = get_deposit['paymentid']
+                                    elif type_coin in ["XRP"]:
+                                        wallet_address = get_deposit['destination_tag']
+                                    if tx_fee is None:
+                                        tx_fee = NetFee
+
+                                    if is_withdraw != 1:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": f"{coin_name} is not enable for API withdraw!",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+                                    if amount < min_tx or min_tx > max_tx:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": f"Amount withdraw not in range minimum {str(min_tx)} and maximum {str(max_tx)}.",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+
+                                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                    if height is None:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": f"Error getting blockchain information (height).",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+                                    amount = float(amount)
+                                    userdata_balance = await self.wallet_api.user_balance(
+                                        find_user['user_id'], coin_name, wallet_address, type_coin,
+                                        height, deposit_confirm_depth, SERVER_BOT
+                                    )
+                                    actual_balance = float(userdata_balance['adjust'])
+                                    # If balance 0, no need to check anything
+                                    if actual_balance <= 0:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": f"Insufficient balance to do such withdrw.",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+                                    elif amount > actual_balance:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": f"Insufficient balance to do such withdrw.",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+                                    elif amount + NetFee > actual_balance:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": f"Insufficient balance to do such withdrw (with fee).",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        return web.json_response(result, status=500)
+                                    # Ok withdraw
+                                    try:
+                                        key_withdraw = find_user['user_id'] + "_" + coin_name
+                                        if key_withdraw in self.withdraw_tx and \
+                                            int(time.time()) - self.withdraw_tx[key_withdraw] < 60:
+                                            result = {
+                                                "success": False,
+                                                "data": None,
+                                                "error": f"You have too recent withdraw of {coin_name}.",
+                                                "id": id_call,
+                                                "time": int(time.time())
+                                            }
+                                            return web.json_response(result, status=500)
+                                        else:
+                                            self.withdraw_tx[key_withdraw] = int(time.time())
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                    equivalent_usd = ""
+                                    amount_in_usd = 0.0
+                                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                                    if price_with:
+                                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                            per_unit = per_unit['price']
+                                            amount_in_usd = float(Decimal(amount) * Decimal(per_unit))
+                                            if amount_in_usd >= 0.01:
+                                                equivalent_usd = " ~ {:,.2f}$".format(amount_in_usd)
+                                            elif amount_in_usd >= 0.0001:
+                                                equivalent_usd = " ~ {:,.4f}$".format(amount_in_usd)
+                                    # add time tag
+                                    self.bot.tx_in_progress[find_user['user_id']] = int(time.time())
+                                    if type_coin == "NANO":
+                                        valid_address = await self.wallet_api.nano_validate_address(coin_name, address)
+                                        if not valid_address is True:
+                                            result = {
+                                                "success": False,
+                                                "data": None,
+                                                "error": f"Invalid address {address}.",
+                                                "id": id_call,
+                                                "time": int(time.time())
+                                            }
+                                            try:
+                                                del self.bot.tx_in_progress[find_user['user_id']]
+                                            except Exception:
+                                                pass
+                                            return web.json_response(result, status=500)
+                                        else:
+                                            main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+                                            send_tx = await self.wallet_api.send_external_nano(
+                                                main_address, find_user['user_id'], amount, address, coin_name, coin_decimal
+                                            )
+                                            if send_tx:
+                                                tx_hash = send_tx['block']
+                                                explorer_link = self.utils.get_explorer_link(coin_name, tx_hash)
+                                                result = {
+                                                    "success": True,
+                                                    "data": {"hash": tx_hash},
+                                                    "error": None,
+                                                    "id": id_call,
+                                                    "time": int(time.time())
+                                                }
+                                                await log_to_channel(
+                                                    "withdraw",
+                                                    f"[{SERVER_BOT}/API] <@{find_user['user_id']}> "\
+                                                    f"successfully withdrew {num_format_coin(amount)} "\
+                                                    f"{token_display}{equivalent_usd}.{explorer_link}"
+                                                )
+                                                try:
+                                                    del self.bot.tx_in_progress[find_user['user_id']]
+                                                    get_user = self.bot.get_user(int(find_user['user_id']))
+                                                    if get_user is not None:
+                                                        await get_user.send("You executed API/withdraw amount {} {}{} to {}.{} "\
+                                                                            "If you haven't done that, please change your API immediately and report to us.".format(
+                                                                                num_format_coin(amount), token_display, equivalent_usd, address, explorer_link
+                                                                            ))
+                                                except Exception:
+                                                    pass
+                                                return web.json_response(result, status=200)
+                                            else:
+                                                result = {
+                                                    "success": False,
+                                                    "data": None,
+                                                    "error": f"Internal error!",
+                                                    "id": id_call,
+                                                    "time": int(time.time())
+                                                }
+                                                await log_to_channel(
+                                                    "withdraw",
+                                                    f"[{SERVER_BOT}/API] 🔴 User <@{find_user['user_id']}> failed to withdraw "\
+                                                    f"{num_format_coin(amount)} "\
+                                                    f"{token_display}{equivalent_usd} to address {address}."
+                                                )
+                                                try:
+                                                    del self.bot.tx_in_progress[find_user['user_id']]
+                                                except Exception:
+                                                    pass
+                                                return web.json_response(result, status=500)
+                                    elif type_coin == "XLM":
+                                        url = getattr(getattr(self.bot.coin_list, coin_name), "http_address")
+                                        main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+                                        if address == main_address:
+                                            # can not send
+                                            result = {
+                                                "success": False,
+                                                "data": None,
+                                                "error": f"You can't send to this address {address}!",
+                                                "id": id_call,
+                                                "time": int(time.time())
+                                            }
+                                            return web.json_response(result, status=500)
+                                        if coin_name != "XLM":  # in case of asset
+                                            issuer = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                                            asset_code = getattr(getattr(self.bot.coin_list, coin_name), "header")
+                                            check_asset = await self.wallet_api.check_xlm_asset(
+                                                url, asset_code, issuer, address, find_user['user_id'], SERVER_BOT
+                                            )
+                                            if check_asset is False:
+                                                result = {
+                                                    "success": False,
+                                                    "data": None,
+                                                    "error": f"You can't send to this address {address}!",
+                                                    "id": id_call,
+                                                    "time": int(time.time())
+                                                }
+                                                return web.json_response(result, status=500)
+                                        self.bot.tx_in_progress[find_user['user_id']] = int(time.time())
+                                        wallet_host = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
+                                        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                        withdraw_keypair = decrypt_string(getattr(getattr(self.bot.coin_list, coin_name), "walletkey"))
+                                        asset_ticker = getattr(getattr(self.bot.coin_list, coin_name), "header")
+                                        asset_issuer = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                                        send_tx = await self.wallet_api.send_external_xlm(
+                                            url, withdraw_keypair, find_user['user_id'],
+                                            amount, address, coin_decimal, SERVER_BOT,
+                                            coin_name, NetFee, asset_ticker, asset_issuer,
+                                            90, extra_option
+                                        )
+                                        if send_tx:
+                                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
+                                            result = {
+                                                "success": True,
+                                                "data": {"hash": send_tx},
+                                                "error": None,
+                                                "id": id_call,
+                                                "time": int(time.time())
+                                            }
+                                            await log_to_channel(
+                                                "withdraw",
+                                                f"[{SERVER_BOT}/API] <@{find_user['user_id']}> "\
+                                                f"successfully withdrew {num_format_coin(amount)} "\
+                                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                            )
+                                            try:
+                                                del self.bot.tx_in_progress[find_user['user_id']]
+                                                get_user = self.bot.get_user(int(find_user['user_id']))
+                                                if get_user is not None:
+                                                    await get_user.send("You executed API/withdraw amount {} {}{} to {}.{} "\
+                                                                        "If you haven't done that, please change your API immediately and report to us.".format(
+                                                                            num_format_coin(amount), token_display, equivalent_usd, address, explorer_link
+                                                                        ))
+                                            except Exception:
+                                                pass
+                                            return web.json_response(result, status=200)
+                                        else:
+                                            result = {
+                                                "success": False,
+                                                "data": None,
+                                                "error": f"Internal error!",
+                                                "id": id_call,
+                                                "time": int(time.time())
+                                            }
+                                            await log_to_channel(
+                                                "withdraw",
+                                                f"[{SERVER_BOT}/API] 🔴 User <@{find_user['user_id']}> failed to withdraw "\
+                                                f"{num_format_coin(amount)} "\
+                                                f"{token_display}{equivalent_usd} to address {address}."
+                                            )
+                                            try:
+                                                del self.bot.tx_in_progress[find_user['user_id']]
+                                            except Exception:
+                                                pass
+                                            return web.json_response(result, status=500)
+                                    elif type_coin == "BTC":
+                                        send_tx = await self.wallet_api.send_external_doge(
+                                            find_user['user_id'], amount, address, coin_name, 0, NetFee, SERVER_BOT
+                                        )  # tx_fee=0
+                                        if send_tx:
+                                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
+                                            result = {
+                                                "success": True,
+                                                "data": {"hash": send_tx},
+                                                "error": None,
+                                                "id": id_call,
+                                                "time": int(time.time())
+                                            }
+                                            await log_to_channel(
+                                                "withdraw",
+                                                f"[{SERVER_BOT}/API] <@{find_user['user_id']}> "\
+                                                f"successfully withdrew {num_format_coin(amount)} "\
+                                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                            )
+                                            try:
+                                                del self.bot.tx_in_progress[find_user['user_id']]
+                                                get_user = self.bot.get_user(int(find_user['user_id']))
+                                                if get_user is not None:
+                                                    await get_user.send("You executed API/withdraw amount {} {}{} to {}.{} "\
+                                                                        "If you haven't done that, please change your API immediately and report to us.".format(
+                                                                            num_format_coin(amount), token_display, equivalent_usd, address, explorer_link
+                                                                        ))
+                                            except Exception:
+                                                pass
+                                            return web.json_response(result, status=200)
+                                        else:
+                                            result = {
+                                                "success": False,
+                                                "data": None,
+                                                "error": f"Internal error!",
+                                                "id": id_call,
+                                                "time": int(time.time())
+                                            }
+                                            await log_to_channel(
+                                                "withdraw",
+                                                f"[{SERVER_BOT}/API] 🔴 User <@{find_user['user_id']}> failed to withdraw "\
+                                                f"{num_format_coin(amount)} "\
+                                                f"{token_display}{equivalent_usd} to address {address}."
+                                            )
+                                            try:
+                                                del self.bot.tx_in_progress[find_user['user_id']]
+                                            except Exception:
+                                                pass
+                                            return web.json_response(result, status=500)
+                                    elif type_coin == "XMR" or type_coin == "TRTL-API" or type_coin == "TRTL-SERVICE" or type_coin == "BCN":
+                                        main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+                                        mixin = getattr(getattr(self.bot.coin_list, coin_name), "mixin")
+                                        wallet_address = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
+                                        header = getattr(getattr(self.bot.coin_list, coin_name), "header")
+                                        is_fee_per_byte = getattr(getattr(self.bot.coin_list, coin_name), "is_fee_per_byte")
+                                        send_tx = await self.wallet_api.send_external_xmr(
+                                            type_coin, main_address, find_user['user_id'],
+                                            amount, address, coin_name, coin_decimal,
+                                            tx_fee, NetFee, is_fee_per_byte, mixin,
+                                            SERVER_BOT, wallet_address, header,
+                                            None
+                                        )  # paymentId: None (end)
+                                        if send_tx:
+                                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
+                                            result = {
+                                                "success": True,
+                                                "data": {"hash": send_tx},
+                                                "error": None,
+                                                "id": id_call,
+                                                "time": int(time.time())
+                                            }
+                                            await log_to_channel(
+                                                "withdraw",
+                                                f"[{SERVER_BOT}/API] <@{find_user['user_id']}> "\
+                                                f"successfully withdrew {num_format_coin(amount)} "\
+                                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                            )
+                                            try:
+                                                del self.bot.tx_in_progress[find_user['user_id']]
+                                                get_user = self.bot.get_user(int(find_user['user_id']))
+                                                if get_user is not None:
+                                                    await get_user.send("You executed API/withdraw amount {} {}{} to {}.{} "\
+                                                                        "If you haven't done that, please change your API immediately and report to us.".format(
+                                                                            num_format_coin(amount), token_display, equivalent_usd, address, explorer_link
+                                                                        ))
+                                            except Exception:
+                                                pass
+                                            return web.json_response(result, status=200)
+                                        else:
+                                            result = {
+                                                "success": False,
+                                                "data": None,
+                                                "error": f"Internal error!",
+                                                "id": id_call,
+                                                "time": int(time.time())
+                                            }
+                                            await log_to_channel(
+                                                "withdraw",
+                                                f"[{SERVER_BOT}/API] 🔴 User <@{find_user['user_id']}> failed to withdraw "\
+                                                f"{num_format_coin(amount)} "\
+                                                f"{token_display}{equivalent_usd} to address {address}."
+                                            )
+                                            try:
+                                                del self.bot.tx_in_progress[find_user['user_id']]
+                                            except Exception:
+                                                pass
+                                            return web.json_response(result, status=500)
+                                    else:
+                                        result = {
+                                            "success": False,
+                                            "data": None,
+                                            "error": f"Coin name/type is currently not supported yet.",
+                                            "id": id_call,
+                                            "time": int(time.time())
+                                        }
+                                        try:
+                                            del self.bot.tx_in_progress[find_user['user_id']]
+                                        except Exception:
+                                            pass
+                                        return web.json_response(result, status=500)
+                            elif method == "sell":
                                 # stop it first here.
                                 if find_user['user_id'] in self.bot.tipping_in_progress and \
                                     int(time.time()) - self.bot.tipping_in_progress[find_user['user_id']] < 30:
@@ -6360,7 +6831,7 @@ class Cexswap(commands.Cog):
                                     sell_param['for_token'] = sell_param['for_token'].upper()
                                     amount = sell_param['amount'].replace(",", "")
                                     amount = text_to_num(amount)
-                                    if amount is None or amount == 0:
+                                    if amount is None or amount <= 0:
                                         result = {
                                             "success": False,
                                             "data": None,

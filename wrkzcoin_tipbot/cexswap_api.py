@@ -606,9 +606,33 @@ async def get_summary_detail(
             }
     elif pool_name in get_coins_pairs['pairs']:
         # available pairs
+        # check cache ...
+        try:
+            data = get_cache_kv(app, config['kv_db']['prefix_cexswap'], key="coin_list")
+            if data is not None:
+                app.coin_list = data
+            else:
+                app.coin_list = await get_coin_setting()
+                try:
+                    set_cache_kv(app, config['kv_db']['prefix_cexswap'], key="coin_list", value=app.coin_list)
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         tickers = pool_name.split("/")
         liq_pair = await cexswap_get_pool_details(tickers[0], tickers[1], None)
         if liq_pair is not None:
+            cexswap_min_1 = getattr(getattr(app.coin_list, liq_pair['pool']['ticker_1_name']), "cexswap_min")
+            cexswap_min_2 = getattr(getattr(app.coin_list, liq_pair['pool']['ticker_2_name']), "cexswap_min")
+
+            # generally 10%
+            percent_sell = getattr(getattr(app.coin_list, liq_pair['pool']['ticker_1_name']), "cexswap_max_swap_percent")
+            max_swap_sell_cap_1 = percent_sell * float(liq_pair['pool']['amount_ticker_1'])
+
+            percent_sell = getattr(getattr(app.coin_list, liq_pair['pool']['ticker_2_name']), "cexswap_max_swap_percent")
+            max_swap_sell_cap_2 = percent_sell * float(liq_pair['pool']['amount_ticker_2'])
+
             return {
                 "success": True,
                 "result": {
@@ -619,6 +643,14 @@ async def get_summary_detail(
                     "rate": {
                         liq_pair['pool']['ticker_1_name']: truncate(liq_pair['pool']['amount_ticker_2']/liq_pair['pool']['amount_ticker_1'], 10),
                         liq_pair['pool']['ticker_2_name']: truncate(liq_pair['pool']['amount_ticker_1']/liq_pair['pool']['amount_ticker_2'], 10),
+                    },
+                    "minimum": {
+                        liq_pair['pool']['ticker_1_name']: truncate(cexswap_min_1, 8),
+                        liq_pair['pool']['ticker_2_name']: truncate(cexswap_min_2, 8)
+                    },
+                    "maxium": {
+                        liq_pair['pool']['ticker_1_name']: truncate(max_swap_sell_cap_1, 8),
+                        liq_pair['pool']['ticker_2_name']: truncate(max_swap_sell_cap_2, 8)
                     }
                 },
                 "time": int(time.time())
@@ -723,5 +755,6 @@ if __name__ == "__main__":
         app,
         host="127.0.0.1",
         headers=[("server", config['cexswap_api']['api_name'])],
-        port=config['cexswap_api']['api_port']
+        port=config['cexswap_api']['api_port'],
+        access_log=False
     )

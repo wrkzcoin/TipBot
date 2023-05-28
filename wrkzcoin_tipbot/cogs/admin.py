@@ -45,6 +45,7 @@ import near_api
 
 from cogs.utils import MenuPage
 from cogs.utils import Utils, num_format_coin
+from cogs.wallet import sql_check_minimum_deposit_erc20
 
 Account.enable_unaudited_hdwallet_features()
 
@@ -926,7 +927,7 @@ class Admin(commands.Cog):
                 start_time = time.time()
                 if type_coin == "ERC-20":
                     check_min_deposit = functools.partial(
-                        store.sql_check_minimum_deposit_erc20,
+                        sql_check_minimum_deposit_erc20,
                         self.bot.erc_node_list[net_name],
                         net_name, coin_name,
                         contract, coin_decimal,

@@ -331,12 +331,30 @@ class Guild(commands.Cog):
                             if get_channel and len(list_receivers) > 0:
                                 try:
                                     await get_channel.send(embed=embed)
+                                    await logchanbot(
+                                        f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} to {str(len(list_receivers))} "\
+                                        f"for total of {num_format_coin(each_drop['tiptalk_amount'])} {coin_name}."
+                                    )
+                                except disnake.errors.Forbidden:
+                                    try:
+                                        await get_channel.send(content=msg_no_embed)
+                                        await logchanbot(
+                                            f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} to {str(len(list_receivers))} "\
+                                            f"for total of {num_format_coin(each_drop['tiptalk_amount'])} {coin_name}."
+                                        )
+                                    except disnake.errors.Forbidden:
+                                        await logchanbot(
+                                            f"🔴 [ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} to {str(len(list_receivers))} "\
+                                            f" - No permission to send embed / message. Disable talkdrop."
+                                        )
+                                        update_tiptalk = await self.update_activedrop(str(get_guild.id), 0.0, None, None, None, None)
+                                        await get_guild.owner.send(
+                                            "I have no permission to send text/embed in your assigned channel for `talkdrop`. Hence, it's disable now!"
+                                        )
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                 except Exception:
-                                    await get_channel.send(content=msg_no_embed)
-                                await logchanbot(
-                                    f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} to {str(len(list_receivers))} "\
-                                    f"for total of {num_format_coin(each_drop['tiptalk_amount'])} {coin_name}."
-                                )
+                                    traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Update @bot_task_logs

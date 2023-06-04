@@ -693,7 +693,7 @@ class Admin(commands.Cog):
     async def enable_disable_coin(self, coin: str, what: str, toggle: int):
         coin_name = coin.upper()
         what = what.lower()
-        if what not in ["withdraw", "deposit", "tip", "partydrop", "quickdrop", "talkdrop", "enable"]:
+        if what not in ["withdraw", "deposit", "tip", "partydrop", "quickdrop", "talkdrop", "rewardtask", "enable"]:
             return 0
         if what == "withdraw":
             what = "enable_withdraw"
@@ -707,6 +707,8 @@ class Admin(commands.Cog):
             what = "enable_quickdrop"
         elif what == "talkdrop":
             what = "enable_talkdrop"
+        elif what == "rewardtask":
+            what = "enabe_reward_task"
         elif what == "enable":
             what = "enable"
         try:
@@ -2385,6 +2387,42 @@ class Admin(commands.Cog):
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name
 
+    @commands.is_owner()
+    @admin.command(
+        hidden=True,
+        usage="rewardtask <coin/token>",
+        description="Enable/Disable reward task for a coin/token"
+    )
+    async def rewardtask(self, ctx, coin: str):
+        coin_name = coin.upper()
+        command = "rewardtask"
+        if len(self.bot.coin_alias_names) > 0 and coin_name in self.bot.coin_alias_names:
+            coin_name = self.bot.coin_alias_names[coin_name]
+        if not hasattr(self.bot.coin_list, coin_name):
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
+            await ctx.reply(msg)
+            return
+        else:
+            enabe_reward_task = getattr(getattr(self.bot.coin_list, coin_name), "enabe_reward_task")
+            new_value = 1
+            new_text = "enable"
+            if enabe_reward_task == 1:
+                new_value = 0
+                new_text = "disable"
+            toggle = await self.enable_disable_coin(coin_name, command, new_value)
+            if toggle > 0:
+                msg = f"{ctx.author.mention}, **{coin_name}** `{command}` is `{new_text}` now."
+                await ctx.reply(msg)
+            else:
+                msg = f"{ctx.author.mention}, **{coin_name}** `{command}` is `{new_text}` failed to update."
+                await ctx.reply(msg)
+            coin_list = await self.get_coin_setting()
+            if coin_list:
+                self.bot.coin_list = coin_list
+            coin_list_name = await self.get_coin_list_name()
+            if coin_list_name:
+                self.bot.coin_name_list = coin_list_name
+    
     @commands.is_owner()
     @admin.command(
         hidden=True,

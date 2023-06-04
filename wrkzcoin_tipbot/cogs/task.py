@@ -560,8 +560,8 @@ class TaskGuild(commands.Cog):
                 )
                 return
             elif serverinfo['reward_task_channel']:
-                channel = self.bot.get_channel(int(serverinfo['reward_task_channel']))
-                if channel is None:
+                log_channel = self.bot.get_channel(int(serverinfo['reward_task_channel']))
+                if log_channel is None:
                     await ctx.edit_original_message(
                         content=f"{EMOJI_ERROR} {ctx.author.mention}, I could not find log channel for reward task. Please set it again!"
                     )
@@ -697,11 +697,11 @@ class TaskGuild(commands.Cog):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid given amount."
                 await ctx.edit_original_message(content=msg)
                 return
-            # We assume max reward by max_tip / 100
-            elif amount < min_tip or amount > max_tip / 100:
+            # We assume max reward by max_tip / 10
+            elif amount < min_tip or amount > max_tip / 10:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, reward task cannot be smaller than "\
                     f"{num_format_coin(min_tip)} {token_display} "\
-                    f"or bigger than {num_format_coin(max_tip / 100)} {token_display}."
+                    f"or bigger than {num_format_coin(max_tip / 10)} {token_display}."
                 await ctx.edit_original_message(content=msg)
                 return
             # We assume at least guild need to have 100x of reward or depends on guild's population
@@ -716,10 +716,12 @@ class TaskGuild(commands.Cog):
                 get_channel = self.bot.get_channel(int(channel.id))
                 channel_str = str(channel.id)
                 # Test message
-                msg = f"A new task reward set to {num_format_coin(amount)} {token_display}"\
-                    f" by {ctx.author.name}#{ctx.author.discriminator} and message here."
+                task_detail = f"🆕 Reward task created:\n"\
+                    f"Title: {title}\n"\
+                    f"Reward: {num_format_coin(amount)} {coin_name}\n"\
+                    f"Ends: <t:{str(int(time.time() + duration))}:f>"
                 try:
-                    await get_channel.send(msg)
+                    await get_channel.send(task_detail)
                 except Exception:
                     msg = f"{ctx.author.mention}, failed to message channel {channel.mention}. Set reward task denied!"
                     await ctx.edit_original_message(content=msg)
@@ -740,12 +742,12 @@ class TaskGuild(commands.Cog):
                     charged_amount, charged_coin, "ONGOING", SERVER_BOT, self.bot.config['reward_task']['fee_to']
                 )
                 if create_task is not None:
-                    task_detail = f"🆕 Reward task created **{str(create_task)}**:\n"\
+                    task_detail = f"🆕 Reward task created:\n"\
                         f"Title: {title}\n"\
                         f"Reward: {num_format_coin(amount)} {coin_name}\n"\
                         f"Ends: <t:{str(int(time.time() + duration))}:f>"
                     await ctx.edit_original_message(
-                        content=task_detail
+                        content=f"New task created in {channel.mention}!"
                     )
                     await log_to_channel(
                         "reward",
@@ -770,7 +772,7 @@ class TaskGuild(commands.Cog):
         ctx,
         ref_id: int
     ):
-        await ctx.response.send_message(f"{ctx.author.mention}, loading task ...")
+        await ctx.response.send_message(f"{ctx.author.mention}, loading task ...", ephemeral=True)
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/task close", int(time.time())))
@@ -794,6 +796,8 @@ class TaskGuild(commands.Cog):
                 )
                 return
             else:
+                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                log_channel = self.bot.get_channel(int(serverinfo['reward_task_channel']))
                 closing_task = await self.close_task(str(ctx.guild.id), ref_id)
                 if closing_task is True:
                     await ctx.edit_original_message(content=f"{ctx.author.mention}, successfully closed task {str(ref_id)} - {get_task['title']}!")
@@ -803,6 +807,8 @@ class TaskGuild(commands.Cog):
                         f"successfully closed a new task reward {str(ref_id)} at guild {ctx.guild.id} / {ctx.guild.name}!",
                         self.bot.config['discord']['reward_webhook']
                     )
+                    if serverinfo['reward_task_channel'] and log_channel is not None:
+                        await log_channel.send(f"{ctx.author.mention} successfully closed task {str(ref_id)} - {get_task['title']}!")
                     return
                 else:
                     await ctx.edit_original_message(content=f"{ctx.author.mention}, internal error during closing task!")

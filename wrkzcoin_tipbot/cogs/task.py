@@ -61,6 +61,33 @@ class TaskGuild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
+    async def rejected_task(
+        self, task_id: int, guild_id: str, user_id: str, desc: str, screenshot: str,
+        insert_time: int, status: str, by_uid: str
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    INSERT INTO `discord_guild_task_rejected`
+                    (`task_id`, `guild_id`, `user_id`, `description`, `screenshot`, `time`, `status`, `rejected_date`, `rejected_by_uid`)
+                    VALUES
+                    (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+
+                    DELETE FROM `discord_guild_task_completed`
+                    WHERE `task_id`=%s AND `guild_id`=%s AND `user_id`=%s;
+                    """
+                    await cur.execute(sql, (
+                        task_id, guild_id, user_id, desc, screenshot, insert_time, status, int(time.time()), by_uid,
+                        task_id, guild_id, user_id
+                    ))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
     async def pay_task_all(
         self, guild_id: str, amount: float, coin_name: str, coin_decimal: int,
         list_user_ids, contract: str, channel_id: str, user_server: str, task_id: int
@@ -367,7 +394,7 @@ class TaskGuild(commands.Cog):
                 async with conn.cursor() as cur:
                     sql = """
                     SELECT a.*, b.`amount`, b.`coin_name`, b.`created_by_uid`, 
-                    b.`number`, b.`start_time`, b.`end_time`
+                    b.`number`, b.`start_time`, b.`end_time`, b.`title`
                         FROM `discord_guild_task_completed` a
                     INNER JOIN `discord_guild_tasks` b
                         ON a.task_id= b.id
@@ -939,28 +966,40 @@ class TaskGuild(commands.Cog):
                 return
             else:
                 get_tasks = await self.get_a_task_users(ref_id)
-                msg = "Task ID: **{}** ({}) ⏱️ <t:{}:f>.".format(
-                    str(ref_id), a_task['status'], a_task['end_time']
+                msg = "Task ID: **{}** ({}) ⏱️ <t:{}:f>\n⚆ Title: {}".format(
+                    str(ref_id), a_task['status'], a_task['end_time'], a_task['title']
                 )
                 if len(get_tasks) > 0:
                     pending = []
                     paid = []
+                    pending_no_mention = []
+                    paid_no_mention = []
                     for i in get_tasks:
                         if i['status'] == "PENDING":
                             pending.append("<@{}>".format(i['user_id']))
+                            get_u = self.bot.get_user(int(i['user_id']))
+                            if get_u is not None:
+                                pending_no_mention.append("{}#{}".format(get_u.name, get_u.discriminator))
+                            else:
+                                pending_no_mention.append("<@{}>".format(i['user_id']))
                         elif i['status'] == "PAID":
                             paid.append("<@{}>".format(i['user_id']))
+                            get_u = self.bot.get_user(int(i['user_id']))
+                            if get_u is not None:
+                                paid_no_mention.append("{}#{}".format(get_u.name, get_u.discriminator))
+                            else:
+                                paid_no_mention.append("<@{}>".format(i['user_id']))
                     if len(pending) > 0:
-                        msg += " Pending payment: {} user(s).".format(len(pending))
+                        msg += "\n⚆ Pending: {} user(s).".format(len(pending))
                     if len(paid) > 0:
-                        msg += " Paid: {} user(s).".format(len(paid))
+                        msg += "\n⚆ Paid: {} user(s).".format(len(paid))
                     if len(pending) > 0:
-                        msg += "\n\nPending payment user(s): {}".format(
-                            ", ".join(pending)
+                        msg += "\n⚆ Pending payment user(s): {}".format(
+                            ", ".join(pending_no_mention)
                         )
                     if len(paid) > 0:
-                        msg += "\n\nPaid user(s): {}".format(
-                            ", ".join(paid)
+                        msg += "\n⚆ Paid user(s): {}".format(
+                            ", ".join(paid_no_mention)
                         )
                 await ctx.edit_original_message(
                     content=msg)
@@ -1112,6 +1151,100 @@ class TaskGuild(commands.Cog):
                             await ctx.edit_original_message(
                                 content=f"{EMOJI_INFORMATION} {ctx.author.mention}, internal error. Please report!")
                         return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.has_permissions(manage_channels=True)
+    @guild_task.sub_command(
+        name="reject",
+        usage="task reject <ref id> <user>",
+        options=[
+            Option('ref_id', 'ref_id', OptionType.number, required=True),
+            Option('user', 'user', OptionType.user, required=True),
+        ],
+        description="Reject a user from a Task ID."
+    )
+    async def task_reject(
+        self,
+        ctx,
+        ref_id: int,
+        user: disnake.Member
+    ):
+        await ctx.response.send_message(f"{ctx.author.mention}, loading task rejection ...", ephemeral=True)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/task reject", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        try:
+            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo is None:
+                # Let's add some info if server return None
+                await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            if serverinfo['reward_task_channel'] is None:
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set `/task logchan` first!"
+                )
+                return
+            elif serverinfo['reward_task_channel']:
+                channel = self.bot.get_channel(int(serverinfo['reward_task_channel']))
+                if channel is None:
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_ERROR} {ctx.author.mention}, I could not find log channel for reward task. Please set it again!"
+                    )
+                    return
+
+            ref_id = int(ref_id)
+            get_task = await self.get_a_task(str(ctx.guild.id), ref_id)
+            if get_task is None:
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
+                        " Please check with `/task list`")
+                return
+
+            check_task = await self.get_a_task_completing_user(ref_id, str(user.id))
+            if check_task is None:
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention}, that user hasn't completed the task yet. Ask them to `/task complete`")
+                return
+            else:
+                # check if they get paid?
+                if check_task['status'] == "PAID":
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, that user already got paid. Rejection denied!")
+                    return
+                elif check_task['status'] == "CLOSED":
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, can not reject a closed task!")
+                    return
+                else:
+                    # pending
+                    # Check if wrong guild?
+                    if int(check_task['guild_id']) != ctx.guild.id:
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, the task ref **{str(ref_id)}** is not belong to this Guild!")
+                        return
+                    rejecting = await self.rejected_task(
+                        ref_id, str(ctx.guild.id), str(user.id), check_task['description'], check_task['screenshot'],
+                        check_task['time'], check_task['status'], str(ctx.author.id)
+                    )
+                    if rejecting is True:
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, successfully deleted a task by {user.mention} for Task ID: **{str(ref_id)}**.")   
+                        try:
+                            get_user = self.bot.get_user(user.id)
+                            if get_user is not None:
+                                await get_user.send(
+                                    f"Your submitted Task ID: **{str(ref_id)}** - [{check_task['title']}] in Guild {ctx.guild.name} was rejected. You can re-submit.")
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        await channel.send(f"{ctx.author.mention} rejected Task ID: **{str(ref_id)}** - [{check_task['title']}] submitted by user {user.mention}.")
+                    else:
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, internal error during deleting task **{str(ref_id)}** for user {user.mention}.")
+                    return
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1393,6 +1526,11 @@ class TaskGuild(commands.Cog):
                                                     title="Reward task submission",
                                                     description=f"{ctx.author.mention} submitted a reward task proof!",
                                                     timestamp=datetime.now(),
+                                                )
+                                                embed.add_field(
+                                                    name="Task #{}".format(ref_id),
+                                                    value=get_task['title'],
+                                                    inline=False
                                                 )
                                                 embed.add_field(
                                                     name="Count",

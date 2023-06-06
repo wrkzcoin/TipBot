@@ -714,8 +714,9 @@ class TaskGuild(commands.Cog):
             actual_balance = float(userdata_balance['adjust'])
             if actual_balance < charged_amount:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_ERROR} {ctx.author.mention}, your guild doesn't have sufficient "\
-                        f"{charged_coin}. **{num_format_coin(charged_amount)} {charged_coin}** is required to create a reward task."
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, your Guild doesn't have sufficient "\
+                        f"{charged_coin}. **{num_format_coin(charged_amount)} {charged_coin}** is required to create a reward task. "\
+                        "Please deposit with `/guild deposit`"
                 )
                 await log_to_channel(
                     "reward",
@@ -1154,7 +1155,6 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    @commands.has_permissions(manage_channels=True)
     @guild_task.sub_command(
         name="reject",
         usage="task reject <ref id> <user>",
@@ -1162,7 +1162,7 @@ class TaskGuild(commands.Cog):
             Option('ref_id', 'ref_id', OptionType.number, required=True),
             Option('user', 'user', OptionType.user, required=True),
         ],
-        description="Reject a user from a Task ID."
+        description="Reject a user/or yourself from a Task ID."
     )
     async def task_reject(
         self,
@@ -1195,8 +1195,23 @@ class TaskGuild(commands.Cog):
                         content=f"{EMOJI_ERROR} {ctx.author.mention}, I could not find log channel for reward task. Please set it again!"
                     )
                     return
-
             ref_id = int(ref_id)
+            # Check if user has access. If not check if he wants to reject his own
+            permission_granted = False
+            if ctx.author.id == user.id:
+                permission_granted = True
+
+            if permission_granted is False:
+                get_user = ctx.guild.get_member(ctx.author.id)
+                if get_user.guild_permissions['manage_channels'] is True:
+                    permission_granted = True
+            if permission_granted is False:
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, permission denied or you should reject only on your own one!"
+                )
+                await channel.send(f"{ctx.author.mention} tried to reject Task ID: **{str(ref_id)}** submitted by user {user.mention}. Permission denied!")
+                return
+
             get_task = await self.get_a_task(str(ctx.guild.id), ref_id)
             if get_task is None:
                 await ctx.edit_original_message(
@@ -1207,13 +1222,13 @@ class TaskGuild(commands.Cog):
             check_task = await self.get_a_task_completing_user(ref_id, str(user.id))
             if check_task is None:
                 await ctx.edit_original_message(
-                    content=f"{ctx.author.mention}, that user hasn't completed the task yet. Ask them to `/task complete`")
+                    content=f"{ctx.author.mention}, that specific task hasn't completed the task yet. Ask them to `/task complete`")
                 return
             else:
                 # check if they get paid?
                 if check_task['status'] == "PAID":
                     await ctx.edit_original_message(
-                        content=f"{ctx.author.mention}, that user already got paid. Rejection denied!")
+                        content=f"{ctx.author.mention}, the user was already paid. Rejection denied!")
                     return
                 elif check_task['status'] == "CLOSED":
                     await ctx.edit_original_message(
@@ -1235,15 +1250,15 @@ class TaskGuild(commands.Cog):
                             content=f"{ctx.author.mention}, successfully deleted a task by {user.mention} for Task ID: **{str(ref_id)}**.")   
                         try:
                             get_user = self.bot.get_user(user.id)
-                            if get_user is not None:
+                            if get_user is not None and get_user.id != user.id:
                                 await get_user.send(
                                     f"Your submitted Task ID: **{str(ref_id)}** - [{check_task['title']}] in Guild {ctx.guild.name} was rejected. You can re-submit.")
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
-                        await channel.send(f"{ctx.author.mention} rejected Task ID: **{str(ref_id)}** - [{check_task['title']}] submitted by user {user.mention}.")
+                        await channel.send(f"{ctx.author.mention} rejected Task ID: **{str(ref_id)}** - [{check_task['title']}] submitted by {user.mention}.")
                     else:
                         await ctx.edit_original_message(
-                            content=f"{ctx.author.mention}, internal error during deleting task **{str(ref_id)}** for user {user.mention}.")
+                            content=f"{ctx.author.mention}, internal error during deleting task **{str(ref_id)}** for {user.mention}.")
                     return
         except Exception:
             traceback.print_exc(file=sys.stdout)
@@ -1348,7 +1363,7 @@ class TaskGuild(commands.Cog):
                     if actual_balance < amount:
                         await ctx.edit_original_message(
                             content=f"{EMOJI_ERROR} {ctx.author.mention}, your guild doesn't have sufficient "\
-                                f"{coin_name}. Required: **{num_format_coin(amount)} {coin_name}**!"
+                                f"{coin_name}. Required: **{num_format_coin(amount)} {coin_name}**! Please deposit with `/guild deposit`."
                         )
                         await log_to_channel(
                             "reward",
@@ -1625,7 +1640,6 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         await asyncio.sleep(time_lap)
-
 
     @commands.Cog.listener()
     async def on_ready(self):

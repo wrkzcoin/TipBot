@@ -926,7 +926,7 @@ class TaskGuild(commands.Cog):
                 list_tasks = []
                 for c, i in enumerate(get_all_tasks, start=1):
                     list_tasks.append("{}) {} - {} {}. ⏱️ <t:{}:f>\n".format(
-                        i['id'], i['title'][0:20], num_format_coin(i['amount']), i['coin_name'], i['end_time']
+                        i['id'], i['title'][0:256], num_format_coin(i['amount']), i['coin_name'], i['end_time']
                     ))
                 await ctx.edit_original_message(
                     content="{}, list of ongoing reward task(s) in {}:\n\n{}".format(
@@ -940,16 +940,28 @@ class TaskGuild(commands.Cog):
         name="id",
         usage="task id <ref id>",
         options=[
-            Option('ref_id', 'ref_id', OptionType.number, required=True)
+            Option('ref_id', 'ref_id', OptionType.number, required=True),
+            Option('user', 'user', OptionType.user, required=False),
         ],
         description="Check a task ID."
     )
     async def task_id(
         self,
         ctx,
-        ref_id: int
+        ref_id: int,
+        user: disnake.Member=None
     ):
-        await ctx.response.send_message(f"{ctx.author.mention}, loading task ...")
+        if user is None:
+            await ctx.response.send_message(f"{ctx.author.mention}, loading task ...")
+        else:
+            await ctx.response.send_message(f"{ctx.author.mention}, loading task ...", ephemeral=True)
+            if ctx.author.id != user.id:
+                get_user = ctx.guild.get_member(ctx.author.id)
+                if get_user.guild_permissions.manage_channels is False:
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, permission denied! You can only check yours!")
+                    return
+            
         # anyone can check
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -967,45 +979,73 @@ class TaskGuild(commands.Cog):
                 return
             else:
                 get_tasks = await self.get_a_task_users(ref_id)
-                msg = "Task ID: **{}** ({}) ⏱️ <t:{}:f>\n⚆ Title: {}\n⚆ Reward: {} {}".format(
-                    str(ref_id), a_task['status'], a_task['end_time'], a_task['title'], 
-                    num_format_coin(a_task['amount']), a_task['coin_name']
-                )
-                if len(get_tasks) > 0:
-                    pending = []
-                    paid = []
-                    pending_no_mention = []
-                    paid_no_mention = []
-                    for i in get_tasks:
-                        if i['status'] == "PENDING":
-                            pending.append("<@{}>".format(i['user_id']))
-                            get_u = self.bot.get_user(int(i['user_id']))
-                            if get_u is not None:
-                                pending_no_mention.append("{}#{}".format(get_u.name, get_u.discriminator))
-                            else:
-                                pending_no_mention.append("<@{}>".format(i['user_id']))
-                        elif i['status'] == "PAID":
-                            paid.append("<@{}>".format(i['user_id']))
-                            get_u = self.bot.get_user(int(i['user_id']))
-                            if get_u is not None:
-                                paid_no_mention.append("{}#{}".format(get_u.name, get_u.discriminator))
-                            else:
-                                paid_no_mention.append("<@{}>".format(i['user_id']))
-                    if len(pending) > 0:
-                        msg += "\n⚆ Pending: {} user(s).".format(len(pending))
-                    if len(paid) > 0:
-                        msg += "\n⚆ Paid: {} user(s).".format(len(paid))
-                    if len(pending) > 0:
-                        msg += "\n⚆ Pending payment user(s): {}".format(
-                            ", ".join(pending_no_mention)
+                if user is None:
+                    msg = "Task ID: **{}** ({}) ⏱️ <t:{}:f>\n⚆ Title: {}\n⚆ Reward: {} {}".format(
+                        str(ref_id), a_task['status'], a_task['end_time'], a_task['title'], 
+                        num_format_coin(a_task['amount']), a_task['coin_name']
+                    )
+                    if len(get_tasks) > 0:
+                        pending = []
+                        paid = []
+                        pending_no_mention = []
+                        paid_no_mention = []
+                        for i in get_tasks:
+                            if i['status'] == "PENDING":
+                                pending.append("<@{}>".format(i['user_id']))
+                                get_u = self.bot.get_user(int(i['user_id']))
+                                if get_u is not None:
+                                    pending_no_mention.append("{}#{}".format(get_u.name, get_u.discriminator))
+                                else:
+                                    pending_no_mention.append("<@{}>".format(i['user_id']))
+                            elif i['status'] == "PAID":
+                                paid.append("<@{}>".format(i['user_id']))
+                                get_u = self.bot.get_user(int(i['user_id']))
+                                if get_u is not None:
+                                    paid_no_mention.append("{}#{}".format(get_u.name, get_u.discriminator))
+                                else:
+                                    paid_no_mention.append("<@{}>".format(i['user_id']))
+                        if len(pending) > 0:
+                            msg += "\n⚆ Pending: {} user(s).".format(len(pending))
+                        if len(paid) > 0:
+                            msg += "\n⚆ Paid: {} user(s).".format(len(paid))
+                        if len(pending) > 0:
+                            msg += "\n⚆ Pending payment user(s): {}".format(
+                                ", ".join(pending_no_mention)
+                            )
+                        if len(paid) > 0:
+                            msg += "\n⚆ Paid user(s): {}".format(
+                                ", ".join(paid_no_mention)
+                            )
+                    await ctx.edit_original_message(
+                        content=msg)
+                else:
+                    check_task = await self.get_a_task_completing_user(ref_id, str(user.id))
+                    if check_task is None:
+                        await ctx.edit_original_message(
+                            content=f"{ctx.author.mention}, that user hasn't completed the task yet. Ask them to `/task complete`")
+                        return
+                    else:
+                        embed = disnake.Embed(
+                            title="Reward task submission",
+                            description=f"Proof submission by {user.mention}",
+                            timestamp=datetime.fromtimestamp(check_task['time']),
                         )
-                    if len(paid) > 0:
-                        msg += "\n⚆ Paid user(s): {}".format(
-                            ", ".join(paid_no_mention)
+                        embed.add_field(
+                            name="Task #{}".format(ref_id),
+                            value=check_task['title'],
+                            inline=False
                         )
-                await ctx.edit_original_message(
-                    content=msg)
-                return
+                        embed.add_field(
+                            name="Total paid",
+                            value=a_task['num_paid'],
+                            inline=True
+                        )
+                        embed.set_footer(text="Status: {}".format(
+                            check_task['status']
+                        ))
+                        embed.set_image(url=self.bot.config['reward_task']['url_screenshot'] + check_task['screenshot'])
+                        await ctx.edit_original_message(
+                            content=None, embed=embed)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -1261,7 +1301,7 @@ class TaskGuild(commands.Cog):
                             task_channel = self.bot.get_channel(int(check_task['channel_id']))
                             if task_channel is not None:
                                 await task_channel.send(f"{ctx.author.mention} rejected Task ID: **{str(ref_id)}** - [{check_task['title']}] "\
-                                                        f"submitted by {user.mention}. {user.mention} can still re-submit.")
+                                                        f"submitted by {user.mention} <t:{check_task['time']}:f>. {user.mention} can still re-submit.")
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                         await channel.send(f"{ctx.author.mention} rejected Task ID: **{str(ref_id)}** - [{check_task['title']}] submitted by {user.mention}.")
@@ -1636,7 +1676,7 @@ class TaskGuild(commands.Cog):
                                 channel = self.bot.get_channel(int(i['channel_id']))
                                 if channel is not None:
                                     try:
-                                        await channel.send(f"Task ID: {str(i['id'])} expired!{user_paying}")
+                                        await channel.send(f"Task ID: **{str(i['id'])}** - [{i['title']}] expired!{user_paying}")
                                         serverinfo = await store.sql_info_by_server(i['guild_id'])
                                         if serverinfo['reward_task_channel']:
                                             get_log_chan = self.bot.get_channel(int(serverinfo['reward_task_channel']))

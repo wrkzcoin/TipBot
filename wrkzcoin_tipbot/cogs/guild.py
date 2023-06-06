@@ -1424,7 +1424,7 @@ class Guild(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
         elif subc == "CANCEL":
             get_user = ctx.guild.get_member(ctx.author.id)
-            if get_user.guild_permissions['manage_channels'] is False:
+            if get_user.guild_permissions.manage_channels is False:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have permission to cancel current raffle."
                 await ctx.edit_original_message(content=msg)
             if get_raffle is None:

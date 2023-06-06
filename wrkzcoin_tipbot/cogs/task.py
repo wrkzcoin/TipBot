@@ -394,7 +394,7 @@ class TaskGuild(commands.Cog):
                 async with conn.cursor() as cur:
                     sql = """
                     SELECT a.*, b.`amount`, b.`coin_name`, b.`created_by_uid`, 
-                    b.`number`, b.`start_time`, b.`end_time`, b.`title`
+                    b.`number`, b.`start_time`, b.`end_time`, b.`title`, `b`.`channel_id`
                         FROM `discord_guild_task_completed` a
                     INNER JOIN `discord_guild_tasks` b
                         ON a.task_id= b.id
@@ -967,8 +967,9 @@ class TaskGuild(commands.Cog):
                 return
             else:
                 get_tasks = await self.get_a_task_users(ref_id)
-                msg = "Task ID: **{}** ({}) ⏱️ <t:{}:f>\n⚆ Title: {}".format(
-                    str(ref_id), a_task['status'], a_task['end_time'], a_task['title']
+                msg = "Task ID: **{}** ({}) ⏱️ <t:{}:f>\n⚆ Title: {}\n⚆ Reward: {} {}".format(
+                    str(ref_id), a_task['status'], a_task['end_time'], a_task['title'], 
+                    num_format_coin(a_task['amount']), a_task['coin_name']
                 )
                 if len(get_tasks) > 0:
                     pending = []
@@ -1203,7 +1204,7 @@ class TaskGuild(commands.Cog):
 
             if permission_granted is False:
                 get_user = ctx.guild.get_member(ctx.author.id)
-                if get_user.guild_permissions['manage_channels'] is True:
+                if get_user.guild_permissions.manage_channels is True:
                     permission_granted = True
             if permission_granted is False:
                 await ctx.edit_original_message(
@@ -1253,6 +1254,14 @@ class TaskGuild(commands.Cog):
                             if get_user is not None and get_user.id != user.id:
                                 await get_user.send(
                                     f"Your submitted Task ID: **{str(ref_id)}** - [{check_task['title']}] in Guild {ctx.guild.name} was rejected. You can re-submit.")
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                        # message assigned channel
+                        try:
+                            task_channel = self.bot.get_channel(int(check_task['channel_id']))
+                            if task_channel is not None:
+                                await task_channel.send(f"{ctx.author.mention} rejected Task ID: **{str(ref_id)}** - [{check_task['title']}] "\
+                                                        f"submitted by {user.mention}. {user.mention} can still re-submit.")
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                         await channel.send(f"{ctx.author.mention} rejected Task ID: **{str(ref_id)}** - [{check_task['title']}] submitted by {user.mention}.")

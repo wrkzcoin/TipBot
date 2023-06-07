@@ -38,6 +38,7 @@ class TaskGuild(commands.Cog):
         self.uploaded_accept = self.bot.config['reward_task']['screenshot_allowed']
         self.uploaded_storage = self.bot.config['reward_task']['path_screenshot']
         self.url_screenshot = self.bot.config['reward_task']['url_screenshot']
+        self.list_all_tasks = {}
 
     async def insert_joining(
         self, task_id: int, guild_id: str, user_id: str, desc: str, screenshot: str
@@ -836,6 +837,18 @@ class TaskGuild(commands.Cog):
                         f"successfully created a new task reward with {coin_name} at guild {ctx.guild.id} / {ctx.guild.name}!\n\n{task_detail}",
                         self.bot.config['discord']['reward_webhook']
                     )
+                    list_tasks = await self.get_list_tasks("ONGOING")
+                    if len(list_tasks) > 0:
+                        # update self.list_all_tasks
+                        new_tasks = {}
+                        for i in list_tasks:
+                            if i['guild_id'] in new_tasks.keys():
+                                new_tasks[i['guild_id']][i['id']] = i['title']
+                            else:
+                                new_tasks[i['guild_id']] = {}
+                                new_tasks[i['guild_id']][i['id']] = i['title']
+                        self.list_all_tasks = new_tasks.copy()
+                        del new_tasks
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -890,6 +903,18 @@ class TaskGuild(commands.Cog):
                     )
                     if serverinfo['reward_task_channel'] and log_channel is not None:
                         await log_channel.send(f"{ctx.author.mention} successfully closed task {str(ref_id)} - {get_task['title']}!")
+                    list_tasks = await self.get_list_tasks("ONGOING")
+                    if len(list_tasks) > 0:
+                        # update self.list_all_tasks
+                        new_tasks = {}
+                        for i in list_tasks:
+                            if i['guild_id'] in new_tasks.keys():
+                                new_tasks[i['guild_id']][i['id']] = i['title']
+                            else:
+                                new_tasks[i['guild_id']] = {}
+                                new_tasks[i['guild_id']][i['id']] = i['title']
+                        self.list_all_tasks = new_tasks.copy()
+                        del new_tasks
                     return
                 else:
                     await ctx.edit_original_message(content=f"{ctx.author.mention}, internal error during closing task!")
@@ -925,8 +950,8 @@ class TaskGuild(commands.Cog):
             else:
                 list_tasks = []
                 for c, i in enumerate(get_all_tasks, start=1):
-                    list_tasks.append("{}) {} - {} {}. ⏱️ <t:{}:f>\n".format(
-                        i['id'], i['title'][0:256], num_format_coin(i['amount']), i['coin_name'], i['end_time']
+                    list_tasks.append("{}) <#{}> {} - {} {}. ⏱️ <t:{}:f>\n".format(
+                        i['id'], i['channel_id'], i['title'][0:256], num_format_coin(i['amount']), i['coin_name'], i['end_time']
                     ))
                 await ctx.edit_original_message(
                     content="{}, list of ongoing reward task(s) in {}:\n\n{}".format(
@@ -1649,6 +1674,19 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @task_pay_all.autocomplete("ref_id")
+    @task_reject.autocomplete("ref_id")
+    @task_pay.autocomplete("ref_id")
+    @task_complete.autocomplete("ref_id")
+    @task_close.autocomplete("ref_id")
+    @task_id.autocomplete("ref_id")
+    async def task_id_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        if self.list_all_tasks.get(str(inter.guild.id)) is None or len(self.list_all_tasks.get(str(inter.guild.id))) == 0:
+            return [disnake.OptionChoice(name="(N/A) No task in this Guild", value=0)]
+        else:
+            return [disnake.OptionChoice(name="Task " + str(k) + ": " + v[0:168], value=k) for k, v in self.list_all_tasks[str(inter.guild.id)].items() if string.lower() in v.lower()]
+
     @tasks.loop(seconds=20.0)
     async def check_guild_reward_tasks(self):
         time_lap = 20  # seconds
@@ -1661,6 +1699,17 @@ class TaskGuild(commands.Cog):
         try:
             list_tasks = await self.get_list_tasks("ONGOING")
             if len(list_tasks) > 0:
+                # update self.list_all_tasks
+                new_tasks = {}
+                for i in list_tasks:
+                    if i['guild_id'] in new_tasks.keys():
+                        new_tasks[i['guild_id']][i['id']] = i['title']
+                    else:
+                        new_tasks[i['guild_id']] = {}
+                        new_tasks[i['guild_id']][i['id']] = i['title']
+                self.list_all_tasks = new_tasks.copy()
+                del new_tasks
+
                 # if already expired
                 for i in list_tasks:
                     if i['end_time'] < int(time.time()):

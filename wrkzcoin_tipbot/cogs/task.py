@@ -1566,7 +1566,11 @@ class TaskGuild(commands.Cog):
                     await ctx.edit_original_message(
                         content=f"{ctx.author.mention}, the task ref {str(ref_id)} is not belong to this Guild!")
                     return
-
+                # execute only to the assigned channel
+                if int(get_task['channel_id']) != ctx.channel.id:
+                    await ctx.edit_original_message(
+                        content=f"{ctx.author.mention}, the task completion for Task ID **{str(ref_id)}** must be executed in <#{get_task['channel_id']}>!")
+                    return
                 check_task = await self.get_a_task_completing_user(ref_id, str(ctx.author.id))
                 if check_task is not None:
                     await ctx.edit_original_message(

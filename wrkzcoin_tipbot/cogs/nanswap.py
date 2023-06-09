@@ -635,8 +635,8 @@ class Nanswap(commands.Cog):
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, fetching limit error. Try again later!"
                 await ctx.edit_original_message(content=msg)
                 return
-            elif truncate(amount, 12) < (get_limit['min'] is not None and truncate(Decimal(get_limit['min']), 12)) or \
-                (get_limit['max'] is not None and truncate(amount, 12) > truncate(Decimal(get_limit['max']), 12)):
+            elif truncate(amount, 12) < (get_limit.get('min') is not None and truncate(Decimal(get_limit['min']), 12)) or \
+                (get_limit.get('max') is not None and truncate(amount, 12) > truncate(Decimal(get_limit['max']), 12)):
                 max_limit = str(get_limit['max'])
                 if get_limit['max'] is None:
                     max_limit = "unlimited"

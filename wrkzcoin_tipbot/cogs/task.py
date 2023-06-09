@@ -951,7 +951,7 @@ class TaskGuild(commands.Cog):
                 list_tasks = []
                 for c, i in enumerate(get_all_tasks, start=1):
                     list_tasks.append("{}) <#{}> {} - {} {}. ⏱️ <t:{}:f>\n".format(
-                        i['id'], i['channel_id'], i['title'][0:256], num_format_coin(i['amount']), i['coin_name'], i['end_time']
+                        i['id'], i['channel_id'], disnake.utils.escape_markdown(i['title'][0:256]), num_format_coin(i['amount']), i['coin_name'], i['end_time']
                     ))
                 await ctx.edit_original_message(
                     content="{}, list of ongoing reward task(s) in {}:\n\n{}".format(
@@ -1689,7 +1689,10 @@ class TaskGuild(commands.Cog):
         if self.list_all_tasks.get(str(inter.guild.id)) is None or len(self.list_all_tasks.get(str(inter.guild.id))) == 0:
             return [disnake.OptionChoice(name="(N/A) No task in this Guild", value=0)]
         else:
-            return [disnake.OptionChoice(name="Task " + str(k) + ": " + v[0:168], value=k) for k, v in self.list_all_tasks[str(inter.guild.id)].items() if string.lower() in v.lower()]
+            return [disnake.OptionChoice(
+                name="Task " + str(k) + ": " + v[0:90] if len("Task " + str(k) + ": " + v) <= 100 else "Task " + str(k) + ": " + v[0:80] + " ...",
+                value=k) for k, v in self.list_all_tasks[str(inter.guild.id)].items() if string.lower() in v.lower()
+            ]
 
     @tasks.loop(seconds=20.0)
     async def check_guild_reward_tasks(self):

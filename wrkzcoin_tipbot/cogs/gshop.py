@@ -104,6 +104,19 @@ class GShop(commands.Cog):
                             # Message User, Message Owner
                             if not role.is_assignable():
                                 await logchanbot(f"[GSHOP] TipBot has no permission to assign role `{role.name}` for order `{each_order['item_id']}` in Guild `{each_order['guild_id']}`.")
+                                expiring = await self.set_expired_role_item(each_order['id'])
+                                if expiring is True:
+                                    try:
+                                        await member.send("Your role purchased item_id: `{}` in Guild `{}` is expired.".format(each_order['item_id'], guild.name))
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                    try:
+                                        await guild.owner.send(
+                                            "Please fix! TipBot has no permission to assign role `{}`! User `{}#{}` s' purchased role item_id: `{}` in Guild `{}` is expired.".format(
+                                            role.name, member.name, member.discriminator, each_order['item_id'], guild.name
+                                        ))
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                 continue
                             if member is None:
                                 await logchanbot(f"[GSHOP] can not find member id {str(each_order['ordered_by_uid'])} in Guild {str(each_order['guild_id'])}. Set him/her to expired!")

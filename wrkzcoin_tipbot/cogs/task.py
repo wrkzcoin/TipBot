@@ -39,6 +39,7 @@ class TaskGuild(commands.Cog):
         self.uploaded_storage = self.bot.config['reward_task']['path_screenshot']
         self.url_screenshot = self.bot.config['reward_task']['url_screenshot']
         self.list_all_tasks = {}
+        self.list_guild_complete_tasks = {}
 
     async def insert_joining(
         self, task_id: int, guild_id: str, user_id: str, desc: str, screenshot: str
@@ -429,6 +430,29 @@ class TaskGuild(commands.Cog):
                     await cur.execute(sql, (
                         id_task, "PENDING"
                     ))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def get_all_non_paid_users(
+        self, status: str="ONGOING"
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT a.*, b.`amount`, b.`coin_name`, b.`created_by_uid`, 
+                    b.`number`, b.`start_time`, b.`end_time`
+                        FROM `discord_guild_task_completed` a
+                    INNER JOIN `discord_guild_tasks` b
+                        ON a.task_id= b.id
+                    WHERE b.`status`=%s
+                    """
+                    await cur.execute(sql, (status))
                     result = await cur.fetchall()
                     if result:
                         return result
@@ -847,8 +871,19 @@ class TaskGuild(commands.Cog):
                             else:
                                 new_tasks[i['guild_id']] = {}
                                 new_tasks[i['guild_id']][i['id']] = i['title']
-                        self.list_all_tasks = new_tasks.copy()
-                        del new_tasks
+
+                    list_non_paid_users = await self.get_all_non_paid_users()
+                    if len(list_non_paid_users) > 0:
+                        # update self.list_guild_complete_tasks
+                        guild_tasks = {}
+                        for i in list_non_paid_users:
+                            if i['task_id'] in guild_tasks.keys():
+                                guild_tasks[i['task_id']].append(int(i['user_id']))
+                            else:
+                                guild_tasks[i['task_id']] = []
+                                guild_tasks[i['task_id']].append(int(i['user_id']))
+                        self.list_guild_complete_tasks = guild_tasks.copy()
+                        del guild_tasks
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -915,6 +950,19 @@ class TaskGuild(commands.Cog):
                                 new_tasks[i['guild_id']][i['id']] = i['title']
                         self.list_all_tasks = new_tasks.copy()
                         del new_tasks
+
+                    list_non_paid_users = await self.get_all_non_paid_users()
+                    if len(list_non_paid_users) > 0:
+                        # update self.list_guild_complete_tasks
+                        guild_tasks = {}
+                        for i in list_non_paid_users:
+                            if i['task_id'] in guild_tasks.keys():
+                                guild_tasks[i['task_id']].append(int(i['user_id']))
+                            else:
+                                guild_tasks[i['task_id']] = []
+                                guild_tasks[i['task_id']].append(int(i['user_id']))
+                        self.list_guild_complete_tasks = guild_tasks.copy()
+                        del guild_tasks
                     return
                 else:
                     await ctx.edit_original_message(content=f"{ctx.author.mention}, internal error during closing task!")
@@ -1681,7 +1729,6 @@ class TaskGuild(commands.Cog):
     @task_pay_all.autocomplete("ref_id")
     @task_reject.autocomplete("ref_id")
     @task_pay.autocomplete("ref_id")
-    @task_complete.autocomplete("ref_id")
     @task_close.autocomplete("ref_id")
     @task_id.autocomplete("ref_id")
     async def task_id_autocomp(self, inter: disnake.CommandInteraction, string: str):
@@ -1693,6 +1740,25 @@ class TaskGuild(commands.Cog):
                 name="Task " + str(k) + ": " + v[0:90] if len("Task " + str(k) + ": " + v) <= 100 else "Task " + str(k) + ": " + v[0:80] + " ...",
                 value=k) for k, v in self.list_all_tasks[str(inter.guild.id)].items() if string.lower() in v.lower()
             ]
+
+    @task_complete.autocomplete("ref_id")
+    async def task_complete_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        if self.list_all_tasks.get(str(inter.guild.id)) is None or len(self.list_all_tasks.get(str(inter.guild.id))) == 0:
+            return [disnake.OptionChoice(name="(N/A) No task in this Guild", value=0)]
+        else:
+            tmp_task = {}
+            if len(self.list_all_tasks[str(inter.guild.id)]) > 0:
+                for k, v in self.list_all_tasks[str(inter.guild.id)].items():
+                    if k in self.list_guild_complete_tasks and inter.author.id not in self.list_guild_complete_tasks[k]:
+                        tmp_task[k] = "Task " + str(k) + ": " + v[0:90] if len("Task " + str(k) + ": " + v) <= 100 else "Task " + str(k) + ": " + v[0:80] + " ..."
+            if len(tmp_task) == 0:
+               return [disnake.OptionChoice(name="(N/A) No task", value=0)]
+            else:
+                return [disnake.OptionChoice(
+                    name=v,
+                    value=k) for k, v in tmp_task.items() if string.lower() in v.lower()
+                ]
 
     @tasks.loop(seconds=20.0)
     async def check_guild_reward_tasks(self):
@@ -1716,6 +1782,19 @@ class TaskGuild(commands.Cog):
                         new_tasks[i['guild_id']][i['id']] = i['title']
                 self.list_all_tasks = new_tasks.copy()
                 del new_tasks
+
+                list_non_paid_users = await self.get_all_non_paid_users()
+                if len(list_non_paid_users) > 0:
+                    # update self.list_guild_complete_tasks
+                    guild_tasks = {}
+                    for i in list_non_paid_users:
+                        if i['task_id'] in guild_tasks.keys():
+                            guild_tasks[i['task_id']].append(int(i['user_id']))
+                        else:
+                            guild_tasks[i['task_id']] = []
+                            guild_tasks[i['task_id']].append(int(i['user_id']))
+                    self.list_guild_complete_tasks = guild_tasks.copy()
+                    del guild_tasks
 
                 # if already expired
                 for i in list_tasks:

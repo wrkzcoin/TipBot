@@ -150,7 +150,7 @@ class Events(commands.Cog):
         self.utils = Utils(self.bot)
 
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
-        self.max_saving_message = 100
+        self.max_saving_message = 10
         self.is_saving_message = False
 
         self.botLogChan = None

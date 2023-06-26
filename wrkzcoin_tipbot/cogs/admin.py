@@ -169,6 +169,24 @@ class Admin(commands.Cog):
             await logchanbot("admin " +str(traceback.format_exc()))
         return None
 
+    async def get_all_addresses(self, coin_name: str, type_coin: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    if type_coin == "BTC":
+                        sql = """
+                        SELECT * FROM `doge_user`
+                        WHERE `coin_name`=%s
+                        """
+                        await cur.execute(sql, coin_name)
+                        result = await cur.fetchall()
+                        if result:
+                            return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
     async def user_balance_multi(
         self, user_id: str, user_server: str, coinlist: list
     ):
@@ -785,6 +803,49 @@ class Admin(commands.Cog):
         return
 
     @commands.is_owner()
+    @admin.command(hidden=True, usage='admin importaddr', description="Import addresses")
+    async def importaddr(self, ctx, coin_name: str):
+        """
+        This is temporary commands.
+        """
+        coin_name = coin_name.upper()
+        if not hasattr(self.bot.coin_list, coin_name):
+            await ctx.reply(f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
+            return
+
+        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        try:
+            if type_coin == "BTC":
+                get_addresses = await self.get_all_addresses(coin_name, type_coin)
+                number = 0
+                if len(get_addresses) > 0:
+                    daemon_addresses = await self.wallet_api.call_doge('listreceivedbyaddress', coin_name, payload='0, true')
+                    if len(daemon_addresses) > 0:
+                        daemon_addresses = [i['address'] for i in daemon_addresses]
+                    else:
+                        daemon_addresses = []
+                    print("Daemon address for {}: {}".format(coin_name, len(daemon_addresses)))
+                    for i in get_addresses:
+                        if i['balance_wallet_address'] in daemon_addresses:
+                            print("Skip importing {} - {}".format(coin_name, i['balance_wallet_address']))
+                            continue
+                        try:
+                            payload = '"{}", "{}", {}'.format(decrypt_string(i['privateKey']), i['user_id'], "true")
+                            importing = await self.wallet_api.call_doge('importprivkey', coin_name, payload=payload)
+                            number += 1
+                            print("{}/{}) Importing {} - {}".format(number, len(get_addresses), coin_name, i['balance_wallet_address']))
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                    await ctx.reply(f"{ctx.author.mention}, completed importing {str(number)} address(es) for {coin_name}.")
+                else:
+                    await ctx.reply(f"{ctx.author.mention}, there's no address to import.")
+            else:
+                await ctx.reply(f"{ctx.author.mention}, Unsupport coin!")
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.is_owner()
     @admin.command(hidden=True, usage='admin dumpthread', description="Dump all threads")
     async def dumpthread(self, ctx):
         try:
@@ -805,8 +866,7 @@ class Admin(commands.Cog):
     async def enableuser(self, ctx, user_id: str, user_server: str="DISCORD"):
         try:
             if user_server.upper() not in ["DISCORD", "TELEGRAM"]:
-                msg = f"{ctx.author.mention}, invalid user_server `{user_server}`."
-                await ctx.reply(msg)
+                await ctx.reply(f"{ctx.author.mention}, invalid user_server `{user_server}`.")
                 return
 
             if user_server.upper() == "DISCORD":

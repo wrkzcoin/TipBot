@@ -703,7 +703,7 @@ class Twitter(commands.Cog):
         channel: disnake.TextChannel,
         twitter_link: str
     ):
-        if not ctx.author.guild_permissions.manage_channels:
+        if ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is False:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you do not have a permission to `/twitter subscribe` here."
             await ctx.response.send_message(msg)
             return
@@ -816,7 +816,7 @@ class Twitter(commands.Cog):
         ctx,
         twitter_link: str
     ):
-        if not ctx.author.guild_permissions.manage_channels:
+        if ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is False:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you do not have a permission to `/twitter unsubscribe` here."
             await ctx.response.send_message(msg)
             return
@@ -886,7 +886,7 @@ class Twitter(commands.Cog):
         self,
         ctx,
     ):
-        if not ctx.author.guild_permissions.manage_channels:
+        if ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is False:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you do not have a permission to `/twitter listsub` here."
             await ctx.response.send_message(msg)
             return

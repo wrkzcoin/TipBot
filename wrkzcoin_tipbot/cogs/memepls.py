@@ -1405,11 +1405,11 @@ class MemePls(commands.Cog):
 
         if ctx.author.id not in self.meme_reviewer and \
             hasattr(ctx, "guild") and hasattr(ctx.guild, "id") \
-            and not ctx.author.guild_permissions.manage_channels:
+            and ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is False:
             await ctx.response.send_message(f"{ctx.author.mention}, permission denied...")
             return
         elif hasattr(ctx, "guild") and hasattr(ctx.guild, "id") and \
-            ctx.author.guild_permissions.manage_channels:
+            ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is True:
             # has permission and public
             await ctx.response.send_message(f"{ctx.author.mention}, checking meme in guild `{ctx.guild.name}`...")
             if meme_id is None:

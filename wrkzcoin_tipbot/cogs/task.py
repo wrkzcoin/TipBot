@@ -1029,8 +1029,7 @@ class TaskGuild(commands.Cog):
         else:
             await ctx.response.send_message(f"{ctx.author.mention}, loading task ...", ephemeral=True)
             if ctx.author.id != user.id:
-                get_user = ctx.guild.get_member(ctx.author.id)
-                if get_user.guild_permissions.manage_channels is False:
+                if ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is False:
                     await ctx.edit_original_message(
                         content=f"{ctx.author.mention}, permission denied! You can only check yours!")
                     return
@@ -1316,8 +1315,7 @@ class TaskGuild(commands.Cog):
                 permission_granted = True
 
             if permission_granted is False:
-                get_user = ctx.guild.get_member(ctx.author.id)
-                if get_user.guild_permissions.manage_channels is True:
+                if ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is True:
                     permission_granted = True
             if permission_granted is False:
                 await ctx.edit_original_message(

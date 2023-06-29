@@ -1339,7 +1339,6 @@ class Guild(commands.Cog):
         ctx, 
         subc: str=None
     ):
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
         await ctx.response.send_message(msg)
 
@@ -1423,10 +1422,10 @@ class Guild(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif subc == "CANCEL":
-            get_user = ctx.guild.get_member(ctx.author.id)
-            if get_user.guild_permissions.manage_channels is False:
+            if ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is False:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have permission to cancel current raffle."
                 await ctx.edit_original_message(content=msg)
+                return
             if get_raffle is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no information of current raffle yet for this guild {ctx.guild.name}!"
                 await ctx.edit_original_message(content=msg)

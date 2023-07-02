@@ -422,12 +422,12 @@ class Tb(commands.Cog):
         user_avatar: str
     ):
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_draw']} command..."
             await ctx.response.send_message(msg)
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute {self.bot.config['command_list']['tb_draw']} command...", ephemeral=True)
             return
         try:
             timeout = 12
@@ -511,12 +511,12 @@ class Tb(commands.Cog):
         user_avatar: str
     ):
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_sketchme']} command..."
             await ctx.response.send_message(msg)
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute {self.bot.config['command_list']['tb_sketchme']} command...", ephemeral=True)
             return
 
         def create_line_drawing_image(img):
@@ -606,7 +606,7 @@ class Tb(commands.Cog):
         user1: str,
         user2: str
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_punch']} command..."
         await ctx.response.send_message(msg)
 
         try:
@@ -639,7 +639,7 @@ class Tb(commands.Cog):
         user1: str,
         user2: str
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_spank']} command..."
         await ctx.response.send_message(msg)
 
         try:
@@ -672,7 +672,7 @@ class Tb(commands.Cog):
         user1: str,
         user2: str
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_slap']} command..."
         await ctx.response.send_message(msg)
 
         try:
@@ -705,7 +705,7 @@ class Tb(commands.Cog):
         user1: str,
         user2: str
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_praise']} command..."
         await ctx.response.send_message(msg)
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -737,7 +737,7 @@ class Tb(commands.Cog):
         user1: str,
         user2: str
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_shoot']} command..."
         await ctx.response.send_message(msg)
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -769,7 +769,7 @@ class Tb(commands.Cog):
         user1: str,
         user2: str
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_kick']} command..."
         await ctx.response.send_message(msg)
 
         try:
@@ -802,7 +802,7 @@ class Tb(commands.Cog):
         user1: str,
         user2: str
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_fistbump']} command..."
         await ctx.response.send_message(msg)
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
@@ -834,7 +834,7 @@ class Tb(commands.Cog):
         user1: str,
         user2: str  # Not used
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_dance']} command..."
         await ctx.response.send_message(msg)
 
         try:
@@ -868,12 +868,12 @@ class Tb(commands.Cog):
         user_avatar: str
     ):
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_firework']} command..."
             await ctx.response.send_message(msg)
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute {self.bot.config['command_list']['tb_firework']} command...", ephemeral=True)
             return
 
         try:
@@ -938,7 +938,7 @@ class Tb(commands.Cog):
                         else:
                             serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                             if serverinfo and serverinfo['is_premium'] == 0 and self.bot.config['funcmd_public']['firework'] == 0:
-                                msg = f"{ctx.author.mention}, /tb firework is not enable here."
+                                msg = f"{ctx.author.mention}, {self.bot.config['command_list']['tb_firework']} is not enable here."
                                 await ctx.edit_original_message(content=msg)
                                 await logchanbot(
                                     f"🎆 {ctx.guild.id} / {ctx.guild.name} User `{ctx.author.id}` try to use /tb firework but rejected."
@@ -990,12 +990,12 @@ class Tb(commands.Cog):
         items: str
     ):
         try:
-            msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_spinwheel']} command..."
             await ctx.response.send_message(msg)
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await ctx.response.send_message(
-                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute tb command...", ephemeral=True)
+                f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to execute {self.bot.config['command_list']['tb_spinwheel']} command...", ephemeral=True)
             return
 
         try:
@@ -1049,7 +1049,7 @@ class Tb(commands.Cog):
                 else:
                     serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
                     if serverinfo and serverinfo['is_premium'] == 0 and self.bot.config['funcmd_public']['spin_wheel'] == 0:
-                        msg = f"{ctx.author.mention}, /tb spinwheel is not enable here."
+                        msg = f"{ctx.author.mention}, {self.bot.config['command_list']['tb_spinwheel']} is not enable here."
                         await ctx.edit_original_message(content=msg)
                         await logchanbot(
                             f"🔄 {ctx.guild.id} / {ctx.guild.name} User `{ctx.author.id}` try to use /tb spinwheel but rejected."
@@ -1117,7 +1117,7 @@ class Tb(commands.Cog):
         ctx,
         emoji: str
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing tb command...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['tb_getemoji']} command..."
         await ctx.response.send_message(msg)
 
         try:

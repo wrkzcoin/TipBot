@@ -661,7 +661,7 @@ class TaskGuild(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please ask Guild Owner to set `/task logchan` first!"
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please ask Guild Owner to set {self.bot.config['command_list']['task_logchan']} first!"
                 )
                 return
             elif serverinfo['reward_task_channel']:
@@ -741,7 +741,7 @@ class TaskGuild(commands.Cog):
                 await ctx.edit_original_message(
                     content=f"{EMOJI_ERROR} {ctx.author.mention}, your Guild doesn't have sufficient "\
                         f"{charged_coin}. **{num_format_coin(charged_amount)} {charged_coin}** is required to create a reward task. "\
-                        "Please deposit with `/guild deposit`"
+                        f"Please deposit with {self.bot.config['command_list']['guild_deposit']}"
                 )
                 await log_to_channel(
                     "reward",
@@ -916,7 +916,7 @@ class TaskGuild(commands.Cog):
             if get_task is None:
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
-                        " Please check with `/task list`")
+                        f" Please check with {self.bot.config['command_list']['task_list']}.")
                 await log_to_channel(
                     "reward",
                     f"[REWARD TASK] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
@@ -998,7 +998,7 @@ class TaskGuild(commands.Cog):
             else:
                 list_tasks = []
                 for c, i in enumerate(get_all_tasks, start=1):
-                    list_tasks.append("{}) <#{}> {} - {} {}. ⏱️ <t:{}:f>\n".format(
+                    list_tasks.append("{}) <#{}> {} - Reward: {} {}. ⏱️ <t:{}:f>\n".format(
                         i['id'], i['channel_id'], disnake.utils.escape_markdown(i['title'][0:256]), num_format_coin(i['amount']), i['coin_name'], i['end_time']
                     ))
                 await ctx.edit_original_message(
@@ -1047,7 +1047,7 @@ class TaskGuild(commands.Cog):
             if a_task is None:
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
-                        " Please check with `/task list`")
+                        f" Please check with {self.bot.config['command_list']['task_list']}.")
                 return
             else:
                 get_tasks = await self.get_a_task_users(ref_id)
@@ -1094,7 +1094,8 @@ class TaskGuild(commands.Cog):
                     check_task = await self.get_a_task_completing_user(ref_id, str(user.id))
                     if check_task is None:
                         await ctx.edit_original_message(
-                            content=f"{ctx.author.mention}, that user hasn't completed the task yet. Ask them to `/task complete`")
+                            content=f"{ctx.author.mention}, that user hasn't completed the task yet. "\
+                                f"Ask them to {self.bot.config['command_list']['task_complete']}.")
                         return
                     else:
                         embed = disnake.Embed(
@@ -1150,7 +1151,7 @@ class TaskGuild(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set `/task logchan` first!"
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set {self.bot.config['command_list']['task_logchan']} first!"
                 )
                 return
             elif serverinfo['reward_task_channel']:
@@ -1166,7 +1167,7 @@ class TaskGuild(commands.Cog):
             if get_task is None:
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
-                        " Please check with `/task list`")
+                        f" Please check with {self.bot.config['command_list']['task_list']}.")
                 return
             else:
                 amount = get_task['amount']
@@ -1298,7 +1299,7 @@ class TaskGuild(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set `/task logchan` first!"
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set {self.bot.config['command_list']['task_logchan']} first!"
                 )
                 return
             elif serverinfo['reward_task_channel']:
@@ -1328,13 +1329,14 @@ class TaskGuild(commands.Cog):
             if get_task is None:
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
-                        " Please check with `/task list`")
+                        f" Please check with {self.bot.config['command_list']['task_list']}.")
                 return
 
             check_task = await self.get_a_task_completing_user(ref_id, str(user.id))
             if check_task is None:
                 await ctx.edit_original_message(
-                    content=f"{ctx.author.mention}, that specific task hasn't completed the task yet. Ask them to `/task complete`")
+                    content=f"{ctx.author.mention}, that specific task hasn't completed the task yet. "\
+                        f"Ask them to {self.bot.config['command_list']['task_complete']}.")
                 return
             else:
                 # check if they get paid?
@@ -1414,7 +1416,7 @@ class TaskGuild(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set `/task logchan` first!"
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set {self.bot.config['command_list']['task_logchan']} first!"
                 )
                 return
             elif serverinfo['reward_task_channel']:
@@ -1432,13 +1434,14 @@ class TaskGuild(commands.Cog):
             if get_task is None:
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
-                        " Please check with `/task list`")
+                        f" Please check with {self.bot.config['command_list']['task_list']}.")
                 return
 
             check_task = await self.get_a_task_completing_user(ref_id, str(user.id))
             if check_task is None:
                 await ctx.edit_original_message(
-                    content=f"{ctx.author.mention}, that user hasn't completed the task yet. Ask them to `/task complete`")
+                    content=f"{ctx.author.mention}, that user hasn't completed the task yet. "\
+                        f"Ask them to {self.bot.config['command_list']['task_complete']}.")
                 return
             else:
                 # check if they get paid?
@@ -1483,7 +1486,7 @@ class TaskGuild(commands.Cog):
                     if actual_balance < amount:
                         await ctx.edit_original_message(
                             content=f"{EMOJI_ERROR} {ctx.author.mention}, your guild doesn't have sufficient "\
-                                f"{coin_name}. Required: **{num_format_coin(amount)} {coin_name}**! Please deposit with `/guild deposit`."
+                                f"{coin_name}. Required: **{num_format_coin(amount)} {coin_name}**! Please deposit with {self.bot.config['command_list']['guild_deposit']}."
                         )
                         await log_to_channel(
                             "reward",
@@ -1566,7 +1569,7 @@ class TaskGuild(commands.Cog):
                 serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please ask Guild Owner to set `/task logchan` first!"
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please ask Guild Owner to set {self.bot.config['command_list']['task_logchan']} first!"
                 )
                 return
             elif serverinfo['reward_task_channel']:
@@ -1579,7 +1582,7 @@ class TaskGuild(commands.Cog):
                     await log_to_channel(
                         "reward",
                         f"[REWARD TASK] Failed to find log message in guild {ctx.guild.id} / {ctx.guild.name} "\
-                        f"during `/task complete` by {ctx.author.mention}!",
+                        f"during {self.bot.config['command_list']['task_complete']} by {ctx.author.mention}!",
                         self.bot.config['discord']['reward_webhook']
                     )
                     return
@@ -1592,7 +1595,7 @@ class TaskGuild(commands.Cog):
             if get_task is None:
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
-                        " Please check with `/task list`")
+                        f" Please check with {self.bot.config['command_list']['task_list']}.")
                 await log_to_channel(
                     "reward",
                     f"[REWARD TASK] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\

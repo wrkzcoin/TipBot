@@ -175,7 +175,7 @@ class Guild(commands.Cog):
                             
                             if actual_balance < float(each_drop['tiptalk_amount']):
                                 msg = f"Guild {get_guild.name} runs out of {coin_name}'s balance. "\
-                                    f"Please deposit with `/guild deposit` command."
+                                    f"Please deposit with {self.bot.config['command_list']['guild_deposit']} command."
                                 msg_no_embed = msg
                                 await logchanbot(
                                     f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} runs out of {coin_name} balance."
@@ -1707,8 +1707,8 @@ class Guild(commands.Cog):
                     view = MenuPage(ctx, all_pages, timeout=30, disable_remove=True)
                     view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
                 except Exception:
-                    msg = f"{ctx.author.mention}, internal error when checking /guild balance. Try again later. "\
-                        "If problem still persists, contact TipBot dev."
+                    msg = f"{ctx.author.mention}, internal error when checking {self.bot.config['command_list']['guild_balance']}. "\
+                        "Try again later.  If problem still persists, contact TipBot dev."
                     await ctx.edit_original_message(content=msg)
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(f"[ERROR] /guild balance with {ctx.guild.name} / {ctx.guild.id}")
@@ -1797,7 +1797,7 @@ class Guild(commands.Cog):
         elif amount*100 > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x "\
                 f"reward balance. 100x rewards = {num_format_coin(amount*100)} "\
-                f"{token_display}. Check with `/guild balance`."
+                f"{token_display}. Check with {self.bot.config['command_list']['guild_balance']}."
             await ctx.edit_original_message(content=msg)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
@@ -2328,7 +2328,7 @@ class Guild(commands.Cog):
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. "\
-                f"100x rewards = {num_format_coin(amount*100)} {token_display}. Check with `/guild balance`."
+                f"100x rewards = {num_format_coin(amount*100)} {token_display}. Check with {self.bot.config['command_list']['guild_balance']}."
             await ctx.edit_original_message(content=msg)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
@@ -2571,7 +2571,7 @@ class Guild(commands.Cog):
         elif amount*100 > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x `active drop amount`"\
                 f". 100x rewards = {num_format_coin(amount*100)} {token_display}."\
-                f" Check with `/guild balance`."
+                f" Check with {self.bot.config['command_list']['guild_balance']}."
             await ctx.edit_original_message(content=msg)
             return
         else:
@@ -3177,7 +3177,7 @@ class Guild(commands.Cog):
                         return
 
                     if amount + extra_amount <= 0:
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please topup guild with more **{coin_name}**. __/guild deposit__"
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please topup guild with more **{coin_name}** by {self.bot.config['command_list']['guild_deposit']}"
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -3235,7 +3235,8 @@ class Guild(commands.Cog):
                             pass
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, this guild __{ctx.guild.name}__ has no guild's faucet. "\
-                    f"You can ask Guild'owner to deposit to Guild with __/guild deposit__ and create it with __/guild faucetclaim__."
+                    f"You can ask Guild'owner to deposit to Guild with {self.bot.config['command_list']['guild_deposit']} and "\
+                    f"create it with {self.bot.config['command_list']['guild_faucetclaim']}."
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(
                     f"[{SERVER_BOT}] [ERROR] User {ctx.author.name}#{ctx.author.discriminator} "\

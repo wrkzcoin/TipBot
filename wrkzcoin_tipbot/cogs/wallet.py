@@ -13079,6 +13079,11 @@ class Wallet(commands.Cog):
                             f"{token_display}{equivalent_usd}."
                         )
                 elif type_coin in ["TRC-20", "TRC-10"]:
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "TRX"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, TRX/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     send_tx = None
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
@@ -13347,6 +13352,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "VITE":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "VITE"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, VITE/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     url = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
                     main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -13399,6 +13409,11 @@ class Wallet(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
                 elif type_coin == "XLM":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "XLM"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, XLM/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     url = getattr(getattr(self.bot.coin_list, coin_name), "http_address")
                     main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                     if address == main_address:
@@ -13718,6 +13733,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "ADA":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "ADA"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, ADA/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if not address.startswith("addr1"):
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid address. It should start with `addr1`."
                         await ctx.edit_original_message(content=msg)
@@ -13954,6 +13974,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "XTZ":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "XTZ"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, XTZ/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         url = self.bot.erc_node_list['XTZ']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "XTZ"), "walletkey"))
@@ -14048,6 +14073,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "ZIL":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "ZIL"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, ZIL/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "ZIL"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "ZIL"), "MainAddress")
@@ -14140,6 +14170,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "VET":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "VET"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, VET/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "VET"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "VET"), "MainAddress")
@@ -14230,6 +14265,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "XRP":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "XRP"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, XRP/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         url = self.bot.erc_node_list['XRP']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "XRP"), "walletkey"))
@@ -14316,6 +14356,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "NEAR":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "NEAR"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, NEAR/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         url = self.bot.erc_node_list['NEAR']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "NEAR"), "walletkey"))
@@ -14400,6 +14445,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "SOL" or type_coin == "SPL":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "SOL"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, SOL/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         tx_fee = getattr(getattr(self.bot.coin_list, coin_name), "tx_fee")

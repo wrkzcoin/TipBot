@@ -14945,7 +14945,7 @@ class Wallet(commands.Cog):
                 if update:
                     msg = f"{ctx.author.mention}, you updated your preferred claimed reward to __{coin_name}__. "\
                         f"This preference applies only for TipBot's voting reward."\
-                        f" Type `/claim` without token to see the list of voting websites."
+                        f" Type {self.bot.config['command_list']['claim']} without token to see the list of voting websites."
                     await ctx.edit_original_message(content=msg)
                 else:
                     msg = f'{ctx.author.mention}, internal error!'
@@ -15088,7 +15088,8 @@ class Wallet(commands.Cog):
         if info and info.upper() == "INFO":
             remaining = await self.bot_faucet(ctx, self.bot.faucet_coins) or ''
             msg = f"{ctx.author.mention} {command_mention} balance:\n```{remaining}```Total user claims: **{total_claimed}** times. "\
-                f"Tip me if you want to feed these faucets. Use `/claim` to vote TipBot and get reward."
+                f"Tip me if you want to feed these faucets. "\
+                f"Use {self.bot.config['command_list']['claim']} to vote TipBot and get reward."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -15198,7 +15199,8 @@ class Wallet(commands.Cog):
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed {command_mention} on {last_claim_at}. "\
                             f"Waiting time {time_waiting} for next {command_mention}. Total user claims: **{total_claimed}** times. "\
                             f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. "\
-                            f"Use __/claim__ to vote TipBot and get reward.{extra_take_text}{advert_txt}"
+                            f"Use {self.bot.config['command_list']['claim']} to vote TipBot and get reward."\
+                            f"{extra_take_text}{advert_txt}"
                         await ctx.edit_original_message(content=msg)
                         return
         except Exception:
@@ -15217,7 +15219,9 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using {command_mention}. Alternatively, vote for TipBot to get reward __/claim__.{extra_take_text}{advert_txt}"
+                    f"Wait a few days before using {command_mention}. "\
+                    f"Alternatively, vote for TipBot to get reward {self.bot.config['command_list']['claim']}."\
+                    f"{extra_take_text}{advert_txt}"
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -15234,7 +15238,7 @@ class Wallet(commands.Cog):
                         penalty_at = "<t:{}:f>".format(faucet_penalty['penalty_at'])
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel "\
                             f"{penalty_at}. Waiting time {time_waiting} for next {command_mention} "\
-                            f"and be sure to be the right channel set by the guild. Use /claim "\
+                            f"and be sure to be the right channel set by the guild. Use {self.bot.config['command_list']['claim']} "\
                             f"to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                         await ctx.edit_original_message(content=msg)
                         return
@@ -15338,7 +15342,7 @@ class Wallet(commands.Cog):
                     )
                     msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random {command_mention} "\
                         f"{coin_emoji} {num_format_coin(amount)} {coin_name}. "\
-                        f"Use /claim to vote TipBot and get reward.{extra_take_text}{advert_txt}"
+                        f"Use {self.bot.config['command_list']['claim']} to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(
                         f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
@@ -15351,7 +15355,7 @@ class Wallet(commands.Cog):
             else:
                 try:
                     msg = f"Simulated faucet {coin_emoji} {num_format_coin(amount)} {coin_name}. "\
-                        f"This is a test only. Use without **ticker** to do real faucet claim. Use __/claim__ "\
+                        f"This is a test only. Use without **ticker** to do real faucet claim. Use {self.bot.config['command_list']['claim']} "\
                         f"to vote TipBot and get reward.{advert_txt}"
                     await ctx.edit_original_message(content=msg)
                 except Exception:
@@ -15385,7 +15389,7 @@ class Wallet(commands.Cog):
         ctx,
         coin: str = None
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing __/daily__ ...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['daily']} ..."
         await ctx.response.send_message(msg)
         await self.bot_log()
 
@@ -15411,7 +15415,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']*5:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using __/hourly__ or {command_mention}."
+                    f"Wait a few days before using {self.bot.config['command_list']['hourly']} or {command_mention}."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -15526,7 +15530,7 @@ class Wallet(commands.Cog):
                                 check_claimed['claimed_at'],
                                 style='f'
                             )
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /daily on {last_claim_at}. "\
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed {self.bot.config['command_list']['daily']} on {last_claim_at}. "\
                                 f"Waiting time {time_waiting} for next {command_mention}. "\
                                 f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
                                 f"{advert_txt}"
@@ -15604,7 +15608,8 @@ class Wallet(commands.Cog):
                             )
                             msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got {command_mention} "\
                                 f"{coin_emoji} {num_format_coin(amount)} {coin_name}. "\
-                                f"Use `/claim` to vote TipBot and get reward and more with __/hourly__.{advert_txt}"
+                                f"Use {self.bot.config['command_list']['claim']} to vote TipBot and get reward; "\
+                                f"and more with {self.bot.config['command_list']['hourly']}.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
@@ -15641,7 +15646,7 @@ class Wallet(commands.Cog):
         ctx,
         coin: str = None
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing __/hourly__ ...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['hourly']} ..."
         await ctx.response.send_message(msg)
         await self.bot_log()
 
@@ -15666,7 +15671,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using {command_mention} or __/daily__."
+                    f"Wait a few days before using {command_mention} or {self.bot.config['command_list']['daily']}."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -15781,7 +15786,7 @@ class Wallet(commands.Cog):
                                 check_claimed['claimed_at'],
                                 style='f'
                             )
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /hourly on {last_claim_at}. "\
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed {self.bot.config['command_list']['hourly']} on {last_claim_at}. "\
                                 f"Waiting time {time_waiting} for next {command_mention}. "\
                                 f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
                                 f"{advert_txt}"
@@ -15859,7 +15864,8 @@ class Wallet(commands.Cog):
                             )
                             msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got {command_mention} "\
                                 f"{coin_emoji} {num_format_coin(amount)} {coin_name}. "\
-                                f"Use __/claim__ to vote TipBot and get reward and more with __/daily__.{advert_txt}"
+                                f"Use {self.bot.config['command_list']['claim']} to vote TipBot and get reward; "\
+                                f"and more with {self.bot.config['command_list']['daily']}.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\

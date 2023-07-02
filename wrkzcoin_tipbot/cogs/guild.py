@@ -3126,7 +3126,9 @@ class Guild(commands.Cog):
                     )
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed in this guild "\
                         f"__{ctx.guild.name}__ on {last_duration}. Waiting time {waiting_time}."\
-                        f"{extra_msg} Other reward command __/take__, __/claim__, __/daily__ and __/hourly__."
+                        f"{extra_msg} Other reward command {self.bot.config['command_list']['take']}, "\
+                        f"{self.bot.config['command_list']['claim']}, {self.bot.config['command_list']['daily']} "\
+                        f"and {self.bot.config['command_list']['hourly']}."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -3215,7 +3217,9 @@ class Guild(commands.Cog):
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of "\
                                     f"{coin_emoji}**{num_format_coin(amount + extra_amount)}"\
                                     f" {coin_name}**{equivalent_usd} from __{ctx.guild.name}__.{extra_msg} "\
-                                    f"Other reward command __/take__, __/claim__, __/daily__ and __/hourly__. Invite me to your guild? "\
+                                    f"{self.bot.config['command_list']['take']}, "\
+                                    f"{self.bot.config['command_list']['claim']}, {self.bot.config['command_list']['daily']} "\
+                                    f"and {self.bot.config['command_list']['hourly']}. Invite me to your guild? "\
                                     f"Click on my name and `Add to Server`."
                                 await ctx.edit_original_message(content=msg)
                                 await logchanbot(

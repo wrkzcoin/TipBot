@@ -10845,7 +10845,6 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=60.0)
     async def check_confirming_zil(self):
         time_lap = 5  # seconds
-
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "check_confirming_zil"
@@ -11038,6 +11037,9 @@ class Wallet(commands.Cog):
             return
         await asyncio.sleep(time_lap)
         try:
+            # If main token is disable deposit
+            if getattr(getattr(self.bot.coin_list, "XTZ"), "enable_deposit") == 0:
+                return
             xtz_contracts = await self.get_all_contracts("XTZ", False)
             # Check native
             coin_name = "XTZ"
@@ -11349,10 +11351,11 @@ class Wallet(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `tezos_move_deposit` 
-                        WHERE `notified_confirmation`=%s 
-                        AND `failed_notification`=%s AND `user_server`=%s AND `blockNumber` IS NOT NULL
-                        """
+                    sql = """
+                    SELECT * FROM `tezos_move_deposit` 
+                    WHERE `notified_confirmation`=%s 
+                    AND `failed_notification`=%s AND `user_server`=%s AND `blockNumber` IS NOT NULL
+                    """
                     await cur.execute(sql, ("NO", "NO", SERVER_BOT))
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -11415,7 +11418,6 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=60.0)
     async def check_confirming_tezos(self):
         time_lap = 5  # seconds
-
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "check_confirming_tezos"
@@ -11457,6 +11459,9 @@ class Wallet(commands.Cog):
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
         await asyncio.sleep(time_lap)
+        # If main token is disable deposit
+        if getattr(getattr(self.bot.coin_list, "TRX"), "enable_deposit") == 0:
+            return
         try:
             erc_contracts = await self.get_all_contracts("TRC-20", False)
             if len(erc_contracts) > 0:

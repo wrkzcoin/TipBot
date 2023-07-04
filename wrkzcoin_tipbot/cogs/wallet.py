@@ -395,6 +395,7 @@ async def sql_check_minimum_deposit_erc20(
                     continue
                 real_deposited_balance = deposited_balance / 10 ** coin_decimal
                 if real_deposited_balance >= min_move_deposit:
+                    print("{}/{} - {} having {}.".format(token_name, net_name, each_address['balance_wallet_address'], real_deposited_balance))
                     # Check if there is gas remaining to spend there
                     gas_of_address = await store.http_wallet_getbalance(
                         url, each_address['balance_wallet_address'], None, 64
@@ -10013,9 +10014,12 @@ class Wallet(commands.Cog):
             if len(erc_contracts) > 0:
                 tasks = []
                 for each_c in erc_contracts:
+                    endpoint_url = self.bot.erc_node_list[each_c['net_name']]
+                    if self.bot.erc_node_list.get('{}_WITHDRAW'.format(each_c['net_name'])):
+                        endpoint_url = self.bot.erc_node_list['{}_WITHDRAW'.format(each_c['net_name'])]
                     check_min_deposit = functools.partial(
                         sql_check_minimum_deposit_erc20,
-                        self.bot.erc_node_list[each_c['net_name']],
+                        endpoint_url,
                         each_c['net_name'], each_c['coin_name'],
                         each_c['contract'], each_c['decimal'],
                         each_c['min_move_deposit'], each_c['min_gas_tx'],
@@ -10037,9 +10041,12 @@ class Wallet(commands.Cog):
             if len(main_tokens) > 0:
                 tasks = []
                 for each_c in main_tokens:
+                    endpoint_url = self.bot.erc_node_list[each_c['net_name']]
+                    if self.bot.erc_node_list.get('{}_WITHDRAW'.format(each_c['net_name'])):
+                        endpoint_url = self.bot.erc_node_list['{}_WITHDRAW'.format(each_c['net_name'])]
                     check_min_deposit = functools.partial(
                         sql_check_minimum_deposit_erc20,
-                        self.bot.erc_node_list[each_c['net_name']],
+                        endpoint_url,
                         each_c['net_name'], each_c['coin_name'], None,
                         each_c['decimal'], each_c['min_move_deposit'],
                         each_c['min_gas_tx'], each_c['gas_ticker'],
@@ -13036,10 +13043,12 @@ class Wallet(commands.Cog):
                             )
                         self.withdraw_tx[key_withdraw] = int(time.time())
                         try:
-                            url = self.bot.erc_node_list[net_name]
+                            endpoint_url = self.bot.erc_node_list[net_name]
+                            if self.bot.erc_node_list.get('{}_WITHDRAW'.format(net_name)):
+                                endpoint_url = self.bot.erc_node_list['{}_WITHDRAW'.format(net_name)]
                             chain_id = getattr(getattr(self.bot.coin_list, coin_name), "chain_id")
                             send_tx = await self.send_external_erc20(
-                                url, net_name, str(ctx.author.id), address, amount,
+                                endpoint_url, net_name, str(ctx.author.id), address, amount,
                                 coin_name, coin_decimal, NetFee, SERVER_BOT,
                                 chain_id, contract
                             )
@@ -14030,6 +14039,8 @@ class Wallet(commands.Cog):
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         send_tx = None
+                        if self.bot.erc_node_list.get('XTZ_WITHDRAW'):
+                            url = self.bot.erc_node_list['XTZ_WITHDRAW']
                         if coin_name == "XTZ":
                             send_tx = await self.wallet_api.send_external_xtz(
                                 url, key, str(ctx.author.id), amount, address, coin_name,
@@ -14322,6 +14333,8 @@ class Wallet(commands.Cog):
 
                         issuer = getattr(getattr(self.bot.coin_list, coin_name), "header")
                         currency_code = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                        if self.bot.erc_node_list.get('XRP_WITHDRAW'):
+                            url = self.bot.erc_node_list['XRP_WITHDRAW']
                         send_tx = await self.wallet_api.send_external_xrp(
                             url, key, str(ctx.author.id), address, amount, NetFee, coin_name, issuer,
                             currency_code, coin_decimal, SERVER_BOT
@@ -14411,7 +14424,8 @@ class Wallet(commands.Cog):
                                 view=None
                             )
                         self.withdraw_tx[key_withdraw] = int(time.time())
-
+                        if self.bot.erc_node_list.get('NEAR_WITHDRAW'):
+                            url = self.bot.erc_node_list['NEAR_WITHDRAW']
                         send_tx = await self.wallet_api.send_external_near(
                             url, token_contract, key, str(ctx.author.id), main_address, amount,
                             address, coin_name, coin_decimal, NetFee, SERVER_BOT
@@ -14493,8 +14507,11 @@ class Wallet(commands.Cog):
                             )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
+                        endpoint_url = self.bot.erc_node_list['SOL']
+                        if self.bot.erc_node_list.get('SOL_WITHDRAW'):
+                            endpoint_url = self.bot.erc_node_list['SOL_WITHDRAW']
                         send_tx = await self.wallet_api.send_external_sol(
-                            self.bot.erc_node_list['SOL'],
+                            endpoint_url,
                             str(ctx.author.id), amount, address, coin_name,
                             coin_decimal, tx_fee, NetFee, SERVER_BOT
                         )

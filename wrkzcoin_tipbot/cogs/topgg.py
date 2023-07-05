@@ -188,6 +188,29 @@ class TopGGVote(commands.Cog):
                                 # Check if bot is in that guild, if not post in log chan vote
                                 guild = self.bot.get_guild(int(guild_id))
                                 get_guild = await self.guild_find_by_id(guild_id)
+                                # Check if user in that Guild
+                                if guild and int(user_vote) not in [m.id for m in guild.members]:
+                                    try:
+                                        guild_owner = self.bot.get_user(guild.owner.id)
+                                        try:
+                                            await guild_owner.send(
+                                                f"User <@{user_vote}> / `{user_vote}` voted for your guild {guild.name} "\
+                                                f"at top.gg but he/she's not in your Guild. No reward."
+                                            )
+                                        except Exception:
+                                            pass
+                                        try:
+                                            await log_to_channel(
+                                                "vote",
+                                                f"[{SERVER_BOT}] User <@{user_vote}> voted a guild `{guild_id}` / "\
+                                                f"{guild.name} type `{type_vote}` in top.gg but he/she's not in the Guild. No reward."
+                                            )
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                    return
+
                                 if get_guild['vote_reward_amount'] and get_guild['vote_reward_amount'] > 0:
                                     amount = get_guild['vote_reward_amount']
                                     extra_amount = 0.0

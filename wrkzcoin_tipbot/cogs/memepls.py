@@ -1124,7 +1124,8 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `meme_uploaded` 
+                    sql = """
+                    SELECT * FROM `meme_uploaded` 
                     WHERE `enable`=%s 
                     ORDER BY RAND() LIMIT 1 """
                     await cur.execute(sql, 1)
@@ -1140,7 +1141,8 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `meme_uploaded` 
+                    sql = """
+                    SELECT * FROM `meme_uploaded` 
                     WHERE `enable`=%s AND `owner_userid`=%s 
                     AND `guild_id`=%s 
                     ORDER BY RAND() LIMIT 1 """
@@ -1157,9 +1159,11 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `meme_uploaded` 
+                    sql = """
+                    SELECT * FROM `meme_uploaded` 
                     WHERE `enable`=%s AND `guild_id`=%s 
-                    ORDER BY RAND() LIMIT 1 """
+                    ORDER BY RAND() LIMIT 1
+                    """
                     await cur.execute(sql, (1, guild_id))
                     result = await cur.fetchone()
                     if result:
@@ -1275,60 +1279,6 @@ class MemePls(commands.Cog):
                 view = MemeTip_Button(ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme)
                 view.message = await ctx.original_message()
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
-                await self.meme_update_view(get_meme['key'], get_meme['owner_userid'], str(ctx.author.id), guild_id,
-                                            channel_id, 1)
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-
-    async def meme_view(self, ctx):
-        await self.bot_log()
-        await ctx.response.send_message(f"{ctx.author.mention}, checking random meme...")
-
-        try:
-            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
-                                         str(ctx.author.id), SERVER_BOT, "/memepls view", int(time.time())))
-            await self.utils.add_command_calls()
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-
-        if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-            try:
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
-                if serverinfo and serverinfo['enable_memepls'] == "NO":
-                    if self.enable_logchan:
-                        await self.botLogChan.send(
-                            f'{ctx.author.name} / {ctx.author.id} tried /memepls in {ctx.guild.name} / {ctx.guild.id} which is disable.')
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, /memepls in this guild is disable. You can enable by `/setting memepls`."
-                    await ctx.edit_original_message(content=msg)
-                    return
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-
-        get_meme = await self.get_random_approved_meme()
-        if get_meme is None:
-            await ctx.edit_original_message(
-                content=f"{ctx.author.mention}, could not get one random meme yet. Try again later!")
-            return
-        else:
-            embed = disnake.Embed(
-                title="MEME uploaded by {}".format(get_meme['owner_name']),
-                description=f"You can tip from your balance.",
-                timestamp=datetime.now()
-            )
-            embed.add_field(name="View Count", value=get_meme['number_view'] + 1, inline=False)
-            embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
-            embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
-            embed.set_image(url=self.meme_web_path + get_meme['saved_name'])
-            embed.set_footer(text="Random by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
-            try:
-                view = MemeTip_Button(ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme)
-                view.message = await ctx.original_message()
-                await ctx.edit_original_message(content=None, embed=embed, view=view)
-                guild_id = "DM"
-                channel_id = "DM"
-                if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                    guild_id = ctx.guild.id
-                    channel_id = ctx.channel.id
                 await self.meme_update_view(get_meme['key'], get_meme['owner_userid'], str(ctx.author.id), guild_id,
                                             channel_id, 1)
             except Exception:

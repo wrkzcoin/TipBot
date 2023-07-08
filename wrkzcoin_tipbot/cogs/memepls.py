@@ -335,7 +335,7 @@ class TipOtherCoin(disnake.ui.Modal):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
-                    f"{token_display}** to meme `{self.meme_id}`."
+                    f"{token_display}** to meme `{self.meme_id}` by <@{self.owner_userid}>."
                 await interaction.edit_original_message(content=msg)
                 try:
                     embed = disnake.Embed(
@@ -494,7 +494,7 @@ class MemeTip_Button(disnake.ui.View):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
-                        f"{token_display}** to meme `{self.meme_id}`."
+                        f"{token_display}** to meme `{self.meme_id}` by <@{self.owner_userid}>."
                     await interaction.edit_original_message(content=msg)
                     try:
                         embed = disnake.Embed(
@@ -633,7 +633,7 @@ class MemeTip_Button(disnake.ui.View):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
-                        f"{token_display}** to meme `{self.meme_id}`."
+                        f"{token_display}** to meme `{self.meme_id}` by <@{self.owner_userid}>."
                     await interaction.edit_original_message(content=msg)
                     try:
                         embed = disnake.Embed(
@@ -772,7 +772,7 @@ class MemeTip_Button(disnake.ui.View):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
-                        f"{token_display}** to meme `{self.meme_id}`."
+                        f"{token_display}** to meme `{self.meme_id}` by <@{self.owner_userid}>."
                     await interaction.edit_original_message(content=msg)
                     try:
                         embed = disnake.Embed(
@@ -911,7 +911,7 @@ class MemeTip_Button(disnake.ui.View):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                     msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
-                        f"{token_display}** to meme `{self.meme_id}`."
+                        f"{token_display}** to meme `{self.meme_id}` by <@{self.owner_userid}>."
                     await interaction.edit_original_message(content=msg)
                     try:
                         embed = disnake.Embed(
@@ -1167,7 +1167,18 @@ class MemePls(commands.Cog):
                     await cur.execute(sql, (1, guild_id))
                     result = await cur.fetchone()
                     if result:
-                        return result
+                        sql = """
+                        SELECT SUM(`tipped_amount`) AS `tipped_amount`, `tipped_coin` AS `coin_name`
+                        FROM `meme_tipped`
+                        WHERE `meme_id`=%s
+                        GROUP BY `tipped_coin`
+                        """
+                        await cur.execute(sql, result['key'])
+                        tip_result = await cur.fetchall()
+                        if tip_result:
+                            return {"meme": result, "tipped": tip_result}
+                        else:
+                            return {"meme": result, "tipped": []}
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
@@ -1257,21 +1268,28 @@ class MemePls(commands.Cog):
             guild_id = ctx.guild.id
             channel_id = ctx.channel.id
 
-        get_meme = await self.get_random_approved_meme_guild(guild_id)
-        if get_meme is None:
+        get_meme_data = await self.get_random_approved_meme_guild(guild_id)
+        if get_meme_data is None:
             await ctx.edit_original_message(
                 content=f"{ctx.author.mention}, could not get one random meme here yet. "\
                     "No one uploaded? Try again later!"
                 )
             return
         else:
+            get_meme = get_meme_data['meme']
+            get_tipped = get_meme_data['tipped']
             embed = disnake.Embed(
                 title="MEME uploaded by {}".format(get_meme['owner_name']),
                 description=f"You can tip from your balance.",
                 timestamp=datetime.now()
             )
-            embed.add_field(name="View Count", value=get_meme['number_view'] + 1, inline=False)
-            embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
+            embed.add_field(name="View Count", value=get_meme['number_view'] + 1, inline=True)
+            embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=True)
+            if len(get_tipped) > 0:
+                got_tipped = []
+                for i in get_tipped:
+                    got_tipped.append("{} {}".format(num_format_coin(i['tipped_amount']), i['coin_name']))
+                embed.add_field(name="Received Tips", value="```{}```".format("\n".join(got_tipped)), inline=False)
             embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
             embed.set_image(url=self.meme_web_path + get_meme['saved_name'])
             embed.set_footer(text="Random by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
@@ -1324,8 +1342,8 @@ class MemePls(commands.Cog):
                 description=f"You can tip from your balance.",
                 timestamp=datetime.now()
             )
-            embed.add_field(name="View Count", value=get_meme['number_view'] + 1, inline=False)
-            embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
+            embed.add_field(name="View Count", value=get_meme['number_view'] + 1, inline=True)
+            embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=True)
             embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
             embed.set_image(url=self.meme_web_path + get_meme['saved_name'])
             embed.set_footer(text="Random requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
@@ -1383,8 +1401,8 @@ class MemePls(commands.Cog):
                     embed.add_field(name="Stored File", value=get_meme['saved_name'], inline=False)
                     embed.add_field(name="New URL link", value=self.meme_web_path + get_meme['saved_name'],
                                     inline=False)
-                    embed.add_field(name="View Count", value=get_meme['number_view'], inline=False)
-                    embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
+                    embed.add_field(name="View Count", value=get_meme['number_view'], inline=True)
+                    embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=True)
                     embed.set_thumbnail(url=self.meme_web_path + get_meme['saved_name'])
                     embed.set_footer(
                         text="Reviewing {} by: {}#{}".format(
@@ -1419,8 +1437,8 @@ class MemePls(commands.Cog):
                         value=self.meme_web_path + get_meme['saved_name'],
                         inline=False
                     )
-                    embed.add_field(name="View Count", value=get_meme['number_view'], inline=False)
-                    embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
+                    embed.add_field(name="View Count", value=get_meme['number_view'], inline=True)
+                    embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=True)
                     embed.set_thumbnail(url=self.meme_web_path + get_meme['saved_name'])
                     embed.set_footer(text="Reviewing {} by: {}#{}".format(get_meme['key'], ctx.author.name,
                                                                           ctx.author.discriminator))
@@ -1458,8 +1476,8 @@ class MemePls(commands.Cog):
                         value=self.meme_web_path + get_meme['saved_name'],
                         inline=False
                     )
-                    embed.add_field(name="View Count", value=get_meme['number_view'], inline=False)
-                    embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
+                    embed.add_field(name="View Count", value=get_meme['number_view'], inline=True)
+                    embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=True)
                     embed.set_thumbnail(url=self.meme_web_path + get_meme['saved_name'])
                     embed.set_footer(text="Reviewing {} by: {}#{}".format(get_meme['key'], ctx.author.name,
                                                                           ctx.author.discriminator))
@@ -1490,8 +1508,8 @@ class MemePls(commands.Cog):
                     embed.add_field(name="Stored File", value=get_meme['saved_name'], inline=False)
                     embed.add_field(name="New URL link", value=self.meme_web_path + get_meme['saved_name'],
                                     inline=False)
-                    embed.add_field(name="View Count", value=get_meme['number_view'], inline=False)
-                    embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=False)
+                    embed.add_field(name="View Count", value=get_meme['number_view'], inline=True)
+                    embed.add_field(name="Tip Count", value=get_meme['number_tipped'], inline=True)
                     embed.set_thumbnail(url=self.meme_web_path + get_meme['saved_name'])
                     embed.set_footer(text="Reviewing {} by: {}#{}".format(get_meme['key'], ctx.author.name,
                                                                           ctx.author.discriminator))

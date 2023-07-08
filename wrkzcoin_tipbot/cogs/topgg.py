@@ -187,7 +187,6 @@ class TopGGVote(commands.Cog):
                             if get_guild_by_key and get_guild_by_key == key.strip():
                                 # Check if bot is in that guild, if not post in log chan vote
                                 guild = self.bot.get_guild(int(guild_id))
-                                get_guild = await self.guild_find_by_id(guild_id)
                                 # Check if user in that Guild
                                 if guild and int(user_vote) not in [m.id for m in guild.members]:
                                     try:
@@ -209,181 +208,183 @@ class TopGGVote(commands.Cog):
                                             traceback.print_exc(file=sys.stdout)
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
-                                    return
-
-                                if get_guild['vote_reward_amount'] and get_guild['vote_reward_amount'] > 0:
-                                    amount = get_guild['vote_reward_amount']
-                                    extra_amount = 0.0
-                                    previous_amount = 0.0
-                                    if get_guild['feature_roles'] is not None:
-                                        try:
-                                            member = guild.get_member(int(user_vote))
-                                            if member and member.roles and len(member.roles) > 0:
-                                                for r in member.roles:
-                                                    if str(r.id) in get_guild['feature_roles']:
-                                                        extra_amount = amount * get_guild['feature_roles'][str(r.id)]['guild_vote_multiplied_by'] - amount
-                                                        if extra_amount > previous_amount:
-                                                            previous_amount = extra_amount
-                                                extra_amount = previous_amount
-                                        except Exception:
-                                            traceback.print_exc(file=sys.stdout)
-                                    # Tip
-                                    coin_name = get_guild['vote_reward_coin']
-                                    # Check balance of guild
-                                    net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-                                    type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-                                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                                    contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
-                                    user_from = await self.wallet_api.sql_get_userwallet(
-                                        guild_id, coin_name, net_name, type_coin, SERVER_BOT, 0
-                                    )
-                                    if user_from is None:
-                                        user_from = await self.wallet_api.sql_register_user(
+                                    return web.Response(status=200, text="Thank you anyway!")
+                                elif guild and int(user_vote) in [m.id for m in guild.members]:
+                                    get_guild = await self.guild_find_by_id(guild_id)
+                                    if get_guild['vote_reward_amount'] and get_guild['vote_reward_amount'] > 0:
+                                        amount = get_guild['vote_reward_amount']
+                                        extra_amount = 0.0
+                                        previous_amount = 0.0
+                                        if get_guild['feature_roles'] is not None:
+                                            try:
+                                                member = guild.get_member(int(user_vote))
+                                                if member and member.roles and len(member.roles) > 0:
+                                                    for r in member.roles:
+                                                        if str(r.id) in get_guild['feature_roles']:
+                                                            extra_amount = amount * get_guild['feature_roles'][str(r.id)]['guild_vote_multiplied_by'] - amount
+                                                            if extra_amount > previous_amount:
+                                                                previous_amount = extra_amount
+                                                    extra_amount = previous_amount
+                                            except Exception:
+                                                traceback.print_exc(file=sys.stdout)
+                                        # Tip
+                                        coin_name = get_guild['vote_reward_coin']
+                                        # Check balance of guild
+                                        net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                                        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                                        deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                                        coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                        contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                                        price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                                        user_from = await self.wallet_api.sql_get_userwallet(
                                             guild_id, coin_name, net_name, type_coin, SERVER_BOT, 0
                                         )
-                                    wallet_address = user_from['balance_wallet_address']
-                                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                                        wallet_address = user_from['paymentid']
-                                    elif type_coin in ["XRP"]:
-                                        wallet_address = user_from['destination_tag']
-
-                                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                                    # height can be None
-                                    userdata_balance = await store.sql_user_balance_single(
-                                        guild_id, coin_name, wallet_address, type_coin,
-                                        height, deposit_confirm_depth, SERVER_BOT
-                                    )
-                                    total_balance = userdata_balance['adjust']
-                                    if total_balance < amount + extra_amount:
-                                        # Alert guild owner
-                                        guild_owner = self.bot.get_user(guild.owner.id)
-                                        await guild_owner.send(
-                                            f'Your guild run out of guild\'s reward for {coin_name}. Deposit more!')
-                                    else:
-                                        # Tip
-                                        member = None
-                                        try:
-                                            member = self.bot.get_user(int(user_vote))
-                                        except Exception:
-                                            traceback.print_exc(file=sys.stdout)
-                                        try:
-                                            amount_in_usd = 0.0
-                                            if price_with:
-                                                per_unit = await self.utils.get_coin_price(coin_name, price_with)
-                                                if per_unit and per_unit['price'] and per_unit['price'] > 0:
-                                                    per_unit = per_unit['price']
-                                                    amount_in_usd = float(Decimal(per_unit) * Decimal(amount + extra_amount))
-                                            tip = await store.sql_user_balance_mv_single(
-                                                guild_id, user_vote, "TOPGG", "VOTE", amount + extra_amount, coin_name,
-                                                "GUILDVOTE", coin_decimal, SERVER_BOT, contract, amount_in_usd, None
+                                        if user_from is None:
+                                            user_from = await self.wallet_api.sql_register_user(
+                                                guild_id, coin_name, net_name, type_coin, SERVER_BOT, 0
                                             )
-                                            if member is not None:
-                                                extra_msg = ""
-                                                if extra_amount > 0:
-                                                    extra_msg = " You have a guild's role that give you additional "\
-                                                        f"bonus **" + num_format_coin(extra_amount) \
-                                                        + " " + coin_name + "**."
-                                                msg = f"Thank you for voting for guild `{guild.name}` at top.gg. "\
-                                                    f"You got a reward {num_format_coin(amount + extra_amount)} "\
-                                                    f"{coin_name}.{extra_msg}"
-                                                try:
-                                                    await member.send(msg)
-                                                    guild_owner = self.bot.get_user(guild.owner.id)
+                                        wallet_address = user_from['balance_wallet_address']
+                                        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                            wallet_address = user_from['paymentid']
+                                        elif type_coin in ["XRP"]:
+                                            wallet_address = user_from['destination_tag']
+
+                                        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                        # height can be None
+                                        userdata_balance = await store.sql_user_balance_single(
+                                            guild_id, coin_name, wallet_address, type_coin,
+                                            height, deposit_confirm_depth, SERVER_BOT
+                                        )
+                                        total_balance = userdata_balance['adjust']
+                                        if total_balance < amount + extra_amount:
+                                            # Alert guild owner
+                                            guild_owner = self.bot.get_user(guild.owner.id)
+                                            await guild_owner.send(
+                                                f'Your guild run out of guild\'s reward for {coin_name}. Deposit more!')
+                                            return web.Response(status=200, text="Thank you!")
+                                        else:
+                                            # Tip
+                                            member = None
+                                            try:
+                                                member = self.bot.get_user(int(user_vote))
+                                            except Exception:
+                                                traceback.print_exc(file=sys.stdout)
+                                            try:
+                                                amount_in_usd = 0.0
+                                                if price_with:
+                                                    per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                                                    if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                                                        per_unit = per_unit['price']
+                                                        amount_in_usd = float(Decimal(per_unit) * Decimal(amount + extra_amount))
+                                                tip = await store.sql_user_balance_mv_single(
+                                                    guild_id, user_vote, "TOPGG", "VOTE", amount + extra_amount, coin_name,
+                                                    "GUILDVOTE", coin_decimal, SERVER_BOT, contract, amount_in_usd, None
+                                                )
+                                                if member is not None:
+                                                    extra_msg = ""
+                                                    if extra_amount > 0:
+                                                        extra_msg = " You have a guild's role that give you additional "\
+                                                            f"bonus **" + num_format_coin(extra_amount) \
+                                                            + " " + coin_name + "**."
+                                                    msg = f"Thank you for voting for guild `{guild.name}` at top.gg. "\
+                                                        f"You got a reward {num_format_coin(amount + extra_amount)} "\
+                                                        f"{coin_name}.{extra_msg}"
                                                     try:
-                                                        await guild_owner.send(
-                                                            f"User {member.name}#{member.discriminator} / `{user_vote}` voted for your guild {guild.name} "\
-                                                            f"at top.gg. They got a reward "\
-                                                            f"{num_format_coin(amount + extra_amount)} {coin_name}."
-                                                        )
-                                                    except Exception:
-                                                        pass
-                                                    # Log channel if there is
-                                                    try:
-                                                        serverinfo = await store.sql_info_by_server(guild_id)
-                                                        if serverinfo and serverinfo['vote_reward_channel']:
-                                                            channel = self.bot.get_channel(
-                                                                int(serverinfo['vote_reward_channel'])
-                                                            )
-                                                            try:
-                                                                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                                                                coin_emoji = coin_emoji + " " if coin_emoji else ""
-                                                                if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
-                                                                    coin_emoji = ""
-                                                            except Exception:
-                                                                traceback.print_exc(file=sys.stdout)
-                                                            embed = disnake.Embed(
-                                                                title="NEW GUILD VOTE!",
-                                                                timestamp=datetime.now()
-                                                            )
-                                                            embed.add_field(
-                                                                name="User",
-                                                                value="<@{}>".format(user_vote),
-                                                                inline=True
-                                                            )
-                                                            embed.add_field(
-                                                                name=f"{coin_emoji}Reward",
-                                                                value="{} {}".format(
-                                                                    num_format_coin(amount),
-                                                                    coin_name
-                                                                ),
-                                                                inline=True
-                                                            )
-                                                            if extra_amount > 0:
-                                                                embed.add_field(name="Extra Reward", value="{} {}".format(
-                                                                    num_format_coin(extra_amount),
-                                                                    coin_name), inline=True)
-                                                            embed.add_field(
-                                                                name="Link",
-                                                                value="https://top.gg/servers/{}".format(guild_id),
-                                                                inline=False
-                                                            )
-                                                            # if advert enable
-                                                            if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
-                                                                try:
-                                                                    random.shuffle(self.bot.advert_list)
-                                                                    embed.add_field(
-                                                                        name="{}".format(self.bot.advert_list[0]['title']),
-                                                                        value="```{}```👉 <{}>".format(self.bot.advert_list[0]['content'], self.bot.advert_list[0]['link']),
-                                                                        inline=False
-                                                                    )
-                                                                    await self.utils.advert_impress(
-                                                                        self.bot.advert_list[0]['id'], user_vote,
-                                                                        "GUILD VOTE"
-                                                                    )
-                                                                except Exception:
-                                                                    traceback.print_exc(file=sys.stdout)
-                                                            # end advert
-                                                            embed.set_author(
-                                                                name=self.bot.user.name,
-                                                                icon_url=self.bot.user.display_avatar
-                                                            )
-                                                            embed.set_thumbnail(url=member.display_avatar)
-                                                            await channel.send(embed=embed)
-                                                    except Exception:
-                                                        traceback.print_exc(file=sys.stdout)
-                                                        await log_to_channel(
-                                                            "vote",
-                                                            f"[{SERVER_BOT}] Failed to send message to "\
-                                                            f"reward channel in guild: `{guild_id}` / {guild.name}."
-                                                        )
+                                                        await member.send(msg)
+                                                        guild_owner = self.bot.get_user(guild.owner.id)
                                                         try:
-                                                            if serverinfo['vote_reward_channel']:
-                                                                await guild_owner.send(
-                                                                    f"I can't publish an embed message to channel <#{serverinfo['vote_reward_channel']}> in your guild {guild.name} "\
-                                                                    f"which a user just voted at top.gg. You received this message because you are the owner of the guild and "\
-                                                                    f"please help to fix the permission."
-                                                                )
+                                                            await guild_owner.send(
+                                                                f"User {member.name}#{member.discriminator} / `{user_vote}` voted for your guild {guild.name} "\
+                                                                f"at top.gg. They got a reward "\
+                                                                f"{num_format_coin(amount + extra_amount)} {coin_name}."
+                                                            )
                                                         except Exception:
                                                             pass
-                                                except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
-                                                    await log_to_channel(
-                                                        "vote",
-                                                        f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.'
-                                                    )
-                                        except Exception:
-                                            traceback.print_exc(file=sys.stdout)
+                                                        # Log channel if there is
+                                                        try:
+                                                            serverinfo = await store.sql_info_by_server(guild_id)
+                                                            if serverinfo and serverinfo['vote_reward_channel']:
+                                                                channel = self.bot.get_channel(
+                                                                    int(serverinfo['vote_reward_channel'])
+                                                                )
+                                                                try:
+                                                                    coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                                                    coin_emoji = coin_emoji + " " if coin_emoji else ""
+                                                                    if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is False:
+                                                                        coin_emoji = ""
+                                                                except Exception:
+                                                                    traceback.print_exc(file=sys.stdout)
+                                                                embed = disnake.Embed(
+                                                                    title="NEW GUILD VOTE!",
+                                                                    timestamp=datetime.now()
+                                                                )
+                                                                embed.add_field(
+                                                                    name="User",
+                                                                    value="<@{}>".format(user_vote),
+                                                                    inline=True
+                                                                )
+                                                                embed.add_field(
+                                                                    name=f"{coin_emoji}Reward",
+                                                                    value="{} {}".format(
+                                                                        num_format_coin(amount),
+                                                                        coin_name
+                                                                    ),
+                                                                    inline=True
+                                                                )
+                                                                if extra_amount > 0:
+                                                                    embed.add_field(name="Extra Reward", value="{} {}".format(
+                                                                        num_format_coin(extra_amount),
+                                                                        coin_name), inline=True)
+                                                                embed.add_field(
+                                                                    name="Link",
+                                                                    value="https://top.gg/servers/{}".format(guild_id),
+                                                                    inline=False
+                                                                )
+                                                                # if advert enable
+                                                                if self.bot.config['discord']['enable_advert'] == 1 and len(self.bot.advert_list) > 0:
+                                                                    try:
+                                                                        random.shuffle(self.bot.advert_list)
+                                                                        embed.add_field(
+                                                                            name="{}".format(self.bot.advert_list[0]['title']),
+                                                                            value="```{}```👉 <{}>".format(self.bot.advert_list[0]['content'], self.bot.advert_list[0]['link']),
+                                                                            inline=False
+                                                                        )
+                                                                        await self.utils.advert_impress(
+                                                                            self.bot.advert_list[0]['id'], user_vote,
+                                                                            "GUILD VOTE"
+                                                                        )
+                                                                    except Exception:
+                                                                        traceback.print_exc(file=sys.stdout)
+                                                                # end advert
+                                                                embed.set_author(
+                                                                    name=self.bot.user.name,
+                                                                    icon_url=self.bot.user.display_avatar
+                                                                )
+                                                                embed.set_thumbnail(url=member.display_avatar)
+                                                                await channel.send(embed=embed)
+                                                        except Exception:
+                                                            traceback.print_exc(file=sys.stdout)
+                                                            await log_to_channel(
+                                                                "vote",
+                                                                f"[{SERVER_BOT}] Failed to send message to "\
+                                                                f"reward channel in guild: `{guild_id}` / {guild.name}."
+                                                            )
+                                                            try:
+                                                                if serverinfo['vote_reward_channel']:
+                                                                    await guild_owner.send(
+                                                                        f"I can't publish an embed message to channel <#{serverinfo['vote_reward_channel']}> in your guild {guild.name} "\
+                                                                        f"which a user just voted at top.gg. You received this message because you are the owner of the guild and "\
+                                                                        f"please help to fix the permission."
+                                                                    )
+                                                            except Exception:
+                                                                pass
+                                                    except (disnake.errors.NotFound, disnake.errors.Forbidden) as e:
+                                                        await log_to_channel(
+                                                            "vote",
+                                                            f'[{SERVER_BOT}] Failed to thank message to <@{user_vote}>.'
+                                                        )
+                                            except Exception:
+                                                traceback.print_exc(file=sys.stdout)
                                 if guild:
                                     try:
                                         await log_to_channel(
@@ -407,8 +408,8 @@ class TopGGVote(commands.Cog):
                                 try:
                                     await log_to_channel(
                                         "vote",
-                                        f'[{SERVER_BOT}] User <@{user_vote}> voted a guild `{guild_id}` type `{type_vote}` "\
-                                        f"in top.gg but I am not in that guild or I cannot find it. Given key: `{key}`'
+                                        f"[{SERVER_BOT}] User <@{user_vote}> voted a guild `{guild_id}` type `{type_vote}` "\
+                                        f"in top.gg but I am not in that guild or I cannot find it. Given key: `{key}`/ Guild key: `{get_guild_by_key}`"
                                     )
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)

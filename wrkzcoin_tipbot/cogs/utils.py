@@ -635,7 +635,7 @@ class Utils(commands.Cog):
                                 return result
                         elif coin_family == "BTC":
                             sql = """
-                            SELECT * FROM `neo_external_tx` 
+                            SELECT * FROM `doge_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -644,7 +644,7 @@ class Utils(commands.Cog):
                                 return result
                         elif coin_family == "NEO":
                             sql = """
-                            SELECT * FROM `doge_external_tx` 
+                            SELECT * FROM `neo_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))

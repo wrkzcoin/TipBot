@@ -961,13 +961,14 @@ class MemeTip_Button(disnake.ui.View):
 class MemeReview_Button(disnake.ui.View):
     message: disnake.Message
 
-    def __init__(self, ctx, bot, timeout: float, meme_id: str, owner_userid: int):
+    def __init__(self, ctx, bot, timeout: float, meme_id: str, owner_userid: int, url: str):
         super().__init__(timeout=timeout)
         self.bot = bot
         self.utils = Utils(self.bot)
         self.ctx = ctx
         self.meme_id = meme_id
         self.owner_userid = owner_userid
+        self.url = url
         self.meme_channel_upload = self.bot.config['discord']['meme_upload_channel_log']
 
     async def on_timeout(self):
@@ -987,12 +988,12 @@ class MemeReview_Button(disnake.ui.View):
             toggle = await meme_db.meme_toggle_status(self.meme_id, 1, interaction.author.id, int(time.time()))
             if toggle > 0:
                 await interaction.response.send_message(
-                    content=f"{interaction.author.mention}, successfully approved `{self.meme_id}`.")
+                    content=f"{interaction.author.mention}, successfully approved `{self.meme_id}`.\n{self.url}")
                 # tell owner that his meme approved.
                 try:
                     get_meme_owner = self.bot.get_user(int(self.owner_userid))
                     if get_meme_owner is not None:
-                        await get_meme_owner.send(f"Your meme ID: `{self.meme_id}` is approved. Cheers!")
+                        await get_meme_owner.send(f"Your meme ID: `{self.meme_id}` in Guild {interaction.guild.name} is approved. Cheers!\n{self.url}")
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 # Post in meme_channel_upload
@@ -1025,7 +1026,7 @@ class MemeReview_Button(disnake.ui.View):
             toggle = await meme_db.meme_toggle_status(self.meme_id, 2, interaction.author.id, int(time.time()))
             if toggle > 0:
                 await interaction.response.send_message(
-                    content=f"{interaction.author.mention}, successfully rejected `{self.meme_id}`.")
+                    content=f"{interaction.author.mention}, successfully rejected `{self.meme_id}`.\n{self.url}")
             else:
                 await interaction.response.send_message(
                     content=f"{interaction.author.mention}, failed to reject `{self.meme_id}` or it is already not approved.")
@@ -1033,7 +1034,6 @@ class MemeReview_Button(disnake.ui.View):
             traceback.print_exc(file=sys.stdout)
         original_message = await self.ctx.original_message()
         await original_message.edit(view=None)
-
 
 class MemePls(commands.Cog):
     def __init__(self, bot):
@@ -1057,7 +1057,7 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO meme_uploaded 
+                    sql = """ INSERT INTO `meme_uploaded` 
                     (`key`, `owner_userid`, `owner_name`, `guild_id`, 
                     `channel_id`, `caption`, `original_name`, `saved_name`, `file_type`, `sha256`, `uploaded_date`) 
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -1441,7 +1441,7 @@ class MemePls(commands.Cog):
                             get_meme['key'], ctx.author.name, ctx.author.discriminator)
                         )
                     try:
-                        view = MemeReview_Button(ctx, self.bot, 30, get_meme['key'], get_meme['owner_userid'])
+                        view = MemeReview_Button(ctx, self.bot, 30, get_meme['key'], get_meme['owner_userid'], self.meme_web_path + get_meme['saved_name'])
                         view.message = await ctx.original_message()
                         await ctx.edit_original_message(content=None, embed=embed, view=view)
                     except Exception:
@@ -1475,7 +1475,7 @@ class MemePls(commands.Cog):
                     embed.set_footer(text="Reviewing {} by: {}#{}".format(get_meme['key'], ctx.author.name,
                                                                           ctx.author.discriminator))
                     try:
-                        view = MemeReview_Button(ctx, self.bot, 30, get_meme['key'], get_meme['owner_userid'])
+                        view = MemeReview_Button(ctx, self.bot, 30, get_meme['key'], get_meme['owner_userid'], self.meme_web_path + get_meme['saved_name'])
                         view.message = await ctx.original_message()
                         await ctx.edit_original_message(content=None, embed=embed, view=view)
                     except Exception:
@@ -1514,7 +1514,7 @@ class MemePls(commands.Cog):
                     embed.set_footer(text="Reviewing {} by: {}#{}".format(get_meme['key'], ctx.author.name,
                                                                           ctx.author.discriminator))
                     try:
-                        view = MemeReview_Button(ctx, self.bot, 30, get_meme['key'], get_meme['owner_userid'])
+                        view = MemeReview_Button(ctx, self.bot, 30, get_meme['key'], get_meme['owner_userid'], self.meme_web_path + get_meme['saved_name'])
                         view.message = await ctx.original_message()
                         await ctx.edit_original_message(content=None, embed=embed, view=view)
                     except Exception:
@@ -1546,7 +1546,7 @@ class MemePls(commands.Cog):
                     embed.set_footer(text="Reviewing {} by: {}#{}".format(get_meme['key'], ctx.author.name,
                                                                           ctx.author.discriminator))
                     try:
-                        view = MemeReview_Button(ctx, self.bot, 30, get_meme['key'], get_meme['owner_userid'])
+                        view = MemeReview_Button(ctx, self.bot, 30, get_meme['key'], get_meme['owner_userid'], self.meme_web_path + get_meme['saved_name'])
                         view.message = await ctx.original_message()
                         await ctx.edit_original_message(content=None, embed=embed, view=view)
                     except Exception:
@@ -1667,7 +1667,7 @@ class MemePls(commands.Cog):
                                     embed.set_thumbnail(url=str(attachment))
                                     embed.set_footer(
                                         text="Posted by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
-                                    msg = f"{ctx.author.mention}, sucessfully uploaded. Image ID: `{random_string}`. "\
+                                    msg = f"{ctx.author.mention}, successfully uploaded. Image ID: `{random_string}`. "\
                                         "It will be reviewed and approved shortly."
                                     await ctx.edit_original_message(content=msg)
                                     # send to meme channel

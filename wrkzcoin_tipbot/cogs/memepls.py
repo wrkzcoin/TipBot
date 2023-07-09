@@ -318,17 +318,20 @@ class TipOtherCoin(disnake.ui.Modal):
         try:
             guild_id = "DM"
             channel_id = "DM"
+            guild_name = " in DM"
             if hasattr(interaction, "guild") and hasattr(interaction.guild, "id"):
                 guild_id = interaction.guild.id
                 channel_id = interaction.channel.id
+                guild_name = " in Guild {}".format(interaction.guild.name)
             tip = await add_memetip(
                 self.meme_id, self.owner_userid, str(interaction.author.id), guild_id, channel_id,
                 amount, coin_name, coin_decimal, contract, amount_in_usd
             )
             if tip > 0:
+                url_image = self.meme_web_path + self.get_meme['saved_name']
                 try:
-                    msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(
-                        self.meme_id, amount, coin_name
+                    msg = "A user ({}) has tipped to your meme `{}` with amount `{} {}`{}. Cheers!\n{}".format(
+                        interaction.author.mention, self.meme_id, amount, coin_name, guild_name, url_image
                     )
                     get_meme_owner = self.bot.get_user(int(self.owner_userid))
                     await get_meme_owner.send(content=msg)
@@ -339,15 +342,15 @@ class TipOtherCoin(disnake.ui.Modal):
                 await interaction.edit_original_message(content=msg)
                 try:
                     embed = disnake.Embed(
-                        title="A meme got tipped!",
+                        title="A meme got tipped{}!".format(guild_name),
                         description=f"Share your meme and get tipped!",
                         timestamp=datetime.now()
                     )
-                    embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=False)
-                    embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
+                    embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=True)
+                    embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=True)
                     embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
                     embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
-                    embed.set_image(url=self.meme_web_path + self.get_meme['saved_name'])
+                    embed.set_image(url=url_image)
                     embed.set_footer(
                         text="Tipped by: {}#{}".format(interaction.author.name, interaction.author.discriminator))
                     channel = self.bot.get_channel(self.meme_tip_channel)
@@ -382,10 +385,7 @@ class MemeTip_Button(disnake.ui.View):
         original_message = await self.ctx.original_message()
         await original_message.edit(view=None)
 
-    @disnake.ui.button(label="+100 WRKZ", style=ButtonStyle.green, custom_id="memetip_100_WRKZ")
-    async def tip_wrkz(
-            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
-    ):
+    async def process_tipping(self, amount, coin_name, interaction):
         if int(self.owner_userid) == interaction.author.id:
             await interaction.response.send_message(
                 content=f"{interaction.author.mention}, you cannot tip your own meme!")
@@ -400,286 +400,6 @@ class MemeTip_Button(disnake.ui.View):
                     ephemeral=True)
                 return
             # Check enough balance
-            amount = 100
-            coin_name = "WRKZ"
-            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-
-            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
-            get_deposit = await self.wallet_api.sql_get_userwallet(
-                str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
-            )
-            if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(
-                    str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
-                )
-
-            wallet_address = get_deposit['balance_wallet_address']
-            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                wallet_address = get_deposit['paymentid']
-            elif type_coin in ["XRP"]:
-                wallet_address = get_deposit['destination_tag']
-
-            # Check if tx in progress
-            if str(interaction.author.id) in self.bot.tipping_in_progress and \
-                int(time.time()) - self.bot.tipping_in_progress[str(interaction.author.id)] < 150:
-                msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another transaction in progress."
-                await interaction.edit_original_message(content=msg)
-                return
-
-            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-            userdata_balance = await store.sql_user_balance_single(
-                str(interaction.author.id), coin_name, wallet_address,
-                type_coin, height, deposit_confirm_depth, SERVER_BOT
-            )
-            actual_balance = float(userdata_balance['adjust'])
-            if amount <= 0:
-                msg = f"{EMOJI_RED_NO} {interaction.author.mention}, please get more {token_display}."
-                await interaction.edit_original_message(content=msg)
-                return
-            elif amount > actual_balance:
-                msg = f"{EMOJI_RED_NO} {interaction.author.mention}, insufficient balance to give meme tip of "\
-                    f"**{num_format_coin(amount)} {token_display}**."
-                await interaction.edit_original_message(content=msg)
-                return
-            elif amount > max_tip or amount < min_tip:
-                msg = f"{EMOJI_RED_NO} {interaction.author.mention}, tipping cannot be bigger than "\
-                    f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
-                    f"**{num_format_coin(min_tip)} {token_display}**."
-                await interaction.edit_original_message(content=msg)
-                return
-            equivalent_usd = ""
-            amount_in_usd = 0.0
-            if price_with:
-                per_unit = await self.utils.get_coin_price(coin_name, price_with)
-                if per_unit and per_unit['price'] and per_unit['price'] > 0:
-                    per_unit = per_unit['price']
-                    amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
-                    if amount_in_usd > 0.0001:
-                        equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
-
-            if str(interaction.author.id) not in self.bot.tipping_in_progress:
-                self.bot.tipping_in_progress[str(interaction.author.id)] = int(time.time())
-
-            user_to = await self.wallet_api.sql_get_userwallet(
-                self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
-            )
-            if user_to is None:
-                user_to = await self.wallet_api.sql_register_user(
-                    self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
-                )
-            try:
-                guild_id = "DM"
-                channel_id = "DM"
-                if hasattr(interaction, "guild") and hasattr(interaction.guild, "id"):
-                    guild_id = interaction.guild.id
-                    channel_id = interaction.channel.id
-                tip = await add_memetip(
-                    self.meme_id, self.owner_userid, str(interaction.author.id), guild_id,
-                    channel_id, amount, coin_name, coin_decimal, contract, amount_in_usd
-                )
-                if tip > 0:
-                    try:
-                        msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(
-                            self.meme_id, amount, coin_name
-                        )
-                        get_meme_owner = self.bot.get_user(int(self.owner_userid))
-                        await get_meme_owner.send(content=msg)
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                    msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
-                        f"{token_display}** to meme `{self.meme_id}` by <@{self.owner_userid}>."
-                    await interaction.edit_original_message(content=msg)
-                    try:
-                        embed = disnake.Embed(
-                            title="A meme got tipped!",
-                            description=f"Share your meme and get tipped!",
-                            timestamp=datetime.now()
-                        )
-                        embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=False)
-                        embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
-                        embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
-                        embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
-                        embed.set_image(url=self.meme_web_path + self.get_meme['saved_name'])
-                        embed.set_footer(
-                            text="Tipped by: {}#{}".format(interaction.author.name, interaction.author.discriminator))
-                        channel = self.bot.get_channel(self.meme_tip_channel)
-                        await channel.send(embed=embed)
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
-            try:
-                del self.bot.tipping_in_progress[str(interaction.author.id)]
-            except Exception:
-                pass
-
-    @disnake.ui.button(label="+0.1 WOW", style=ButtonStyle.green, custom_id="memetip_0_1_WOW")
-    async def tip_wow(
-            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
-    ):
-        if int(self.owner_userid) == interaction.author.id:
-            await interaction.response.send_message(
-                content=f"{interaction.author.mention}, you cannot tip your own meme!")
-        else:
-            try:
-                await interaction.response.send_message(
-                    content=f"{interaction.author.mention}, checking meme tipping...")
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-                await interaction.response.send_message(
-                    content=f"{interaction.author.mention}, failed to execute meme tipping. Try again later!",
-                    ephemeral=True)
-                return
-            # Check enough balance
-            amount = 0.1
-            coin_name = "WOW"
-            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-
-            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
-            get_deposit = await self.wallet_api.sql_get_userwallet(
-                str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
-            )
-            if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(
-                    str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
-                )
-
-            wallet_address = get_deposit['balance_wallet_address']
-            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                wallet_address = get_deposit['paymentid']
-            elif type_coin in ["XRP"]:
-                wallet_address = get_deposit['destination_tag']
-
-            # Check if tx in progress
-            if str(interaction.author.id) in self.bot.tipping_in_progress and \
-                int(time.time()) - self.bot.tipping_in_progress[str(interaction.author.id)] < 150:
-                msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another transaction in progress."
-                await interaction.edit_original_message(content=msg)
-                return
-
-            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-            userdata_balance = await store.sql_user_balance_single(
-                str(interaction.author.id), coin_name, wallet_address, 
-                type_coin, height, deposit_confirm_depth, SERVER_BOT
-            )
-            actual_balance = float(userdata_balance['adjust'])
-            if amount <= 0:
-                msg = f"{EMOJI_RED_NO} {interaction.author.mention}, please get more {token_display}."
-                await interaction.edit_original_message(content=msg)
-                return
-            elif amount > actual_balance:
-                msg = f"{EMOJI_RED_NO} {interaction.author.mention}, insufficient balance to give meme tip of "\
-                    f"**{num_format_coin(amount)} {token_display}**."
-                await interaction.edit_original_message(content=msg)
-                return
-            elif amount > max_tip or amount < min_tip:
-                msg = f"{EMOJI_RED_NO} {interaction.author.mention}, tipping cannot be bigger than "\
-                    f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
-                    f"**{num_format_coin(min_tip)} {token_display}**."
-                await interaction.edit_original_message(content=msg)
-                return
-            equivalent_usd = ""
-            amount_in_usd = 0.0
-            if price_with:
-                per_unit = await self.utils.get_coin_price(coin_name, price_with)
-                if per_unit and per_unit['price'] and per_unit['price'] > 0:
-                    per_unit = per_unit['price']
-                    amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
-                    if amount_in_usd > 0.0001:
-                        equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
-
-            if str(interaction.author.id) not in self.bot.tipping_in_progress:
-                self.bot.tipping_in_progress[str(interaction.author.id)] = int(time.time())
-
-            user_to = await self.wallet_api.sql_get_userwallet(
-                self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
-            )
-            if user_to is None:
-                user_to = await self.wallet_api.sql_register_user(
-                    self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
-                )
-            try:
-                guild_id = "DM"
-                channel_id = "DM"
-                if hasattr(interaction, "guild") and hasattr(interaction.guild, "id"):
-                    guild_id = interaction.guild.id
-                    channel_id = interaction.channel.id
-                tip = await add_memetip(
-                    self.meme_id, self.owner_userid, str(interaction.author.id), guild_id,
-                    channel_id, amount, coin_name, coin_decimal, contract, amount_in_usd
-                )
-                if tip > 0:
-                    try:
-                        msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(
-                            self.meme_id, amount, coin_name
-                        )
-                        get_meme_owner = self.bot.get_user(int(self.owner_userid))
-                        await get_meme_owner.send(content=msg)
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                    msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
-                        f"{token_display}** to meme `{self.meme_id}` by <@{self.owner_userid}>."
-                    await interaction.edit_original_message(content=msg)
-                    try:
-                        embed = disnake.Embed(
-                            title="A meme got tipped!",
-                            description=f"Share your meme and get tipped!",
-                            timestamp=datetime.now()
-                        )
-                        embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=False)
-                        embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
-                        embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
-                        embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
-                        embed.set_image(url=self.meme_web_path + self.get_meme['saved_name'])
-                        embed.set_footer(
-                            text="Tipped by: {}#{}".format(interaction.author.name, interaction.discriminator))
-                        channel = self.bot.get_channel(self.meme_tip_channel)
-                        await channel.send(embed=embed)
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
-            try:
-                del self.bot.tipping_in_progress[str(interaction.author.id)]
-            except Exception:
-                pass
-
-    @disnake.ui.button(label="+0.1 DOGE", style=ButtonStyle.green, custom_id="memetip_0_1_DOGE")
-    async def tip_doge(
-            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
-    ):
-        if int(self.owner_userid) == interaction.author.id:
-            await interaction.response.send_message(
-                content=f"{interaction.author.mention}, you cannot tip your own meme!")
-        else:
-            try:
-                await interaction.response.send_message(
-                    content=f"{interaction.author.mention}, checking meme tipping...")
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-                await interaction.response.send_message(
-                    content=f"{interaction.author.mention}, failed to execute meme tipping. Try again later!",
-                    ephemeral=True)
-                return
-            # Check enough balance
-            amount = 0.1
-            coin_name = "DOGE"
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -755,17 +475,20 @@ class MemeTip_Button(disnake.ui.View):
             try:
                 guild_id = "DM"
                 channel_id = "DM"
+                guild_name = " in DM"
                 if hasattr(interaction, "guild") and hasattr(interaction.guild, "id"):
                     guild_id = interaction.guild.id
                     channel_id = interaction.channel.id
+                    guild_name = " in Guild {}".format(interaction.guild.name)
                 tip = await add_memetip(
                     self.meme_id, self.owner_userid, str(interaction.author.id), guild_id,
                     channel_id, amount, coin_name, coin_decimal, contract, amount_in_usd
                 )
                 if tip > 0:
+                    url_image = self.meme_web_path + self.get_meme['saved_name']
                     try:
-                        msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(
-                            self.meme_id, amount, coin_name
+                        msg = "A user ({}) has tipped to your meme `{}` with amount `{} {}`{}. Cheers!\n{}".format(
+                            interaction.author.mention, self.meme_id, amount, coin_name, guild_name, url_image
                         )
                         get_meme_owner = self.bot.get_user(int(self.owner_userid))
                         await get_meme_owner.send(content=msg)
@@ -776,15 +499,15 @@ class MemeTip_Button(disnake.ui.View):
                     await interaction.edit_original_message(content=msg)
                     try:
                         embed = disnake.Embed(
-                            title="A meme got tipped!",
+                            title="A meme got tipped{}!".format(guild_name),
                             description=f"Share your meme and get tipped!",
                             timestamp=datetime.now()
                         )
-                        embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=False)
-                        embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
+                        embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=True)
+                        embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=True)
                         embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
                         embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
-                        embed.set_image(url=self.meme_web_path + self.get_meme['saved_name'])
+                        embed.set_image(url=url_image)
                         embed.set_footer(
                             text="Tipped by: {}#{}".format(interaction.author.name, interaction.author.discriminator))
                         channel = self.bot.get_channel(self.meme_tip_channel)
@@ -799,146 +522,98 @@ class MemeTip_Button(disnake.ui.View):
             except Exception:
                 pass
 
-    @disnake.ui.button(label="+10K DEGO", style=ButtonStyle.green, custom_id="memetip_10000_DEGO")
+    @disnake.ui.button(emoji="<a:TB_WRKZ:1095201990486786068>", label="+100 WRKZ", style=ButtonStyle.green, custom_id="memetip_100_WRKZ", row=1)
+    async def tip_wrkz(
+            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        try:
+            await self.process_tipping(100, "WRKZ", interaction)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+
+
+    @disnake.ui.button(emoji="<a:TB_WOW:1095212324626898954>", label="+0.1 WOW", style=ButtonStyle.green, custom_id="memetip_0_1_WOW", row=1)
+    async def tip_wow(
+            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        try:
+            await self.process_tipping(0.1, "WOW", interaction)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+
+    @disnake.ui.button(emoji="<a:TB_DOGE:1095212316397670430>", label="+0.1 DOGE", style=ButtonStyle.green, custom_id="memetip_0_1_DOGE", row=1)
+    async def tip_doge(
+            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        try:
+            await self.process_tipping(0.1, "DOGE", interaction)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+
+    @disnake.ui.button(emoji="<a:TB_DEGO:1095201546146414682>", label="+10K DEGO", style=ButtonStyle.green, custom_id="memetip_10000_DEGO", row=2)
     async def tip_dego(
             self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
-        if int(self.owner_userid) == interaction.author.id:
-            await interaction.response.send_message(
-                content=f"{interaction.author.mention}, you cannot tip your own meme!")
-        else:
-            try:
-                await interaction.response.send_message(
-                    content=f"{interaction.author.mention}, checking meme tipping...")
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-                await interaction.response.send_message(
-                    content=f"{interaction.author.mention}, failed to execute meme tipping. Try again later!",
-                    ephemeral=True)
-                return
-            # Check enough balance
-            amount = 10000
-            coin_name = "DEGO"
-            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+        try:
+            await self.process_tipping(10000, "DEGO", interaction)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
-            min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
-            max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
-            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
-            get_deposit = await self.wallet_api.sql_get_userwallet(
-                str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
-            )
-            if get_deposit is None:
-                get_deposit = await self.wallet_api.sql_register_user(
-                    str(interaction.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
-                )
+    @disnake.ui.button(emoji="<a:TB_BAN:1095213025067290694>", label="+0.5 BAN", style=ButtonStyle.green, custom_id="memetip_0_5_BAN", row=2)
+    async def tip_ban(
+            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        try:
+            await self.process_tipping(0.5, "BAN", interaction)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
-            wallet_address = get_deposit['balance_wallet_address']
-            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                wallet_address = get_deposit['paymentid']
-            elif type_coin in ["XRP"]:
-                wallet_address = get_deposit['destination_tag']
+    @disnake.ui.button(emoji="<a:TB_MOON:1095222174954041396>", label="+0.02 MOON", style=ButtonStyle.green, custom_id="memetip_0_0_2_MOON", row=2)
+    async def tip_moon(
+            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        try:
+            await self.process_tipping(0.02, "MOON", interaction)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
-            # Check if tx in progress
-            if str(interaction.author.id) in self.bot.tipping_in_progress and \
-                int(time.time()) - self.bot.tipping_in_progress[str(interaction.author.id)] < 150:
-                msg = f"{EMOJI_ERROR} {interaction.author.mention}, you have another transaction in progress."
-                await interaction.edit_original_message(content=msg)
-                return
+    @disnake.ui.button(emoji="<a:TB_XLM:1095202941289365554>", label="+0.05 XLM", style=ButtonStyle.green, custom_id="memetip_0_0_5_XLM", row=3)
+    async def tip_xlm(
+            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        try:
+            await self.process_tipping(0.05, "XLM", interaction)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
-            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-            userdata_balance = await store.sql_user_balance_single(
-                str(interaction.author.id), coin_name, wallet_address,
-                type_coin, height, deposit_confirm_depth, SERVER_BOT
-            )
-            actual_balance = float(userdata_balance['adjust'])
-            if amount <= 0:
-                msg = f"{EMOJI_RED_NO} {interaction.author.mention}, please get more {token_display}."
-                await interaction.edit_original_message(content=msg)
-                return
-            elif amount > actual_balance:
-                msg = f"{EMOJI_RED_NO} {interaction.author.mention}, insufficient balance to give meme tip of "\
-                    f"**{num_format_coin(amount)} {token_display}**."
-                await interaction.edit_original_message(content=msg)
-                return
-            elif amount > max_tip or amount < min_tip:
-                msg = f"{EMOJI_RED_NO} {interaction.author.mention}, tipping cannot be bigger than "\
-                    f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
-                    f"**{num_format_coin(min_tip)} {token_display}**."
-                await interaction.edit_original_message(content=msg)
-                return
-            equivalent_usd = ""
-            amount_in_usd = 0.0
-            if price_with:
-                per_unit = await self.utils.get_coin_price(coin_name, price_with)
-                if per_unit and per_unit['price'] and per_unit['price'] > 0:
-                    per_unit = per_unit['price']
-                    amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
-                    if amount_in_usd > 0.0001:
-                        equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+    @disnake.ui.button(emoji="<a:TB_XNO:1095233680752001126>", label="+0.002 XNO", style=ButtonStyle.green, custom_id="memetip_0_0_2", row=3)
+    async def tip_xno(
+            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        try:
+            await self.process_tipping(0.002, "XNO", interaction)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
-            if str(interaction.author.id) not in self.bot.tipping_in_progress:
-                self.bot.tipping_in_progress[str(interaction.author.id)] = int(time.time())
+    @disnake.ui.button(emoji="<a:TB_XMR:1095216263602651136>", label="+0.0001 XMR", style=ButtonStyle.green, custom_id="memetip_0_0_1_XMR", row=3)
+    async def tip_xmr(
+            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        try:
+            await self.process_tipping(0.0001, "XMR", interaction)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
 
-            user_to = await self.wallet_api.sql_get_userwallet(
-                self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
-            )
-            if user_to is None:
-                user_to = await self.wallet_api.sql_register_user(
-                    self.owner_userid, coin_name, net_name, type_coin, SERVER_BOT, 0
-                )
-            try:
-                guild_id = "DM"
-                channel_id = "DM"
-                if hasattr(interaction, "guild") and hasattr(interaction.guild, "id"):
-                    guild_id = interaction.guild.id
-                    channel_id = interaction.channel.id
-                tip = await add_memetip(
-                    self.meme_id, self.owner_userid, str(interaction.author.id), guild_id,
-                    channel_id, amount, coin_name, coin_decimal, contract, amount_in_usd
-                )
-                if tip > 0:
-                    try:
-                        msg = "A user has tipped to your meme `{}` with amount `{} {}`. Cheers!".format(
-                            self.meme_id, amount, coin_name
-                        )
-                        get_meme_owner = self.bot.get_user(int(self.owner_userid))
-                        await get_meme_owner.send(content=msg)
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-                    msg = f"{interaction.author.mention}, you tipped **{num_format_coin(amount)} "\
-                        f"{token_display}** to meme `{self.meme_id}` by <@{self.owner_userid}>."
-                    await interaction.edit_original_message(content=msg)
-                    try:
-                        embed = disnake.Embed(
-                            title="A meme got tipped!",
-                            description=f"Share your meme and get tipped!",
-                            timestamp=datetime.now()
-                        )
-                        embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=False)
-                        embed.add_field(name="Uploader", value="<@{}>".format(self.owner_userid), inline=False)
-                        embed.add_field(name="ID", value="`{}`".format(self.get_meme['key']), inline=False)
-                        embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
-                        embed.set_image(url=self.meme_web_path + self.get_meme['saved_name'])
-                        embed.set_footer(
-                            text="Tipped by: {}#{}".format(interaction.author.name, interaction.author.discriminator))
-                        channel = self.bot.get_channel(self.meme_tip_channel)
-                        await channel.send(embed=embed)
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-                await logchanbot(traceback.format_exc())
-            try:
-                del self.bot.tipping_in_progress[str(interaction.author.id)]
-            except Exception:
-                pass
-
-    @disnake.ui.button(label="Tip other coin", style=ButtonStyle.blurple, custom_id="memetip_other")
+    @disnake.ui.button(label="Tip other coin", style=ButtonStyle.blurple, custom_id="memetip_other", row=4)
     async def tip_other_coin(
             self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -949,7 +624,7 @@ class MemeTip_Button(disnake.ui.View):
             await interaction.response.send_modal(
                 modal=TipOtherCoin(interaction, self.bot, self.meme_id, self.owner_userid, self.get_meme))
 
-    @disnake.ui.button(label="⚠️ Report", style=ButtonStyle.red, custom_id="memetip_report")
+    @disnake.ui.button(label="⚠️ Report", style=ButtonStyle.red, custom_id="memetip_report", row=4)
     async def memetip_report(
             self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -990,17 +665,20 @@ class MemeReview_Button(disnake.ui.View):
                 await interaction.response.send_message(
                     content=f"{interaction.author.mention}, successfully approved `{self.meme_id}`.\n{self.url}")
                 # tell owner that his meme approved.
+                guild_name = ""
+                if hasattr(interaction, "guild") and hasattr(interaction.guild, "id"):
+                    guild_name = f" in Guild {interaction.guild.name}"
                 try:
                     get_meme_owner = self.bot.get_user(int(self.owner_userid))
                     if get_meme_owner is not None:
-                        await get_meme_owner.send(f"Your meme ID: `{self.meme_id}` in Guild {interaction.guild.name} is approved. Cheers!\n{self.url}")
+                        await get_meme_owner.send(f"Your meme ID: `{self.meme_id}`{guild_name} is approved. Cheers!\n{self.url}")
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 # Post in meme_channel_upload
                 channel = self.bot.get_channel(self.meme_channel_upload)
                 await channel.send(
                     content=f"`{self.meme_id}` by <@{str(self.owner_userid)}> is approved by "\
-                        f"{interaction.author.name}#{interaction.author.discriminator} / {interaction.author.id}."
+                        f"{interaction.author.name}#{interaction.author.discriminator} / {interaction.author.id}{guild_name}."
                 )
             else:
                 await interaction.response.send_message(
@@ -1051,19 +729,20 @@ class MemePls(commands.Cog):
     async def save_uploaded(
         self, key: str, owner_userid: str, owner_name: str, guild_id: str, channel_id: str,
         caption: str, original_name: str, saved_name: str, file_type: str, sha256: str,
-        uploaded_date: int
+        uploaded_date: int, guild_name: str=None
     ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `meme_uploaded` 
-                    (`key`, `owner_userid`, `owner_name`, `guild_id`, 
+                    sql = """
+                    INSERT INTO `meme_uploaded` 
+                    (`key`, `owner_userid`, `owner_name`, `guild_id`, `guild_name`, 
                     `channel_id`, `caption`, `original_name`, `saved_name`, `file_type`, `sha256`, `uploaded_date`) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """
                     await cur.execute(sql, (
-                        key, owner_userid, owner_name, guild_id, channel_id, caption, original_name, saved_name,
+                        key, owner_userid, owner_name, guild_id, guild_name, channel_id, caption, original_name, saved_name,
                         file_type,
                         sha256, uploaded_date))
                     await conn.commit()
@@ -1077,9 +756,11 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `meme_uploaded` 
+                    sql = """
+                    SELECT * FROM `meme_uploaded` 
                     WHERE `owner_userid`<>%s AND `enable`=%s 
-                    ORDER BY RAND() LIMIT 1 """
+                    ORDER BY RAND() LIMIT 1
+                    """
                     await cur.execute(sql, (checker_id, 1))
                     result = await cur.fetchone()
                     if result: return result
@@ -1108,9 +789,11 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `meme_uploaded` 
+                    sql = """
+                    SELECT * FROM `meme_uploaded` 
                     WHERE `enable`=%s AND `guild_id`=%s 
-                    ORDER BY `uploaded_date` ASC LIMIT 1 """
+                    ORDER BY `uploaded_date` ASC LIMIT 1
+                    """
                     await cur.execute(sql, (0, guild))
                     result = await cur.fetchone()
                     if result:
@@ -1297,8 +980,10 @@ class MemePls(commands.Cog):
                 view = MemeTip_Button(ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme)
                 view.message = await ctx.original_message()
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
-                await self.meme_update_view(get_meme['key'], get_meme['owner_userid'], str(ctx.author.id), guild_id,
-                                            channel_id, 1)
+                await self.meme_update_view(
+                    get_meme['key'], get_meme['owner_userid'], str(ctx.author.id),
+                    guild_id, channel_id, 1
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
@@ -1607,10 +1292,12 @@ class MemePls(commands.Cog):
                                 guild_id = "DM"
                                 guild_name = "DM"
                                 channel_id = "DM"
+                                guild_name = "DM"
                                 if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
                                     guild_name = ctx.guild.name
                                     guild_id = ctx.guild.id
                                     channel_id = ctx.channel.id
+                                    guild_name = ctx.guild.name
                                 # Write the stuff
                                 saved_name = hex_dig + "." + mime_type.split("/")[1]
                                 with open(self.meme_storage + saved_name, "wb") as f:
@@ -1619,7 +1306,7 @@ class MemePls(commands.Cog):
                                     random_string, str(ctx.author.id),
                                     "{}#{}".format(ctx.author.name, ctx.author.discriminator),
                                     guild_id, channel_id, caption, original_name, saved_name,
-                                    mime_type, hex_dig, int(time.time())
+                                    mime_type, hex_dig, int(time.time()), guild_name
                                 )
                                 if saving > 0:
                                     embed = disnake.Embed(

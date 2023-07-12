@@ -277,7 +277,8 @@ class Tool(commands.Cog):
         await ctx.response.send_message(msg)
         
         if to_lang not in LANGUAGES or to_lang.upper() == 'HELP':
-            await ctx.edit_original_message(content=f'{ctx.author.mention}, supported language code: https://tipbot-static.wrkz.work/language_codes.txt')
+            await ctx.edit_original_message(
+                content=f"{ctx.author.mention}, supported language code: {self.bot.config['others']['g_language_code_url']}")
             return
         else:
             def user_translated(input_text, to_lang: str):

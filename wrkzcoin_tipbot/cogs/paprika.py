@@ -139,8 +139,8 @@ class Paprika(commands.Cog):
         # Example: https://coinpaprika.com/trading-view/wrkz-wrkzcoin
         self.tradeview = False # Disable TradeView
         self.tradeview_url = "https://coinpaprika.com/trading-view/"
-        self.tradeview_path = "./discordtip_v2_paprika_tradeview/"
-        self.tradeview_static_png = "https://tipbot-static.wrkz.work/discordtip_v2_paprika_tradeview/"
+        self.tradeview_path = self.bot.config['paprika']['tradeview_path']
+        self.tradeview_static_png = self.bot.config['paprika']['tradeview_webpath']
         self.display_list = [f":{str(i)}" for i in range(100, 200)]
 
     async def bot_log(self):

@@ -6,12 +6,14 @@ from disnake.ext import commands
 
 from Bot import logchanbot
 import store
+from cogs.utils import Utils
 
 
 class CoinSetting(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.utils = Utils(self.bot)
 
     async def get_list_bans(self):
         try:
@@ -219,6 +221,8 @@ class CoinSetting(commands.Cog):
 
                 # re-load ban list
                 self.bot.other_data['ban_list'] = await self.get_list_bans()
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
 
                 await ctx.reply(f"{ctx.author.mention}, cexswap list, coin list, name, coin aliases, daily, hourly reloaded...")
                 await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")

@@ -518,11 +518,13 @@ class TaskGuild(commands.Cog):
                 content=f"{ctx.author.mention}, that\'s not a text channel. Try a different channel!")
             return
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo['reward_task_channel']:
             try: 
                 if channel.id == int(serverinfo['reward_task_channel']):
@@ -553,6 +555,10 @@ class TaskGuild(commands.Cog):
                     update = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'reward_task_channel', str(channel.id))
                     await ctx.edit_original_message(
                         content=f"Reward task log channel of guild {ctx.guild.name} has set to {channel.mention}.")
+
+                    # re-load guild list
+                    await self.utils.bot_reload_guilds()
+
                     await log_to_channel(
                         "reward",
                         f"[REWARD TASK] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
@@ -604,6 +610,9 @@ class TaskGuild(commands.Cog):
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+
             await ctx.edit_original_message(
                 content=f"Reward task channel of guild {ctx.guild.name} has set to {channel.mention}.")
             await log_to_channel(
@@ -654,11 +663,13 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
                 await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
                     content=f"{EMOJI_ERROR} {ctx.author.mention}, please ask Guild Owner to set {self.bot.config['command_list']['task_logchan']} first!"
@@ -834,10 +845,12 @@ class TaskGuild(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
                     return
                 try:
-                    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                    serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                     if serverinfo is None:
                         # Let's add some info if server return None
                         await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+                        # re-load guild list
+                        await self.utils.bot_reload_guilds()
                 except Exception:
                     await ctx.edit_original_message(content=f"{ctx.author.mention}, internal error. Please report.")
                     traceback.print_exc(file=sys.stdout)
@@ -925,7 +938,7 @@ class TaskGuild(commands.Cog):
                 )
                 return
             else:
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 log_channel = self.bot.get_channel(int(serverinfo['reward_task_channel']))
                 closing_task = await self.close_task(str(ctx.guild.id), ref_id)
                 if closing_task is True:
@@ -1144,11 +1157,13 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
                 await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
                     content=f"{EMOJI_ERROR} {ctx.author.mention}, please set {self.bot.config['command_list']['task_logchan']} first!"
@@ -1292,11 +1307,13 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
                 await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
                     content=f"{EMOJI_ERROR} {ctx.author.mention}, please set {self.bot.config['command_list']['task_logchan']} first!"
@@ -1409,11 +1426,13 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
                 await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
                     content=f"{EMOJI_ERROR} {ctx.author.mention}, please set {self.bot.config['command_list']['task_logchan']} first!"
@@ -1562,11 +1581,13 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
                 await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
                     content=f"{EMOJI_ERROR} {ctx.author.mention}, please ask Guild Owner to set {self.bot.config['command_list']['task_logchan']} first!"
@@ -1842,7 +1863,7 @@ class TaskGuild(commands.Cog):
                                 if channel is not None:
                                     try:
                                         await channel.send(f"Task ID: **{str(i['id'])}** - [{i['title']}] expired!{user_paying}")
-                                        serverinfo = await store.sql_info_by_server(i['guild_id'])
+                                        serverinfo = self.bot.other_data['guild_list'].get(i['guild_id'])
                                         if serverinfo['reward_task_channel']:
                                             get_log_chan = self.bot.get_channel(int(serverinfo['reward_task_channel']))
                                             if get_log_chan is not None:

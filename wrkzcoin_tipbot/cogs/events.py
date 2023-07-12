@@ -531,7 +531,7 @@ class Events(commands.Cog):
             else:
                 max_allowed = 400
                 try:
-                    serverinfo = await store.sql_info_by_server(str(message.guild.id))
+                    serverinfo = self.bot.other_data['guild_list'].get(str(message.guild.id))
                     if len(list_users) > max_allowed:
                         # Check if premium guild
                         if serverinfo and serverinfo['is_premium'] == 0:
@@ -2184,6 +2184,8 @@ class Events(commands.Cog):
             f"Bot joins a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. "\
             f"Total guilds: {len(self.bot.guilds)}."
         )
+        # re-load guild list
+        await self.utils.bot_reload_guilds()
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
@@ -2240,11 +2242,13 @@ class Events(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        add_server_info = await store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
+        await store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
         await self.botLogChan.send(
             f"Bot was removed from guild {guild.name} / {guild.id}. "\
             f"Total guilds: {len(self.bot.guilds)}"
         )
+        # re-load guild list
+        await self.utils.bot_reload_guilds()
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -2268,6 +2272,8 @@ class Events(commands.Cog):
                 self.update_discord_stats.start()
         # re-load ban list
         self.bot.other_data['ban_list'] = await self.get_list_bans()
+        # re-load guild list
+        await self.utils.bot_reload_guilds()
 
     async def cog_load(self):
         if self.bot.config['discord']['enable_bg_tasks'] == 1:

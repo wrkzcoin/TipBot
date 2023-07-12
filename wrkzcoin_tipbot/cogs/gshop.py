@@ -395,7 +395,7 @@ class GShop(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         try:
             # if enable_role_shop is on/off
             if serverinfo and serverinfo['enable_role_shop'] == 0:
@@ -452,7 +452,7 @@ class GShop(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         try:
             # if enable_role_shop is on/off
             if serverinfo and serverinfo['enable_role_shop'] == 0:
@@ -768,7 +768,7 @@ class GShop(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         get_guild_items = await self.get_guild_role_shop_items(str(ctx.guild.id))
         try:
             # if enable_role_shop is on/off
@@ -872,7 +872,7 @@ class GShop(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         try:
             # if enable_role_shop is on/off
             if serverinfo and serverinfo['enable_role_shop'] == 0:

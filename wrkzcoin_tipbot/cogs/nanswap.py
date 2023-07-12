@@ -423,7 +423,7 @@ class Nanswap(commands.Cog):
                 await ctx.response.send_message(msg)
                 return
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, nanswap function is not ENABLE yet in this guild. "\
                         "Please request Guild owner to enable by `/SETTING TRADE`"

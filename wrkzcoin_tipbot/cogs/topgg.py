@@ -302,7 +302,7 @@ class TopGGVote(commands.Cog):
                                                             pass
                                                         # Log channel if there is
                                                         try:
-                                                            serverinfo = await store.sql_info_by_server(guild_id)
+                                                            serverinfo = self.bot.other_data['guild_list'].get(guild_id)
                                                             if serverinfo and serverinfo['vote_reward_channel']:
                                                                 channel = self.bot.get_channel(
                                                                     int(serverinfo['vote_reward_channel'])

@@ -903,7 +903,7 @@ class MemePls(commands.Cog):
 
         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
             try:
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 if serverinfo and serverinfo['enable_memepls'] == "NO":
                     if self.enable_logchan:
                         await self.botLogChan.send(
@@ -970,7 +970,7 @@ class MemePls(commands.Cog):
 
         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
             try:
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 if serverinfo and serverinfo['enable_memepls'] == "NO":
                     if self.enable_logchan:
                         await self.botLogChan.send(
@@ -1231,7 +1231,7 @@ class MemePls(commands.Cog):
 
         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
             try:
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 if serverinfo and serverinfo['enable_memepls'] == "NO":
                     if self.enable_logchan:
                         await self.botLogChan.send(

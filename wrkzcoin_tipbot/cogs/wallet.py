@@ -7061,7 +7061,7 @@ class Wallet(commands.Cog):
                                 guild = self.bot.get_guild(int(each_reward['guild_id']))
                                 if guild:
                                     # We found guild
-                                    serverinfo = await store.sql_info_by_server(each_reward['guild_id'])
+                                    serverinfo = self.bot.other_data['guild_list'].get(each_reward['guild_id'])
                                     # Check if new link is updated. If yes, we ignore it
                                     if serverinfo['rt_link'] and each_reward['tweet_link'] != serverinfo['rt_link']:
                                         # Update
@@ -15188,7 +15188,7 @@ class Wallet(commands.Cog):
         extra_take_text = ""
         try:
             # check if bot channel is set:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
@@ -15501,7 +15501,7 @@ class Wallet(commands.Cog):
             return
 
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
@@ -15757,7 +15757,7 @@ class Wallet(commands.Cog):
             return
 
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))

@@ -2768,7 +2768,7 @@ class Cexswap(commands.Cog):
                 await ctx.response.send_message(msg)
                 return
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, cexswap/market function is not ENABLE yet in this guild. "\
                         "Please request Guild owner to enable by `/SETTING TRADE`"
@@ -3710,6 +3710,8 @@ class Cexswap(commands.Cog):
                                                 f"[CEXSwap] failed to message to guild {get_guild.name} / {get_guild.id}."
                                             )
                                             update = await store.sql_changeinfo_by_server(item['serverid'], 'trade_channel', None)
+                                            # re-load guild list
+                                            await self.utils.bot_reload_guilds()
                                             if update is True:
                                                 await get_guild.owner.send(f"[CEXSwap] TipBot's failed to send message to <#{str(channel.id)}> "\
                                                     f"in guild {get_guild.name} / {get_guild.id}. "\

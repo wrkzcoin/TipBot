@@ -749,7 +749,7 @@ class Tips(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
         # End token name check
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
             'tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']
@@ -1128,7 +1128,7 @@ class Tips(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     return
             # End token name check
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
                 'tiponly'].split(","):
                 allowed_coins = serverinfo['tiponly']
@@ -1435,7 +1435,7 @@ class Tips(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
         # End token name check
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
             'tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']
@@ -1824,7 +1824,7 @@ class Tips(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
         # End token name check
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
             'tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']
@@ -2123,7 +2123,7 @@ class Tips(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
         # End token name check
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
             'tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']
@@ -2481,7 +2481,7 @@ class Tips(commands.Cog):
             list_tokens = []
 
             sum_in_usd = 0.0
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             amount_token = amount_list_to.split(",")
 
             try:
@@ -2648,7 +2648,7 @@ class Tips(commands.Cog):
 
                 default_max_tip = 400
                 max_allowed = default_max_tip # default
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 if serverinfo and serverinfo['max_tip_users']:
                     max_allowed = serverinfo['max_tip_users']
                 if len(list_member_ids) > default_max_tip:
@@ -2931,7 +2931,7 @@ class Tips(commands.Cog):
         try:
             default_max_tip = 400
             max_allowed = default_max_tip # default
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['max_tip_users']:
                 max_allowed = serverinfo['max_tip_users']
             if len(memids) > default_max_tip:
@@ -3165,7 +3165,7 @@ class Tips(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             default_max_tip = 400
             max_allowed = default_max_tip # default
             if serverinfo and serverinfo['max_tip_users']:
@@ -3358,7 +3358,7 @@ class Tips(commands.Cog):
                 return
 
             async with ctx.typing():
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
                     'tiponly'].split(","):
                     allowed_coins = serverinfo['tiponly']

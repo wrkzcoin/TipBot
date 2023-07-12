@@ -98,33 +98,6 @@ async def handle_best_node(network: str):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
 
-async def sql_info_by_server(server_id: str):
-    global pool
-    try:
-        await openConnection()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sql = """ SELECT * FROM `discord_server` 
-                WHERE `serverid`=%s LIMIT 1
-                """
-                await cur.execute(sql, server_id)
-                result = await cur.fetchone()
-                if result:
-                    sql = """ SELECT * FROM `discord_feature_roles` 
-                    WHERE `guild_id`=%s """
-                    await cur.execute(sql, server_id)
-                    feature_roles = await cur.fetchall()
-                    list_roles_feature = None
-                    if feature_roles and len(feature_roles) > 0:
-                        list_roles_feature = {}
-                        for each in feature_roles:
-                            list_roles_feature[each['role_id']] = {'faucet_multipled_by': each['faucet_multipled_by'], 'guild_vote_multiplied_by': each['guild_vote_multiplied_by'], 'faucet_cut_time_percent': each['faucet_cut_time_percent']}
-                    result['feature_roles'] = list_roles_feature
-                    return result
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-    return None
-
 async def sql_addinfo_by_server(
     server_id: str, servername: str, prefix: str, default_coin: str, rejoin: bool = True
 ):

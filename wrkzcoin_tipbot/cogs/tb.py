@@ -936,7 +936,7 @@ class Tb(commands.Cog):
                             )
                             return
                         else:
-                            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                             if serverinfo and serverinfo['is_premium'] == 0 and self.bot.config['funcmd_public']['firework'] == 0:
                                 msg = f"{ctx.author.mention}, {self.bot.config['command_list']['tb_firework']} is not enable here."
                                 await ctx.edit_original_message(content=msg)
@@ -1047,7 +1047,7 @@ class Tb(commands.Cog):
                     )
                     return
                 else:
-                    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                    serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                     if serverinfo and serverinfo['is_premium'] == 0 and self.bot.config['funcmd_public']['spin_wheel'] == 0:
                         msg = f"{ctx.author.mention}, {self.bot.config['command_list']['tb_spinwheel']} is not enable here."
                         await ctx.edit_original_message(content=msg)
@@ -1248,7 +1248,7 @@ class Tb(commands.Cog):
         ctx,
         member: disnake.Member = None
     ):
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
             prefix = serverinfo['prefix']
             return
@@ -1274,7 +1274,7 @@ class Tb(commands.Cog):
         ctx,
         member: disnake.Member = None
     ):
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
             prefix = serverinfo['prefix']
             return
@@ -1321,7 +1321,7 @@ class Tb(commands.Cog):
         ctx,
         member: disnake.Member = None
     ):
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
             prefix = serverinfo['prefix']
             return
@@ -1347,7 +1347,7 @@ class Tb(commands.Cog):
         ctx,
         member: disnake.Member = None
     ):
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and 'enable_nsfw' in serverinfo and serverinfo['enable_nsfw'] == "NO":
             prefix = serverinfo['prefix']
             return

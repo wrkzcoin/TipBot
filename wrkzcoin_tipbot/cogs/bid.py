@@ -1613,7 +1613,7 @@ class Bidding(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get((str(ctx.guild.id)))
         try:
             count_ongoing = await self.utils.discord_bid_ongoing(str(ctx.guild.id), "ONGOING")
             # Check max if set in guild

@@ -163,6 +163,22 @@ class Events(commands.Cog):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
+    async def get_list_bans(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `bot_blocklist`
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        return [i['user_id'] for i in result]
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
     # Update stats
     async def insert_new_stats(
         self, num_server: int, num_online: int, num_users: int, 
@@ -2250,6 +2266,8 @@ class Events(commands.Cog):
                 self.reload_coingecko.start()
             if not self.update_discord_stats.is_running():
                 self.update_discord_stats.start()
+        # re-load ban list
+        self.bot.other_data['ban_list'] = await self.get_list_bans()
 
     async def cog_load(self):
         if self.bot.config['discord']['enable_bg_tasks'] == 1:

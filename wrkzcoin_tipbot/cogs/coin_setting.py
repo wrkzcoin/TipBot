@@ -13,6 +13,22 @@ class CoinSetting(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def get_list_bans(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `bot_blocklist`
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        return [i['user_id'] for i in result]
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
     async def get_coin_setting(self):
         try:
             await store.openConnection()
@@ -200,6 +216,9 @@ class CoinSetting(commands.Cog):
                     if is_hourly == 1 and amount_hourly > 0:
                         self.bot.other_data['hourly'][each_coin] = amount_hourly
                 # end of hourly
+
+                # re-load ban list
+                self.bot.other_data['ban_list'] = await self.get_list_bans()
 
                 await ctx.reply(f"{ctx.author.mention}, cexswap list, coin list, name, coin aliases, daily, hourly reloaded...")
                 await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")

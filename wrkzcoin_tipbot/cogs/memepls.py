@@ -522,7 +522,7 @@ class MemeTip_Button(disnake.ui.View):
             except Exception:
                 pass
 
-    @disnake.ui.button(emoji="<a:TB_WRKZ:1095201990486786068>", label="+100 WRKZ", style=ButtonStyle.green, custom_id="memetip_100_WRKZ", row=1)
+    @disnake.ui.button(emoji="<a:TB_WRKZ:1095201990486786068>", label="100 WRKZ", style=ButtonStyle.green, custom_id="memetip_100_WRKZ", row=1)
     async def tip_wrkz(
             self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -533,7 +533,7 @@ class MemeTip_Button(disnake.ui.View):
             await logchanbot(traceback.format_exc())
 
 
-    @disnake.ui.button(emoji="<a:TB_WOW:1095212324626898954>", label="+0.1 WOW", style=ButtonStyle.green, custom_id="memetip_0_1_WOW", row=1)
+    @disnake.ui.button(emoji="<a:TB_WOW:1095212324626898954>", label="0.1 WOW", style=ButtonStyle.green, custom_id="memetip_0_1_WOW", row=1)
     async def tip_wow(
             self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -543,7 +543,7 @@ class MemeTip_Button(disnake.ui.View):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
-    @disnake.ui.button(emoji="<a:TB_DOGE:1095212316397670430>", label="+0.1 DOGE", style=ButtonStyle.green, custom_id="memetip_0_1_DOGE", row=1)
+    @disnake.ui.button(emoji="<a:TB_DOGE:1095212316397670430>", label="0.1 DOGE", style=ButtonStyle.green, custom_id="memetip_0_1_DOGE", row=2)
     async def tip_doge(
             self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -553,7 +553,7 @@ class MemeTip_Button(disnake.ui.View):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
-    @disnake.ui.button(emoji="<a:TB_DEGO:1095201546146414682>", label="+10K DEGO", style=ButtonStyle.green, custom_id="memetip_10000_DEGO", row=2)
+    @disnake.ui.button(emoji="<a:TB_DEGO:1095201546146414682>", label="10K DEGO", style=ButtonStyle.green, custom_id="memetip_10000_DEGO", row=2)
     async def tip_dego(
             self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -563,7 +563,7 @@ class MemeTip_Button(disnake.ui.View):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
-    @disnake.ui.button(emoji="<a:TB_BAN:1095213025067290694>", label="+0.5 BAN", style=ButtonStyle.green, custom_id="memetip_0_5_BAN", row=2)
+    @disnake.ui.button(emoji="<a:TB_BAN:1095213025067290694>", label="0.5 BAN", style=ButtonStyle.green, custom_id="memetip_0_5_BAN", row=3)
     async def tip_ban(
             self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
@@ -573,42 +573,12 @@ class MemeTip_Button(disnake.ui.View):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
-    @disnake.ui.button(emoji="<a:TB_MOON:1095222174954041396>", label="+0.02 MOON", style=ButtonStyle.green, custom_id="memetip_0_0_2_MOON", row=2)
+    @disnake.ui.button(emoji="<a:TB_MOON:1095222174954041396>", label="0.02 MOON", style=ButtonStyle.green, custom_id="memetip_0_0_2_MOON", row=3)
     async def tip_moon(
             self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
     ):
         try:
             await self.process_tipping(0.02, "MOON", interaction)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
-
-    @disnake.ui.button(emoji="<a:TB_XLM:1095202941289365554>", label="+0.05 XLM", style=ButtonStyle.green, custom_id="memetip_0_0_5_XLM", row=3)
-    async def tip_xlm(
-            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
-    ):
-        try:
-            await self.process_tipping(0.05, "XLM", interaction)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
-
-    @disnake.ui.button(emoji="<a:TB_XNO:1095233680752001126>", label="+0.002 XNO", style=ButtonStyle.green, custom_id="memetip_0_0_2", row=3)
-    async def tip_xno(
-            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
-    ):
-        try:
-            await self.process_tipping(0.002, "XNO", interaction)
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
-
-    @disnake.ui.button(emoji="<a:TB_XMR:1095216263602651136>", label="+0.0001 XMR", style=ButtonStyle.green, custom_id="memetip_0_0_1_XMR", row=3)
-    async def tip_xmr(
-            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
-    ):
-        try:
-            await self.process_tipping(0.0001, "XMR", interaction)
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())

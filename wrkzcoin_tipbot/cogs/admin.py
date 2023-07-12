@@ -76,6 +76,55 @@ class Admin(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
+    async def get_list_bans(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `bot_blocklist`
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        return [i['user_id'] for i in result]
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot("admin " +str(traceback.format_exc()))
+        return []
+
+    async def insert_ban_user(self, user_id: str, user_server: str, reason: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    INSERT INTO `bot_blocklist`
+                    (`user_id`, `user_server`, `banned_time`, `reason`) VALUES (%s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (user_id, user_server, int(time.time()), reason))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def delete_ban_user(self, user_id: str, user_server: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    DELETE FROM `bot_blocklist`
+                    WHERE `user_id`=%s and `user_server`=%s LIMIT 1;
+                    """
+                    await cur.execute(sql, (user_id, user_server))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
     async def get_local_db_extra_auth(self):
         try:
             await store.openConnection()
@@ -865,11 +914,12 @@ class Admin(commands.Cog):
     @admin.command(hidden=True, usage='admin enableuser <user id> <user_server>', description="Disable a user from using command.")
     async def enableuser(self, ctx, user_id: str, user_server: str="DISCORD"):
         try:
-            if user_server.upper() not in ["DISCORD", "TELEGRAM"]:
+            user_server = user_server.upper()
+            if user_server not in ["DISCORD", "TELEGRAM"]:
                 await ctx.reply(f"{ctx.author.mention}, invalid user_server `{user_server}`.")
                 return
 
-            if user_server.upper() == "DISCORD":
+            if user_server == "DISCORD":
                 member = self.bot.get_user(int(user_id))
                 if member is None:
                     msg = f"{ctx.author.mention}, can't find user with ID `{user_id}@{user_server}`."
@@ -877,24 +927,26 @@ class Admin(commands.Cog):
                     return
 
             # Check in table
-            get_member = await self.utils.async_get_cache_kv(
-                "user_disable",
-                f"{user_id}_{user_server}"
-            )
-            if get_member is not None:
-                # exist, then remove
-                self.utils.del_cache_kv(
-                    "user_disable",
-                    f"{user_id}_{user_server}"
-                )
-                msg = f"{ctx.author.mention}, ✅ user `{user_id}@{user_server}` removed from lock!"
+            if self.bot.other_data.get('ban_list') and len(self.bot.other_data.get('ban_list')) == 0:
+                msg = f"{ctx.author.mention}, there is no blocked users."
+                await ctx.reply(msg)
+                return
+            elif self.bot.other_data.get('ban_list') and len(self.bot.other_data.get('ban_list')) > 0 and \
+                str(user_id) not in self.bot.other_data.get('ban_list'):
+                msg = f"{ctx.author.mention}, ✅ user `{user_id}` was not blocked."
                 await ctx.reply(msg)
                 return
             else:
-                msg = f"{ctx.author.mention}, 🔴 user `{user_id}@{user_server}` is not locked."
-                await ctx.reply(msg)
+                # async def delete_ban_user(self, user_id: str, user_server: str):
+                deleting = await self.delete_ban_user(user_id, user_server)
+                if deleting is True:
+                    # reload
+                    self.bot.other_data['ban_list'] = await self.get_list_bans()
+                    msg = f"{ctx.author.mention}, ✅ successfully deleted a blocked `{user_id}@{user_server}`."
+                    await ctx.reply(msg)
+                else:
+                    await ctx.reply(f"{ctx.author.mention}, 🔴 error deleting a blocked user `{user_id}@{user_server}`.")
                 return
-
         except ValueError:
             msg = f"{ctx.author.mention}, invalid given user ID."
             await ctx.reply(msg)
@@ -916,12 +968,14 @@ class Admin(commands.Cog):
                 msg = f"{ctx.author.mention}, please have reasons!"
                 await ctx.reply(msg)
                 return
-            if user_server.upper() not in ["DISCORD", "TELEGRAM"]:
+            
+            user_server = user_server.upper()
+            if user_server not in ["DISCORD", "TELEGRAM"]:
                 msg = f"{ctx.author.mention}, invalid user_server `{user_server}`."
                 await ctx.reply(msg)
                 return
 
-            if user_server.upper() == "DISCORD":
+            if user_server == "DISCORD":
                 member = self.bot.get_user(int(user_id))
                 if member is None:
                     msg = f"{ctx.author.mention}, can't find user with ID `{user_id}@{user_server}`."
@@ -929,27 +983,21 @@ class Admin(commands.Cog):
                     return
 
             # Check in table
-            get_member = await self.utils.async_get_cache_kv(
-                "user_disable",
-                f"{user_id}_{user_server}"
-            )
-            if get_member is not None:
-                # exist, then tell.
-                reason = get_member['reason']
-                locked_time = get_member['time']
-                msg = f"{ctx.author.mention}, ✅ user `{user_id}@{user_server}` already locked on <t:{locked_time}:f> reasons ```{reason}```"
+            if self.bot.other_data.get('ban_list') and len(self.bot.other_data.get('ban_list')) > 0 and \
+                str(user_id) in self.bot.other_data.get('ban_list'):
+                msg = f"{ctx.author.mention}, ✅ user `{user_id}` was already blocked."
                 await ctx.reply(msg)
                 return
             else:
-                await self.utils.async_set_cache_kv(
-                    "user_disable",
-                    f"{user_id}_{user_server}",
-                    {'time': int(time.time()), 'reason': reasons if reasons else "N/A"}
-                )
-                msg = f"{ctx.author.mention}, ✅ successfully locked `{user_id}@{user_server}` with reasons ```{reasons if reasons else 'N/A'}```"
-                await ctx.reply(msg)
+                adding = await self.insert_ban_user(user_id, user_server, reasons)
+                if adding is True:
+                    # reload
+                    self.bot.other_data['ban_list'] = await self.get_list_bans()
+                    msg = f"{ctx.author.mention}, ✅ successfully blocked `{user_id}@{user_server}` with reasons ```{reasons if reasons else 'N/A'}```"
+                    await ctx.reply(msg)
+                else:
+                    await ctx.reply(f"{ctx.author.mention}, 🔴 error adding user `{user_id}@{user_server}`.")
                 return
-
         except ValueError:
             msg = f"{ctx.author.mention}, invalid given user ID."
             await ctx.reply(msg)

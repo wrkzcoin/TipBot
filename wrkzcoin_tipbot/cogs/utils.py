@@ -1758,18 +1758,14 @@ class Utils(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return None
-
-
     # end of price, gecko, etc
 
     # Check if a user lock
     def is_locked_user(self, user_id: str, user_server: str="DISCORD"):
+        # Check in table
         try:
-            get_member = self.get_cache_kv(
-                "user_disable",
-                f"{user_id}_{user_server}"
-            )
-            if get_member is not None:
+            if self.bot.other_data.get('ban_list') and len(self.bot.other_data.get('ban_list')) > 0 and \
+                str(user_id) in self.bot.other_data.get('ban_list'):
                 return True
         except Exception as e:
             traceback.print_exc(file=sys.stdout)

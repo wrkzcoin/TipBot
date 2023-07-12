@@ -1586,6 +1586,35 @@ class TaskGuild(commands.Cog):
                         self.bot.config['discord']['reward_webhook']
                     )
                     return
+            # check if user create account less than 7 days
+            try:
+                account_created = ctx.author.created_at
+                if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['reward_task']['age_to_claim']:
+                    remaining_time = int(account_created.timestamp()) + self.bot.config['reward_task']['age_to_claim']
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
+                        f"Wait a more days before using this. Wait till <t:{str(remaining_time)}:f>."
+                    await ctx.edit_original_message(content=msg)
+                    await log_to_channel(
+                        "reward",
+                        f"[REWARD TASK] User {ctx.author.mention} wanted /task complete in Guild {ctx.guild.id} / {ctx.guild.name}! Rejected! Account too new! Wait till <t:{str(remaining_time)}:f>",
+                        self.bot.config['discord']['reward_webhook']
+                    )
+                    return
+                account_joined = ctx.guild.get_member(ctx.author.id).joined_at
+                if (datetime.utcnow().astimezone() - account_joined).total_seconds() <= self.bot.config['reward_task']['age_joined_guild']:
+                    remaining_time = int(account_joined.timestamp()) + self.bot.config['reward_task']['age_joined_guild']
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new in this Guild. "\
+                        f"Wait a few days before using this. Wait till <t:{str(remaining_time)}:f>."
+                    await ctx.edit_original_message(content=msg)
+                    await log_to_channel(
+                        "reward",
+                        f"[REWARD TASK] User {ctx.author.mention} wanted /task complete in Guild {ctx.guild.id} / {ctx.guild.name}! Rejected! Account too new in the Guild! Wait till <t:{str(remaining_time)}:f>",
+                        self.bot.config['discord']['reward_webhook']
+                    )
+                    return
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
             # if user already submited
             # if a guild has such task id ongoing or already reached maximum number
             # stored record and save proof,

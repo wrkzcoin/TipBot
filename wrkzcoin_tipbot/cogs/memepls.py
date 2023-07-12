@@ -807,7 +807,7 @@ class MemePls(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def get_random_approved_meme_guild(self, guild_id):
+    async def get_random_approved_meme_guild(self, guild_id, filter_user: str=None):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -817,7 +817,15 @@ class MemePls(commands.Cog):
                     WHERE `enable`=%s AND `guild_id`=%s 
                     ORDER BY RAND() LIMIT 1
                     """
-                    await cur.execute(sql, (1, guild_id))
+                    if filter_user is not None:
+                        sql = """
+                        SELECT * FROM `meme_uploaded` 
+                        WHERE `enable`=%s AND `guild_id`=%s AND `owner_userid`<>%s
+                        ORDER BY RAND() LIMIT 1
+                        """
+                        await cur.execute(sql, (1, guild_id, filter_user))
+                    else:
+                        await cur.execute(sql, (1, guild_id))
                     result = await cur.fetchone()
                     if result:
                         sql = """
@@ -891,7 +899,7 @@ class MemePls(commands.Cog):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
-    async def meme_view_here(self, ctx):
+    async def meme_view_here(self, ctx, including_mine):
         await self.bot_log()
         await ctx.response.send_message(f"{ctx.author.mention}, checking random meme...")
         try:
@@ -921,7 +929,10 @@ class MemePls(commands.Cog):
             guild_id = ctx.guild.id
             channel_id = ctx.channel.id
 
-        get_meme_data = await self.get_random_approved_meme_guild(guild_id)
+        filter_user = None
+        if including_mine == "NO":
+            filter_user = str(ctx.author.id)
+        get_meme_data = await self.get_random_approved_meme_guild(guild_id, filter_user)
         if get_meme_data is None:
             await ctx.edit_original_message(
                 content=f"{ctx.author.mention}, could not get one random meme here yet. "\
@@ -1332,13 +1343,21 @@ class MemePls(commands.Cog):
 
     @memepls.sub_command(
         usage="memepls view",
-        description="View MEME randomly."
+        description="View MEME randomly.",
+        options=[
+            Option('including_mine', 'including_mine', OptionType.string, required=False, choices=[
+                OptionChoice("YES", "YES"),
+                OptionChoice("NO", "NO")
+            ]
+            )
+        ],
     )
     async def view(
         self,
-        ctx
+        ctx,
+        including_mine: str='YES'
     ):
-        await self.meme_view_here(ctx)
+        await self.meme_view_here(ctx, including_mine)
 
     @memepls.sub_command(
         usage="memepls user <@member>",

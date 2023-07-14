@@ -583,6 +583,16 @@ class MemeTip_Button(disnake.ui.View):
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
 
+    @disnake.ui.button(emoji="<a:TB_XDG:1095236056468684810>", label="4.20 XDG", style=ButtonStyle.green, custom_id="memetip_4_2_XDG", row=4)
+    async def tip_dogenano(
+            self, button: disnake.ui.Button, interaction: disnake.MessageInteraction
+    ):
+        try:
+            await self.process_tipping(4.2, "XDG", interaction)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot(traceback.format_exc())
+
     @disnake.ui.button(label="Tip other coin", style=ButtonStyle.blurple, custom_id="memetip_other", row=4)
     async def tip_other_coin(
             self, button: disnake.ui.Button, interaction: disnake.MessageInteraction

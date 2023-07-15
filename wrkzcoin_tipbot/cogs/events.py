@@ -2274,6 +2274,8 @@ class Events(commands.Cog):
         self.bot.other_data['ban_list'] = await self.get_list_bans()
         # re-load guild list
         await self.utils.bot_reload_guilds()
+        # re-load ai tts model
+        await self.utils.ai_reload_model_tts()
 
     async def cog_load(self):
         if self.bot.config['discord']['enable_bg_tasks'] == 1:

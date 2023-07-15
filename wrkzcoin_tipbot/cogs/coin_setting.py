@@ -223,6 +223,8 @@ class CoinSetting(commands.Cog):
                 self.bot.other_data['ban_list'] = await self.get_list_bans()
                 # re-load guild list
                 await self.utils.bot_reload_guilds()
+                # re-load ai tts model
+                await self.utils.ai_reload_model_tts()
 
                 await ctx.reply(f"{ctx.author.mention}, cexswap list, coin list, name, coin aliases, daily, hourly reloaded...")
                 await logchanbot(f"{ctx.author.name}#{ctx.author.discriminator} reloaded `{cmd}`.")

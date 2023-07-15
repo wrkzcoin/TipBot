@@ -446,6 +446,26 @@ class Utils(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    async def ai_reload_model_tts(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `ai_tts_models`
+                    """
+                    await cur.execute(sql,)
+                    result_tts_models = await cur.fetchall()
+                    if result_tts_models and len(result_tts_models) > 0:
+                        tts_models = {}
+                        for i in result_tts_models:
+                            if i['enable'] == 1:
+                                tts_models[i['name']] = i['url']
+                        self.bot.other_data['ai_tts_models'] = tts_models.copy()
+                        del tts_models
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
     async def get_list_guilds(self):
         result_guilds = []
         list_roles_feature = {}

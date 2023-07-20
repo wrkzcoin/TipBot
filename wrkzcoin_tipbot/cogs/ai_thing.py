@@ -52,14 +52,22 @@ async def ai_tts_edge_fetch_list():
     try:
         lists = await edge_tts.list_voices()
         list_selected = []
+        # add all lang
+        list_langs = {}
         for i in lists:
+            # all: # add all language
+            lang_code = i['ShortName'].split('-')[0]
+            if lang_code not in list_langs:
+                list_langs[lang_code] = []
+            list_langs[lang_code].append(i)
+            # english only
             if i['ShortName'].startswith('en-'):
                 # print(i['ShortName'], i['Gender'])
                 list_selected.append(i)
-        return list_selected
+        return {'en': list_selected, 'all': list_langs}
     except Exception:
         traceback.print_exc(file=sys.stdout)
-    return []
+    return {'en': [], 'all': {}}
 
 async def ai_tts_get(
     url: str, text: str, saved_name: str, model: str, timeout: int=900
@@ -185,6 +193,171 @@ class AiThing(commands.Cog):
                 "Please try again later!"
             await ctx.response.send_message(msg)
             return
+
+    @ai_thing.sub_command(
+        name="auto-edge-tts",
+        usage="aitool auto-edge-tts <text> [language]",
+        options=[
+            Option('text', 'text', OptionType.string, required=True),
+            Option('language', 'language', OptionType.string, required=False),
+        ],
+        description="Create text-to-speech using Edge TTS with auto mode"
+    )
+    async def ai_thing_auto_edge_tts(
+        self,
+        ctx,
+        text: str,
+        language: str=None,
+    ):
+        await ctx.response.send_message(f"{ctx.author.mention}, loading ai tools ...")    
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/aitool auto-edge-tts", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        try:
+            if language:
+                language = language.lower()
+            if self.bot.other_data.get('ai_edge_tts_all_models') is None:
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, language model is not ready. Try again later!")
+                return
+            tts_engine = 'en-AU-WilliamNeural'
+            text = text.strip()
+            if len(text) > self.bot.config['aithing']['max_len']:
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, input text is longer than {str(self.bot.config['aithing']['max_len'])}!")
+                return
+            elif len(text) < self.bot.config['aithing']['min_len']:
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, input text is shorter than {str(self.bot.config['aithing']['min_len'])}!!")
+                return
+            try:
+                detect_lang = None
+                # https://github.com/aboSamoor/pycld2#example
+                isReliable, textBytesFound, details = cld2.detect(text)
+                if isReliable is False and language is None:
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention}, can't detect language or text is too short or you have to force to select a language!")
+                    return
+                elif isReliable is False and language is not None and language not in self.bot.other_data['ai_edge_tts_all_models'].keys():
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention}, selected language **{language}** but TTS model is not available!")
+                    return
+                elif isReliable is True:
+                    # Detect language
+                    detect_lang = details[0][1]
+                    if detect_lang not in self.bot.other_data['ai_edge_tts_all_models'].keys():
+                        await ctx.edit_original_message(
+                            content=f"{EMOJI_INFORMATION} {ctx.author.mention}, detect language **{detect_lang}** but TTS model is not available!")
+                        return
+                elif language is not None and language not in self.bot.other_data['ai_edge_tts_all_models'].keys():
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention}, language **{language}** is not available!")
+                    return
+                
+                # do process
+                if language:
+                    detect_lang = language
+
+                if detect_lang is None:
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention}, can't get language for input text or it's not given!")
+                    return
+                # random
+                tts_engine = random.choice(self.bot.other_data['ai_edge_tts_all_models'][detect_lang])['ShortName']
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+                # check alpha numeric
+                if not text.replace(" ", "").replace("!", "").replace(".", "").replace("?", "").replace("-", "").replace(":", "").isalnum():
+                    await ctx.edit_original_message(
+                        content=f"{EMOJI_INFORMATION} {ctx.author.mention}, error language detection!")
+                    return
+
+            # normal use
+            if ctx.author.id not in self.bot.config['aithing']['testers'] and len(text) > self.bot.config['aithing']['mormal_user_len']:
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, the text is too long {str(len(text))} > { self.bot.config['aithing']['mormal_user_len']}!")
+                return
+
+            if ctx.author.id in self.ai_tss_progress and self.ai_tss_progress[ctx.author.id] > int(time.time()) - 90 and \
+                ctx.author.id not in self.bot.config['aithing']['testers']:
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, you executed too recent of this tool! Wait a bit.")
+                return
+            else:
+                self.ai_tss_progress[ctx.author.id] = int(time.time())
+
+            # get records
+            counts = await self.get_last_user_ai_tts(str(ctx.author.id), 24*3600)
+            if counts['count'] >= self.bot.config['aithing']['max_time_day'] and ctx.author.id not in self.bot.config['aithing']['testers']:
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, you reached max. usage per last 24 hours!")
+                return
+            await ctx.edit_original_message(
+                content=f"{EMOJI_INFORMATION} {ctx.author.mention}, processing {str(len(text))} characters ....!")
+
+            content = text if len(text) <= 1000 else text[0:950] + " ... (more)"
+            guild_id = "DM"
+            guild_name = "DM"
+            if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
+                guild_id = ctx.guild.id
+                guild_name = ctx.guild.name
+            await log_to_channel(
+                "aitool",
+                f"[AI TOOL] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                f"used AUTO TTS {str(len(text))} characters ({tts_engine}) / language: '{language}' in {guild_id} / {guild_name}.",
+                self.bot.config['discord']['aitool']
+            )
+            start_time = int(time.time())
+            path = self.bot.config['aithing']['path']
+            saved_name = str(int(time.time())) + "_" + ''.join(random.choice(ascii_uppercase) for i in range(8))
+            tts = await ai_tts_edge(text, path + saved_name + ".mp3", tts_engine)
+            if tts:
+                await ctx.edit_original_message(
+                    content=f"{EMOJI_INFORMATION} {ctx.author.mention}, converting to media ....!")
+                command = f'ffmpeg -i {path + saved_name + ".mp3"} -filter_complex "[0:a]showwaves=s=640x360:mode=cline:r=30,colorkey=0x000000:0.01:0.1,format=yuv420p[vid]" -map "[vid]" -map 0:a -codec:v libx264 -crf 18 -c:a copy {path + saved_name + ".mp4"}'
+                process_video = subprocess.Popen(command, shell=True)
+                process_video.wait(timeout=30000) # 30s waiting
+                file = disnake.File(path + saved_name + ".mp4", filename=saved_name + ".mp4")
+                duration = int(time.time() - start_time)
+                file_size = os.stat(path + saved_name + ".mp4") # byte
+                if file_size.st_size >= self.bot.config['aithing']['max_size']:
+                    # send link
+                    await ctx.edit_original_message(
+                        content=content + "\n" + self.bot.config['aithing']['url'] + saved_name + ".mp4",
+                        view=DownloadAudioMP3(self.bot.config['aithing']['url'] + saved_name)
+                    )                        
+                else:
+                    await ctx.edit_original_message(
+                        content=content,
+                        file=file,
+                        view=DownloadAudioMP3(self.bot.config['aithing']['url'] + saved_name)
+                    )
+                await self.insert_ai_tts(
+                    str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator),
+                    guild_id, text, len(text), int(time.time()), saved_name + ".mp3",
+                    duration
+                )
+                await log_to_channel(
+                    "aitool",
+                    f"[AI TOOL] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                    f"completed AUTO TTS:\n{content}\n" + self.bot.config['aithing']['url'] + saved_name + ".mp4",
+                    self.bot.config['discord']['aitool']
+                )
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @ai_thing_auto_edge_tts.autocomplete("language")
+    async def ai_thing_auto_edge_tts_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        if self.bot.other_data.get('ai_edge_tts_all_models') is None:
+            return [disnake.OptionChoice(name="Failed to load...", value=0)]
+        else:
+            return [disnake.OptionChoice(
+                name=k, value=k) for k in self.bot.other_data['ai_edge_tts_all_models'].keys() if string.lower() in k.lower()
+            ][0:15]
 
     @ai_thing.sub_command(
         name="edge-tts",
@@ -488,8 +661,10 @@ class AiThing(commands.Cog):
         # re-load edge tts model
         if self.bot.other_data.get('ai_edge_tts_models') is None:
             list_models = await ai_tts_edge_fetch_list()
-            if len(list_models) > 0:
-                self.bot.other_data['ai_edge_tts_models'] = [i['ShortName'] for i in list_models]
+            if list_models.get('en') and len(list_models['en']) > 0:
+                self.bot.other_data['ai_edge_tts_models'] = [i['ShortName'] for i in list_models['en']]
+            if list_models.get('all'):
+                self.bot.other_data['ai_edge_tts_all_models'] = list_models['all']
 
     async def cog_load(self):
         # re-load ai tts model
@@ -498,11 +673,15 @@ class AiThing(commands.Cog):
         # re-load edge tts model
         if self.bot.other_data.get('ai_edge_tts_models') is None:
             list_models = await ai_tts_edge_fetch_list()
-            if len(list_models) > 0:
-                self.bot.other_data['ai_edge_tts_models'] = [i['ShortName'] for i in list_models]
+            if list_models.get('en') and len(list_models['en']) > 0:
+                self.bot.other_data['ai_edge_tts_models'] = [i['ShortName'] for i in list_models['en']]
+            if list_models.get('all'):
+                self.bot.other_data['ai_edge_tts_all_models'] = list_models['all']
         print("Cog AiThing loaded...")
 
     def cog_unload(self):
+        self.bot.other_data['ai_edge_tts_models'] = None
+        self.bot.other_data['ai_edge_tts_all_models'] = None
         print("Cog AiThing unloaded...")
 
 def setup(bot):

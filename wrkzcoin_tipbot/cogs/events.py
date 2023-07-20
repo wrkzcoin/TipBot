@@ -150,7 +150,7 @@ class Events(commands.Cog):
         self.utils = Utils(self.bot)
 
         self.ttlcache = TTLCache(maxsize=500, ttl=60.0)
-        self.max_saving_message = 100
+        self.max_saving_message = 10
         self.is_saving_message = False
 
         self.botLogChan = None
@@ -162,6 +162,22 @@ class Events(commands.Cog):
     async def bot_log(self):
         if self.botLogChan is None:
             self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
+
+    async def get_list_bans(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `bot_blocklist`
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        return [i['user_id'] for i in result]
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
 
     # Update stats
     async def insert_new_stats(
@@ -515,7 +531,7 @@ class Events(commands.Cog):
             else:
                 max_allowed = 400
                 try:
-                    serverinfo = await store.sql_info_by_server(str(message.guild.id))
+                    serverinfo = self.bot.other_data['guild_list'].get(str(message.guild.id))
                     if len(list_users) > max_allowed:
                         # Check if premium guild
                         if serverinfo and serverinfo['is_premium'] == 0:
@@ -2168,6 +2184,8 @@ class Events(commands.Cog):
             f"Bot joins a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. "\
             f"Total guilds: {len(self.bot.guilds)}."
         )
+        # re-load guild list
+        await self.utils.bot_reload_guilds()
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
@@ -2224,11 +2242,13 @@ class Events(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        add_server_info = await store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
+        await store.sql_updateinfo_by_server(str(guild.id), "status", "REMOVED")
         await self.botLogChan.send(
             f"Bot was removed from guild {guild.name} / {guild.id}. "\
             f"Total guilds: {len(self.bot.guilds)}"
         )
+        # re-load guild list
+        await self.utils.bot_reload_guilds()
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -2250,6 +2270,12 @@ class Events(commands.Cog):
                 self.reload_coingecko.start()
             if not self.update_discord_stats.is_running():
                 self.update_discord_stats.start()
+        # re-load ban list
+        self.bot.other_data['ban_list'] = await self.get_list_bans()
+        # re-load guild list
+        await self.utils.bot_reload_guilds()
+        # re-load ai tts model
+        await self.utils.ai_reload_model_tts()
 
     async def cog_load(self):
         if self.bot.config['discord']['enable_bg_tasks'] == 1:

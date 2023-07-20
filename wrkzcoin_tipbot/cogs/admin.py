@@ -76,6 +76,55 @@ class Admin(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
+    async def get_list_bans(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `bot_blocklist`
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        return [i['user_id'] for i in result]
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot("admin " +str(traceback.format_exc()))
+        return []
+
+    async def insert_ban_user(self, user_id: str, user_server: str, reason: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    INSERT INTO `bot_blocklist`
+                    (`user_id`, `user_server`, `banned_time`, `reason`) VALUES (%s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (user_id, user_server, int(time.time()), reason))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def delete_ban_user(self, user_id: str, user_server: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    DELETE FROM `bot_blocklist`
+                    WHERE `user_id`=%s and `user_server`=%s LIMIT 1;
+                    """
+                    await cur.execute(sql, (user_id, user_server))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
     async def get_local_db_extra_auth(self):
         try:
             await store.openConnection()
@@ -168,6 +217,24 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
             await logchanbot("admin " +str(traceback.format_exc()))
         return None
+
+    async def get_all_addresses(self, coin_name: str, type_coin: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    if type_coin == "BTC":
+                        sql = """
+                        SELECT * FROM `doge_user`
+                        WHERE `coin_name`=%s
+                        """
+                        await cur.execute(sql, coin_name)
+                        result = await cur.fetchall()
+                        if result:
+                            return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
 
     async def user_balance_multi(
         self, user_id: str, user_server: str, coinlist: list
@@ -785,6 +852,49 @@ class Admin(commands.Cog):
         return
 
     @commands.is_owner()
+    @admin.command(hidden=True, usage='admin importaddr', description="Import addresses")
+    async def importaddr(self, ctx, coin_name: str):
+        """
+        This is temporary commands.
+        """
+        coin_name = coin_name.upper()
+        if not hasattr(self.bot.coin_list, coin_name):
+            await ctx.reply(f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
+            return
+
+        type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+        try:
+            if type_coin == "BTC":
+                get_addresses = await self.get_all_addresses(coin_name, type_coin)
+                number = 0
+                if len(get_addresses) > 0:
+                    daemon_addresses = await self.wallet_api.call_doge('listreceivedbyaddress', coin_name, payload='0, true')
+                    if len(daemon_addresses) > 0:
+                        daemon_addresses = [i['address'] for i in daemon_addresses]
+                    else:
+                        daemon_addresses = []
+                    print("Daemon address for {}: {}".format(coin_name, len(daemon_addresses)))
+                    for i in get_addresses:
+                        if i['balance_wallet_address'] in daemon_addresses:
+                            print("Skip importing {} - {}".format(coin_name, i['balance_wallet_address']))
+                            continue
+                        try:
+                            payload = '"{}", "{}", {}'.format(decrypt_string(i['privateKey']), i['user_id'], "true")
+                            importing = await self.wallet_api.call_doge('importprivkey', coin_name, payload=payload)
+                            number += 1
+                            print("{}/{}) Importing {} - {}".format(number, len(get_addresses), coin_name, i['balance_wallet_address']))
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                    await ctx.reply(f"{ctx.author.mention}, completed importing {str(number)} address(es) for {coin_name}.")
+                else:
+                    await ctx.reply(f"{ctx.author.mention}, there's no address to import.")
+            else:
+                await ctx.reply(f"{ctx.author.mention}, Unsupport coin!")
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.is_owner()
     @admin.command(hidden=True, usage='admin dumpthread', description="Dump all threads")
     async def dumpthread(self, ctx):
         try:
@@ -804,12 +914,12 @@ class Admin(commands.Cog):
     @admin.command(hidden=True, usage='admin enableuser <user id> <user_server>', description="Disable a user from using command.")
     async def enableuser(self, ctx, user_id: str, user_server: str="DISCORD"):
         try:
-            if user_server.upper() not in ["DISCORD", "TELEGRAM"]:
-                msg = f"{ctx.author.mention}, invalid user_server `{user_server}`."
-                await ctx.reply(msg)
+            user_server = user_server.upper()
+            if user_server not in ["DISCORD", "TELEGRAM"]:
+                await ctx.reply(f"{ctx.author.mention}, invalid user_server `{user_server}`.")
                 return
 
-            if user_server.upper() == "DISCORD":
+            if user_server == "DISCORD":
                 member = self.bot.get_user(int(user_id))
                 if member is None:
                     msg = f"{ctx.author.mention}, can't find user with ID `{user_id}@{user_server}`."
@@ -817,24 +927,26 @@ class Admin(commands.Cog):
                     return
 
             # Check in table
-            get_member = await self.utils.async_get_cache_kv(
-                "user_disable",
-                f"{user_id}_{user_server}"
-            )
-            if get_member is not None:
-                # exist, then remove
-                self.utils.del_cache_kv(
-                    "user_disable",
-                    f"{user_id}_{user_server}"
-                )
-                msg = f"{ctx.author.mention}, ✅ user `{user_id}@{user_server}` removed from lock!"
+            if self.bot.other_data.get('ban_list') and len(self.bot.other_data.get('ban_list')) == 0:
+                msg = f"{ctx.author.mention}, there is no blocked users."
+                await ctx.reply(msg)
+                return
+            elif self.bot.other_data.get('ban_list') and len(self.bot.other_data.get('ban_list')) > 0 and \
+                str(user_id) not in self.bot.other_data.get('ban_list'):
+                msg = f"{ctx.author.mention}, ✅ user `{user_id}` was not blocked."
                 await ctx.reply(msg)
                 return
             else:
-                msg = f"{ctx.author.mention}, 🔴 user `{user_id}@{user_server}` is not locked."
-                await ctx.reply(msg)
+                # async def delete_ban_user(self, user_id: str, user_server: str):
+                deleting = await self.delete_ban_user(user_id, user_server)
+                if deleting is True:
+                    # reload
+                    self.bot.other_data['ban_list'] = await self.get_list_bans()
+                    msg = f"{ctx.author.mention}, ✅ successfully deleted a blocked `{user_id}@{user_server}`."
+                    await ctx.reply(msg)
+                else:
+                    await ctx.reply(f"{ctx.author.mention}, 🔴 error deleting a blocked user `{user_id}@{user_server}`.")
                 return
-
         except ValueError:
             msg = f"{ctx.author.mention}, invalid given user ID."
             await ctx.reply(msg)
@@ -856,12 +968,14 @@ class Admin(commands.Cog):
                 msg = f"{ctx.author.mention}, please have reasons!"
                 await ctx.reply(msg)
                 return
-            if user_server.upper() not in ["DISCORD", "TELEGRAM"]:
+            
+            user_server = user_server.upper()
+            if user_server not in ["DISCORD", "TELEGRAM"]:
                 msg = f"{ctx.author.mention}, invalid user_server `{user_server}`."
                 await ctx.reply(msg)
                 return
 
-            if user_server.upper() == "DISCORD":
+            if user_server == "DISCORD":
                 member = self.bot.get_user(int(user_id))
                 if member is None:
                     msg = f"{ctx.author.mention}, can't find user with ID `{user_id}@{user_server}`."
@@ -869,27 +983,21 @@ class Admin(commands.Cog):
                     return
 
             # Check in table
-            get_member = await self.utils.async_get_cache_kv(
-                "user_disable",
-                f"{user_id}_{user_server}"
-            )
-            if get_member is not None:
-                # exist, then tell.
-                reason = get_member['reason']
-                locked_time = get_member['time']
-                msg = f"{ctx.author.mention}, ✅ user `{user_id}@{user_server}` already locked on <t:{locked_time}:f> reasons ```{reason}```"
+            if self.bot.other_data.get('ban_list') and len(self.bot.other_data.get('ban_list')) > 0 and \
+                str(user_id) in self.bot.other_data.get('ban_list'):
+                msg = f"{ctx.author.mention}, ✅ user `{user_id}` was already blocked."
                 await ctx.reply(msg)
                 return
             else:
-                await self.utils.async_set_cache_kv(
-                    "user_disable",
-                    f"{user_id}_{user_server}",
-                    {'time': int(time.time()), 'reason': reasons if reasons else "N/A"}
-                )
-                msg = f"{ctx.author.mention}, ✅ successfully locked `{user_id}@{user_server}` with reasons ```{reasons if reasons else 'N/A'}```"
-                await ctx.reply(msg)
+                adding = await self.insert_ban_user(user_id, user_server, reasons)
+                if adding is True:
+                    # reload
+                    self.bot.other_data['ban_list'] = await self.get_list_bans()
+                    msg = f"{ctx.author.mention}, ✅ successfully blocked `{user_id}@{user_server}` with reasons ```{reasons if reasons else 'N/A'}```"
+                    await ctx.reply(msg)
+                else:
+                    await ctx.reply(f"{ctx.author.mention}, 🔴 error adding user `{user_id}@{user_server}`.")
                 return
-
         except ValueError:
             msg = f"{ctx.author.mention}, invalid given user ID."
             await ctx.reply(msg)

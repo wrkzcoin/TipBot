@@ -104,6 +104,19 @@ class GShop(commands.Cog):
                             # Message User, Message Owner
                             if not role.is_assignable():
                                 await logchanbot(f"[GSHOP] TipBot has no permission to assign role `{role.name}` for order `{each_order['item_id']}` in Guild `{each_order['guild_id']}`.")
+                                expiring = await self.set_expired_role_item(each_order['id'])
+                                if expiring is True:
+                                    try:
+                                        await member.send("Your role purchased item_id: `{}` in Guild `{}` is expired.".format(each_order['item_id'], guild.name))
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
+                                    try:
+                                        await guild.owner.send(
+                                            "Please fix! TipBot has no permission to assign role `{}`! User `{}#{}` s' purchased role item_id: `{}` in Guild `{}` is expired.".format(
+                                            role.name, member.name, member.discriminator, each_order['item_id'], guild.name
+                                        ))
+                                    except Exception:
+                                        traceback.print_exc(file=sys.stdout)
                                 continue
                             if member is None:
                                 await logchanbot(f"[GSHOP] can not find member id {str(each_order['ordered_by_uid'])} in Guild {str(each_order['guild_id'])}. Set him/her to expired!")
@@ -152,7 +165,8 @@ class GShop(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `discord_guild_role_ordered` 
+                    sql = """
+                    UPDATE `discord_guild_role_ordered` 
                     SET `is_expired`=1 
                     WHERE `id`=%s 
                     LIMIT 1
@@ -269,9 +283,11 @@ class GShop(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_guild_role_ordered` 
-                              WHERE `is_expired`=%s 
-                              ORDER BY `ordered_date` DESC """
+                    sql = """
+                    SELECT * FROM `discord_guild_role_ordered` 
+                    WHERE `is_expired`=%s 
+                    ORDER BY `ordered_date` DESC
+                    """
                     await cur.execute(sql, is_expired)
                     result = await cur.fetchall()
                     if result:
@@ -288,9 +304,11 @@ class GShop(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `discord_guild_role_ordered` 
-                              WHERE `item_id`=%s AND `guild_id`=%s AND `ordered_by_uid`=%s AND `is_expired`=%s 
-                              LIMIT 1 """
+                    sql = """
+                    SELECT * FROM `discord_guild_role_ordered` 
+                    WHERE `item_id`=%s AND `guild_id`=%s AND `ordered_by_uid`=%s AND `is_expired`=%s 
+                    LIMIT 1
+                    """
                     await cur.execute(sql, (item_id, guild_id, ordered_by_uid, is_expired))
                     result = await cur.fetchone()
                     if result:
@@ -322,23 +340,24 @@ class GShop(commands.Cog):
         self, role_shop_id: int, role_shop_json: str, item_id: str, guild_id: str, role_id: str,
         acc_real_amount: float, token_name: str, token_decimal: int,
         ordered_by_uid: str, ordered_by_uname: str, renewed_date: int,
-        expired_date: int, is_expired: int
+        expired_date: int, is_expired: int, buyer: str=None
     ):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ INSERT INTO `discord_guild_role_ordered` (`role_shop_id`, `role_shop_json`, `item_id`, 
+                    sql = """
+                    INSERT INTO `discord_guild_role_ordered` (`role_shop_id`, `role_shop_json`, `item_id`, 
                     `guild_id`, `role_id`, `acc_real_amount`, `token_name`, `token_decimal`, `ordered_by_uid`, 
-                    `ordered_by_uname`, `ordered_date`, `renewed_date`, `expired_date`, `is_expired`) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    `ordered_by_uname`, `ordered_date`, `renewed_date`, `expired_date`, `is_expired`, `spender_uid`) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """
                     await cur.execute(sql, (
                         role_shop_id, role_shop_json, item_id, guild_id, role_id, 
                         acc_real_amount, token_name, token_decimal,
                         ordered_by_uid, ordered_by_uname, int(time.time()),
-                        renewed_date, expired_date, is_expired)
-                    )
+                        renewed_date, expired_date, is_expired, buyer
+                    ))
                     sql_2 = """
                     UPDATE `discord_guild_role_shop` 
                     SET `already_ordered`=`already_ordered`+1 
@@ -382,7 +401,7 @@ class GShop(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         try:
             # if enable_role_shop is on/off
             if serverinfo and serverinfo['enable_role_shop'] == 0:
@@ -421,13 +440,14 @@ class GShop(commands.Cog):
     @commands.bot_has_permissions(send_messages=True)
     @gshop.sub_command(
         name="buyrole",
-        usage="gshop buyrole <item id>",
+        usage="gshop buyrole <item id> [@user]",
         description="Buy a role using your wallet balance."
     )
     async def slash_buyrole(
         self,
         ctx,
-        item_id: str = commands.Param(autocomplete=autocomplete_item_idx)
+        item_id: str = commands.Param(autocomplete=autocomplete_item_idx),
+        member: disnake.Member=None
     ):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /gshop loading..."
         await ctx.response.send_message(msg)
@@ -439,7 +459,7 @@ class GShop(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         try:
             # if enable_role_shop is on/off
             if serverinfo and serverinfo['enable_role_shop'] == 0:
@@ -453,6 +473,15 @@ class GShop(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        if member is None:
+            member = ctx.guild.get_member(int(ctx.author.id))
+        else:
+            member = ctx.guild.get_member(int(member.id))
+
+        if member is None:
+            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, failed to get Guild's member info."
+            await ctx.edit_original_message(content=msg)
+            return
         try:
             # get item_id
             item_id = item_id.lower()
@@ -493,7 +522,6 @@ class GShop(commands.Cog):
                     wallet_address = get_deposit['destination_tag']
 
                 height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                member = ctx.guild.get_member(int(ctx.author.id))
                 try:
                     role = disnake.utils.get(ctx.guild.roles, id=int(item_info['role_id']))
                     if role is None:
@@ -510,12 +538,12 @@ class GShop(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
                     elif role and role in member.roles:
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you have role `{role.name}` already. "\
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, {member.mention} have role `{role.name}` already. "\
                             f"Purchase item_id `{item_id}` denied!"
                         await ctx.edit_original_message(content=msg)
                         await logchanbot(
                             f"[GSHOP] denied purchasing `{role.name}` in Guild `{str(ctx.guild.id)} / "\
-                            f"{ctx.guild.name}` by user `{str(ctx.author.id)}` (He/she has it already)."
+                            f"{ctx.guild.name}` by user `{str(ctx.author.id)}` for {member.mention} (He/she has it already)."
                         )
                         return
                     # re-check if role can kick/ban
@@ -534,16 +562,16 @@ class GShop(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     return
                 # Check if user's having that item and still not expired yet.
-                check_item = await self.check_exist_role_ordered(item_id, str(ctx.guild.id), str(ctx.author.id), 0)
+                check_item = await self.check_exist_role_ordered(item_id, str(ctx.guild.id), str(member.id), 0)
                 if check_item is True:
                     # check if user role removed for some reason.
                     if role in member.roles:
-                        msg = f"{ctx.author.mention}, you still have item_id `{item_id}` and not expired yet!"
+                        msg = f"{member.mention}, item_id `{item_id}` is not expired yet!"
                         await ctx.edit_original_message(content=msg)
                     else:
                         await member.add_roles(role)
-                        msg = f"{ctx.author.mention}, you still have item_id `{item_id}` and not expired yet "\
-                            f"but role is not with you. We added `{role.name}` back to you."
+                        msg = f"{member.mention} still owns item_id `{item_id}` and not expired yet "\
+                            f"but doesn't have that role. We added `{role.name}` back."
                         await ctx.edit_original_message(content=msg)
                         await logchanbot(
                             f"[GSHOP] added role `{role.name}` back to User `{str(ctx.author.id)}` "\
@@ -575,8 +603,8 @@ class GShop(commands.Cog):
                     purchase = await self.guild_role_ordered(
                         item_info['id'], json.dumps(item_info), item_info['item_id'], str(ctx.guild.id),
                         item_info['role_id'], amount, coin_name, coin_decimal,
-                        str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator),
-                        renewed_date, expired_date, 0
+                        str(member.id), "{}#{}".format(member.name, member.discriminator),
+                        renewed_date, expired_date, 0, str(ctx.author.id)
                     )
                     if purchase is True:
                         # 1) Deduct balance
@@ -597,22 +625,32 @@ class GShop(commands.Cog):
                             coin_decimal, SERVER_BOT, contract, real_amount_usd, None
                         )
                         if move_balance is True:
+                            additional_msg = ""
+                            if member.id != ctx.author.id:
+                                additional_msg = f"for {member.mention} "
+                                # send user a message
+                                try:
+                                    await member.send(
+                                        f"{EMOJI_INFORMATION} {ctx.author.mention} gifted item "\
+                                        f"`{item_id}` for you with role `{role.name}` in Guild {ctx.guild.name} for period {duration}!")
+                                except Exception:
+                                    traceback.print_exc(file=sys.stdout)
                             # Assign role
                             await member.add_roles(role)
                             duration = seconds_str_days(item_info['duration'])
                             cost = "{} {}".format(num_format_coin(amount), coin_name)
                             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully purchased item "\
-                                f"`{item_id}` for `{cost}` with role `{role.name}` for period {duration}!"
+                                f"`{item_id}` {additional_msg}costs `{cost}` with role `{role.name}` for period {duration}!"
                             await ctx.edit_original_message(content=msg)
                             # Try DM guild owner
                             await logchanbot(
-                                f"[GSHOP] user `{str(ctx.author.id)}` has successfully purchased `{item_id}` in "\
+                                f"[GSHOP] user `{str(ctx.author.id)}` has successfully purchased `{item_id}` {additional_msg}in "\
                                 f"Guild `{str(ctx.guild.id)} / {ctx.guild.name}`. Guild's credit added: `{cost}`."
                             )
                             try:
                                 await ctx.guild.owner.send(
                                     f"User `{str(ctx.author.id)}` just purchased role item `{item_id}` in "\
-                                    f"Guild `{str(ctx.guild.id)} / {ctx.guild.name}` with amount `{amount} {coin_name}` "\
+                                    f"Guild `{str(ctx.guild.id)} / {ctx.guild.name}` {additional_msg}with amount `{amount} {coin_name}` "\
                                     f"credit to Guild's wallet."
                                 )
                             except Exception:
@@ -755,7 +793,7 @@ class GShop(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         get_guild_items = await self.get_guild_role_shop_items(str(ctx.guild.id))
         try:
             # if enable_role_shop is on/off
@@ -859,7 +897,7 @@ class GShop(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         try:
             # if enable_role_shop is on/off
             if serverinfo and serverinfo['enable_role_shop'] == 0:

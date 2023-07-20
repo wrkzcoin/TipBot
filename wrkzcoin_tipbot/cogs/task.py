@@ -39,6 +39,7 @@ class TaskGuild(commands.Cog):
         self.uploaded_storage = self.bot.config['reward_task']['path_screenshot']
         self.url_screenshot = self.bot.config['reward_task']['url_screenshot']
         self.list_all_tasks = {}
+        self.list_guild_complete_tasks = {}
 
     async def insert_joining(
         self, task_id: int, guild_id: str, user_id: str, desc: str, screenshot: str
@@ -436,6 +437,29 @@ class TaskGuild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return []
 
+    async def get_all_non_paid_users(
+        self, status: str="ONGOING"
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT a.*, b.`amount`, b.`coin_name`, b.`created_by_uid`, 
+                    b.`number`, b.`start_time`, b.`end_time`
+                        FROM `discord_guild_task_completed` a
+                    INNER JOIN `discord_guild_tasks` b
+                        ON a.task_id= b.id
+                    WHERE b.`status`=%s
+                    """
+                    await cur.execute(sql, (status))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
     async def get_a_task_users(
         self, id_task: int
     ):
@@ -494,11 +518,13 @@ class TaskGuild(commands.Cog):
                 content=f"{ctx.author.mention}, that\'s not a text channel. Try a different channel!")
             return
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo['reward_task_channel']:
             try: 
                 if channel.id == int(serverinfo['reward_task_channel']):
@@ -529,6 +555,10 @@ class TaskGuild(commands.Cog):
                     update = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'reward_task_channel', str(channel.id))
                     await ctx.edit_original_message(
                         content=f"Reward task log channel of guild {ctx.guild.name} has set to {channel.mention}.")
+
+                    # re-load guild list
+                    await self.utils.bot_reload_guilds()
+
                     await log_to_channel(
                         "reward",
                         f"[REWARD TASK] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
@@ -580,6 +610,9 @@ class TaskGuild(commands.Cog):
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+
             await ctx.edit_original_message(
                 content=f"Reward task channel of guild {ctx.guild.name} has set to {channel.mention}.")
             await log_to_channel(
@@ -630,14 +663,16 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
                 await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please ask Guild Owner to set `/task logchan` first!"
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please ask Guild Owner to set {self.bot.config['command_list']['task_logchan']} first!"
                 )
                 return
             elif serverinfo['reward_task_channel']:
@@ -717,7 +752,7 @@ class TaskGuild(commands.Cog):
                 await ctx.edit_original_message(
                     content=f"{EMOJI_ERROR} {ctx.author.mention}, your Guild doesn't have sufficient "\
                         f"{charged_coin}. **{num_format_coin(charged_amount)} {charged_coin}** is required to create a reward task. "\
-                        "Please deposit with `/guild deposit`"
+                        f"Please deposit with {self.bot.config['command_list']['guild_deposit']}"
                 )
                 await log_to_channel(
                     "reward",
@@ -810,10 +845,12 @@ class TaskGuild(commands.Cog):
                     traceback.print_exc(file=sys.stdout)
                     return
                 try:
-                    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                    serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                     if serverinfo is None:
                         # Let's add some info if server return None
                         await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+                        # re-load guild list
+                        await self.utils.bot_reload_guilds()
                 except Exception:
                     await ctx.edit_original_message(content=f"{ctx.author.mention}, internal error. Please report.")
                     traceback.print_exc(file=sys.stdout)
@@ -847,8 +884,19 @@ class TaskGuild(commands.Cog):
                             else:
                                 new_tasks[i['guild_id']] = {}
                                 new_tasks[i['guild_id']][i['id']] = i['title']
-                        self.list_all_tasks = new_tasks.copy()
-                        del new_tasks
+
+                    list_non_paid_users = await self.get_all_non_paid_users()
+                    if len(list_non_paid_users) > 0:
+                        # update self.list_guild_complete_tasks
+                        guild_tasks = {}
+                        for i in list_non_paid_users:
+                            if i['task_id'] in guild_tasks.keys():
+                                guild_tasks[i['task_id']].append(int(i['user_id']))
+                            else:
+                                guild_tasks[i['task_id']] = []
+                                guild_tasks[i['task_id']].append(int(i['user_id']))
+                        self.list_guild_complete_tasks = guild_tasks.copy()
+                        del guild_tasks
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
@@ -881,7 +929,7 @@ class TaskGuild(commands.Cog):
             if get_task is None:
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
-                        " Please check with `/task list`")
+                        f" Please check with {self.bot.config['command_list']['task_list']}.")
                 await log_to_channel(
                     "reward",
                     f"[REWARD TASK] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
@@ -890,7 +938,7 @@ class TaskGuild(commands.Cog):
                 )
                 return
             else:
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 log_channel = self.bot.get_channel(int(serverinfo['reward_task_channel']))
                 closing_task = await self.close_task(str(ctx.guild.id), ref_id)
                 if closing_task is True:
@@ -915,6 +963,19 @@ class TaskGuild(commands.Cog):
                                 new_tasks[i['guild_id']][i['id']] = i['title']
                         self.list_all_tasks = new_tasks.copy()
                         del new_tasks
+
+                    list_non_paid_users = await self.get_all_non_paid_users()
+                    if len(list_non_paid_users) > 0:
+                        # update self.list_guild_complete_tasks
+                        guild_tasks = {}
+                        for i in list_non_paid_users:
+                            if i['task_id'] in guild_tasks.keys():
+                                guild_tasks[i['task_id']].append(int(i['user_id']))
+                            else:
+                                guild_tasks[i['task_id']] = []
+                                guild_tasks[i['task_id']].append(int(i['user_id']))
+                        self.list_guild_complete_tasks = guild_tasks.copy()
+                        del guild_tasks
                     return
                 else:
                     await ctx.edit_original_message(content=f"{ctx.author.mention}, internal error during closing task!")
@@ -950,7 +1011,7 @@ class TaskGuild(commands.Cog):
             else:
                 list_tasks = []
                 for c, i in enumerate(get_all_tasks, start=1):
-                    list_tasks.append("{}) <#{}> {} - {} {}. ⏱️ <t:{}:f>\n".format(
+                    list_tasks.append("{}) <#{}> {} - Reward: {} {}. ⏱️ <t:{}:f>\n".format(
                         i['id'], i['channel_id'], disnake.utils.escape_markdown(i['title'][0:256]), num_format_coin(i['amount']), i['coin_name'], i['end_time']
                     ))
                 await ctx.edit_original_message(
@@ -981,8 +1042,7 @@ class TaskGuild(commands.Cog):
         else:
             await ctx.response.send_message(f"{ctx.author.mention}, loading task ...", ephemeral=True)
             if ctx.author.id != user.id:
-                get_user = ctx.guild.get_member(ctx.author.id)
-                if get_user.guild_permissions.manage_channels is False:
+                if ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is False:
                     await ctx.edit_original_message(
                         content=f"{ctx.author.mention}, permission denied! You can only check yours!")
                     return
@@ -1000,7 +1060,7 @@ class TaskGuild(commands.Cog):
             if a_task is None:
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
-                        " Please check with `/task list`")
+                        f" Please check with {self.bot.config['command_list']['task_list']}.")
                 return
             else:
                 get_tasks = await self.get_a_task_users(ref_id)
@@ -1047,7 +1107,8 @@ class TaskGuild(commands.Cog):
                     check_task = await self.get_a_task_completing_user(ref_id, str(user.id))
                     if check_task is None:
                         await ctx.edit_original_message(
-                            content=f"{ctx.author.mention}, that user hasn't completed the task yet. Ask them to `/task complete`")
+                            content=f"{ctx.author.mention}, that user hasn't completed the task yet. "\
+                                f"Ask them to {self.bot.config['command_list']['task_complete']}.")
                         return
                     else:
                         embed = disnake.Embed(
@@ -1096,14 +1157,16 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
                 await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set `/task logchan` first!"
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set {self.bot.config['command_list']['task_logchan']} first!"
                 )
                 return
             elif serverinfo['reward_task_channel']:
@@ -1119,7 +1182,7 @@ class TaskGuild(commands.Cog):
             if get_task is None:
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
-                        " Please check with `/task list`")
+                        f" Please check with {self.bot.config['command_list']['task_list']}.")
                 return
             else:
                 amount = get_task['amount']
@@ -1244,14 +1307,16 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
                 await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set `/task logchan` first!"
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set {self.bot.config['command_list']['task_logchan']} first!"
                 )
                 return
             elif serverinfo['reward_task_channel']:
@@ -1268,8 +1333,7 @@ class TaskGuild(commands.Cog):
                 permission_granted = True
 
             if permission_granted is False:
-                get_user = ctx.guild.get_member(ctx.author.id)
-                if get_user.guild_permissions.manage_channels is True:
+                if ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is True:
                     permission_granted = True
             if permission_granted is False:
                 await ctx.edit_original_message(
@@ -1282,13 +1346,14 @@ class TaskGuild(commands.Cog):
             if get_task is None:
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
-                        " Please check with `/task list`")
+                        f" Please check with {self.bot.config['command_list']['task_list']}.")
                 return
 
             check_task = await self.get_a_task_completing_user(ref_id, str(user.id))
             if check_task is None:
                 await ctx.edit_original_message(
-                    content=f"{ctx.author.mention}, that specific task hasn't completed the task yet. Ask them to `/task complete`")
+                    content=f"{ctx.author.mention}, that specific task hasn't completed the task yet. "\
+                        f"Ask them to {self.bot.config['command_list']['task_complete']}.")
                 return
             else:
                 # check if they get paid?
@@ -1339,6 +1404,57 @@ class TaskGuild(commands.Cog):
 
     @commands.has_permissions(manage_channels=True)
     @guild_task.sub_command(
+        name="joined-date-check",
+        usage="task joined-date-check", 
+        description="Toggle user's User joined date ON/OFF"
+    )
+    async def task_toggle_age(
+        self, 
+        ctx,
+    ):
+        await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, task setting loading...")
+        try:
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
+            if serverinfo is None:
+                # Let's add some info if server return None
+                await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
+                                                                    
+            if serverinfo and serverinfo['reward_task_enable_age'] == 1:
+                await store.sql_changeinfo_by_server(str(ctx.guild.id), 'reward_task_enable_age', 0)
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention} `/task complete` doesn't requires account joined date in this guild {ctx.guild.name}.")
+                await log_to_channel(
+                    "reward",
+                    f"[REWARD TASK] {ctx.author.name} / {ctx.author.id} disabled user account joined date check for task reward in their guild {ctx.guild.name} / {ctx.guild.id}.",
+                    self.bot.config['discord']['reward_webhook']
+                )
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+            elif serverinfo and serverinfo['reward_task_enable_age'] == 0:
+                await store.sql_changeinfo_by_server(str(ctx.guild.id), 'reward_task_enable_age', 1)
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention} `/task complete` requires joined date in this guild {ctx.guild.name}. "\
+                        "User account requires min. 1 month old and 1 week old in your Guild to submit a complete task.")
+                await log_to_channel(
+                    "reward",
+                    f"[REWARD TASK] {ctx.author.name} / {ctx.author.id} enabled user account joined date check for task reward in their guild {ctx.guild.name} / {ctx.guild.id}.",
+                    self.bot.config['discord']['reward_webhook']
+                )
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+            else:
+                msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
+                await ctx.edit_original_message(content=msg)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
+            await ctx.edit_original_message(content=msg)
+
+    @commands.has_permissions(manage_channels=True)
+    @guild_task.sub_command(
         name="pay",
         usage="task pay <ref id> <user>",
         options=[
@@ -1361,14 +1477,16 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
                 await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set `/task logchan` first!"
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please set {self.bot.config['command_list']['task_logchan']} first!"
                 )
                 return
             elif serverinfo['reward_task_channel']:
@@ -1386,13 +1504,14 @@ class TaskGuild(commands.Cog):
             if get_task is None:
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
-                        " Please check with `/task list`")
+                        f" Please check with {self.bot.config['command_list']['task_list']}.")
                 return
 
             check_task = await self.get_a_task_completing_user(ref_id, str(user.id))
             if check_task is None:
                 await ctx.edit_original_message(
-                    content=f"{ctx.author.mention}, that user hasn't completed the task yet. Ask them to `/task complete`")
+                    content=f"{ctx.author.mention}, that user hasn't completed the task yet. "\
+                        f"Ask them to {self.bot.config['command_list']['task_complete']}.")
                 return
             else:
                 # check if they get paid?
@@ -1437,7 +1556,7 @@ class TaskGuild(commands.Cog):
                     if actual_balance < amount:
                         await ctx.edit_original_message(
                             content=f"{EMOJI_ERROR} {ctx.author.mention}, your guild doesn't have sufficient "\
-                                f"{coin_name}. Required: **{num_format_coin(amount)} {coin_name}**! Please deposit with `/guild deposit`."
+                                f"{coin_name}. Required: **{num_format_coin(amount)} {coin_name}**! Please deposit with {self.bot.config['command_list']['guild_deposit']}."
                         )
                         await log_to_channel(
                             "reward",
@@ -1513,14 +1632,16 @@ class TaskGuild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
                 await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo['reward_task_channel'] is None:
                 await ctx.edit_original_message(
-                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please ask Guild Owner to set `/task logchan` first!"
+                    content=f"{EMOJI_ERROR} {ctx.author.mention}, please ask Guild Owner to set {self.bot.config['command_list']['task_logchan']} first!"
                 )
                 return
             elif serverinfo['reward_task_channel']:
@@ -1533,10 +1654,42 @@ class TaskGuild(commands.Cog):
                     await log_to_channel(
                         "reward",
                         f"[REWARD TASK] Failed to find log message in guild {ctx.guild.id} / {ctx.guild.name} "\
-                        f"during `/task complete` by {ctx.author.mention}!",
+                        f"during {self.bot.config['command_list']['task_complete']} by {ctx.author.mention}!",
                         self.bot.config['discord']['reward_webhook']
                     )
                     return
+            # check if user create account less than 7 days
+            if serverinfo['reward_task_enable_age'] == 1:
+                try:
+                    account_created = ctx.author.created_at
+                    if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['reward_task']['age_to_claim']:
+                        remaining_time = int(account_created.timestamp()) + self.bot.config['reward_task']['age_to_claim']
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
+                            f"Wait a more days before using this. Wait till <t:{str(remaining_time)}:f>. "\
+                            "Or you can request moderator to turn this off by `/task joined-date-check`."
+                        await ctx.edit_original_message(content=msg)
+                        await log_to_channel(
+                            "reward",
+                            f"[REWARD TASK] User {ctx.author.mention} wanted /task complete in Guild {ctx.guild.id} / {ctx.guild.name}! Rejected! Account too new! Wait till <t:{str(remaining_time)}:f>",
+                            self.bot.config['discord']['reward_webhook']
+                        )
+                        return
+                    account_joined = ctx.guild.get_member(ctx.author.id).joined_at
+                    if (datetime.utcnow().astimezone() - account_joined).total_seconds() <= self.bot.config['reward_task']['age_joined_guild']:
+                        remaining_time = int(account_joined.timestamp()) + self.bot.config['reward_task']['age_joined_guild']
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new in this Guild. "\
+                            f"Wait a few days before using this. Wait till <t:{str(remaining_time)}:f>."\
+                            "Or you can request moderator to turn this off by `/task joined-date-check`."
+                        await ctx.edit_original_message(content=msg)
+                        await log_to_channel(
+                            "reward",
+                            f"[REWARD TASK] User {ctx.author.mention} wanted /task complete in Guild {ctx.guild.id} / {ctx.guild.name}! Rejected! Account too new in the Guild! Wait till <t:{str(remaining_time)}:f>",
+                            self.bot.config['discord']['reward_webhook']
+                        )
+                        return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+
             # if user already submited
             # if a guild has such task id ongoing or already reached maximum number
             # stored record and save proof,
@@ -1546,7 +1699,7 @@ class TaskGuild(commands.Cog):
             if get_task is None:
                 await ctx.edit_original_message(
                     content=f"{ctx.author.mention}, there's no such task ID **{str(ref_id)}** for this guild!"\
-                        " Please check with `/task list`")
+                        f" Please check with {self.bot.config['command_list']['task_list']}.")
                 await log_to_channel(
                     "reward",
                     f"[REWARD TASK] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
@@ -1681,7 +1834,6 @@ class TaskGuild(commands.Cog):
     @task_pay_all.autocomplete("ref_id")
     @task_reject.autocomplete("ref_id")
     @task_pay.autocomplete("ref_id")
-    @task_complete.autocomplete("ref_id")
     @task_close.autocomplete("ref_id")
     @task_id.autocomplete("ref_id")
     async def task_id_autocomp(self, inter: disnake.CommandInteraction, string: str):
@@ -1693,6 +1845,25 @@ class TaskGuild(commands.Cog):
                 name="Task " + str(k) + ": " + v[0:90] if len("Task " + str(k) + ": " + v) <= 100 else "Task " + str(k) + ": " + v[0:80] + " ...",
                 value=k) for k, v in self.list_all_tasks[str(inter.guild.id)].items() if string.lower() in v.lower()
             ]
+
+    @task_complete.autocomplete("ref_id")
+    async def task_complete_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        if self.list_all_tasks.get(str(inter.guild.id)) is None or len(self.list_all_tasks.get(str(inter.guild.id))) == 0:
+            return [disnake.OptionChoice(name="(N/A) No task in this Guild", value=0)]
+        else:
+            tmp_task = {}
+            if len(self.list_all_tasks[str(inter.guild.id)]) > 0:
+                for k, v in self.list_all_tasks[str(inter.guild.id)].items():
+                    if k in self.list_guild_complete_tasks and inter.author.id not in self.list_guild_complete_tasks[k]:
+                        tmp_task[k] = "Task " + str(k) + ": " + v[0:90] if len("Task " + str(k) + ": " + v) <= 100 else "Task " + str(k) + ": " + v[0:80] + " ..."
+            if len(tmp_task) == 0:
+               return [disnake.OptionChoice(name="(N/A) No task", value=0)]
+            else:
+                return [disnake.OptionChoice(
+                    name=v,
+                    value=k) for k, v in tmp_task.items() if string.lower() in v.lower()
+                ]
 
     @tasks.loop(seconds=20.0)
     async def check_guild_reward_tasks(self):
@@ -1717,6 +1888,19 @@ class TaskGuild(commands.Cog):
                 self.list_all_tasks = new_tasks.copy()
                 del new_tasks
 
+                list_non_paid_users = await self.get_all_non_paid_users()
+                if len(list_non_paid_users) > 0:
+                    # update self.list_guild_complete_tasks
+                    guild_tasks = {}
+                    for i in list_non_paid_users:
+                        if i['task_id'] in guild_tasks.keys():
+                            guild_tasks[i['task_id']].append(int(i['user_id']))
+                        else:
+                            guild_tasks[i['task_id']] = []
+                            guild_tasks[i['task_id']].append(int(i['user_id']))
+                    self.list_guild_complete_tasks = guild_tasks.copy()
+                    del guild_tasks
+
                 # if already expired
                 for i in list_tasks:
                     if i['end_time'] < int(time.time()):
@@ -1733,7 +1917,7 @@ class TaskGuild(commands.Cog):
                                 if channel is not None:
                                     try:
                                         await channel.send(f"Task ID: **{str(i['id'])}** - [{i['title']}] expired!{user_paying}")
-                                        serverinfo = await store.sql_info_by_server(i['guild_id'])
+                                        serverinfo = self.bot.other_data['guild_list'].get(i['guild_id'])
                                         if serverinfo['reward_task_channel']:
                                             get_log_chan = self.bot.get_channel(int(serverinfo['reward_task_channel']))
                                             if get_log_chan is not None:

@@ -176,8 +176,19 @@ class PartyDrop(commands.Cog):
                             try:
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 if channel is None:
-                                    await logchanbot("party_check: can not find channel ID: {}".format(each_party['channel_id']))
-                                    await asyncio.sleep(2.0)
+                                    await logchanbot("party_check: can not find channel ID: {} for drop ID: {}".format(
+                                        each_party['channel_id'], each_party['message_id']
+                                    ))
+                                    # add fail check
+                                    turn_off = False
+                                    if each_party['failed_check'] > 3:
+                                        turn_off = True
+                                    await store.update_party_failed(each_party['message_id'], turn_off)
+                                    find_owner = self.bot.get_user(int(each_party['from_userid']))
+                                    if find_owner is not None:
+                                        await find_owner.send("I cancelled your /partydrop id: {} because I can't find channel.".format(
+                                            each_party['message_id']
+                                        ))
                                     continue
                                 _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
                                 await _msg.edit(content=None, embed=embed, view=None)
@@ -274,8 +285,20 @@ class PartyDrop(commands.Cog):
                             try:
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 if channel is None:
-                                    await logchanbot("party_check: can not find channel ID: {}".format(each_party['channel_id']))
-                                    await asyncio.sleep(2.0)
+                                    await logchanbot("party_check: can not find channel ID: {} for drop ID: {}".format(
+                                        each_party['channel_id'], each_party['message_id']
+                                    ))
+                                    # add fail check
+                                    turn_off = False
+                                    if each_party['failed_check'] > 3:
+                                        turn_off = True
+                                    await store.update_party_failed(each_party['message_id'], turn_off)
+                                    find_owner = self.bot.get_user(int(each_party['from_userid']))
+                                    if find_owner is not None:
+                                        await find_owner.send("I cancelled your /partydrop id: {} because I can't find channel.".format(
+                                            each_party['message_id']
+                                        ))
+                                    continue
                                 else:
                                     try:
                                         _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
@@ -287,6 +310,11 @@ class PartyDrop(commands.Cog):
                                         if each_party['failed_check'] > 3:
                                             turn_off = True
                                         await store.update_party_failed(each_party['message_id'], turn_off)
+                                        find_owner = self.bot.get_user(int(each_party['from_userid']))
+                                        if find_owner is not None:
+                                            await find_owner.send("I cancelled your /partydrop id: {} because I can't find channel.".format(
+                                                each_party['message_id']
+                                            ))
                                         await logchanbot("party_check: can not find message ID: {} in channel: {}".format(each_party['message_id'], each_party['channel_id']))
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
@@ -343,7 +371,7 @@ class PartyDrop(commands.Cog):
             return
         # End token name check
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" and coin_name not in serverinfo[
             'tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']

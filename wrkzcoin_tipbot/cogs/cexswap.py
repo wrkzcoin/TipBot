@@ -2768,7 +2768,7 @@ class Cexswap(commands.Cog):
                 await ctx.response.send_message(msg)
                 return
             if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 if serverinfo and 'enable_trade' in serverinfo and serverinfo['enable_trade'] == "NO":
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, cexswap/market function is not ENABLE yet in this guild. "\
                         "Please request Guild owner to enable by `/SETTING TRADE`"
@@ -3710,6 +3710,8 @@ class Cexswap(commands.Cog):
                                                 f"[CEXSwap] failed to message to guild {get_guild.name} / {get_guild.id}."
                                             )
                                             update = await store.sql_changeinfo_by_server(item['serverid'], 'trade_channel', None)
+                                            # re-load guild list
+                                            await self.utils.bot_reload_guilds()
                                             if update is True:
                                                 await get_guild.owner.send(f"[CEXSwap] TipBot's failed to send message to <#{str(channel.id)}> "\
                                                     f"in guild {get_guild.name} / {get_guild.id}. "\
@@ -5676,8 +5678,8 @@ class Cexswap(commands.Cog):
                     random.shuffle(lp_discord_users)
                     lp_discord_users = lp_discord_users[0:max_alert]
                     msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully airdrop for pool: __{pool_name}__. Testing: __{testing}__"
-                    for each_u in lp_discord_users:
-                        list_receivers_str.append("UserID {}: {} {}".format(each_u, balance_user[str(each_u)], coin_name))
+                    for c, each_u in enumerate(lp_discord_users, start=1):
+                        list_receivers_str.append("{}) UserID {}: {} {}".format(c, each_u, balance_user[str(each_u)], coin_name))
                         if testing == "NO":
                             try:
                                 member = self.bot.get_user(int(each_u))
@@ -5694,8 +5696,20 @@ class Cexswap(commands.Cog):
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                 msg += " And notified {} user(s).".format(num_notifying)
-                msg += "```" + "\n".join(list_receivers_str) + "```"
-                await ctx.edit_original_message(content=msg)
+                number_lines = 35
+                if len(list_receivers_str) <= number_lines:
+                    msg += "```" + "\n".join(list_receivers_str) + "```"
+                    await ctx.edit_original_message(content=msg)
+                else:
+                    await ctx.edit_original_message(content=msg)
+                    temp_lines =[]
+                    for c, i in enumerate(list_receivers_str, start=1):
+                        temp_lines.append(i)
+                        if c % number_lines == 0:
+                            await ctx.followup.send("```" + "\n".join(temp_lines) + "```")
+                            temp_lines = []
+                    if len(temp_lines) > 0:
+                        await ctx.followup.send("```" + "\n".join(temp_lines) + "```")
                 await log_to_channel(
                     "cexswap",
                     f"[AIRDROP LP]: User {ctx.author.mention} did airdrop LP for pools __{pool_name}__. Testing: {testing}!",

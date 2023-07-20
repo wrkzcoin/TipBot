@@ -703,17 +703,19 @@ class Twitter(commands.Cog):
         channel: disnake.TextChannel,
         twitter_link: str
     ):
-        if not ctx.author.guild_permissions.manage_channels:
+        if ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is False:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you do not have a permission to `/twitter subscribe` here."
             await ctx.response.send_message(msg)
             return
 
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
 
         if twitter_link.endswith("/"): twitter_link = twitter_link[0:-1]
         user = twitter_link.split("/")[-1]
@@ -816,17 +818,19 @@ class Twitter(commands.Cog):
         ctx,
         twitter_link: str
     ):
-        if not ctx.author.guild_permissions.manage_channels:
+        if ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is False:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you do not have a permission to `/twitter unsubscribe` here."
             await ctx.response.send_message(msg)
             return
 
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
 
         if twitter_link.endswith("/"): twitter_link = twitter_link[0:-1]
         user = twitter_link.split("/")[-1]
@@ -886,16 +890,18 @@ class Twitter(commands.Cog):
         self,
         ctx,
     ):
-        if not ctx.author.guild_permissions.manage_channels:
+        if ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is False:
             msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, you do not have a permission to `/twitter listsub` here."
             await ctx.response.send_message(msg)
             return
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
 
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, Bot's checking twitter..."
         await ctx.response.send_message(msg)
@@ -963,11 +969,13 @@ class Twitter(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
-            add_server_info = await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and serverinfo['alllow_rt_reward'] == 0:
             msg = f'{ctx.author.mention}, not available in public right now. You can request pluton#8888 to allow this for your guild.'
             await ctx.edit_original_message(content=msg)

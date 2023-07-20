@@ -98,6 +98,9 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_opeth_withdraw'):
+                self.bot.erc_node_list['OPETH_WITHDRAW'] = bot_settings['local_node_opeth_withdraw']
             if "local_node_opeth" in bot_settings and bot_settings['local_node_opeth'] is not None:
                 self.bot.erc_node_list['OPETH'] = bot_settings['local_node_opeth']
             else:
@@ -158,6 +161,9 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_sol_withdraw'):
+                self.bot.erc_node_list['SOL_WITHDRAW'] = bot_settings['local_node_sol_withdraw']
             if "local_node_sol" in bot_settings and bot_settings['local_node_sol'] is not None:
                 self.bot.erc_node_list['SOL'] = bot_settings['local_node_sol']
             else:
@@ -190,6 +196,9 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_matic_withdraw'):
+                self.bot.erc_node_list['MATIC_WITHDRAW'] = bot_settings['local_node_matic_withdraw']
             if "local_node_matic" in bot_settings and bot_settings['local_node_matic'] is not None:
                 self.bot.erc_node_list['MATIC'] = bot_settings['local_node_matic']
             else:
@@ -222,6 +231,9 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_celo_withdraw'):
+                self.bot.erc_node_list['CELO_WITHDRAW'] = bot_settings['local_node_celo_withdraw']
             if "local_node_celo" in bot_settings and bot_settings['local_node_celo'] is not None:
                 self.bot.erc_node_list['CELO'] = bot_settings['local_node_celo']
             else:
@@ -254,6 +266,9 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_ftm_withdraw'):
+                self.bot.erc_node_list['FTM_WITHDRAW'] = bot_settings['local_node_ftm_withdraw']
             if "local_node_ftm" in bot_settings and bot_settings['local_node_ftm'] is not None:
                 self.bot.erc_node_list['FTM'] = bot_settings['local_node_ftm']
             else:
@@ -286,6 +301,9 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_avax_withdraw'):
+                self.bot.erc_node_list['AVAX_WITHDRAW'] = bot_settings['local_node_avax_withdraw']
             if "local_node_avax" in bot_settings and bot_settings['local_node_avax'] is not None:
                 self.bot.erc_node_list['AVAX'] = bot_settings['local_node_avax']
             else:
@@ -318,6 +336,10 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_xdai_withdraw'):
+                self.bot.erc_node_list['XDAI_WITHDRAW'] = bot_settings['local_node_xdai_withdraw']
+                self.bot.erc_node_list['xDai_WITHDRAW'] = bot_settings['local_node_xdai_withdraw']
             if "local_node_xdai" in bot_settings and bot_settings['local_node_xdai'] is not None:
                 self.bot.erc_node_list['XDAI'] = bot_settings['local_node_xdai']
                 self.bot.erc_node_list['xDai'] = bot_settings['local_node_xdai']
@@ -380,6 +402,9 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_xtz_withdraw'):
+                self.bot.erc_node_list['XTZ_WITHDRAW'] = bot_settings['local_node_xtz_withdraw']
             if "local_node_xtz" in bot_settings and bot_settings['local_node_xtz'] is not None:
                 self.bot.erc_node_list['XTZ'] = bot_settings['local_node_xtz']
             else:
@@ -412,6 +437,9 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_near_withdraw'):
+                self.bot.erc_node_list['NEAR_WITHDRAW'] = bot_settings['local_node_near_withdraw']
             if "local_node_near" in bot_settings and bot_settings['local_node_near'] is not None:
                 self.bot.erc_node_list['NEAR'] = bot_settings['local_node_near']
             else:
@@ -444,6 +472,9 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_xrp_withdraw'):
+                self.bot.erc_node_list['XRP_WITHDRAW'] = bot_settings['local_node_xrp_withdraw']
             if "local_node_xrp" in bot_settings and bot_settings['local_node_xrp'] is not None:
                 self.bot.erc_node_list['XRP'] = bot_settings['local_node_xrp']
             else:
@@ -536,6 +567,9 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_nova_withdraw'):
+                self.bot.erc_node_list['NOVA_WITHDRAW'] = bot_settings['local_node_nova_withdraw']
             if "local_node_nova" in bot_settings and bot_settings['local_node_nova'] is not None:
                 self.bot.erc_node_list['NOVA'] = bot_settings['local_node_nova']
             else:
@@ -568,6 +602,9 @@ class EthScan(commands.Cog):
         if bot_settings is None:
             return
         else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_eth_withdraw'):
+                self.bot.erc_node_list['ETH_WITHDRAW'] = bot_settings['local_node_eth_withdraw']
             if "local_node_eth" in bot_settings and bot_settings['local_node_eth'] is not None:
                 self.bot.erc_node_list['ETH'] = bot_settings['local_node_eth']
             else:

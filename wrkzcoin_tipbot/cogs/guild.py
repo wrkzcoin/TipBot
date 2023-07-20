@@ -175,7 +175,7 @@ class Guild(commands.Cog):
                             
                             if actual_balance < float(each_drop['tiptalk_amount']):
                                 msg = f"Guild {get_guild.name} runs out of {coin_name}'s balance. "\
-                                    f"Please deposit with `/guild deposit` command."
+                                    f"Please deposit with {self.bot.config['command_list']['guild_deposit']} command."
                                 msg_no_embed = msg
                                 await logchanbot(
                                     f"[ACTIVEDROP] in guild {get_guild.name} / {get_guild.id} runs out of {coin_name} balance."
@@ -398,7 +398,7 @@ class Guild(commands.Cog):
                                     msg_raffle = "Cancelled raffle #{} in guild {}: **Shortage of users**. User entry fee refund!".format(
                                         each_raffle['id'], each_raffle['guild_name']
                                     )
-                                    serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
+                                    serverinfo = self.bot.other_data['guild_list'].get(each_raffle['guild_id'])
                                     if serverinfo['raffle_channel']:
                                         raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
                                         if raffle_chan:
@@ -422,7 +422,7 @@ class Guild(commands.Cog):
                                             each_raffle['id'], each_raffle['guild_name'], each_raffle['guild_id']
                                         )
                                         msg_raffle += "Raffle will start in **{}**".format(seconds_str(to_close_fromopen))
-                                        serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])                                        
+                                        serverinfo = self.bot.other_data['guild_list'].get(each_raffle['guild_id'])                                        
                                         if serverinfo['raffle_channel']:
                                             raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
                                             if raffle_chan:
@@ -445,7 +445,7 @@ class Guild(commands.Cog):
                                         await logchanbot(f"Internal error to {msg_raffle}")
                         elif each_raffle['status'] == "ONGOING":
                             coin_name = each_raffle['coin_name']
-                            serverinfo = await store.sql_info_by_server(each_raffle['guild_id'])
+                            serverinfo = self.bot.other_data['guild_list'].get(each_raffle['guild_id'])
                             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
                             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                             price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
@@ -1204,11 +1204,13 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
 
         if serverinfo['raffle_channel']:
             raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
@@ -1339,7 +1341,6 @@ class Guild(commands.Cog):
         ctx, 
         subc: str=None
     ):
-
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
         await ctx.response.send_message(msg)
 
@@ -1351,11 +1352,13 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
 
         if serverinfo['raffle_channel'] is not None:
             raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
@@ -1423,10 +1426,10 @@ class Guild(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif subc == "CANCEL":
-            get_user = ctx.guild.get_member(ctx.author.id)
-            if get_user.guild_permissions.manage_channels is False:
+            if ctx.channel.permissions_for(ctx.guild.get_member(ctx.author.id)).manage_channels is False:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you do not have permission to cancel current raffle."
                 await ctx.edit_original_message(content=msg)
+                return
             if get_raffle is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, there is no information of current raffle yet for this guild {ctx.guild.name}!"
                 await ctx.edit_original_message(content=msg)
@@ -1438,7 +1441,7 @@ class Guild(commands.Cog):
                     # Cancel game
                     cancelled_status = await self.raffle_cancel_id(get_raffle['id'])
                     msg_raffle = "Cancelled raffle #{} in guild {}: Requested by {}#{}. User entry fee refund!".format(get_raffle['id'], get_raffle['guild_name'], ctx.author.name, ctx.author.discriminator)
-                    serverinfo = await store.sql_info_by_server(get_raffle['guild_id'])
+                    serverinfo = self.bot.other_data['guild_list'].get(get_raffle['guild_id'])
                     if serverinfo['raffle_channel']:
                         raffle_chan = self.bot.get_channel(int(serverinfo['raffle_channel']))
                         if raffle_chan:
@@ -1708,8 +1711,8 @@ class Guild(commands.Cog):
                     view = MenuPage(ctx, all_pages, timeout=30, disable_remove=True)
                     view.message = await ctx.edit_original_message(content=None, embed=all_pages[0], view=view)
                 except Exception:
-                    msg = f"{ctx.author.mention}, internal error when checking /guild balance. Try again later. "\
-                        "If problem still persists, contact TipBot dev."
+                    msg = f"{ctx.author.mention}, internal error when checking {self.bot.config['command_list']['guild_balance']}. "\
+                        "Try again later.  If problem still persists, contact TipBot dev."
                     await ctx.edit_original_message(content=msg)
                     traceback.print_exc(file=sys.stdout)
                     await logchanbot(f"[ERROR] /guild balance with {ctx.guild.name} / {ctx.guild.id}")
@@ -1798,7 +1801,7 @@ class Guild(commands.Cog):
         elif amount*100 > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x "\
                 f"reward balance. 100x rewards = {num_format_coin(amount*100)} "\
-                f"{token_display}. Check with `/guild balance`."
+                f"{token_display}. Check with {self.bot.config['command_list']['guild_balance']}."
             await ctx.edit_original_message(content=msg)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
@@ -1825,10 +1828,12 @@ class Guild(commands.Cog):
             
             # Process, only guild owner can process
             try:
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 if serverinfo is None:
                     # Let's add some info if server return None
                     await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+                    # re-load guild list
+                    await self.utils.bot_reload_guilds()
             except Exception:
                 msg = f'{ctx.author.mention}, internal error. Please report.'
                 await ctx.edit_original_message(content=msg)
@@ -2126,79 +2131,6 @@ class Guild(commands.Cog):
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
-    @commands.has_permissions(administrator=True)
-    @guild.sub_command(
-        usage="guild discordlist [resetkey]", 
-        options=[
-            Option('resetkey', 'resetkey', OptionType.string, required=False, choices=[
-                OptionChoice("YES", "YES"),
-                OptionChoice("NO", "NO")
-            ])
-        ],
-        description="Get token key to set for discordlist vote in bot channel."
-    )
-    async def discordlist(
-        self,
-        ctx,
-        resetkey: str=None
-    ):
-        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
-        await ctx.response.send_message(msg, ephemeral=True)
-
-        try:
-            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
-                                         str(ctx.author.id), SERVER_BOT, "/guild discordlist", int(time.time())))
-            await self.utils.add_command_calls()
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-
-        secret = "discordlist_vote_secret"
-        if resetkey is None: resetkey = "NO"
-        get_guild_by_key = await self.guild_find_by_key(str(ctx.guild.id), secret)
-        if get_guild_by_key is None:
-            # Generate
-            random_string = str(uuid.uuid4())
-            insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, False)
-            if insert_key:
-                try:
-                    await ctx.edit_original_message(
-                        content=f"Your guild {ctx.guild.name}\'s discordlist key: __{random_string}__\n"\
-                            f"Webook URL: __{self.bot.config['discordlist']['guild_vote_url']}__"
-                    )
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-            else:
-                try:
-                    await ctx.edit_original_message(content=f'Internal error! Please report!')
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-        elif get_guild_by_key and resetkey == "NO":
-            # Just display
-            try:
-                await ctx.edit_original_message(
-                    content=f"Your guild {ctx.guild.name}\'s discordlist key: __{get_guild_by_key}__\n"\
-                        f"Webook URL: __{self.bot.config['discordlist']['guild_vote_url']}__"
-                )
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-        elif get_guild_by_key and resetkey == "YES":
-            # Update a new key and say to it. Do not forget to update
-            random_string = str(uuid.uuid4())
-            insert_key = await self.guild_insert_key(str(ctx.guild.id), random_string, secret, True)
-            if insert_key:
-                try:
-                    await ctx.edit_original_message(
-                        content=f"Your guild {ctx.guild.name}\'s discordlist updated key: __{random_string}__\n"\
-                            f"Webook URL: __{self.bot.config['discordlist']['guild_vote_url']}__"
-                    )
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-            else:
-                try:
-                    await ctx.edit_original_message(content=f'Internal error! Please report!')
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
-
     # Guild deposit
     async def async_mdeposit(self, ctx, token: str=None, plain: str=None):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
@@ -2402,7 +2334,7 @@ class Guild(commands.Cog):
         # We assume at least guild need to have 100x of reward or depends on guild's population
         elif amount*100 > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x reward balance. "\
-                f"100x rewards = {num_format_coin(amount*100)} {token_display}. Check with `/guild balance`."
+                f"100x rewards = {num_format_coin(amount*100)} {token_display}. Check with {self.bot.config['command_list']['guild_balance']}."
             await ctx.edit_original_message(content=msg)
             return
         elif amount*len(ctx.guild.members) > actual_balance:
@@ -2428,10 +2360,12 @@ class Guild(commands.Cog):
             
             # Process, only guild owner can process
             try:
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 if serverinfo is None:
                     # Let's add some info if server return None
                     await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+                    # re-load guild list
+                    await self.utils.bot_reload_guilds()
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 msg = f'{ctx.author.mention}, internal error. Please report.'
@@ -2601,11 +2535,13 @@ class Guild(commands.Cog):
         serverinfo = None
         # Process, only guild owner can process
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo is None:
                 # Let's add some info if server return None
                 await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         except Exception:
             traceback.print_exc(file=sys.stdout)
             msg = f'{ctx.author.mention}, internal error. Please report.'
@@ -2645,7 +2581,7 @@ class Guild(commands.Cog):
         elif amount*100 > actual_balance:
             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, your guild needs to have at least 100x `active drop amount`"\
                 f". 100x rewards = {num_format_coin(amount*100)} {token_display}."\
-                f" Check with `/guild balance`."
+                f" Check with {self.bot.config['command_list']['guild_balance']}."
             await ctx.edit_original_message(content=msg)
             return
         else:
@@ -2702,11 +2638,13 @@ class Guild(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
 
         embed = disnake.Embed(title = "Guild {} / {}".format(ctx.guild.name, ctx.guild.id), timestamp=datetime.now())
         try:
@@ -2871,7 +2809,7 @@ class Guild(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['enable_featurerole'] != 1:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, **featurerole** is not enabled in this Guild."
                 await ctx.edit_original_message(content=msg)
@@ -2966,7 +2904,7 @@ class Guild(commands.Cog):
                     f"/featurerole User `{str(ctx.author.id)}` commanded by Guild `{str(ctx.guild.id)}` tried with role {role.name}."
                 )
                 return
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['feature_roles'] is not None and str(role.id) in serverinfo['feature_roles']:
                 prev_faucet = '{:,.2f}'.format(serverinfo['feature_roles'][str(role.id)]['faucet_multipled_by'])
                 prev_vote = '{:,.2f}'.format(serverinfo['feature_roles'][str(role.id)]['guild_vote_multiplied_by'])
@@ -3118,7 +3056,7 @@ class Guild(commands.Cog):
 
         # check if bot channel is set:
         try: 
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['faucet_channel'] and ctx.channel.id != int(serverinfo['faucet_channel']):
                 try:
                     channel = self.bot.get_channel(int(serverinfo['faucet_channel']))
@@ -3200,7 +3138,9 @@ class Guild(commands.Cog):
                     )
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed in this guild "\
                         f"__{ctx.guild.name}__ on {last_duration}. Waiting time {waiting_time}."\
-                        f"{extra_msg} Other reward command __/take__, __/claim__, __/daily__ and __/hourly__."
+                        f"{extra_msg} Other reward command {self.bot.config['command_list']['take']}, "\
+                        f"{self.bot.config['command_list']['claim']}, {self.bot.config['command_list']['daily']} "\
+                        f"and {self.bot.config['command_list']['hourly']}."
                     await ctx.edit_original_message(content=msg)
                     return
                 else:
@@ -3249,7 +3189,7 @@ class Guild(commands.Cog):
                         return
 
                     if amount + extra_amount <= 0:
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please topup guild with more **{coin_name}**. __/guild deposit__"
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, please topup guild with more **{coin_name}** by {self.bot.config['command_list']['guild_deposit']}"
                         await ctx.edit_original_message(content=msg)
                         return
 
@@ -3289,7 +3229,9 @@ class Guild(commands.Cog):
                                 msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention} got a faucet of "\
                                     f"{coin_emoji}**{num_format_coin(amount + extra_amount)}"\
                                     f" {coin_name}**{equivalent_usd} from __{ctx.guild.name}__.{extra_msg} "\
-                                    f"Other reward command __/take__, __/claim__, __/daily__ and __/hourly__. Invite me to your guild? "\
+                                    f"{self.bot.config['command_list']['take']}, "\
+                                    f"{self.bot.config['command_list']['claim']}, {self.bot.config['command_list']['daily']} "\
+                                    f"and {self.bot.config['command_list']['hourly']}. Invite me to your guild? "\
                                     f"Click on my name and `Add to Server`."
                                 await ctx.edit_original_message(content=msg)
                                 await logchanbot(
@@ -3305,7 +3247,8 @@ class Guild(commands.Cog):
                             pass
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, this guild __{ctx.guild.name}__ has no guild's faucet. "\
-                    f"You can ask Guild'owner to deposit to Guild with __/guild deposit__ and create it with __/guild faucetclaim__."
+                    f"You can ask Guild'owner to deposit to Guild with {self.bot.config['command_list']['guild_deposit']} and "\
+                    f"create it with {self.bot.config['command_list']['guild_faucetclaim']}."
                 await ctx.edit_original_message(content=msg)
                 await logchanbot(
                     f"[{SERVER_BOT}] [ERROR] User {ctx.author.name}#{ctx.author.discriminator} "\
@@ -3342,11 +3285,13 @@ class Guild(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
         await ctx.response.send_message(msg)
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
 
         coin_list = coin_list.upper()
         if coin_list in ["ALLCOIN", "*", "ALL", "TIPALL", "ANY"]:
@@ -3357,7 +3302,8 @@ class Guild(commands.Cog):
                 )
             msg = f"{ctx.author.mention}, all coins will be allowed in here."
             await ctx.edit_original_message(content=msg)
-            return
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         elif " " in coin_list or "," in coin_list:
             # multiple coins
             if " " in coin_list:
@@ -3380,6 +3326,8 @@ class Guild(commands.Cog):
                 msg = f'{ctx.author.mention} TIPONLY for guild {ctx.guild.name} set to: **{tiponly_value}**.'
                 await ctx.edit_original_message(content=msg)
                 await store.sql_changeinfo_by_server(str(ctx.guild.id), 'tiponly', tiponly_value.upper())
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
             else:
                 msg = f"{ctx.author.mention} No known coin in **{coin_list}**. TIPONLY is remained unchanged in guild __{ctx.guild.name}__."
                 await ctx.edit_original_message(content=msg)
@@ -3397,6 +3345,8 @@ class Guild(commands.Cog):
                     )
                 msg = f"{ctx.author.mention} {coin_list} will be the only tip here in guild __{ctx.guild.name}__."
                 await ctx.edit_original_message(content=msg)
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3411,11 +3361,13 @@ class Guild(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
         await ctx.response.send_message(msg)
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                                                                 
         if serverinfo and serverinfo['mute_tip'] == "YES":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'mute_tip', 'NO')
@@ -3426,6 +3378,8 @@ class Guild(commands.Cog):
                 )
             msg = f"{ctx.author.mention} enable PING (mention) when user(s) got tipped in their guild {ctx.guild.name}."
             await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         elif serverinfo and serverinfo['mute_tip'] == "NO":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'mute_tip', 'YES')
             if self.enable_logchan:
@@ -3435,6 +3389,8 @@ class Guild(commands.Cog):
                 )
             msg = f"{ctx.author.mention} disable PING (no mention) when user(s) got tipped in this guild {ctx.guild.name}."
             await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         else:
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
             await ctx.edit_original_message(content=msg)
@@ -3451,11 +3407,13 @@ class Guild(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
         await ctx.response.send_message(msg)
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                                                                 
         if serverinfo and serverinfo['enable_trade'] == "YES":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'NO')
@@ -3465,6 +3423,8 @@ class Guild(commands.Cog):
                 )
             msg = f"{ctx.author.mention} DISABLE TRADE feature in this guild {ctx.guild.name}."
             await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         elif serverinfo and serverinfo['enable_trade'] == "NO":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_trade', 'YES')
             if self.enable_logchan:
@@ -3474,6 +3434,8 @@ class Guild(commands.Cog):
             msg = f"{ctx.author.mention} ENABLE TRADE feature in this guild {ctx.guild.name}. "\
                 "You can assign trade channel by `SETTING TRADECHAN`"
             await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         else:
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
             await ctx.edit_original_message(content=msg)
@@ -3490,11 +3452,13 @@ class Guild(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
         await ctx.response.send_message(msg)
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                                                                 
         if serverinfo and serverinfo['enable_memepls'] == "YES":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_memepls', 'NO')
@@ -3504,6 +3468,8 @@ class Guild(commands.Cog):
                 )
             msg = f"{ctx.author.mention} DISABLE /memepls feature in this guild {ctx.guild.name}."
             await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         elif serverinfo and serverinfo['enable_memepls'] == "NO":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_memepls', 'YES')
             if self.enable_logchan:
@@ -3512,6 +3478,8 @@ class Guild(commands.Cog):
                 )
             msg = f"{ctx.author.mention} ENABLE /memepls feature in this guild {ctx.guild.name}."
             await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         else:
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
             await ctx.edit_original_message(content=msg)
@@ -3528,11 +3496,13 @@ class Guild(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
         await ctx.response.send_message(msg)
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
 
         if serverinfo and serverinfo['enable_nsfw'] == "YES":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_nsfw', 'NO')
@@ -3542,6 +3512,8 @@ class Guild(commands.Cog):
                 )
             msg = f"{ctx.author.mention} DISABLE NSFW command in this guild {ctx.guild.name}."
             await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         elif serverinfo and serverinfo['enable_nsfw'] == "NO":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_nsfw', 'YES')
             if self.enable_logchan:
@@ -3550,6 +3522,8 @@ class Guild(commands.Cog):
                 )
             msg = f"{ctx.author.mention} ENABLE NSFW command in this guild {ctx.guild.name}."
             await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         else:
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
             await ctx.edit_original_message(content=msg)
@@ -3566,11 +3540,13 @@ class Guild(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
         await ctx.response.send_message(msg)
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and serverinfo['enable_game'] == "YES":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'NO')
             if self.enable_logchan:
@@ -3579,6 +3555,8 @@ class Guild(commands.Cog):
                 )
             msg = f"{ctx.author.mention} DISABLE GAME feature in this guild {ctx.guild.name}."
             await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         elif serverinfo and serverinfo['enable_game'] == "NO":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_game', 'YES')
             if self.enable_logchan:
@@ -3587,6 +3565,8 @@ class Guild(commands.Cog):
                 )
             msg = f"{ctx.author.mention} ENABLE GAME feature in this guild {ctx.guild.name}."
             await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         else:
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
             await ctx.edit_original_message(content=msg)
@@ -3603,11 +3583,13 @@ class Guild(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
         await ctx.response.send_message(msg)
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo['botchan']:
             try: 
                 if ctx.channel.id == int(serverinfo['botchan']):
@@ -3624,6 +3606,8 @@ class Guild(commands.Cog):
                             f"{ctx.author.name} / {ctx.author.id} change bot channel "\
                             f"{ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
                         )
+                    # re-load guild list
+                    await self.utils.bot_reload_guilds()
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("guild " +str(traceback.format_exc()))
@@ -3637,6 +3621,8 @@ class Guild(commands.Cog):
                     f"{ctx.author.name} / {ctx.author.id} changed bot channel "\
                     f"{ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
                 )
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3650,11 +3636,13 @@ class Guild(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
         await ctx.response.send_message(msg)
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo['economy_channel']:
             try: 
                 if ctx.channel.id == int(serverinfo['economy_channel']):
@@ -3668,6 +3656,8 @@ class Guild(commands.Cog):
                     await ctx.edit_original_message(content=msg)
                     if self.enable_logchan:
                         await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} change economy game channel {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}.')
+                    # re-load guild list
+                    await self.utils.bot_reload_guilds()
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 await logchanbot("guild " +str(traceback.format_exc()))
@@ -3681,6 +3671,8 @@ class Guild(commands.Cog):
                     f"{ctx.author.name} / {ctx.author.id} changed economy game channel "\
                     f"{ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
                 )
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(
@@ -3695,11 +3687,13 @@ class Guild(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
         await ctx.response.send_message(msg)
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo['trade_channel']:
             try: 
                 if ctx.channel.id == int(serverinfo['trade_channel']):
@@ -3711,6 +3705,8 @@ class Guild(commands.Cog):
                     update = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'trade_channel', str(ctx.channel.id))
                     msg = f"Trade channel of guild {ctx.guild.name} has set to {ctx.channel.mention}."
                     await ctx.edit_original_message(content=msg)
+                    # re-load guild list
+                    await self.utils.bot_reload_guilds()
                     if update is True:
                         # kv trade guild channel
                         try:
@@ -3733,6 +3729,9 @@ class Guild(commands.Cog):
             # change channel info
             update = await store.sql_changeinfo_by_server(str(ctx.guild.id), 'trade_channel', str(ctx.channel.id))
             msg = f"Trade channel of guild {ctx.guild.name} has set to {ctx.channel.mention}."
+            await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
             if update is True:
                 # kv trade guild channel
                 try:
@@ -3743,7 +3742,6 @@ class Guild(commands.Cog):
                     )
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-            await ctx.edit_original_message(content=msg)
             if self.enable_logchan:
                 await self.botLogChan.send(
                     f"{ctx.author.name} / {ctx.author.id} changed trade channel "\
@@ -3762,11 +3760,13 @@ class Guild(commands.Cog):
         msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, setting loading..."
         await ctx.response.send_message(msg)
         await self.bot_log()
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo is None:
             # Let's add some info if server return None
             await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
 
         if serverinfo and serverinfo['enable_faucet'] == "YES":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_faucet', 'NO')
@@ -3774,12 +3774,16 @@ class Guild(commands.Cog):
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} DISABLE faucet (take) command in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} DISABLE faucet (take/claim) command in this guild {ctx.guild.name}."
             await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         elif serverinfo and serverinfo['enable_faucet'] == "NO":
             await store.sql_changeinfo_by_server(str(ctx.guild.id), 'enable_faucet', 'YES')
             if self.enable_logchan:
                 await self.botLogChan.send(f'{ctx.author.name} / {ctx.author.id} ENABLE faucet (take) command in their guild {ctx.guild.name} / {ctx.guild.id}')
             msg = f"{ctx.author.mention} ENABLE faucet (take/claim) command in this guild {ctx.guild.name}."
             await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         else:
             msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
             await ctx.edit_original_message(content=msg)
@@ -3800,29 +3804,31 @@ class Guild(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
             else:
-                serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 index_game = "game_" + game + "_channel"
                 if serverinfo is None:
                     # Let's add some info if server return None
                     await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
-                    serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+                    # re-load guild list
+                    await self.utils.bot_reload_guilds()
+                    serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
                 if serverinfo[index_game]:
                     try: 
                         if ctx.channel.id == int(serverinfo[index_game]):
                             msg = f"{EMOJI_RED_NO} {ctx.channel.mention} is already for game **{game}** channel here!"
                             await ctx.edit_original_message(content=msg)
-                            return
                         else:
                             # change channel info
                             await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
                             msg = f"{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}."
                             await ctx.edit_original_message(content=msg)
+                            # re-load guild list
+                            await self.utils.bot_reload_guilds()
                             if self.enable_logchan:
                                 await self.botLogChan.send(
                                     f"{ctx.author.name} / {ctx.author.id} changed game **{game}** in channel"\
                                     f" {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
                                 )
-                            return
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
                         await logchanbot("guild " +str(traceback.format_exc()))
@@ -3831,12 +3837,13 @@ class Guild(commands.Cog):
                     await store.sql_changeinfo_by_server(str(ctx.guild.id), index_game, str(ctx.channel.id))
                     msg = f"{ctx.channel.mention} Game **{game}** channel has set to {ctx.channel.mention}."
                     await ctx.edit_original_message(content=msg)
+                    # re-load guild list
+                    await self.utils.bot_reload_guilds()
                     if self.enable_logchan:
                         await self.botLogChan.send(
                             f"{ctx.author.name} / {ctx.author.id} set game **{game}** channel "\
                             f"in {ctx.guild.name} / {ctx.guild.id} to #{ctx.channel.name}."
                         )
-                    return
 
     @commands.has_permissions(manage_channels=True)
     @setting.sub_command(

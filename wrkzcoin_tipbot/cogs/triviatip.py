@@ -183,7 +183,7 @@ class TriviaTips(commands.Cog):
         # End token name check
 
         await ctx.response.send_message(f"{ctx.author.mention}, /triviatip preparation... ")
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and serverinfo['tiponly'] and serverinfo['tiponly'] != "ALLCOIN" \
             and coin_name not in serverinfo['tiponly'].split(","):
             allowed_coins = serverinfo['tiponly']

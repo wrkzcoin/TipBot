@@ -446,6 +446,77 @@ class Utils(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    async def ai_reload_model_tts(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `ai_tts_models`
+                    """
+                    await cur.execute(sql,)
+                    result_tts_models = await cur.fetchall()
+                    if result_tts_models and len(result_tts_models) > 0:
+                        tts_models = {}
+                        for i in result_tts_models:
+                            if i['enable'] == 1:
+                                tts_models[i['name']] = i['url']
+                        self.bot.other_data['ai_tts_models'] = tts_models.copy()
+                        del tts_models
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    async def get_list_guilds(self):
+        result_guilds = []
+        list_roles_feature = {}
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `discord_server`
+                    """
+                    await cur.execute(sql,)
+                    result_guilds = await cur.fetchall()
+
+                    sql = """
+                    SELECT * FROM `discord_feature_roles`
+                    """
+                    await cur.execute(sql,)
+                    feature_roles = await cur.fetchall()
+                    
+                    if feature_roles and len(feature_roles) > 0:
+                        for each in feature_roles:
+                            if each['guild_id'] not in list_roles_feature:
+                                list_roles_feature[each['guild_id']] = {}
+                            list_roles_feature[each['guild_id']][each['role_id']] = {
+                                'faucet_multipled_by': each['faucet_multipled_by'],
+                                'guild_vote_multiplied_by': each['guild_vote_multiplied_by'],
+                                'faucet_cut_time_percent': each['faucet_cut_time_percent']
+                            }
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return {'guilds': result_guilds, 'feature_roles': list_roles_feature}
+
+    async def bot_reload_guilds(self):
+        try:
+            # re-load guild list
+            list_guilds = await self.get_list_guilds()
+            if list_guilds.get('guilds') and len(list_guilds['guilds']) > 0:
+                guild_data = {}
+                for i in list_guilds['guilds']:
+                    guild_data[i['serverid']] = i
+                    if i['serverid'] in list_guilds.get('feature_roles') and len(list_guilds['feature_roles'][i['serverid']]) > 0:
+                        guild_data[i['serverid']]['feature_roles'] = list_guilds['feature_roles'][i['serverid']]
+                    else:
+                        guild_data[i['serverid']]['feature_roles'] = None
+                self.bot.other_data['guild_list'] = guild_data.copy()
+                del guild_data
+                return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
     async def get_bot_settings(self):
         try:
             await self.openConnection()
@@ -635,7 +706,7 @@ class Utils(commands.Cog):
                                 return result
                         elif coin_family == "BTC":
                             sql = """
-                            SELECT * FROM `neo_external_tx` 
+                            SELECT * FROM `doge_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -644,7 +715,7 @@ class Utils(commands.Cog):
                                 return result
                         elif coin_family == "NEO":
                             sql = """
-                            SELECT * FROM `doge_external_tx` 
+                            SELECT * FROM `neo_external_tx` 
                             WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
                             ORDER BY `date` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name))
@@ -1758,18 +1829,14 @@ class Utils(commands.Cog):
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
         return None
-
-
     # end of price, gecko, etc
 
     # Check if a user lock
     def is_locked_user(self, user_id: str, user_server: str="DISCORD"):
+        # Check in table
         try:
-            get_member = self.get_cache_kv(
-                "user_disable",
-                f"{user_id}_{user_server}"
-            )
-            if get_member is not None:
+            if self.bot.other_data.get('ban_list') and len(self.bot.other_data.get('ban_list')) > 0 and \
+                str(user_id) in self.bot.other_data.get('ban_list'):
                 return True
         except Exception as e:
             traceback.print_exc(file=sys.stdout)

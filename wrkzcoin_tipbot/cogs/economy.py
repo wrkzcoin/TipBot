@@ -3371,7 +3371,7 @@ class Economy(commands.Cog):
     async def eco(self, ctx):
         await self.bot_log()
         # Check if there is economy channel
-        serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+        serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
         if serverinfo and 'enable_economy' in serverinfo and serverinfo['enable_economy'] == "NO":
             if self.enable_logchan:
                 await self.botLogChan.send(

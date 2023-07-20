@@ -395,6 +395,7 @@ async def sql_check_minimum_deposit_erc20(
                     continue
                 real_deposited_balance = deposited_balance / 10 ** coin_decimal
                 if real_deposited_balance >= min_move_deposit:
+                    print("{}/{} - {} having {}.".format(token_name, net_name, each_address['balance_wallet_address'], real_deposited_balance))
                     # Check if there is gas remaining to spend there
                     gas_of_address = await store.http_wallet_getbalance(
                         url, each_address['balance_wallet_address'], None, 64
@@ -7060,7 +7061,7 @@ class Wallet(commands.Cog):
                                 guild = self.bot.get_guild(int(each_reward['guild_id']))
                                 if guild:
                                     # We found guild
-                                    serverinfo = await store.sql_info_by_server(each_reward['guild_id'])
+                                    serverinfo = self.bot.other_data['guild_list'].get(each_reward['guild_id'])
                                     # Check if new link is updated. If yes, we ignore it
                                     if serverinfo['rt_link'] and each_reward['tweet_link'] != serverinfo['rt_link']:
                                         # Update
@@ -10013,9 +10014,12 @@ class Wallet(commands.Cog):
             if len(erc_contracts) > 0:
                 tasks = []
                 for each_c in erc_contracts:
+                    endpoint_url = self.bot.erc_node_list[each_c['net_name']]
+                    if self.bot.erc_node_list.get('{}_WITHDRAW'.format(each_c['net_name'])):
+                        endpoint_url = self.bot.erc_node_list['{}_WITHDRAW'.format(each_c['net_name'])]
                     check_min_deposit = functools.partial(
                         sql_check_minimum_deposit_erc20,
-                        self.bot.erc_node_list[each_c['net_name']],
+                        endpoint_url,
                         each_c['net_name'], each_c['coin_name'],
                         each_c['contract'], each_c['decimal'],
                         each_c['min_move_deposit'], each_c['min_gas_tx'],
@@ -10037,9 +10041,12 @@ class Wallet(commands.Cog):
             if len(main_tokens) > 0:
                 tasks = []
                 for each_c in main_tokens:
+                    endpoint_url = self.bot.erc_node_list[each_c['net_name']]
+                    if self.bot.erc_node_list.get('{}_WITHDRAW'.format(each_c['net_name'])):
+                        endpoint_url = self.bot.erc_node_list['{}_WITHDRAW'.format(each_c['net_name'])]
                     check_min_deposit = functools.partial(
                         sql_check_minimum_deposit_erc20,
-                        self.bot.erc_node_list[each_c['net_name']],
+                        endpoint_url,
                         each_c['net_name'], each_c['coin_name'], None,
                         each_c['decimal'], each_c['min_move_deposit'],
                         each_c['min_gas_tx'], each_c['gas_ticker'],
@@ -10845,7 +10852,6 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=60.0)
     async def check_confirming_zil(self):
         time_lap = 5  # seconds
-
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "check_confirming_zil"
@@ -11038,6 +11044,9 @@ class Wallet(commands.Cog):
             return
         await asyncio.sleep(time_lap)
         try:
+            # If main token is disable deposit
+            if getattr(getattr(self.bot.coin_list, "XTZ"), "enable_deposit") == 0:
+                return
             xtz_contracts = await self.get_all_contracts("XTZ", False)
             # Check native
             coin_name = "XTZ"
@@ -11349,10 +11358,11 @@ class Wallet(commands.Cog):
             await self.openConnection()
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `tezos_move_deposit` 
-                        WHERE `notified_confirmation`=%s 
-                        AND `failed_notification`=%s AND `user_server`=%s AND `blockNumber` IS NOT NULL
-                        """
+                    sql = """
+                    SELECT * FROM `tezos_move_deposit` 
+                    WHERE `notified_confirmation`=%s 
+                    AND `failed_notification`=%s AND `user_server`=%s AND `blockNumber` IS NOT NULL
+                    """
                     await cur.execute(sql, ("NO", "NO", SERVER_BOT))
                     result = await cur.fetchall()
                     if result and len(result) > 0:
@@ -11415,7 +11425,6 @@ class Wallet(commands.Cog):
     @tasks.loop(seconds=60.0)
     async def check_confirming_tezos(self):
         time_lap = 5  # seconds
-
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "check_confirming_tezos"
@@ -11457,6 +11466,9 @@ class Wallet(commands.Cog):
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
         await asyncio.sleep(time_lap)
+        # If main token is disable deposit
+        if getattr(getattr(self.bot.coin_list, "TRX"), "enable_deposit") == 0:
+            return
         try:
             erc_contracts = await self.get_all_contracts("TRC-20", False)
             if len(erc_contracts) > 0:
@@ -13031,10 +13043,12 @@ class Wallet(commands.Cog):
                             )
                         self.withdraw_tx[key_withdraw] = int(time.time())
                         try:
-                            url = self.bot.erc_node_list[net_name]
+                            endpoint_url = self.bot.erc_node_list[net_name]
+                            if self.bot.erc_node_list.get('{}_WITHDRAW'.format(net_name)):
+                                endpoint_url = self.bot.erc_node_list['{}_WITHDRAW'.format(net_name)]
                             chain_id = getattr(getattr(self.bot.coin_list, coin_name), "chain_id")
                             send_tx = await self.send_external_erc20(
-                                url, net_name, str(ctx.author.id), address, amount,
+                                endpoint_url, net_name, str(ctx.author.id), address, amount,
                                 coin_name, coin_decimal, NetFee, SERVER_BOT,
                                 chain_id, contract
                             )
@@ -13079,6 +13093,11 @@ class Wallet(commands.Cog):
                             f"{token_display}{equivalent_usd}."
                         )
                 elif type_coin in ["TRC-20", "TRC-10"]:
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "TRX"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, TRX/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     send_tx = None
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
@@ -13347,6 +13366,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "VITE":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "VITE"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, VITE/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     url = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
                     main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                     coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
@@ -13399,6 +13423,11 @@ class Wallet(commands.Cog):
                         await ctx.edit_original_message(content=msg)
                         return
                 elif type_coin == "XLM":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "XLM"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, XLM/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     url = getattr(getattr(self.bot.coin_list, coin_name), "http_address")
                     main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
                     if address == main_address:
@@ -13718,6 +13747,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "ADA":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "ADA"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, ADA/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if not address.startswith("addr1"):
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, invalid address. It should start with `addr1`."
                         await ctx.edit_original_message(content=msg)
@@ -13954,6 +13988,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "XTZ":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "XTZ"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, XTZ/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         url = self.bot.erc_node_list['XTZ']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "XTZ"), "walletkey"))
@@ -14000,6 +14039,8 @@ class Wallet(commands.Cog):
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         send_tx = None
+                        if self.bot.erc_node_list.get('XTZ_WITHDRAW'):
+                            url = self.bot.erc_node_list['XTZ_WITHDRAW']
                         if coin_name == "XTZ":
                             send_tx = await self.wallet_api.send_external_xtz(
                                 url, key, str(ctx.author.id), amount, address, coin_name,
@@ -14048,6 +14089,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "ZIL":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "ZIL"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, ZIL/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "ZIL"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "ZIL"), "MainAddress")
@@ -14140,6 +14186,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "VET":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "VET"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, VET/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "VET"), "walletkey"))
                         main_address = getattr(getattr(self.bot.coin_list, "VET"), "MainAddress")
@@ -14230,6 +14281,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "XRP":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "XRP"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, XRP/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         url = self.bot.erc_node_list['XRP']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "XRP"), "walletkey"))
@@ -14277,6 +14333,8 @@ class Wallet(commands.Cog):
 
                         issuer = getattr(getattr(self.bot.coin_list, coin_name), "header")
                         currency_code = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                        if self.bot.erc_node_list.get('XRP_WITHDRAW'):
+                            url = self.bot.erc_node_list['XRP_WITHDRAW']
                         send_tx = await self.wallet_api.send_external_xrp(
                             url, key, str(ctx.author.id), address, amount, NetFee, coin_name, issuer,
                             currency_code, coin_decimal, SERVER_BOT
@@ -14316,6 +14374,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "NEAR":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "NEAR"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, NEAR/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         url = self.bot.erc_node_list['NEAR']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "NEAR"), "walletkey"))
@@ -14361,7 +14424,8 @@ class Wallet(commands.Cog):
                                 view=None
                             )
                         self.withdraw_tx[key_withdraw] = int(time.time())
-
+                        if self.bot.erc_node_list.get('NEAR_WITHDRAW'):
+                            url = self.bot.erc_node_list['NEAR_WITHDRAW']
                         send_tx = await self.wallet_api.send_external_near(
                             url, token_contract, key, str(ctx.author.id), main_address, amount,
                             address, coin_name, coin_decimal, NetFee, SERVER_BOT
@@ -14400,6 +14464,11 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "SOL" or type_coin == "SPL":
+                    # If main token is not enable for withdraw
+                    if getattr(getattr(self.bot.coin_list, "SOL"), "enable_withdraw") != 1:
+                        msg = f"{ctx.author.mention}, SOL/{coin_name} withdraw is currently disable."
+                        await ctx.edit_original_message(content=msg)
+                        return
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         self.bot.tx_in_progress[str(ctx.author.id)] = int(time.time())
                         tx_fee = getattr(getattr(self.bot.coin_list, coin_name), "tx_fee")
@@ -14438,8 +14507,11 @@ class Wallet(commands.Cog):
                             )
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
+                        endpoint_url = self.bot.erc_node_list['SOL']
+                        if self.bot.erc_node_list.get('SOL_WITHDRAW'):
+                            endpoint_url = self.bot.erc_node_list['SOL_WITHDRAW']
                         send_tx = await self.wallet_api.send_external_sol(
-                            self.bot.erc_node_list['SOL'],
+                            endpoint_url,
                             str(ctx.author.id), amount, address, coin_name,
                             coin_decimal, tx_fee, NetFee, SERVER_BOT
                         )
@@ -14945,7 +15017,7 @@ class Wallet(commands.Cog):
                 if update:
                     msg = f"{ctx.author.mention}, you updated your preferred claimed reward to __{coin_name}__. "\
                         f"This preference applies only for TipBot's voting reward."\
-                        f" Type `/claim` without token to see the list of voting websites."
+                        f" Type {self.bot.config['command_list']['claim']} without token to see the list of voting websites."
                     await ctx.edit_original_message(content=msg)
                 else:
                     msg = f'{ctx.author.mention}, internal error!'
@@ -15088,7 +15160,8 @@ class Wallet(commands.Cog):
         if info and info.upper() == "INFO":
             remaining = await self.bot_faucet(ctx, self.bot.faucet_coins) or ''
             msg = f"{ctx.author.mention} {command_mention} balance:\n```{remaining}```Total user claims: **{total_claimed}** times. "\
-                f"Tip me if you want to feed these faucets. Use `/claim` to vote TipBot and get reward."
+                f"Tip me if you want to feed these faucets. "\
+                f"Use {self.bot.config['command_list']['claim']} to vote TipBot and get reward."
             await ctx.edit_original_message(content=msg)
             return
 
@@ -15115,7 +15188,7 @@ class Wallet(commands.Cog):
         extra_take_text = ""
         try:
             # check if bot channel is set:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
@@ -15198,7 +15271,8 @@ class Wallet(commands.Cog):
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed {command_mention} on {last_claim_at}. "\
                             f"Waiting time {time_waiting} for next {command_mention}. Total user claims: **{total_claimed}** times. "\
                             f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets. "\
-                            f"Use __/claim__ to vote TipBot and get reward.{extra_take_text}{advert_txt}"
+                            f"Use {self.bot.config['command_list']['claim']} to vote TipBot and get reward."\
+                            f"{extra_take_text}{advert_txt}"
                         await ctx.edit_original_message(content=msg)
                         return
         except Exception:
@@ -15217,7 +15291,9 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using {command_mention}. Alternatively, vote for TipBot to get reward __/claim__.{extra_take_text}{advert_txt}"
+                    f"Wait a few days before using {command_mention}. "\
+                    f"Alternatively, vote for TipBot to get reward {self.bot.config['command_list']['claim']}."\
+                    f"{extra_take_text}{advert_txt}"
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -15234,7 +15310,7 @@ class Wallet(commands.Cog):
                         penalty_at = "<t:{}:f>".format(faucet_penalty['penalty_at'])
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention} You claimed in a wrong channel "\
                             f"{penalty_at}. Waiting time {time_waiting} for next {command_mention} "\
-                            f"and be sure to be the right channel set by the guild. Use /claim "\
+                            f"and be sure to be the right channel set by the guild. Use {self.bot.config['command_list']['claim']} "\
                             f"to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                         await ctx.edit_original_message(content=msg)
                         return
@@ -15338,7 +15414,7 @@ class Wallet(commands.Cog):
                     )
                     msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got a random {command_mention} "\
                         f"{coin_emoji} {num_format_coin(amount)} {coin_name}. "\
-                        f"Use /claim to vote TipBot and get reward.{extra_take_text}{advert_txt}"
+                        f"Use {self.bot.config['command_list']['claim']} to vote TipBot and get reward.{extra_take_text}{advert_txt}"
                     await ctx.edit_original_message(content=msg)
                     await logchanbot(
                         f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
@@ -15351,7 +15427,7 @@ class Wallet(commands.Cog):
             else:
                 try:
                     msg = f"Simulated faucet {coin_emoji} {num_format_coin(amount)} {coin_name}. "\
-                        f"This is a test only. Use without **ticker** to do real faucet claim. Use __/claim__ "\
+                        f"This is a test only. Use without **ticker** to do real faucet claim. Use {self.bot.config['command_list']['claim']} "\
                         f"to vote TipBot and get reward.{advert_txt}"
                     await ctx.edit_original_message(content=msg)
                 except Exception:
@@ -15385,7 +15461,7 @@ class Wallet(commands.Cog):
         ctx,
         coin: str = None
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing __/daily__ ...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['daily']} ..."
         await ctx.response.send_message(msg)
         await self.bot_log()
 
@@ -15411,7 +15487,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']*5:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using __/hourly__ or {command_mention}."
+                    f"Wait a few days before using {self.bot.config['command_list']['hourly']} or {command_mention}."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -15425,7 +15501,7 @@ class Wallet(commands.Cog):
             return
 
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
@@ -15526,7 +15602,7 @@ class Wallet(commands.Cog):
                                 check_claimed['claimed_at'],
                                 style='f'
                             )
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /daily on {last_claim_at}. "\
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed {self.bot.config['command_list']['daily']} on {last_claim_at}. "\
                                 f"Waiting time {time_waiting} for next {command_mention}. "\
                                 f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
                                 f"{advert_txt}"
@@ -15604,7 +15680,8 @@ class Wallet(commands.Cog):
                             )
                             msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got {command_mention} "\
                                 f"{coin_emoji} {num_format_coin(amount)} {coin_name}. "\
-                                f"Use `/claim` to vote TipBot and get reward and more with __/hourly__.{advert_txt}"
+                                f"Use {self.bot.config['command_list']['claim']} to vote TipBot and get reward; "\
+                                f"and more with {self.bot.config['command_list']['hourly']}.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
@@ -15641,7 +15718,7 @@ class Wallet(commands.Cog):
         ctx,
         coin: str = None
     ):
-        msg = f'{EMOJI_INFORMATION} {ctx.author.mention}, executing __/hourly__ ...'
+        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, executing {self.bot.config['command_list']['hourly']} ..."
         await ctx.response.send_message(msg)
         await self.bot_log()
 
@@ -15666,7 +15743,7 @@ class Wallet(commands.Cog):
             account_created = ctx.author.created_at
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using {command_mention} or __/daily__."
+                    f"Wait a few days before using {command_mention} or {self.bot.config['command_list']['daily']}."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -15680,7 +15757,7 @@ class Wallet(commands.Cog):
             return
 
         try:
-            serverinfo = await store.sql_info_by_server(str(ctx.guild.id))
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
                     botChan = self.bot.get_channel(int(serverinfo['botchan']))
@@ -15781,7 +15858,7 @@ class Wallet(commands.Cog):
                                 check_claimed['claimed_at'],
                                 style='f'
                             )
-                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed /hourly on {last_claim_at}. "\
+                            msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you claimed {self.bot.config['command_list']['hourly']} on {last_claim_at}. "\
                                 f"Waiting time {time_waiting} for next {command_mention}. "\
                                 f"You have claimed: **{number_user_claimed}** time(s). Tip me if you want to feed these faucets."\
                                 f"{advert_txt}"
@@ -15859,7 +15936,8 @@ class Wallet(commands.Cog):
                             )
                             msg = f"{EMOJI_MONEYFACE} {ctx.author.mention}, you got {command_mention} "\
                                 f"{coin_emoji} {num_format_coin(amount)} {coin_name}. "\
-                                f"Use __/claim__ to vote TipBot and get reward and more with __/daily__.{advert_txt}"
+                                f"Use {self.bot.config['command_list']['claim']} to vote TipBot and get reward; "\
+                                f"and more with {self.bot.config['command_list']['daily']}.{advert_txt}"
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"[DISCORD] User {ctx.author.name}#{ctx.author.discriminator} "\
@@ -16550,7 +16628,7 @@ class Wallet(commands.Cog):
             coin_name = self.bot.coin_alias_names[coin_name]
 
         if not hasattr(self.bot.coin_list, coin_name):
-            msg = f'{ctx.author.mention}, **{coin_name}** does not exist with us.'
+            msg = f"{ctx.author.mention}, **{coin_name}** does not exist with us."
             await ctx.response.send_message(msg)
             return
 

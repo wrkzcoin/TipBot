@@ -1404,6 +1404,57 @@ class TaskGuild(commands.Cog):
 
     @commands.has_permissions(manage_channels=True)
     @guild_task.sub_command(
+        name="joined-date-check",
+        usage="task joined-date-check", 
+        description="Toggle user's User joined date ON/OFF"
+    )
+    async def task_toggle_age(
+        self, 
+        ctx,
+    ):
+        await ctx.response.send_message(f"{EMOJI_INFORMATION} {ctx.author.mention}, task setting loading...")
+        try:
+            serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
+            if serverinfo is None:
+                # Let's add some info if server return None
+                await store.sql_addinfo_by_server(str(ctx.guild.id), ctx.guild.name, "/", DEFAULT_TICKER)
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
+                                                                    
+            if serverinfo and serverinfo['reward_task_enable_age'] == 1:
+                await store.sql_changeinfo_by_server(str(ctx.guild.id), 'reward_task_enable_age', 0)
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention} `/task complete` doesn't requires account joined date in this guild {ctx.guild.name}.")
+                await log_to_channel(
+                    "reward",
+                    f"[REWARD TASK] {ctx.author.name} / {ctx.author.id} disabled user account joined date check for task reward in their guild {ctx.guild.name} / {ctx.guild.id}.",
+                    self.bot.config['discord']['reward_webhook']
+                )
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+            elif serverinfo and serverinfo['reward_task_enable_age'] == 0:
+                await store.sql_changeinfo_by_server(str(ctx.guild.id), 'reward_task_enable_age', 1)
+                await ctx.edit_original_message(
+                    content=f"{ctx.author.mention} `/task complete` requires joined date in this guild {ctx.guild.name}. "\
+                        "User account requires min. 1 month old and 1 week old in your Guild to submit a complete task.")
+                await log_to_channel(
+                    "reward",
+                    f"[REWARD TASK] {ctx.author.name} / {ctx.author.id} enabled user account joined date check for task reward in their guild {ctx.guild.name} / {ctx.guild.id}.",
+                    self.bot.config['discord']['reward_webhook']
+                )
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+            else:
+                msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
+                await ctx.edit_original_message(content=msg)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            msg = f"{ctx.author.mention}, internal error when calling serverinfo function."
+            await ctx.edit_original_message(content=msg)
+
+    @commands.has_permissions(manage_channels=True)
+    @guild_task.sub_command(
         name="pay",
         usage="task pay <ref id> <user>",
         options=[
@@ -1608,33 +1659,36 @@ class TaskGuild(commands.Cog):
                     )
                     return
             # check if user create account less than 7 days
-            try:
-                account_created = ctx.author.created_at
-                if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['reward_task']['age_to_claim']:
-                    remaining_time = int(account_created.timestamp()) + self.bot.config['reward_task']['age_to_claim']
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                        f"Wait a more days before using this. Wait till <t:{str(remaining_time)}:f>."
-                    await ctx.edit_original_message(content=msg)
-                    await log_to_channel(
-                        "reward",
-                        f"[REWARD TASK] User {ctx.author.mention} wanted /task complete in Guild {ctx.guild.id} / {ctx.guild.name}! Rejected! Account too new! Wait till <t:{str(remaining_time)}:f>",
-                        self.bot.config['discord']['reward_webhook']
-                    )
-                    return
-                account_joined = ctx.guild.get_member(ctx.author.id).joined_at
-                if (datetime.utcnow().astimezone() - account_joined).total_seconds() <= self.bot.config['reward_task']['age_joined_guild']:
-                    remaining_time = int(account_joined.timestamp()) + self.bot.config['reward_task']['age_joined_guild']
-                    msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new in this Guild. "\
-                        f"Wait a few days before using this. Wait till <t:{str(remaining_time)}:f>."
-                    await ctx.edit_original_message(content=msg)
-                    await log_to_channel(
-                        "reward",
-                        f"[REWARD TASK] User {ctx.author.mention} wanted /task complete in Guild {ctx.guild.id} / {ctx.guild.name}! Rejected! Account too new in the Guild! Wait till <t:{str(remaining_time)}:f>",
-                        self.bot.config['discord']['reward_webhook']
-                    )
-                    return
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
+            if serverinfo['reward_task_enable_age'] == 1:
+                try:
+                    account_created = ctx.author.created_at
+                    if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['reward_task']['age_to_claim']:
+                        remaining_time = int(account_created.timestamp()) + self.bot.config['reward_task']['age_to_claim']
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
+                            f"Wait a more days before using this. Wait till <t:{str(remaining_time)}:f>. "\
+                            "Or you can request moderator to turn this off by `/task joined-date-check`."
+                        await ctx.edit_original_message(content=msg)
+                        await log_to_channel(
+                            "reward",
+                            f"[REWARD TASK] User {ctx.author.mention} wanted /task complete in Guild {ctx.guild.id} / {ctx.guild.name}! Rejected! Account too new! Wait till <t:{str(remaining_time)}:f>",
+                            self.bot.config['discord']['reward_webhook']
+                        )
+                        return
+                    account_joined = ctx.guild.get_member(ctx.author.id).joined_at
+                    if (datetime.utcnow().astimezone() - account_joined).total_seconds() <= self.bot.config['reward_task']['age_joined_guild']:
+                        remaining_time = int(account_joined.timestamp()) + self.bot.config['reward_task']['age_joined_guild']
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new in this Guild. "\
+                            f"Wait a few days before using this. Wait till <t:{str(remaining_time)}:f>."\
+                            "Or you can request moderator to turn this off by `/task joined-date-check`."
+                        await ctx.edit_original_message(content=msg)
+                        await log_to_channel(
+                            "reward",
+                            f"[REWARD TASK] User {ctx.author.mention} wanted /task complete in Guild {ctx.guild.id} / {ctx.guild.name}! Rejected! Account too new in the Guild! Wait till <t:{str(remaining_time)}:f>",
+                            self.bot.config['discord']['reward_webhook']
+                        )
+                        return
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
 
             # if user already submited
             # if a guild has such task id ongoing or already reached maximum number

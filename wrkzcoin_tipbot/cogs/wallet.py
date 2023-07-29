@@ -15289,9 +15289,10 @@ class Wallet(commands.Cog):
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
+            remaining_time = int(account_created.timestamp()) + self.bot.config['faucet']['account_age_to_claim']
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using {command_mention}. "\
+                    f"Wait till <t:{str(remaining_time)}:f> before using {command_mention}. "\
                     f"Alternatively, vote for TipBot to get reward {self.bot.config['command_list']['claim']}."\
                     f"{extra_take_text}{advert_txt}"
                 await ctx.edit_original_message(content=msg)
@@ -15485,9 +15486,10 @@ class Wallet(commands.Cog):
         try:
             # x 5 account_age_to_claim
             account_created = ctx.author.created_at
+            remaining_time = int(account_created.timestamp()) + self.bot.config['faucet']['account_age_to_claim']*5
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']*5:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using {self.bot.config['command_list']['hourly']} or {command_mention}."
+                    f"Wait till <t:{str(remaining_time)}:f> before using {self.bot.config['command_list']['hourly']} or {command_mention}."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:
@@ -15741,9 +15743,10 @@ class Wallet(commands.Cog):
         # check if user create account less than 3 days
         try:
             account_created = ctx.author.created_at
+            remaining_time = int(account_created.timestamp()) + self.bot.config['faucet']['account_age_to_claim']
             if (datetime.utcnow().astimezone() - account_created).total_seconds() <= self.bot.config['faucet']['account_age_to_claim']:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention} Your account is very new. "\
-                    f"Wait a few days before using {command_mention} or {self.bot.config['command_list']['daily']}."
+                    f"Wait till <t:{str(remaining_time)}:f> before using {command_mention} or {self.bot.config['command_list']['daily']}."
                 await ctx.edit_original_message(content=msg)
                 return
         except Exception:

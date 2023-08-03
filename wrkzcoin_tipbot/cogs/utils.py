@@ -2021,6 +2021,25 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
+    async def solana_validate_address(
+        self,
+        proxy: str,
+        address: str
+    ):
+        try:
+            data = {
+                "addr": address
+            }
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy, json=data) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
     async def solana_get_balance(
         self,
         proxy: str,

@@ -14429,6 +14429,18 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "SOL" or type_coin == "SPL":
+                    # valide address
+                    proxy = "http://{}:{}/validate_address".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_solana'])
+                    validate_addr = await self.utils.solana_validate_address(
+                        proxy, address
+                    )
+                    if validate_addr.get('valid') and validate_addr['valid'] is True:
+                        pass
+                    else:
+                        msg = f"{ctx.author.mention}, SOL/{coin_name} invalid address {address}."
+                        await ctx.edit_original_message(content=msg)
+                        return
+
                     # If main token is not enable for withdraw
                     if getattr(getattr(self.bot.coin_list, "SOL"), "enable_withdraw") != 1:
                         msg = f"{ctx.author.mention}, SOL/{coin_name} withdraw is currently disable."

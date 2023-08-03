@@ -2657,8 +2657,17 @@ class Admin(commands.Cog):
         description="Create an address erc-20, trc-20, xtz, near, vet, uuid"
     )
     async def create(self, ctx, token: str):
-        if token.upper() not in ["ERC-20", "TRC-20", "XTZ", "NEAR", "VET", "UUID"]:
+        if token.upper() not in ["ERC-20", "TRC-20", "XTZ", "NEAR", "VET", "UUID", "SOL"]:
             await ctx.reply(f"{ctx.author.mention}, only with ERC-20 and TRC-20.")
+        elif token.upper() == "SOL":
+            try:
+                proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_solana'])
+                create_addr = await self.utils.solana_create_address(
+                    proxy + "/create_address", timeout=32
+                )
+                await ctx.reply(f"{ctx.author.mention}, ```{str(create_addr)}```", view=RowButtonRowCloseAnyMessage())
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
         elif token.upper() == "ERC-20":
             try:
                 w = await self.create_address_eth()

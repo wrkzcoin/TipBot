@@ -1988,6 +1988,71 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
+    # Solana utils
+    async def solana_create_address(
+        self,
+        proxy: str,
+        timeout: int=60
+    ):
+        try:
+            async with aiohttp.ClientSession() as cs:
+                async with cs.get(proxy, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def solana_get_balance(
+        self,
+        proxy: str,
+        url: str,
+        address: str,
+        timeout:int = 60
+    ):
+        try:
+            data = {
+                "endpoint": url,
+                "address": address
+            }
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy, json=data, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def solana_send_tx(
+        self,
+        proxy: str,
+        url: str,
+        from_key: str,
+        to_addr: str,
+        atomic_amount: int,
+        timeout:int = 60
+    ):
+        try:
+            data = {
+                "endpoint": url,
+                "from_key": from_key,
+                "to_addr": to_addr,
+                "atomic_amount": atomic_amount
+            }
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy, json=data, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
     async def cog_load(self):
         pass
 

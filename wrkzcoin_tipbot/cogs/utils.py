@@ -1989,6 +1989,22 @@ class Utils(commands.Cog):
         return False
 
     # Solana utils
+    async def solana_reset_balance_cache(
+        self,
+        proxy: str,
+        timeout: int=60
+    ):
+        try:
+            async with aiohttp.ClientSession() as cs:
+                async with cs.get(proxy, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
     async def solana_create_address(
         self,
         proxy: str,

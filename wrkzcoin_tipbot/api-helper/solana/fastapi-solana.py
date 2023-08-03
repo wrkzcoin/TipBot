@@ -112,11 +112,31 @@ async def create_address():
         "timestamp": int(time.time())
     }
 
+@app.get("/reset_cache/{address}")
+async def reset_balance_cache(address: str):
+    if app.pending_cache_balance.get(address):
+        print("{} X Delete balance cache for {}".format(
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), address
+        ))
+        del app.pending_cache_balance[address]
+        return {
+            "success": True,
+            "timestamp": int(time.time())
+        }
+    else:
+        return {
+            "error": "Cache not exist for: {}".format(address),
+            "timestamp": int(time.time())
+        }
+
 @app.post("/get_balance_solana")
 async def get_balance_solana(
     item: BalanceSolData
 ):
     if app.pending_cache_balance.get(item.address):
+        print("{} use balance cache for {}".format(
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), item.address
+        ))
         return app.pending_cache_balance[item.address]
 
     balance = await fetch_wallet_balance(item.endpoint, item.address, timeout=60)

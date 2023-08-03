@@ -8413,8 +8413,6 @@ class Wallet(commands.Cog):
                         for each_addr in result:
                             if each_addr['last_move_deposit'] > int(time.time()) - 90:
                                 continue
-                            if each_addr['balance_wallet_address'] == "7fpEHrTXpNXFiaqjCpeVU134E7cGRRaBkqKgU5BExEmd":
-                                print("Checking 7fpEHrTXpNXFiaqjCpeVU134E7cGRRaBkqKgU5BExEmd")
                             try:
                                 proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_solana'])
                                 # get deposit balance if it's less than minimum
@@ -8426,8 +8424,6 @@ class Wallet(commands.Cog):
                                 tx_fee = getattr(getattr(self.bot.coin_list, coin_name), "tx_fee")
                                 contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                                 real_deposit_fee = getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee")
-                                if each_addr['balance_wallet_address'] == "7fpEHrTXpNXFiaqjCpeVU134E7cGRRaBkqKgU5BExEmd":
-                                    print(get_balance)
                                 if get_balance and get_balance.get('result'):
                                     actual_balance = float(get_balance['result']['balance'] / 10 ** coin_decimal)
                                     if actual_balance >= real_min_deposit:
@@ -8460,6 +8456,10 @@ class Wallet(commands.Cog):
                                                         each_addr['balance_wallet_address']
                                                     ))
                                                     await conn.commit()
+                                            # reset cache
+                                            await self.utils.solana_reset_balance_cache(
+                                                proxy + "/reset_cache/" + each_addr['balance_wallet_address'], 30
+                                            )
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                         print(f"{datetime.now():%Y-%m-%d %H:%M:%S}: SOL, Finished check {str(len(result))} address(es) and updated {str(numb_update)} address(es). {str(time.time() - start)}s")

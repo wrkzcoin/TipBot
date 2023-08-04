@@ -49,7 +49,9 @@ async def send_solana(url: str, from_key: str, to_address: str, atomic_amount: i
             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), sender.pubkey(), to_address, atomic_amount
 
         ))
-        txn = Transaction().add(transfer(TransferParams(from_pubkey=sender.pubkey(), to_pubkey=Pubkey.from_string(to_address), lamports=atomic_amount)))
+        txn = Transaction().add(
+            transfer(TransferParams(from_pubkey=sender.pubkey(), to_pubkey=Pubkey.from_string(to_address), lamports=atomic_amount))
+        )
         solana_client = AsyncClient(url, timeout=timeout)
         sending = await solana_client.send_transaction(txn, sender)
         print("{} SOL successfully sent from {} to {}, lamports={}, {}".format(
@@ -88,7 +90,7 @@ async def post_get_account_token(
                 "balance": token_account.amount,
                 "is_frozen": token_account.is_frozen
             }
-    except ValueError:
+    except (ValueError, AttributeError):
         pass
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -509,7 +511,7 @@ async def send_transaction(item: TxData):
                 "timestamp": int(time.time())
             }
         else:
-            sending = await send_solana(item.endpoint, item.from_key, item.to_addr, item.atomic_amount)
+            sending = await send_solana(item.endpoint, item.from_key, item.to_addr, item.atomic_amount, 60)
             return {
                 "success": True,
                 "hash": str(sending),

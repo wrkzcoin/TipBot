@@ -2110,8 +2110,6 @@ class Utils(commands.Cog):
                 "atomic_amount": atomic_amount,
                 "fee_payer_key": fee_payer_key
             }
-            print(proxy)
-            print(data)
             async with aiohttp.ClientSession() as cs:
                 async with cs.post(proxy, json=data, timeout=timeout) as r:
                     res_data = await r.read()
@@ -2138,14 +2136,70 @@ class Utils(commands.Cog):
                 "to_addr": to_addr,
                 "atomic_amount": atomic_amount
             }
-            print(proxy)
-            print(data)
             async with aiohttp.ClientSession() as cs:
                 async with cs.post(proxy, json=data, timeout=timeout) as r:
                     res_data = await r.read()
                     res_data = res_data.decode('utf-8')
                     result = json.loads(res_data)
                     return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def solana_get_confirmed_tx(self, url: str, txn: str, timeout: int=32):
+        json_data = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getConfirmedTransaction",
+            "params": [
+                txn,
+                "json"
+            ]
+        }
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    url,
+                    headers={'Content-Type': 'application/json'},
+                    json=json_data,
+                    timeout=timeout
+                ) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            return decoded_data['result']
+        except asyncio.TimeoutError:
+            print('TIMEOUT: getConfirmedTransaction {} for {}s'.format(url, timeout))
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def solana_get_epoch_info(self, url: str, timeout: int=60):
+        data = {
+            "jsonrpc": "2.0",
+            "method": "getEpochInfo",
+            "id": 1
+        }
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    url,
+                    headers={'Content-Type': 'application/json'},
+                    json=data,
+                    timeout=timeout
+                ) as response:
+                    if response.status == 200:
+                        res_data = await response.read()
+                        res_data = res_data.decode('utf-8')
+                        await session.close()
+                        decoded_data = json.loads(res_data)
+                        if decoded_data and 'result' in decoded_data:
+                            return decoded_data['result']
+        except asyncio.TimeoutError:
+            print('TIMEOUT: getEpochInfo {} for {}s'.format(url, timeout))
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None

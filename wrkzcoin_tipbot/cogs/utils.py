@@ -1989,6 +1989,32 @@ class Utils(commands.Cog):
         return False
 
     # Solana utils
+    async def solana_get_token_address(
+        self,
+        proxy: str,
+        url: str,
+        token_address: str,
+        program_id: str,
+        address: str,
+        timeout: int=60
+    ):
+        try:
+            data = {
+                "endpoint": url,
+                "token_address": token_address,
+                "address": address,
+                "program_id": program_id
+            }
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/token_account_info", json=data, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
     async def solana_reset_balance_cache(
         self,
         proxy: str,
@@ -2062,6 +2088,40 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
+    async def solana_send_token_tx(
+        self,
+        proxy: str,
+        url: str,
+        token_address: str,
+        owner_key: str,
+        program_id: str,
+        dest: str,
+        atomic_amount: int,
+        fee_payer_key: str,
+        timeout:int = 60
+    ):
+        try:
+            data = {
+                "endpoint": url,
+                "token_address": token_address,
+                "owner_key": owner_key,
+                "program_id": program_id,
+                "dest": dest,
+                "atomic_amount": atomic_amount,
+                "fee_payer_key": fee_payer_key
+            }
+            print(proxy)
+            print(data)
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy, json=data, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
     async def solana_send_tx(
         self,
         proxy: str,
@@ -2078,6 +2138,8 @@ class Utils(commands.Cog):
                 "to_addr": to_addr,
                 "atomic_amount": atomic_amount
             }
+            print(proxy)
+            print(data)
             async with aiohttp.ClientSession() as cs:
                 async with cs.post(proxy, json=data, timeout=timeout) as r:
                     res_data = await r.read()

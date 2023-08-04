@@ -134,7 +134,8 @@ async def post_create_account_token(
 
 async def post_transfer_token(
     url: str, token_address: str, owner_key: str,
-    program_id: str, dest: str, atomic_amount: int, timeout: int=60
+    program_id: str, dest: str, atomic_amount: int, fee_payer_key: str,
+    timeout: int=60
 ):
     try:
         async with AsyncClient(url, timeout=timeout) as client:            
@@ -142,8 +143,7 @@ async def post_transfer_token(
                 conn=client,
                 pubkey=Pubkey.from_string(token_address),
                 program_id=Pubkey.from_string(program_id),
-                payer=Keypair.from_bytes(bytes.fromhex(owner_key))#  worked
-                # payer=Keypair.from_bytes(bytes.fromhex(payer_key)) # not work, not enough signers
+                payer=Keypair.from_bytes(bytes.fromhex(fee_payer_key))
             )
             # check token account owner
             token_wallet_address_public_key = await spl_client.get_accounts_by_owner(
@@ -200,7 +200,7 @@ async def post_transfer_token(
                     dest=addr_receiver,
                     owner=Keypair.from_bytes(bytes.fromhex(owner_key)).pubkey(),
                     amount=atomic_amount,
-                    multi_signers=[Keypair.from_bytes(bytes.fromhex(owner_key))],
+                    multi_signers=[Keypair.from_bytes(bytes.fromhex(owner_key)), Keypair.from_bytes(bytes.fromhex(fee_payer_key))],
                     recent_blockhash=blockhash.value.blockhash
                 )
                 print("{} Token {}/{} trying to send to {}, lamports={}. Hash: {}".format(
@@ -256,6 +256,7 @@ class SendTokenAcc(BaseModel):
     program_id: str
     dest: str
     atomic_amount: int
+    fee_payer_key: str
 
 app = FastAPI(
     title="TipBotv2 FastAPI Solana",
@@ -278,6 +279,7 @@ async def send_token_account(
             item.program_id,
             item.dest,
             item.atomic_amount,
+            item.fee_payer_key,
             timeout=60
         )
         if sending is None:

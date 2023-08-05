@@ -37,23 +37,22 @@ This TipBot's code is not ready for deployment. We keep it here for easier bug t
 
 ### Integration
 
-|   	| NAME                                                                                    	| Integration   	| Tokens   	| Implementing 	|
-|---	|-----------------------------------------------------------------------------------------	|---------------	|----------	|--------------	|
-|   	| ------------------------------------------------------------------------------------    	| ------------- 	| -------- 	|              	|
-|   	| Cryptonote (XMR/BCN/etc)                                                                	| ✅             	| -        	| ✅            	|
-|   	| BTC / DOGE / LTC                                                                        	| ✅             	| -        	| ✅            	|
-|   	| ERC-20 / TRC-20 (Token)<br>(Gnosis, MATIC, BNB, FTM, <br>AVAX, ETH, CELO, OP, Arbitrum) 	| ✅             	| ✅        	| ✅            	|
-|   	| Cardano asset token                                                                     	| ✅             	| ✅        	| ✅            	|
-|   	| Tezos asset token                                                                       	| ✅             	| ✅        	| ✅            	|
-|   	| Stellar asset token                                                                     	| ✅             	| ✅        	| ✅            	|
-|   	| Neo3 asset token                                                                        	| ✅             	| ✅        	| ❌            	|
-|   	| Near Protocol token                                                                     	| ✅             	| ✅        	| ❌            	|
-|   	| Solana                                                                                  	| ✅             	| ✅        	| ✅            	|
-|   	| XRP (ripple)                                                                            	| ✅             	| ✅        	| ✅            	|
-|   	| Zilliqa                                                                                 	| ✅             	| ✅        	| ❌            	|
-|   	| VeChain                                                                                 	| ✅             	| ✅        	| ✅            	|
-|   	| Vite Protocol                                                                           	| ✅             	| ✅        	| ❌            	|
-|   	| OSMOSIS (& COSMOS)                                                                      	| ✅             	| ✅        	| ✅            	|
+| NAME 	| Integration 	| Tokens 	| Implementing 	|
+|---	|---	|---	|---	|
+| Cryptonote (XMR/BCN/etc) 	| ✅ 	| - 	| ✅ 	|
+| BTC / DOGE / LTC 	| ✅ 	| - 	| ✅ 	|
+| ERC-20 / TRC-20 (Token)<br>(Gnosis, MATIC, BNB, FTM, <br>AVAX, ETH, CELO, OP, Arbitrum) 	| ✅ 	| ✅ 	| ✅ 	|
+| Cardano asset token 	| ✅ 	| ✅ 	| ✅ 	|
+| Tezos asset token 	| ✅ 	| ✅ 	| ✅ 	|
+| Stellar asset token 	| ✅ 	| ✅ 	| ✅ 	|
+| Neo3 asset token 	| ✅ 	| ✅ 	| ❌ 	|
+| Near Protocol token 	| ✅ 	| ✅ 	| ❌ 	|
+| Solana 	| ✅ 	| ✅ 	| ✅ 	|
+| XRP (ripple) 	| ✅ 	| ✅ 	| ✅ 	|
+| Zilliqa 	| ✅ 	| ✅ 	| ❌ 	|
+| VeChain 	| ✅ 	| ✅ 	| ✅ 	|
+| Vite Protocol 	| ✅ 	| ✅ 	| ❌ 	|
+| OSMOSIS (& COSMOS) 	| ✅ 	| ✅ 	| ✅ 	|
 
 Refer to <https://coininfo.bot.tips> for the entire list.
 

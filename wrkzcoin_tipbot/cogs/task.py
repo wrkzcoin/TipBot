@@ -65,7 +65,7 @@ class TaskGuild(commands.Cog):
 
     async def rejected_task(
         self, task_id: int, guild_id: str, user_id: str, desc: str, screenshot: str,
-        insert_time: int, status: str, by_uid: str
+        insert_time: int, status: str, by_uid: str, reason: str
     ):
         try:
             await store.openConnection()
@@ -73,15 +73,15 @@ class TaskGuild(commands.Cog):
                 async with conn.cursor() as cur:
                     sql = """
                     INSERT INTO `discord_guild_task_rejected`
-                    (`task_id`, `guild_id`, `user_id`, `description`, `screenshot`, `time`, `status`, `rejected_date`, `rejected_by_uid`)
+                    (`task_id`, `guild_id`, `user_id`, `description`, `screenshot`, `time`, `status`, `rejected_date`, `rejected_by_uid`, `reason`)
                     VALUES
-                    (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+                    (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
 
                     DELETE FROM `discord_guild_task_completed`
                     WHERE `task_id`=%s AND `guild_id`=%s AND `user_id`=%s;
                     """
                     await cur.execute(sql, (
-                        task_id, guild_id, user_id, desc, screenshot, insert_time, status, int(time.time()), by_uid,
+                        task_id, guild_id, user_id, desc, screenshot, insert_time, status, int(time.time()), by_uid, reason,
                         task_id, guild_id, user_id
                     ))
                     await conn.commit()
@@ -1290,6 +1290,7 @@ class TaskGuild(commands.Cog):
         options=[
             Option('ref_id', 'ref_id', OptionType.number, required=True),
             Option('user', 'user', OptionType.user, required=True),
+            Option('reason', 'reason', OptionType.string, required=True),
         ],
         description="Reject a user/or yourself from a Task ID."
     )
@@ -1297,7 +1298,8 @@ class TaskGuild(commands.Cog):
         self,
         ctx,
         ref_id: int,
-        user: disnake.Member
+        user: disnake.Member,
+        reason: str
     ):
         await ctx.response.send_message(f"{ctx.author.mention}, loading task rejection ...", ephemeral=True)
         try:
@@ -1374,16 +1376,17 @@ class TaskGuild(commands.Cog):
                         return
                     rejecting = await self.rejected_task(
                         ref_id, str(ctx.guild.id), str(user.id), check_task['description'], check_task['screenshot'],
-                        check_task['time'], check_task['status'], str(ctx.author.id)
+                        check_task['time'], check_task['status'], str(ctx.author.id), reason
                     )
                     if rejecting is True:
                         await ctx.edit_original_message(
-                            content=f"{ctx.author.mention}, successfully deleted a task by {user.mention} for Task ID: **{str(ref_id)}**.")   
+                            content=f"{ctx.author.mention}, successfully deleted a task by {user.mention} for Task ID: **{str(ref_id)}** with a reason: {reason}.")   
                         try:
                             get_user = self.bot.get_user(user.id)
-                            if get_user is not None and get_user.id != user.id:
+                            if get_user is not None and get_user.id != ctx.author.id:
                                 await get_user.send(
-                                    f"Your submitted Task ID: **{str(ref_id)}** - [{check_task['title']}] in Guild {ctx.guild.name} was rejected. You can re-submit.")
+                                    f"Your submitted Task ID: **{str(ref_id)}** - [{check_task['title']}] in Guild "\
+                                    f"{ctx.guild.name} was rejected with a reason: {reason}. You can re-submit.")
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
                         # message assigned channel

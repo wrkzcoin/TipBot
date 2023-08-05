@@ -2981,6 +2981,11 @@ class Cexswap(commands.Cog):
                     list_earning_dict = {}
                     list_volume_dict = {}
                     for each in v:
+                        if not hasattr(self.bot.coin_list, each['got_ticker']):
+                            continue
+                        if not hasattr(self.bot.coin_list, each['sold_ticker']):
+                            continue
+
                         if each['got'] not in traded_coins_got[k]:
                             traded_coins_got[k][each['got_ticker']] = 0
                         if each['sold_ticker'] not in traded_coins_sell[k]:

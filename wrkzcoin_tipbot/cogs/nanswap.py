@@ -1079,8 +1079,9 @@ class Nanswap(commands.Cog):
                                     fee = NetFee
                                     asset_ticker = getattr(getattr(self.bot.coin_list, sell_token), "header")
                                     asset_issuer = getattr(getattr(self.bot.coin_list, sell_token), "contract")
+                                    proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_stellar'])
                                     send_tx = await self.wallet_api.send_external_xlm_nostore(
-                                        url, withdraw_keypair, str(ctx.author.id),
+                                        proxy, url, withdraw_keypair, str(ctx.author.id),
                                         amount, trade['payinAddress'], coin_decimal, SERVER_BOT,
                                         sell_token, NetFee, asset_ticker, asset_issuer,
                                         30, check_id['payinExtraId']

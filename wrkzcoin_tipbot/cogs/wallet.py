@@ -34,16 +34,6 @@ from httpx import AsyncClient, Timeout, Limits
 import httpx
 from pywallet import wallet as ethwallet
 
-# Stellar
-from stellar_sdk import (
-    AiohttpClient,
-    Asset,
-    Keypair as Stella_Keypair,
-    Network,
-    ServerAsync,
-    TransactionBuilder,
-    parse_transaction_envelope_from_xdr
-)
 from terminaltables import AsciiTable
 from tronpy import AsyncTron
 from tronpy.keys import PrivateKey
@@ -1859,27 +1849,15 @@ class WalletAPI(commands.Cog):
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif type_coin == "XLM":
-            balance = 0.0
             url = getattr(getattr(self.bot.coin_list, coin_name), "http_address")
             issuer = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             asset_code = getattr(getattr(self.bot.coin_list, coin_name), "header")
             main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
-            try:
-                async with ServerAsync(
-                        horizon_url=url, client=AiohttpClient()
-                ) as server:
-                    account = await server.accounts().account_id(main_address).call()
-                    if 'balances' in account and len(account['balances']) > 0:
-                        for each_balance in account['balances']:
-                            if coin_name == "XLM" and each_balance['asset_type'] == "native":
-                                balance = float(each_balance['balance'])
-                                break
-                            elif 'asset_code' in each_balance and 'asset_issuer' in each_balance and \
-                                each_balance['asset_code'] == asset_code and issuer == each_balance['asset_issuer']:
-                                balance = float(each_balance['balance'])
-                                break
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
+            proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_stellar'])
+
+            balance = await self.utils.stellar_get_balance(
+                proxy, url, main_address, coin_name
+            )
         elif type_coin == "XTZ":
             balance = 0.0
             rpchost = getattr(getattr(self.bot.coin_list, "XTZ"), "rpchost")
@@ -4288,138 +4266,59 @@ class WalletAPI(commands.Cog):
             await logchanbot("wallet send_external_hnt " + str(traceback.format_exc()))
         return None
 
-    async def check_xlm_asset(
-        self, url: str, asset_name: str, issuer: str,
-        to_address: str, user_id: str, user_server: str
-    ):
-        found = False
-        try:
-            async with ServerAsync(
-                    horizon_url=url, client=AiohttpClient()
-            ) as server:
-                account = await server.accounts().account_id(to_address).call()
-                if 'balances' in account and len(account['balances']) > 0:
-                    for each_balance in account['balances']:
-                        if 'asset_code' in each_balance and 'asset_issuer' in each_balance and \
-                            each_balance['asset_code'] == asset_name and issuer == each_balance['asset_issuer']:
-                            found = True
-                            break
-        except Exception:
-            await logchanbot(
-                f"[{user_server}] [XLM]: Failed /withdraw by {user_id}. "\
-                f"Account not found for address: {to_address} / asset_name: {asset_name}."
-            )
-        return found
-
     async def send_external_xlm_nostore(
-        self, url: str, withdraw_keypair: str, user_id: str, amount: float, to_address: str,
+        self, proxy, url: str, withdraw_keypair: str, user_id: str, amount: float, to_address: str,
         coin_decimal: int, user_server: str, coin: str, withdraw_fee: float,
         asset_ticker: str = None, asset_issuer: str = None, time_out=60, memo=None
     ):
-        coin_name = coin.upper()
-        asset_sending = Asset.native()
-        if coin_name != "XLM":
-            asset_sending = Asset(asset_ticker, asset_issuer)
-        tipbot_keypair = Stella_Keypair.from_secret(withdraw_keypair)
-        async with ServerAsync(
-                horizon_url=url, client=AiohttpClient()
-        ) as server:
-            try:
-                tipbot_account = await server.load_account(tipbot_keypair.public_key)
-                base_fee = 50000
-                if memo is not None:
-                    transaction = (
-                        TransactionBuilder(
-                            source_account=tipbot_account,
-                            network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
-                            base_fee=base_fee,
-                        )
-                        .add_text_memo(memo)
-                        .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
-                        .set_timeout(30)
-                        .build()
-                    )
-                else:
-                    transaction = (
-                        TransactionBuilder(
-                            source_account=tipbot_account,
-                            network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
-                            base_fee=base_fee,
-                        )
-                        # .add_text_memo("Hello, Stellar!")
-                        .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
-                        .set_timeout(30)
-                        .build()
-                    )
-                transaction.sign(tipbot_keypair)
-                response = await server.submit_transaction(transaction)
-                return response['hash']
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-            return None
+        try:
+            coin_name = coin.upper()
+            sending = await self.utils.stellar_send_token(
+                proxy, url, withdraw_keypair, amount, to_address,
+                coin_name, asset_ticker, asset_issuer, memo, base_fee = 50000
+            )
+            if sending.get('result'):
+                return sending['result']['hash']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot("wallet send_external_xlm " + str(traceback.format_exc()))
+        return None
 
     async def send_external_xlm(
-        self, url: str, withdraw_keypair: str, user_id: str, amount: float, to_address: str,
+        self, proxy: str, url: str, withdraw_keypair: str, user_id: str, amount: float, to_address: str,
         coin_decimal: int, user_server: str, coin: str, withdraw_fee: float,
         asset_ticker: str = None, asset_issuer: str = None, time_out=60, memo=None
     ):
-        coin_name = coin.upper()
-        asset_sending = Asset.native()
-        if coin_name != "XLM":
-            asset_sending = Asset(asset_ticker, asset_issuer)
-        tipbot_keypair = Stella_Keypair.from_secret(withdraw_keypair)
-        async with ServerAsync(
-                horizon_url=url, client=AiohttpClient()
-        ) as server:
-            tipbot_account = await server.load_account(tipbot_keypair.public_key)
-            base_fee = 50000
-            if memo is not None:
-                transaction = (
-                    TransactionBuilder(
-                        source_account=tipbot_account,
-                        network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
-                        base_fee=base_fee,
-                    )
-                    .add_text_memo(memo)
-                    .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
-                    .set_timeout(30)
-                    .build()
-                )
-            else:
-                transaction = (
-                    TransactionBuilder(
-                        source_account=tipbot_account,
-                        network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
-                        base_fee=base_fee,
-                    )
-                    # .add_text_memo("Hello, Stellar!")
-                    .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
-                    .set_timeout(30)
-                    .build()
-                )
-            transaction.sign(tipbot_keypair)
-            response = await server.submit_transaction(transaction)
-            # print(response)
-            fee = float(response['fee_charged']) / 10000000
-            try:
-                await self.openConnection()
-                async with self.pool.acquire() as conn:
-                    async with conn.cursor() as cur:
-                        sql = """
-                        INSERT INTO xlm_external_tx 
-                        (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
-                        `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """
-                        await cur.execute(sql, (
-                            coin_name, user_id, amount, fee, withdraw_fee, coin_decimal,
-                            to_address, int(time.time()), response['hash'], user_server
-                        ))
-                        await conn.commit()
-                        return response['hash']
-            except Exception:
-                await logchanbot("wallet send_external_xlm " + str(traceback.format_exc()))
-                traceback.print_exc(file=sys.stdout)
+        try:
+            coin_name = coin.upper()
+            sending = await self.utils.stellar_send_token(
+                proxy, url, withdraw_keypair, amount, to_address,
+                coin_name, asset_ticker, asset_issuer, memo, base_fee = 50000
+            )
+            if sending.get('result'):
+                fee = sending['result']['fee']
+                try:
+                    await self.openConnection()
+                    async with self.pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            sql = """
+                            INSERT INTO xlm_external_tx 
+                            (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
+                            `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            """
+                            await cur.execute(sql, (
+                                coin_name, user_id, amount, fee, withdraw_fee, coin_decimal,
+                                to_address, int(time.time()), sending['result']['hash'], user_server
+                            ))
+                            await conn.commit()
+                            return sending['result']['hash']
+                except Exception:
+                    await logchanbot("wallet send_external_xlm " + str(traceback.format_exc()))
+                    traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot("wallet send_external_xlm " + str(traceback.format_exc()))
         return None
 
     async def cosmos_get_coin_by_denom(
@@ -8122,7 +8021,7 @@ class Wallet(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-    @tasks.loop(seconds=120.0)
+    @tasks.loop(seconds=30.0)
     async def update_balance_xlm(self):
         time_lap = 20  # seconds
         await self.bot.wait_until_ready()
@@ -8137,20 +8036,10 @@ class Wallet(commands.Cog):
         coin_name = "XLM"
         coin_family = coin_name
         coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+        proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_stellar'])
         if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 0 and getattr(
                 getattr(self.bot.coin_list, coin_name), "enable_deposit") == 1:
             try:
-                async def get_xlm_transactions(endpoint: str, account_addr: str):
-                    async with ServerAsync(
-                            horizon_url=endpoint, client=AiohttpClient()
-                    ) as server:
-                        # get a list of transactions submitted by a particular account
-                        transactions = await server.transactions().for_account(account_id=account_addr).order(
-                            desc=True).limit(50).call()
-                        if len(transactions["_embedded"]["records"]) > 0:
-                            return transactions["_embedded"]["records"]
-                        return []
-
                 async def get_tx_incoming():
                     try:
                         await self.openConnection()
@@ -8195,7 +8084,7 @@ class Wallet(commands.Cog):
                                         # if there are other asset, set them all here
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
-                                    get_transactions = await get_xlm_transactions(url, main_address)
+                                    get_transactions = await self.utils.stellar_get_transactions(proxy, url, main_address)
                                     if len(get_transactions) > 0:
                                         get_incoming_tx = await get_tx_incoming()
                                         list_existing_tx = []
@@ -8211,45 +8100,17 @@ class Wallet(commands.Cog):
                                                 if 'successful' in each_tx and each_tx['successful'] != True:
                                                     # Skip
                                                     continue
-                                                tx_envolop = functools.partial(
-                                                    parse_transaction_envelope_from_xdr,
-                                                    each_tx['envelope_xdr'],
-                                                    Network.PUBLIC_NETWORK_PASSPHRASE
+
+                                                transaction_envelope = await self.utils.stellar_parse_transaction(
+                                                    proxy, each_tx['envelope_xdr']
                                                 )
-                                                transaction_envelope = await self.bot.loop.run_in_executor(None, tx_envolop)
-                                                for Payment in transaction_envelope.transaction.operations:
-                                                    try:
-                                                        destination = Payment.destination.account_id
-                                                        asset_type = Payment.asset.type
-                                                        asset_code = Payment.asset.code
-                                                        asset_issuer = None
-                                                        if asset_type == "native":
-                                                            coin_name = "XLM"
-                                                        else:
-                                                            if hasattr(Payment.asset, "code") and hasattr(Payment.asset, "issuer"):
-                                                                asset_issuer = Payment.asset.issuer
-                                                                for each_coin in self.bot.coin_name_list:
-                                                                    if asset_code == getattr(getattr(self.bot.coin_list, each_coin), "header") \
-                                                                        and asset_issuer == getattr(getattr(self.bot.coin_list, each_coin), "contract"):
-                                                                        coin_name = getattr(getattr(self.bot.coin_list, each_coin), "coin_name")
-                                                                        break
-                                                        if not hasattr(self.bot.coin_list, coin_name):
-                                                            continue
-                                                        amount = float(Payment.amount)
-                                                        if destination != main_address: continue
-                                                        # if asset_type not in ["native", "credit_alphanum4", "credit_alphanum12"]:
-                                                        #   continue  # TODO: If other asset, check this
-                                                        # Check all atrribute
-                                                        all_xlm_coins = []
-                                                        if self.bot.coin_name_list and len(self.bot.coin_name_list) > 0:
-                                                            for each_coin in self.bot.coin_name_list:
-                                                                ticker = getattr(getattr(self.bot.coin_list, each_coin), "header")
-                                                                if getattr(getattr(self.bot.coin_list, each_coin), "enable") == 1:
-                                                                    all_xlm_coins.append(ticker)
-                                                        if asset_code not in all_xlm_coins: continue
-                                                    except:
-                                                        continue
-                                                fee = float(transaction_envelope.transaction.fee) / 10000000  # atomic
+                                                if transaction_envelope and transaction_envelope.get('result') is None:
+                                                    continue
+                                                coin_name = transaction_envelope['result']['coin_name']
+                                                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                                amount = transaction_envelope['result']['amount']
+                                                fee = transaction_envelope['result']['fee']
+
                                                 height = each_tx['ledger']
                                                 user_memo = None
                                                 user_id = None
@@ -8265,11 +8126,12 @@ class Wallet(commands.Cog):
                                                     await self.openConnection()
                                                     async with self.pool.acquire() as conn:
                                                         async with conn.cursor() as cur:
-                                                            sql = """ INSERT INTO `xlm_get_transfers` 
-                                                                (`coin_name`, `user_id`, `txid`, `height`, `amount`, `fee`, 
-                                                                `decimal`, `address`, `memo`, `time_insert`, `user_server`) 
-                                                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                                                """
+                                                            sql = """
+                                                            INSERT INTO `xlm_get_transfers` 
+                                                            (`coin_name`, `user_id`, `txid`, `height`, `amount`, `fee`, 
+                                                            `decimal`, `address`, `memo`, `time_insert`, `user_server`) 
+                                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                                            """
                                                             await cur.execute(sql, (
                                                                 coin_name, user_id, tx_hash, height, amount, fee,
                                                                 coin_decimal, main_address,
@@ -8794,7 +8656,6 @@ class Wallet(commands.Cog):
                                                         int(time.time()), user_tx['user_server']
                                                     ))
                                                     if each_output['assets'] and len(each_output['assets']) > 0:
-                                                        # Asset
                                                         for each_asset in each_output['assets']:
                                                             asset_name = each_asset['asset_name']
                                                             coin_name = None
@@ -13459,6 +13320,7 @@ class Wallet(commands.Cog):
                         return
                     url = getattr(getattr(self.bot.coin_list, coin_name), "http_address")
                     main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
+                    proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_stellar'])
                     if address == main_address:
                         # can not send
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_."
@@ -13467,8 +13329,8 @@ class Wallet(commands.Cog):
                     if coin_name != "XLM":  # in case of asset
                         issuer = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                         asset_code = getattr(getattr(self.bot.coin_list, coin_name), "header")
-                        check_asset = await self.wallet_api.check_xlm_asset(
-                            url, asset_code, issuer, address, str(ctx.author.id), SERVER_BOT
+                        check_asset = await self.utils.stellar_verify_asset(
+                            proxy, url, asset_code, issuer, address
                         )
                         if check_asset is False:
                             msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_. "\
@@ -13521,7 +13383,7 @@ class Wallet(commands.Cog):
                         self.withdraw_tx[key_withdraw] = int(time.time())
 
                         send_tx = await self.wallet_api.send_external_xlm(
-                            url, withdraw_keypair, str(ctx.author.id),
+                            proxy, url, withdraw_keypair, str(ctx.author.id),
                             amount, address, coin_decimal, SERVER_BOT,
                             coin_name, NetFee, asset_ticker, asset_issuer,
                             90, extra_option

@@ -641,7 +641,7 @@ class Admin(commands.Cog):
                     if result and len(result) > 0:
                         for each in result:
                             coin_list[each['coin_name']] = each
-                        return AttrDict(coin_list)
+                        return coin_list
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("admin " +str(traceback.format_exc()))
@@ -2346,7 +2346,8 @@ class Admin(commands.Cog):
                 await ctx.reply(msg)
             coin_list = await self.get_coin_setting()
             if coin_list:
-                self.bot.coin_list = coin_list
+                self.bot.coin_list = AttrDict(coin_list)
+                self.bot.other_data['coin_list'] = coin_list
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name
@@ -2382,7 +2383,8 @@ class Admin(commands.Cog):
                 await ctx.reply(msg)
             coin_list = await self.get_coin_setting()
             if coin_list:
-                self.bot.coin_list = coin_list
+                self.bot.coin_list = AttrDict(coin_list)
+                self.bot.other_data['coin_list'] = coin_list
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name
@@ -2418,7 +2420,8 @@ class Admin(commands.Cog):
                 await ctx.reply(msg)
             coin_list = await self.get_coin_setting()
             if coin_list:
-                self.bot.coin_list = coin_list
+                self.bot.coin_list = AttrDict(coin_list)
+                self.bot.other_data['coin_list'] = coin_list
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name
@@ -2454,7 +2457,8 @@ class Admin(commands.Cog):
                 await ctx.reply(msg)
             coin_list = await self.get_coin_setting()
             if coin_list:
-                self.bot.coin_list = coin_list
+                self.bot.coin_list = AttrDict(coin_list)
+                self.bot.other_data['coin_list'] = coin_list
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name
@@ -2490,7 +2494,8 @@ class Admin(commands.Cog):
                 await ctx.reply(msg)
             coin_list = await self.get_coin_setting()
             if coin_list:
-                self.bot.coin_list = coin_list
+                self.bot.coin_list = AttrDict(coin_list)
+                self.bot.other_data['coin_list'] = coin_list
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name
@@ -2526,7 +2531,8 @@ class Admin(commands.Cog):
                 await ctx.reply(msg)
             coin_list = await self.get_coin_setting()
             if coin_list:
-                self.bot.coin_list = coin_list
+                self.bot.coin_list = AttrDict(coin_list)
+                self.bot.other_data['coin_list'] = coin_list
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name
@@ -2556,7 +2562,8 @@ class Admin(commands.Cog):
                 await ctx.reply(msg)
             coin_list = await self.get_coin_setting()
             if coin_list:
-                self.bot.coin_list = coin_list
+                self.bot.coin_list = AttrDict(coin_list)
+                self.bot.other_data['coin_list'] = coin_list
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name
@@ -2576,7 +2583,8 @@ class Admin(commands.Cog):
                         # Update
                         coin_list = await self.get_coin_setting()
                         if coin_list:
-                            self.bot.coin_list = coin_list
+                            self.bot.coin_list = AttrDict(coin_list)
+                            self.bot.other_data['coin_list'] = coin_list
                         coin_list_name = await self.get_coin_list_name()
                         if coin_list_name:
                             self.bot.coin_name_list = coin_list_name
@@ -2617,7 +2625,8 @@ class Admin(commands.Cog):
                 await ctx.reply(msg)
             coin_list = await self.get_coin_setting()
             if coin_list:
-                self.bot.coin_list = coin_list
+                self.bot.coin_list = AttrDict(coin_list)
+                self.bot.other_data['coin_list'] = coin_list
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name

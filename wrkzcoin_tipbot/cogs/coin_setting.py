@@ -37,15 +37,16 @@ class CoinSetting(commands.Cog):
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     coin_list = {}
-                    sql = """ SELECT * FROM `coin_settings` 
+                    sql = """
+                    SELECT * FROM `coin_settings` 
                     WHERE `enable`=1
                     """
-                    await cur.execute(sql, ())
+                    await cur.execute(sql,)
                     result = await cur.fetchall()
                     if result and len(result) > 0:
                         for each in result:
                             coin_list[each['coin_name']] = each
-                        return AttrDict(coin_list)
+                        return coin_list
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot(traceback.format_exc())
@@ -186,7 +187,8 @@ class CoinSetting(commands.Cog):
             elif cmd.lower() == "coinlist":
                 coin_list = await self.get_coin_setting()
                 if coin_list:
-                    self.bot.coin_list = coin_list
+                    self.bot.coin_list = AttrDict(coin_list)
+                    self.bot.other_data['coin_list'] = coin_list
                 coin_list_name = await self.get_coin_list_name()
                 if coin_list_name:
                     self.bot.coin_name_list = coin_list_name

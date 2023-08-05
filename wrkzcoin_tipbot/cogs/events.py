@@ -858,7 +858,7 @@ class Events(commands.Cog):
                         for each in result:
                             coin_list[each['coin_name']] = each
                             coin_list_name.append(each['coin_name'])
-                        return AttrDict(coin_list)
+                        return coin_list
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("events " +str(traceback.format_exc()))
@@ -1037,7 +1037,8 @@ class Events(commands.Cog):
         try:
             coin_list = await self.get_coin_setting()
             if coin_list:
-                self.bot.coin_list = coin_list
+                self.bot.coin_list = AttrDict(coin_list)
+                self.bot.other_data['coin_list'] = coin_list
                 print("coin setting loaded...")
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:

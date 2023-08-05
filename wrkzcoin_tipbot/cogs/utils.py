@@ -1988,6 +1988,163 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
+    # Stellar
+    async def stellar_validate_address(
+        self,
+        proxy: str,
+        address: str
+    ):
+        try:
+            data = {
+                "addr": address
+            }
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/validate_address", json=data) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result['valid']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+    
+    async def stellar_verify_asset(
+        self,
+        proxy: str,
+        url: str,
+        asset_name: str,
+        issuer: str,
+        address: str
+    ):
+        try:
+            data = {
+                "endpoint": url,
+                "asset_name": asset_name,
+                "issuer": issuer,
+                "address": address
+            }
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/verify_asset", json=data) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result['result']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def stellar_send_token(
+        self,
+        proxy: str,
+        url: str,
+        kp: str,
+        amount: float,
+        to_address: str,
+        coin_name: str,
+        asset_ticker: str=None,
+        asset_issuer: str=None,
+        memo: str=None,
+        base_fee: int=50000
+    ):
+        try:
+            data = {
+                "endpoint": url,
+                "kp": kp,
+                "amount": amount,
+                "to_address": to_address,
+                "coin_name": coin_name,
+                "asset_ticker": asset_ticker,
+                "asset_issuer": asset_issuer,
+                "memo": memo,
+                "base_fee": base_fee
+            }
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/send_transaction", json=data) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    print(result)
+                    if result.get('result'):
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def stellar_get_transactions(
+        self,
+        proxy: str,
+        url: str,
+        address: str
+    ):
+        try:
+            data = {
+                "endpoint": url,
+                "address": address
+            }
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/get_transactions", json=data) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result['result']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def stellar_get_balance(
+        self,
+        proxy: str,
+        url: str,
+        address: str,
+        coin_name: str
+    ):
+        try:
+            data = {
+                "endpoint": url,
+                "address": address,
+                "coin_name": coin_name.upper()
+            }
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/get_balance_xlm", json=data) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result['balance']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return 0.0
+
+    async def stellar_parse_transaction(
+        self,
+        proxy: str,
+        envelope_xdr
+    ):
+        try:
+            main_address = getattr(getattr(self.bot.coin_list, "XLM"), "MainAddress")
+            list_shorts = {}
+            for k, v in self.bot.other_data['coin_list'].items():
+                list_shorts[k] = {
+                    "header": v['header'],
+                    "contract": v['contract'],
+                    "enable": v['enable'],
+                    "coin_name": k
+                }
+            data = {
+                "envelope_xdr": envelope_xdr,
+                "coin_name_list": self.bot.coin_name_list,
+                "coin_list": list_shorts,
+                "main_address": main_address
+            }
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/parse_transaction", json=data) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
     # Solana utils
     async def solana_get_token_address(
         self,

@@ -7629,7 +7629,7 @@ class Wallet(commands.Cog):
                                         remaining = int((actual_balance - tx_fee) * 10 ** coin_decimal)
                                         moving = await self.utils.solana_send_tx(
                                             proxy + "/send_transaction",
-                                            self.bot.erc_node_list['SOL'],
+                                            self.bot.erc_node_list['SOL_WITHDRAW'],
                                             decrypt_string(each_addr['secret_key_hex']),
                                             self.bot.config['sol']['MainAddress'],
                                             remaining,
@@ -7664,12 +7664,12 @@ class Wallet(commands.Cog):
                                 proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_solana'])
                                 for each_coin in self.bot.coin_name_list:
                                     try:
+                                        if type_coin != "SPL":
+                                            continue
                                         type_coin = getattr(getattr(self.bot.coin_list, each_coin), "type")
                                         real_min_deposit = getattr(getattr(self.bot.coin_list, each_coin), "real_min_deposit")
                                         coin_decimal = getattr(getattr(self.bot.coin_list, each_coin), "decimal")
                                         tx_fee = getattr(getattr(self.bot.coin_list, each_coin), "tx_fee")
-                                        if type_coin != "SPL":
-                                            continue
                                         enable_deposit = getattr(getattr(self.bot.coin_list, each_coin), "enable_deposit")
                                         token_address = getattr(getattr(self.bot.coin_list, each_coin), "header")
                                         contract = getattr(getattr(self.bot.coin_list, each_coin), "contract")
@@ -7678,7 +7678,7 @@ class Wallet(commands.Cog):
                                             continue
 
                                         check_1 = await self.utils.solana_get_token_address(
-                                            proxy, self.bot.erc_node_list['SOL_WITHDRAW'],
+                                            proxy, self.bot.erc_node_list['SOL'],
                                             token_address, contract, each_addr['balance_wallet_address'], 20
                                         )
                                         if check_1 and check_1.get('error'):
@@ -7686,13 +7686,14 @@ class Wallet(commands.Cog):
                                         elif check_1 and len(check_1['token_account']) > 0:
                                             token_account_address = check_1['token_account'][0]
                                             check_2 = await self.utils.solana_get_token_address(
-                                                proxy, self.bot.erc_node_list['SOL_WITHDRAW'],
+                                                proxy, self.bot.erc_node_list['SOL'],
                                                 token_address, contract, token_account_address, 20
                                             )
                                             if check_2.get('error'):
                                                 continue
                                             elif check_2 and check_2.get('result') and check_2['result']['balance']/10 ** coin_decimal > real_min_deposit:
                                                 actual_balance = check_2['result']['balance']/10 ** coin_decimal
+                                                print(f"{datetime.now():%Y-%m-%d %H:%M:%S}: SOL/{each_coin}, {each_addr['balance_wallet_address']}'s having {str(actual_balance)} {each_coin}.")
                                                 after_fee = actual_balance - tx_fee
                                                 moving = await self.utils.solana_send_token_tx(
                                                     proxy + "/send_token",

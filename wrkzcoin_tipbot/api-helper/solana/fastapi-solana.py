@@ -266,7 +266,7 @@ app = FastAPI(
     docs_url="/dokument"
 )
 app.config = config
-app.pending_cache_balance = TTLCache(maxsize=20000, ttl=60.0)
+app.pending_cache_balance = TTLCache(maxsize=20000, ttl=15.0)
 
 
 @app.post("/send_token")

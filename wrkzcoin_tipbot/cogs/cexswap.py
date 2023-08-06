@@ -6110,7 +6110,7 @@ class Cexswap(commands.Cog):
 
                                 wallet_address = get_deposit['balance_wallet_address']
                                 plain_address = wallet_address
-                                if type_coin in ["HNT", "XLM", "VITE", "COSMOS"]:
+                                if type_coin in ["XLM", "VITE", "COSMOS"]:
                                     address_memo = wallet_address.split()
                                     plain_address = address_memo[0] + f" MEMO/TAG: {address_memo[2]}"
                                 if plain_address is not None:

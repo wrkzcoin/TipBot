@@ -698,14 +698,6 @@ class Admin(commands.Cog):
                         await cur.execute(sql, )
                         result = await cur.fetchall()
                         if result: return result
-                    elif type_coin.upper() == "HNT":
-                        sql = """
-                        SELECT * FROM `hnt_user` 
-                        WHERE `coin_name`=%s
-                        """
-                        await cur.execute(sql, (coin_name))
-                        result = await cur.fetchall()
-                        if result: return result
                     elif type_coin.upper() == "ADA":
                         sql = """
                         SELECT * FROM `ada_user`
@@ -744,6 +736,14 @@ class Admin(commands.Cog):
                     elif type_coin.upper() == "XTZ":
                         sql = """
                         SELECT * FROM `tezos_user`
+                        GROUP by `user_id`
+                        """
+                        await cur.execute(sql, )
+                        result = await cur.fetchall()
+                        if result: return result
+                    elif type_coin.upper() in ["SOL", "SPL"]:
+                        sql = """
+                        SELECT * FROM `sol_user`
                         GROUP by `user_id`
                         """
                         await cur.execute(sql, )

@@ -35,9 +35,6 @@ from pywallet import wallet as ethwallet
 from tronpy import AsyncTron
 from tronpy.providers.async_http import AsyncHTTPProvider
 
-from mnemonic import Mnemonic
-from pytezos.crypto.key import Key as XtzKey
-
 from thor_requests.wallet import Wallet as thor_wallet
 
 import json
@@ -2691,10 +2688,14 @@ class Admin(commands.Cog):
                 traceback.print_exc(file=sys.stdout)
         elif token.upper() == "XTZ":
             try:
-                mnemo = Mnemonic("english")
-                words = str(mnemo.generate(strength=128))
-                key = XtzKey.from_mnemonic(mnemonic=words, passphrase="", email="")
-                await ctx.reply(f"{ctx.author.mention}, ```Pub: {key.public_key_hash()}\nSeed: {words}\nKey: {key.secret_key()}```", view=RowButtonRowCloseAnyMessage())
+                proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
+                create_addr = await self.utils.tezos_create_address(
+                    proxy
+                )
+                await ctx.reply(
+                    f"{ctx.author.mention}, ```Pub: {create_addr['address']}\nSeed: {create_addr['seed']}\nKey: {create_addr['secret_key_hex']}```",
+                    view=RowButtonRowCloseAnyMessage()
+                )
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         elif token.upper() == "NEAR":

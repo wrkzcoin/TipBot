@@ -42,8 +42,6 @@ from web3 import Web3
 from web3.middleware import geth_poa_middleware
 
 from mnemonic import Mnemonic
-from pytezos.crypto.key import Key as XtzKey
-from pytezos import pytezos
 
 from bip_utils import Bip39SeedGenerator, Bip44Coins, Bip44
 import near_api
@@ -641,87 +639,6 @@ async def near_check_balance_token(url: str, contract_id: str, account_id: str, 
     except asyncio.TimeoutError:
         print('TIMEOUT: near_check_balance_token {} for {}s'.format(url, timeout))
     except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-    return None
-
-def tezos_check_balance(url: str, key: str):
-    try:
-        user_address = pytezos.using(shell=url, key=key)
-        return user_address.balance() # Decimal / real
-    except Exception:
-        traceback.print_exc(file=sys.stdout)
-    return 0.0
-
-async def tezos_check_token_balances(url: str, address: str, timeout: int=16):
-    headers = {
-        'Content-Type': 'application/json'
-    }
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url + "tokens/balances?account=" + address, headers=headers, timeout=timeout) as response:
-                json_resp = await response.json()
-                if response.status == 200 or response.status == 201:
-                    return json_resp
-                else:
-                    print("tezos_check_token_balances: return {}".format(response.status))
-    except asyncio.exceptions.TimeoutError:
-        print("Tezos check balances timeout for url: {} / addr: {}. Time: {}".format(url, address, timeout))
-    except Exception:
-        traceback.print_exc(file=sys.stdout)
-    return None
-
-def tezos_check_token_balance(url: str, token_contract: str, address, coin_decimal: int, token_id: int = 0):
-    try:
-        token = pytezos.using(shell=url).contract(token_contract)
-        addresses = []
-        for each_address in address:
-            addresses.append({'owner': each_address, 'token_id': token_id})
-        token_balance = token.balance_of(requests=addresses, callback=None).view()
-        if token_balance:
-            result_balance = {}
-            for each in token_balance:
-                result_balance[each['request']['owner']] = int(each['balance'])
-            return result_balance # dict of address => balance in float
-    except Exception:
-        traceback.print_exc(file=sys.stdout)
-    return {}
-
-async def tezos_check_reveal(url: str, address: str, timeout: int=60):
-    headers = {
-        'Content-Type': 'application/json'
-    }
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url + "accounts/" + address, headers=headers, timeout=timeout) as response:
-                json_resp = await response.json()
-                if response.status == 200 or response.status == 201:
-                    if json_resp['type'] == "user" and 'revealed' in json_resp and json_resp['revealed'] is True:
-                        return True
-    except Exception:
-        traceback.print_exc(file=sys.stdout)
-    return False
-
-def tezos_reveal_address(url: str, key: str):
-    try:
-        user_address = pytezos.using(shell=url, key=key)
-        tx = user_address.reveal().autofill().sign().inject()
-        return tx
-    except Exception:
-        traceback.print_exc(file=sys.stdout)
-    return None
-
-async def tezos_get_head(url: str, timeout: int=60):
-    headers = {
-        'Content-Type': 'application/json'
-    }
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url + "head/", headers=headers, timeout=timeout) as response:
-                json_resp = await response.json()
-                if response.status == 200 or response.status == 201:
-                    if 'synced' in json_resp and json_resp['synced'] is True:
-                        return json_resp
-    except Exception:
         traceback.print_exc(file=sys.stdout)
     return None
 
@@ -1854,7 +1771,6 @@ class WalletAPI(commands.Cog):
             asset_code = getattr(getattr(self.bot.coin_list, coin_name), "header")
             main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
             proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_stellar'])
-
             balance = await self.utils.stellar_get_balance(
                 proxy, url, main_address, coin_name
             )
@@ -1865,20 +1781,19 @@ class WalletAPI(commands.Cog):
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             key = decrypt_string(getattr(getattr(self.bot.coin_list, "XTZ"), "walletkey"))
             contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+            proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
             if coin_name == "XTZ":
-                check_balance = functools.partial(tezos_check_balance, self.bot.erc_node_list['XTZ'], key)
-                balance = await self.bot.loop.run_in_executor(None, check_balance)
-                if balance:
-                    balance = float(balance)
+                check_balance = await self.utils.tezos_check_balance(
+                    proxy, self.bot.erc_node_list['XTZ'], key, 30
+                )
+                balance = check_balance['result']['balance']
             else:
                 token_id = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
-                get_token_balances = functools.partial(
-                    tezos_check_token_balance, self.bot.erc_node_list['XTZ'],
-                    contract, [main_address], coin_decimal, int(token_id)
+                token_balances = await self.utils.tezos_check_a_token_balance(
+                    proxy, self.bot.erc_node_list['XTZ'], contract, [main_address], int(token_id), 30
                 )
-                bot_run_get_token_balances = await self.bot.loop.run_in_executor(None, get_token_balances)
-                if bot_run_get_token_balances is not None:
-                    balance = bot_run_get_token_balances[main_address] / 10 ** coin_decimal
+                if token_balances is not None:
+                    balance = token_balances[main_address] / 10 ** coin_decimal
         elif type_coin == "HNT":
             try:
                 main_address = getattr(getattr(self.bot.coin_list, coin_name), "MainAddress")
@@ -2730,10 +2645,15 @@ class WalletAPI(commands.Cog):
                 w = await self.create_address_eth()
                 balance_address = w['address']
             elif type_coin.upper() == "XTZ":
-                mnemo = Mnemonic("english")
-                words = str(mnemo.generate(strength=128))
-                key = XtzKey.from_mnemonic(mnemonic=words, passphrase="", email="")
-                balance_address = {'address': key.public_key_hash(), 'seed': words, 'key': key.secret_key()}
+                proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
+                create_addr = await self.utils.tezos_create_address(
+                    proxy
+                )
+                balance_address = {
+                    'address': create_addr['address'],
+                    'seed': create_addr['seed'],
+                    'key': create_addr['secret_key_hex']
+                }
             elif type_coin.upper() == "NEAR":
                 mnemo = Mnemonic("english")
                 words = str(mnemo.generate(strength=128))
@@ -4781,57 +4701,23 @@ class WalletAPI(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    def tezos_move_balance(self, url: str, key: str, to_address: str, atomic_amount: int):
-        try:
-            user_address = pytezos.using(shell=url, key=key)
-            tx = user_address.transaction(source=user_address.key.public_key_hash(), destination=to_address, amount=atomic_amount).send()
-            return tx
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-        return None
-
-    def tezos_move_token_balance(
-        self, url: str, key: str, to_address: str,
-        contract: str, atomic_amount: int, token_id: int=0
-    ):
-        try:
-            token = pytezos.using(shell=url, key=key).contract(contract)
-            acc = pytezos.using(shell=url, key=key)
-            tx_token = token.transfer(
-                [dict(from_ = acc.key.public_key_hash(), txs = [ dict(to_ = to_address, amount = atomic_amount, token_id = int(token_id))])]
-            ).send()
-            return tx_token
-            # adjust gas can be call with: contract.call(...).as_transaction().autofill(fee=123, gas_limit=123, storage_limit=123).sign().inject()
-        except Exception:
-            print("[XTZ 2.0] failed to move url: {}, contract {} moving {} to {}".format(url, contract, acc.key.public_key_hash(), to_address))
-            traceback.print_exc(file=sys.stdout)
-        return None
-
-    def tezos_move_token_balance_fa12(
-        self, url: str, key: str, to_address: str, contract: str,
-        atomic_amount: int, token_id: int=0
-    ):
-        try:
-            token = pytezos.using(shell=url, key=key).contract(contract)
-            acc = pytezos.using(shell=url, key=key)
-            tx_token = token.transfer(**{'from': acc.key.public_key_hash(), 'to': to_address, 'value': atomic_amount}).inject()
-            return tx_token
-        except Exception:
-            print("[XTZ 1.2] failed to move url: {}, contract {} moving {} to {}".format(
-                url, contract, acc.key.public_key_hash(), to_address)
-            )
-            traceback.print_exc(file=sys.stdout)
-        return None
-
     async def send_external_xtz_nostore(
-        self, url: str, key: str, amount: float, to_address: str, coin_decimal: int
+        self, proxy, url: str, key: str, amount: float, to_address: str, coin_decimal: int
     ):
         try:
-            transaction = functools.partial(self.tezos_move_balance, url, key, to_address, int(amount*10**coin_decimal))
-            send_tx = await self.bot.loop.run_in_executor(None, transaction)
+            send_tx = await self.utils.tezos_send(
+                proxy,
+                url, 
+                key,
+                to_address,
+                int(amount*10**coin_decimal)
+            )
             if send_tx:
                 try:
-                    return {"hash": send_tx.hash(), "contents": json.dumps(send_tx.contents)}
+                    return {
+                        "hash": send_tx['hash'],
+                        "contents": send_tx['contents']
+                    }
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
         except Exception:
@@ -4839,18 +4725,14 @@ class WalletAPI(commands.Cog):
         return None
 
     async def send_external_xtz(
-        self, url: str, key: str, user_from: str, amount: float, to_address: str, coin: str,
+        self, proxy, url: str, key: str, user_from: str, amount: float, to_address: str, coin: str,
         coin_decimal: int, withdraw_fee: float, network: str, user_server: str = 'DISCORD'
     ):
         try:
-            transaction = functools.partial(self.tezos_move_balance, url, key, to_address, int(amount*10**coin_decimal))
-            send_tx = await self.bot.loop.run_in_executor(None, transaction)
+            send_tx = await self.utils.tezos_send(
+                proxy, url, key, to_address, int(amount*10**coin_decimal), 30
+            )
             if send_tx:
-                contents = None
-                try:
-                    contents = json.dumps(send_tx.contents)
-                except Exception:
-                    traceback.print_exc(file=sys.stdout)
                 await self.openConnection()
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
@@ -4862,41 +4744,29 @@ class WalletAPI(commands.Cog):
                         """
                         await cur.execute(sql, (
                             coin.upper(), None, user_from, amount, withdraw_fee, coin_decimal, to_address,
-                            int(time.time()), send_tx.hash(), contents, user_server, network
+                            int(time.time()), send_tx['hash'], send_tx['contents'], user_server, network
                         ))
                         await conn.commit()
-                        return send_tx.hash()
+                        return send_tx['hash']
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None
 
     async def send_external_xtz_asset(
-        self, url: str, key: str, user_from: str, amount: float, to_address: str, coin: str,
+        self, proxy: str, url: str, key: str, user_from: str, amount: float, to_address: str, coin: str,
         coin_decimal: int, withdraw_fee: float, network: str, contract: str, token_id: int, 
         token_type: str, user_server: str = 'DISCORD'
     ):
         try:
-            if token_type == "FA2":
-                transaction = functools.partial(
-                    self.tezos_move_token_balance, url, key, to_address,
-                    contract, int(amount*10**coin_decimal), token_id
-                )
-            elif token_type == "FA1.2":
-                transaction = functools.partial(
-                    self.tezos_move_token_balance_fa12, url, key, to_address,
-                    contract, int(amount*10**coin_decimal), token_id
-                )
-            send_tx = await self.bot.loop.run_in_executor(None, transaction)
+            send_tx = await self.utils.tezos_send_token(
+                proxy, url, key, to_address, contract, int(amount*10**coin_decimal), token_id, token_type
+            )
             if send_tx:
                 contents = None
                 tx_hash = None
                 try:
-                    if token_type == "FA2":
-                        contents = json.dumps(send_tx.contents)
-                        tx_hash = send_tx.hash()
-                    elif token_type == "FA1.2":
-                        contents = json.dumps(send_tx['contents'])
-                        tx_hash = send_tx['hash']
+                    contents = send_tx['contents']
+                    tx_hash = send_tx['hash']
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 await self.openConnection()
@@ -10922,10 +10792,9 @@ class Wallet(commands.Cog):
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(time_lap)
 
-    @tasks.loop(seconds=60.0)
+    @tasks.loop(seconds=30.0)
     async def update_balance_tezos(self):
         time_lap = 5  # seconds
-
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "update_balance_tezos"
@@ -10941,7 +10810,10 @@ class Wallet(commands.Cog):
             # Check native
             coin_name = "XTZ"
             rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
-            get_head = await tezos_get_head(rpchost, 8)
+            proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
+            get_head = await self.utils.tezos_get_head(
+                proxy, rpchost, 30
+            )
             try:
                 if get_head:
                     height = get_head['level']
@@ -10966,6 +10838,7 @@ class Wallet(commands.Cog):
             real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
             list_user_addresses = await store.sql_get_all_tezos_user(coin_name, 7200) # last 2hrs
             list_recent_mv = await store.sql_recent_tezos_move_deposit(1200) # 20mn
+            proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
             if len(list_user_addresses) > 0:
                 if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") != 0:
                     for each_address in list_user_addresses:
@@ -10973,19 +10846,20 @@ class Wallet(commands.Cog):
                             await asyncio.sleep(5.0)
                             continue
                         # check balance, skip if below minimum
-                        check_balance = functools.partial(
-                            tezos_check_balance,
-                            self.bot.erc_node_list['XTZ'],
-                            decrypt_string(each_address['key'])
+                        check_balance = await self.utils.tezos_check_balance(
+                            proxy, self.bot.erc_node_list['XTZ'], decrypt_string(each_address['key']), 30
                         )
-                        balance = await self.bot.loop.run_in_executor(None, check_balance)
+                        balance = check_balance['result']['balance']
                         if balance > real_min_deposit:
                             # Check if reveal
                             revealed_db = await self.wallet_api.tezos_checked_reveal_db(each_address['balance_wallet_address'])
                             if revealed_db and int(time.time()) - revealed_db['checked_date'] < 30:
                                 continue
                             else:
-                                check_revealed = await tezos_check_reveal(rpchost, each_address['balance_wallet_address'], 32)
+                                check_revealed = await self.utils.tezos_check_reveal(
+                                    proxy, rpchost, each_address['balance_wallet_address'], 32
+                                )
+                                print("XTZ Reveal checked {} is {}".format(each_address['balance_wallet_address'], check_revealed))
                                 if check_revealed is True:
                                     # Add to DB if not exist
                                     if revealed_db is None:
@@ -11005,33 +10879,28 @@ class Wallet(commands.Cog):
                                             self.mv_xtz_cache[key] = key
                                     except Exception:
                                         pass
-                                    transaction = functools.partial(
-                                        self.wallet_api.tezos_move_balance,
-                                        self.bot.erc_node_list['XTZ'],
+                                    tx = await self.utils.tezos_send(
+                                        proxy, self.bot.erc_node_list['XTZ'], 
                                         decrypt_string(each_address['key']),
                                         main_address, atomic_amount
                                     )
-                                    tx = await self.bot.loop.run_in_executor(None, transaction)
                                     if tx:
-                                        contents = None
-                                        try:
-                                            contents = json.dumps(tx.contents)
-                                        except Exception:
-                                            traceback.print_exc(file=sys.stdout)
                                         added = await self.wallet_api.tezos_insert_mv_balance(
                                             coin_name, None, each_address['user_id'],
                                             each_address['balance_wallet_address'],
                                             main_address, float(balance), real_deposit_fee,
-                                            coin_decimal, tx.hash(), contents,
+                                            coin_decimal, tx['hash'], tx['contents'],
                                             int(time.time()), SERVER_BOT, "XTZ"
                                         )
                                         await asyncio.sleep(5.0)
                                 else:
                                     # Push to revealed & stored in DB
-                                    do_reveal = functools.partial(
-                                        tezos_reveal_address, self.bot.erc_node_list['XTZ'], decrypt_string(each_address['key'])
+                                    tx_reveal = await self.utils.tezos_reveal_address(
+                                        proxy, self.bot.erc_node_list['XTZ'], decrypt_string(each_address['key']), 60
                                     )
-                                    tx_reveal = await self.bot.loop.run_in_executor(None, do_reveal)
+                                    print("XTZ Reveal checked {}/{} is {}".format(
+                                        each_address['user_id'], each_address['balance_wallet_address'], tx_reveal)
+                                    )
                                     if tx_reveal:
                                         # Add to DB
                                         await self.wallet_api.tezos_insert_reveal(
@@ -11043,6 +10912,7 @@ class Wallet(commands.Cog):
             list_user_addresses = await store.sql_get_all_tezos_user("XTZ-FA", 7200) # last 2hrs
             if len(xtz_contracts) > 0 and len(list_user_addresses) > 0:
                 main_address = getattr(getattr(self.bot.coin_list, "XTZ"), "MainAddress")
+                proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
                 for each_contract in xtz_contracts:
                     try:
                         token_addresses = []
@@ -11060,19 +10930,21 @@ class Wallet(commands.Cog):
                             token_type = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "header")
                             bot_run_get_token_balances = {}
                             if token_type == "FA2":
-                                get_token_balances = functools.partial(
-                                    tezos_check_token_balance,
+                                bot_run_get_token_balances = await self.utils.tezos_check_a_token_balance(
+                                    proxy,
                                     self.bot.erc_node_list['XTZ'],
                                     token_contract,
                                     token_addresses,
-                                    coin_decimal,
-                                    int(token_id)
+                                    int(token_id),
+                                    300
                                 )
-                                bot_run_get_token_balances = await self.bot.loop.run_in_executor(None, get_token_balances)
+                                print("FA2 checked having > 0: ", len([k for k, v in bot_run_get_token_balances.items() if v > 0]))
                             elif token_type == "FA1.2" and len(token_addresses) > 0:
                                 for each_addr in token_addresses:
-                                    # async def tezos_check_token_balances(url: str, address: str, timeout: int=16):
-                                    get_token_balance = await tezos_check_token_balances(rpchost, each_addr, 12)
+                                    token_balances = await self.utils.tezos_check_balances_token(
+                                        proxy, rpchost, each_addr, 12
+                                    )
+                                    get_token_balance = token_balances.get('result')
                                     bot_run_get_token_balances[each_addr] = 0
                                     if get_token_balance is not None and len(get_token_balance) > 0:
                                         for each_token in get_token_balance:
@@ -11083,9 +10955,10 @@ class Wallet(commands.Cog):
                                                     break
                                             except Exception:
                                                 traceback.print_exc(file=sys.stdout)
+                                print("FA1.2 checked having > 0: ", len([k for k, v in bot_run_get_token_balances.items() if v > 0]))
                             else:
                                 continue
-                            if len(bot_run_get_token_balances) > 0:
+                            if bot_run_get_token_balances and len(bot_run_get_token_balances) > 0:
                                 # Check if balance above minimum and is reveal
                                 can_move_token = False
                                 min_gas_tx = getattr(getattr(self.bot.coin_list, each_contract['coin_name']), "min_gas_tx")
@@ -11101,7 +10974,9 @@ class Wallet(commands.Cog):
                                         if revealed_db and int(time.time()) - revealed_db['checked_date'] < 30:
                                             continue
                                         else:
-                                            check_revealed = await tezos_check_reveal(rpchost, k, 32)
+                                            check_revealed = await self.utils.tezos_check_reveal(
+                                                proxy, rpchost, k, 32
+                                            )
                                             if check_revealed is True:
                                                 # Add to DB if not exist
                                                 await self.wallet_api.tezos_insert_reveal(k, None, int(time.time()))
@@ -11110,19 +10985,14 @@ class Wallet(commands.Cog):
                                                 # Push to revealed & stored in DB
                                                 # 1] Check if balance has enough gas. If not, move gas
                                                 # 2] Push to reveal
-                                                check_gas = functools.partial(
-                                                    tezos_check_balance,
-                                                    self.bot.erc_node_list['XTZ'],
-                                                    decrypt_string(get_tezos_user['key'])
+                                                check_gas = await self.utils.tezos_check_balance(
+                                                    proxy, self.bot.erc_node_list['XTZ'], decrypt_string(get_tezos_user['key']), 30
                                                 )
-                                                gas_balance = await self.bot.loop.run_in_executor(None, check_gas)
+                                                gas_balance = check_gas['result']['balance']
                                                 if gas_balance >= min_gas_tx:
-                                                    do_reveal = functools.partial(
-                                                        tezos_reveal_address,
-                                                        self.bot.erc_node_list['XTZ'],
-                                                        decrypt_string(get_tezos_user['key'])
+                                                    tx_reveal = await self.utils.tezos_reveal_address(
+                                                        proxy, self.bot.erc_node_list['XTZ'], decrypt_string(get_tezos_user['key']), 60
                                                     )
-                                                    tx_reveal = await self.bot.loop.run_in_executor(None, do_reveal)
                                                     if tx_reveal:
                                                         # Add to DB
                                                         await self.wallet_api.tezos_insert_reveal(k, tx_reveal['hash'], int(time.time()))
@@ -11135,24 +11005,23 @@ class Wallet(commands.Cog):
                                                         continue
                                                     # Move gas
                                                     key = decrypt_string(getattr(getattr(self.bot.coin_list, "XTZ"), "walletkey"))
-                                                    transaction = functools.partial(
-                                                        self.wallet_api.tezos_move_balance,
-                                                        self.bot.erc_node_list['XTZ'],
-                                                        key, k, int(move_gas_amount*10**6)
-                                                    ) # Move XTZ, decimal 6
-                                                    send_tx = await self.bot.loop.run_in_executor(None, transaction)
+                                                    # Move XTZ, decimal 6
+                                                    send_tx = await self.utils.tezos_send(
+                                                        proxy,
+                                                        self.bot.erc_node_list['XTZ'], 
+                                                        key,
+                                                        k, int(move_gas_amount*10**6)
+                                                    )
                                                     if send_tx:
                                                         await self.wallet_api.tezos_update_mv_gas(k, int(time.time()))
                                                         await asyncio.sleep(1.0)
                                                         continue
                                         # re-check gas
                                         if can_move_token is True:
-                                            check_gas = functools.partial(
-                                                tezos_check_balance,
-                                                self.bot.erc_node_list['XTZ'],
-                                                decrypt_string(get_tezos_user['key'])
+                                            check_gas = await self.utils.tezos_check_balance(
+                                                proxy, self.bot.erc_node_list['XTZ'], decrypt_string(get_tezos_user['key']), 30
                                             )
-                                            gas_balance = await self.bot.loop.run_in_executor(None, check_gas)
+                                            gas_balance = check_gas['result']['balance']
                                             if gas_balance >= min_gas_tx:
                                                 # Move token
                                                 try:
@@ -11165,36 +11034,20 @@ class Wallet(commands.Cog):
                                                         self.mv_xtz_cache[ttlkey] = ttlkey
                                                 except Exception:
                                                     pass
-                                                if token_type == "FA2":
-                                                    transaction = functools.partial(
-                                                        self.wallet_api.tezos_move_token_balance,
-                                                        self.bot.erc_node_list['XTZ'],
-                                                        decrypt_string(get_tezos_user['key']),
-                                                        main_address, contract, v, token_id
-                                                    )
-                                                elif token_type == "FA1.2":
-                                                    transaction = functools.partial(
-                                                        self.wallet_api.tezos_move_token_balance_fa12,
-                                                        self.bot.erc_node_list['XTZ'],
-                                                        decrypt_string(get_tezos_user['key']),
-                                                        main_address,
-                                                        contract, v, token_id
-                                                    )
-                                                else:
-                                                    continue
-                                                tx = await self.bot.loop.run_in_executor(None, transaction)
-                                                tx_hash = None
+
+                                                tx = await self.utils.tezos_send_token(
+                                                    proxy,
+                                                    self.bot.erc_node_list['XTZ'],
+                                                    decrypt_string(get_tezos_user['key']),
+                                                    main_address,
+                                                    contract,
+                                                    v,
+                                                    token_id,
+                                                    token_type
+                                                )
                                                 if tx:
-                                                    contents = None
-                                                    try:
-                                                        if token_type == "FA2":
-                                                            contents = json.dumps(tx.contents)
-                                                            tx_hash = tx.hash()
-                                                        elif token_type == "FA1.2":
-                                                            contents = json.dumps(tx['contents'])
-                                                            tx_hash = tx['hash']
-                                                    except Exception:
-                                                        traceback.print_exc(file=sys.stdout)
+                                                    contents = tx['contents']
+                                                    tx_hash = tx['hash']
                                                     await self.wallet_api.tezos_insert_mv_balance(
                                                         each_contract['coin_name'],
                                                         contract,
@@ -11217,11 +11070,13 @@ class Wallet(commands.Cog):
                                                     continue
                                                 # Move gas
                                                 key = decrypt_string(getattr(getattr(self.bot.coin_list, "XTZ"), "walletkey"))
-                                                transaction = functools.partial(
-                                                    self.wallet_api.tezos_move_balance,
-                                                    self.bot.erc_node_list['XTZ'], key, k, int(move_gas_amount*10**6)
-                                                ) # Move XTZ, decimal 6
-                                                send_tx = await self.bot.loop.run_in_executor(None, transaction)
+                                                send_tx = await self.utils.tezos_send(
+                                                    proxy,
+                                                    self.bot.erc_node_list['XTZ'], 
+                                                    key,
+                                                    k,
+                                                    int(move_gas_amount*10**6)
+                                                )
                                                 if send_tx:
                                                     await self.wallet_api.tezos_update_mv_gas(k, int(time.time()))
                                                     await asyncio.sleep(1.0)
@@ -11236,7 +11091,7 @@ class Wallet(commands.Cog):
 
     @tasks.loop(seconds=15.0)
     async def notify_new_confirmed_tezos(self):
-        time_lap = 10  # seconds
+        time_lap = 5  # seconds
         await self.bot.wait_until_ready()
         # Check if task recently run @bot_task_logs
         task_name = "notify_new_confirmed_tezos"
@@ -11244,6 +11099,37 @@ class Wallet(commands.Cog):
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
         await asyncio.sleep(time_lap)
+
+        # Check height
+        try:
+            coin_name = "XTZ"
+            rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
+            proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
+            get_head = await self.utils.tezos_get_head(
+                proxy, rpchost, 30
+            )
+            if get_head:
+                height = get_head['level']
+                await self.utils.async_set_cache_kv(
+                    "block",
+                    f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{coin_name}",
+                    height
+                )
+                xtz_contracts = await self.get_all_contracts("XTZ", False)
+                if len(xtz_contracts) > 0:
+                    for each_coin in xtz_contracts:
+                        name = each_coin['coin_name']
+                        try:
+                            await self.utils.async_set_cache_kv(
+                                "block",
+                                f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{name}",
+                                height
+                            )
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
         try:
             await self.openConnection()
             async with self.pool.acquire() as conn:
@@ -13326,6 +13212,17 @@ class Wallet(commands.Cog):
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, you cannot send to this address _{address}_."
                         await ctx.edit_original_message(content=msg)
                         return
+
+                    validate_addr = await self.utils.stellar_validate_address(
+                        proxy, address
+                    )
+                    if validate_addr is True:
+                        pass
+                    else:
+                        msg = f"{ctx.author.mention}, XLM/{coin_name} invalid address {address}."
+                        await ctx.edit_original_message(content=msg)
+                        return
+
                     if coin_name != "XLM":  # in case of asset
                         issuer = getattr(getattr(self.bot.coin_list, coin_name), "contract")
                         asset_code = getattr(getattr(self.bot.coin_list, coin_name), "header")
@@ -13879,11 +13776,23 @@ class Wallet(commands.Cog):
                     except Exception:
                         pass
                 elif type_coin == "XTZ":
+                    proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
                     # If main token is not enable for withdraw
                     if getattr(getattr(self.bot.coin_list, "XTZ"), "enable_withdraw") != 1:
                         msg = f"{ctx.author.mention}, XTZ/{coin_name} withdraw is currently disable."
                         await ctx.edit_original_message(content=msg)
                         return
+
+                    validate_addr = await self.utils.tezos_validate_address(
+                        proxy + "/validate_address", address
+                    )
+                    if validate_addr.get('valid') and validate_addr['valid'] is True:
+                        pass
+                    else:
+                        msg = f"{ctx.author.mention}, XTZ/{coin_name} invalid address {address}."
+                        await ctx.edit_original_message(content=msg)
+                        return
+
                     if str(ctx.author.id) not in self.bot.tx_in_progress or ctx.author.id == self.bot.config['discord']['owner_id']:
                         url = self.bot.erc_node_list['XTZ']
                         key = decrypt_string(getattr(getattr(self.bot.coin_list, "XTZ"), "walletkey"))
@@ -13934,7 +13843,7 @@ class Wallet(commands.Cog):
                             url = self.bot.erc_node_list['XTZ_WITHDRAW']
                         if coin_name == "XTZ":
                             send_tx = await self.wallet_api.send_external_xtz(
-                                url, key, str(ctx.author.id), amount, address, coin_name,
+                                proxy, url, key, str(ctx.author.id), amount, address, coin_name,
                                 coin_decimal, NetFee, type_coin, SERVER_BOT
                             )
                         else:
@@ -13942,7 +13851,7 @@ class Wallet(commands.Cog):
                             token_id = int(getattr(getattr(self.bot.coin_list, coin_name), "wallet_address"))
                             token_type = getattr(getattr(self.bot.coin_list, coin_name), "header")
                             send_tx = await self.wallet_api.send_external_xtz_asset(
-                                url, key, str(ctx.author.id), amount, address, coin_name,
+                                proxy, url, key, str(ctx.author.id), amount, address, coin_name,
                                 coin_decimal, NetFee, type_coin, contract, token_id, token_type, SERVER_BOT
                             )
                         if send_tx:
@@ -15568,7 +15477,7 @@ class Wallet(commands.Cog):
                     )
                     actual_balance = float(userdata_balance['adjust'])
                     if actual_balance < amount:
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Bot's balance is empyt! Try with other coin!"
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Bot's balance is empty! Try with other coin!"
                         await ctx.edit_original_message(content=msg)
                         return
                     else:
@@ -15825,7 +15734,7 @@ class Wallet(commands.Cog):
                     )
                     actual_balance = float(userdata_balance['adjust'])
                     if actual_balance < amount:
-                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Bot's balance is empyt! Try with other coin!"
+                        msg = f"{EMOJI_RED_NO} {ctx.author.mention}, Bot's balance is empty! Try with other coin!"
                         await ctx.edit_original_message(content=msg)
                         return
                     else:

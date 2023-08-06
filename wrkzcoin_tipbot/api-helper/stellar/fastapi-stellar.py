@@ -135,7 +135,7 @@ async def send_token(
         return None
 
 app = FastAPI(
-    title="TipBotv2 FastAPI Solana",
+    title="TipBotv2 FastAPI Stellar",
     version="0.1",
     docs_url="/dokument"
 )
@@ -242,6 +242,7 @@ async def validate_address(item: Address):
     return {
         "address": item.addr,
         "error": "Internal error!",
+        "valid": False,
         "timestamp": int(time.time())
     }
 

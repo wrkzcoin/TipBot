@@ -81,65 +81,6 @@ from cogs.utils import print_color
 
 Account.enable_unaudited_hdwallet_features()
 
-# TODO: update
-async def address_pre_validation_check(
-    address: str, coin_name: str, type_coin: str
-):
-    if type_coin == "ERC-20":
-        return is_hex_address(address)
-    elif type_coin == "TRC-20":
-        try:
-            url = "https://api.trongrid.io/wallet/validateaddress"
-            data = {"address": address}
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    url, json=data,
-                    headers={'Content-Type': 'application/json'},
-                    timeout=8
-                ) as response:
-                    if response.status == 200:
-                        res_data = await response.read()
-                        res_data = res_data.decode('utf-8')
-                        await session.close()
-                        decoded_data = json.loads(res_data)
-                        if decoded_data is not None:
-                            return decoded_data['result']
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-    elif type_coin == "XLM":
-        pass
-    elif type_coin == "COSMOS":
-        pass
-    elif type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-        pass
-    elif type_coin == "BTC":
-        pass
-    elif type_coin == "NANO":
-        pass
-    elif type_coin == "CHIA":
-        pass
-    elif type_coin == "HNT":
-        pass
-    elif type_coin == "ADA":
-        pass
-    elif type_coin in ["SOL", "SPL"]:
-        pass
-    elif type_coin == "XTZ":
-        pass
-    elif type_coin == "NEO":
-        pass
-    elif type_coin == "NEAR":
-        pass
-    elif type_coin == "XRP":
-        pass
-    elif type_coin == "ZIL":
-        pass
-    elif type_coin == "VET":
-        pass
-    elif type_coin == "VITE":
-        pass
-    return False
-
 # moved from store.py
 # approve spender to operator
 async def erc20_approve_spender(

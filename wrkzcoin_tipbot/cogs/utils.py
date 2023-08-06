@@ -1988,6 +1988,240 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
+    # Tezos
+    async def tezos_validate_address(
+        self,
+        proxy: str,
+        address: str
+    ):
+        try:
+            data = {
+                "addr": address
+            }
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/validate_address", json=data) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def tezos_send_token(
+        self,
+        proxy: str,
+        url: str,
+        key: str,
+        to_address,
+        contract: str,
+        atomic_amount: int,
+        token_id: int,
+        token_type: str,
+        timeout: int=32
+    ):
+        data = {
+            "endpoint": url,
+            "key": key,
+            "to_address": to_address,
+            "atomic_amount": atomic_amount,
+            "contract": contract,
+            "token_id": token_id
+        }
+        try:
+            uri = "/send_tezos_token_fa2" if token_type == "FA2" else "/send_tezos_token_fa12"
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + uri, json=data, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def tezos_send(
+        self,
+        proxy: str,
+        url: str,
+        key: str,
+        to_address,
+        atomic_amount: int,
+        timeout: int=32  
+    ):
+        data = {
+            "endpoint": url,
+            "key": key,
+            "to_address": to_address,
+            "atomic_amount": atomic_amount
+        }
+        try:
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/send_tezos", json=data, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def tezos_get_head(
+        self,
+        proxy: str,
+        url: str,
+        timeout: int=60  
+    ):
+        data = {
+            "endpoint": url,
+            "address": timeout
+        }
+        try:
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/get_head", json=data, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    if result.get('error'):
+                        return None
+                    return result['result']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def tezos_reveal_address(
+        self,
+        proxy: str,
+        url: str,
+        key: str,
+        timeout: int=30      
+    ):
+        data = {
+            "endpoint": url,
+            "key": key
+        }
+        try:
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/reveal_address", json=data, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def tezos_check_reveal(
+        self,
+        proxy: str,
+        url: str,
+        address: str,
+        timeout: int=30      
+    ):
+        data = {
+            "endpoint": url,
+            "address": address
+        }
+        try:
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/check_reveal_address", json=data, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result['result']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def tezos_check_a_token_balance(
+        self,
+        proxy: str,
+        url: str,
+        token_contract: str,
+        address: List,
+        token_id: int,
+        timeout: int=30      
+    ):
+        data = {
+            "endpoint": url,
+            "token_contract": token_contract,
+            "address": address,
+            "token_id": token_id,
+            "timeout": timeout
+        }
+        try:
+            print("XTZ called get_address_token_balances for {} addresses.".format(len(address)))
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/get_address_token_balances", json=data, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result['result']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def tezos_check_balances_token(
+        self,
+        proxy: str,
+        url: str,
+        address: str,
+        timeout: int=30      
+    ):
+        data = {
+            "endpoint": url,
+            "address": address,
+            "timeout": timeout
+        }
+        try:
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/get_balances_token_tezos", json=data, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def tezos_check_balance(
+        self,
+        proxy: str,
+        url: str,
+        key: str,
+        timeout: int=30      
+    ):
+        data = {
+            "endpoint": url,
+            "key": key
+        }
+        try:
+            async with aiohttp.ClientSession() as cs:
+                async with cs.post(proxy + "/get_balance_tezos", json=data, timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
+    async def tezos_create_address(
+        self,
+        proxy: str,
+        timeout: int=60
+    ):
+        try:
+            async with aiohttp.ClientSession() as cs:
+                async with cs.get(proxy + "/create_address", timeout=timeout) as r:
+                    res_data = await r.read()
+                    res_data = res_data.decode('utf-8')
+                    result = json.loads(res_data)
+                    return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return None
+
     # Stellar
     async def stellar_validate_address(
         self,
@@ -2063,7 +2297,6 @@ class Utils(commands.Cog):
                     res_data = await r.read()
                     res_data = res_data.decode('utf-8')
                     result = json.loads(res_data)
-                    print(result)
                     if result.get('result'):
                         return result
         except Exception:

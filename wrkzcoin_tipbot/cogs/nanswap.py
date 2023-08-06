@@ -925,8 +925,9 @@ class Nanswap(commands.Cog):
                                     sell_coin_decimal = getattr(getattr(self.bot.coin_list, sell_token), "decimal")
                                     url = self.bot.erc_node_list[sell_coin_family]
                                     key = decrypt_string(getattr(getattr(self.bot.coin_list, "XTZ"), "walletkey"))
+                                    proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
                                     send_tx = await self.wallet_api.send_external_xtz_nostore(
-                                        url, key, truncate(amount, 8), trade['payinAddress'], sell_coin_decimal
+                                        proxy, url, key, truncate(amount, 8), trade['payinAddress'], sell_coin_decimal
                                     )
                                     if send_tx is None:
                                         await ctx.edit_original_message(

@@ -803,15 +803,6 @@ class Utils(commands.Cog):
                             result = await cur.fetchall()
                             if result:
                                 return result
-                        elif coin_family == "HNT":
-                            sql = """
-                            SELECT * FROM `hnt_external_tx` 
-                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
-                            ORDER BY `date` DESC LIMIT """+ str(limit)
-                            await cur.execute(sql, (user_id, user_server, coin_name))
-                            result = await cur.fetchall()
-                            if result:
-                                return result
                         elif coin_family == "XRP":
                             sql = """
                             SELECT * FROM `xrp_external_tx` 
@@ -983,16 +974,6 @@ class Utils(commands.Cog):
                             WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s AND `status`=%s
                             ORDER BY `time_insert` DESC LIMIT """+ str(limit)
                             await cur.execute(sql, (user_id, user_server, coin_name, "CONFIRMED"))
-                            result = await cur.fetchall()
-                            if result:
-                                return result
-                        elif coin_family == "HNT":
-                            sql = """
-                            SELECT * 
-                            FROM `hnt_get_transfers`
-                            WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
-                            ORDER BY `time_insert` DESC LIMIT """+ str(limit)
-                            await cur.execute(sql, (user_id, user_server, coin_name))
                             result = await cur.fetchall()
                             if result:
                                 return result

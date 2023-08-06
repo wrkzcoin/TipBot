@@ -1621,10 +1621,6 @@ class Twitter(commands.Cog):
                                       timestamp=datetime.fromtimestamp(int(time.time())))
                 embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar)
                 qr_address = wallet_address
-                if coin_name == "HNT":
-                    address_memo = wallet_address.split()
-                    qr_address = '{"type":"payment","address":"' + address_memo[0] + '","memo":"' + address_memo[
-                        2] + '"}'
                 try:
                     gen_qr_address = await self.generate_qr_address(qr_address)
                     address_path = qr_address.replace('{', '_').replace('}', '_').replace(':', '_').replace('"',
@@ -1642,17 +1638,6 @@ class Twitter(commands.Cog):
                     embed.add_field(name="Other links", value="[{}]({})".format("Explorer", getattr(
                         getattr(self.bot.coin_list, coin_name), "explorer_link")), inline=False)
 
-                if coin_name == "HNT":  # put memo and base64
-                    try:
-                        address_memo = wallet_address.split()
-                        embed.add_field(
-                            name="MEMO", 
-                            value="```Ascii: {}\nBase64: {}```".format(
-                                address_memo[2], base64.b64encode(address_memo[2].encode('ascii')).decode('ascii')
-                            ),
-                            inline=False)
-                    except Exception:
-                        traceback.print_exc(file=sys.stdout)
                 embed.set_footer(text="Use: /twitter deposit plain (for plain text)")
                 try:
                     if plain and plain.lower() == 'plain' or plain.lower() == 'text':

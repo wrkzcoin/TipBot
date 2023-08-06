@@ -433,14 +433,6 @@ async def sql_get_userwallet_by_paymentid(paymentid: str, coin: str, coin_family
                     """
                     await cur.execute(sql, (paymentid, coin_name))
                     result = await cur.fetchone()
-                elif coin_family == "HNT":
-                    # if doge family, address is paymentid
-                    sql = """ SELECT * FROM `hnt_user`
-                    WHERE `main_address`=%s AND `memo`=%s AND `coin_name`=%s LIMIT 1
-                    """
-                    address_memo = paymentid.split()
-                    await cur.execute(sql, (address_memo[0], address_memo[2], coin_name))
-                    result = await cur.fetchone()
                 elif coin_family == "XLM":
                     # if doge family, address is paymentid
                     sql = """ SELECT * FROM `xlm_user` 
@@ -3751,14 +3743,6 @@ async def recent_tips(
                         result = await cur.fetchall()
                         if result:
                             return result
-                    elif coin_family == "HNT":
-                        sql = """ SELECT * FROM `hnt_external_tx` 
-                        WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
-                        ORDER BY `date` DESC LIMIT """+ str(limit)
-                        await cur.execute(sql, (user_id, user_server, coin_name))
-                        result = await cur.fetchall()
-                        if result:
-                            return result
                     elif coin_family == "XRP":
                         sql = """ SELECT * FROM `xrp_external_tx` 
                         WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s 
@@ -3925,16 +3909,6 @@ async def recent_tips(
                         WHERE `user_id`=%s AND `user_server`=%s AND `token_name`=%s AND `status`=%s
                         ORDER BY `time_insert` DESC LIMIT """+ str(limit)
                         await cur.execute(sql, (user_id, user_server, coin_name, "CONFIRMED"))
-                        result = await cur.fetchall()
-                        if result:
-                            return result
-                    elif coin_family == "HNT":
-                        sql = """
-                        SELECT * 
-                        FROM `hnt_get_transfers`
-                        WHERE `user_id`=%s AND `user_server`=%s AND `coin_name`=%s
-                        ORDER BY `time_insert` DESC LIMIT """+ str(limit)
-                        await cur.execute(sql, (user_id, user_server, coin_name))
                         result = await cur.fetchall()
                         if result:
                             return result

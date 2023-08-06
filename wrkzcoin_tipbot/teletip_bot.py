@@ -484,15 +484,6 @@ class WalletTG:
                         balance_address = address_call
                 except Exception as e:
                     traceback.print_exc(file=sys.stdout)
-            elif type_coin.upper() == "HNT":
-                # generate random memo
-                from string import ascii_uppercase
-                main_address = getattr(getattr(self.coin_list, coin_name), "MainAddress")
-                memo = ''.join(random.choice(ascii_uppercase) for i in range(8))
-                balance_address = {}
-                balance_address['balance_wallet_address'] = "{} MEMO: {}".format(main_address, memo)
-                balance_address['address'] = main_address
-                balance_address['memo'] = memo
             elif type_coin.upper() == "ADA":
                 # get address pool
                 address_pools = await store.ada_get_address_pools(50)
@@ -585,17 +576,6 @@ class WalletTG:
                                 int(time.time()), user_server, chat_id, is_discord_guild))
                             await conn.commit()
                             return {'balance_wallet_address': balance_address['address']}
-                        elif type_coin.upper() == "HNT":
-                            sql = """ INSERT INTO `hnt_user` 
-                            (`coin_name`, `user_id`, `main_address`, `balance_wallet_address`, `memo`, `address_ts`, 
-                            `user_server`, `chat_id`, `is_discord_guild`) 
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                            """
-                            await cur.execute(sql, (
-                                coin_name, str(user_id), main_address, balance_address['balance_wallet_address'], memo,
-                                int(time.time()), user_server, chat_id, is_discord_guild))
-                            await conn.commit()
-                            return balance_address
                         elif type_coin.upper() == "ADA":
                             sql = """ INSERT INTO `ada_user` 
                             (`user_id`, `wallet_name`, `balance_wallet_address`, `address_ts`, `user_server`, `chat_id`, `is_discord_guild`) 
@@ -738,21 +718,6 @@ class WalletTG:
                             if chat_id is not None:
                                 try:
                                     sql = """ UPDATE `xch_user` SET `chat_id`=%s WHERE `user_id`=%s AND `user_server`=%s """
-                                    await cur.execute(sql, (chat_id, str(user_id), user_server))
-                                    await conn.commit()
-                                except Exception as e:
-                                    pass
-                            return result
-                    elif type_coin.upper() == "HNT":
-                        sql = """ SELECT * FROM `hnt_user` WHERE `user_id`=%s 
-                                  AND `coin_name`=%s AND `user_server`=%s LIMIT 1 """
-                        await cur.execute(sql, (str(user_id), coin_name, user_server))
-                        result = await cur.fetchone()
-                        if result:
-                            # update chat_id
-                            if chat_id is not None:
-                                try:
-                                    sql = """ UPDATE `hnt_user` SET `chat_id`=%s WHERE `user_id`=%s AND `user_server`=%s """
                                     await cur.execute(sql, (chat_id, str(user_id), user_server))
                                     await conn.commit()
                                 except Exception as e:
@@ -1458,103 +1423,6 @@ class WalletTG:
             await logchanbot(traceback.format_exc())
         return None
 
-    async def send_external_hnt(
-        self, user_id: str, wallet_host: str, password: str, from_address: str, payee: str,
-        amount: float, coin_decimal: int, user_server: str, coin: str, withdraw_fee: float,
-        time_out=32
-    ):
-        coin_name = coin.upper()
-        if from_address == payee: return None
-        try:
-            headers = {
-                'Content-Type': 'application/json'
-            }
-            json_send = {
-                "jsonrpc": "2.0",
-                "id": "1",
-                "method": "wallet_pay",
-                "params": {
-                    "address": from_address,
-                    "payee": payee,
-                    "bones": int(amount * 10 ** coin_decimal)
-                    # "nonce": 422
-                }
-            }
-            json_unlock = {
-                "jsonrpc": "2.0",
-                "id": "1",
-                "method": "wallet_unlock",
-                "params": {
-                    "address": from_address,
-                    "password": password
-                }
-            }
-            json_check_lock = {
-                "jsonrpc": "2.0",
-                "id": "1",
-                "method": "wallet_is_locked",
-                "params": {
-                    "address": from_address
-                }
-            }
-
-            async def call_hnt_wallet(url, headers, json_data, time_out):
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, headers=headers, json=json_data, timeout=time_out) as response:
-                        if response.status == 200:
-                            res_data = await response.read()
-                            res_data = res_data.decode('utf-8')
-                            decoded_data = json.loads(res_data)
-                            json_resp = decoded_data
-                            return json_resp
-
-            # 1] Check if lock
-            # 3] Unlock
-            try:
-                unlock = None
-                check_locked = await call_hnt_wallet(
-                    wallet_host, headers=headers, json_data=json_check_lock, time_out=time_out
-                )
-                print(check_locked)
-                if 'result' in check_locked and check_locked['result'] == True:
-                    await logchanbot(f'[UNLOCKED] {coin_name}...')
-                    unlock = await call_hnt_wallet(wallet_host, headers=headers, json_data=json_unlock,
-                                                   time_out=time_out)
-                    print(unlock)
-                if unlock is None or (unlock is not None and 'result' in unlock and unlock['result'] == True):
-                    send_tx = await call_hnt_wallet(wallet_host, headers=headers, json_data=json_send, time_out=time_out)
-                    fee = 0.0
-                    if 'result' in send_tx:
-                        if 'implicit_burn' in send_tx['result'] and 'fee' in send_tx['result']['implicit_burn']:
-                            fee = send_tx['result']['implicit_burn']['fee'] / 10 ** coin_decimal
-                        elif 'fee' in send_tx['result']:
-                            fee = send_tx['result']['fee'] / 10 ** coin_decimal
-                        try:
-                            await self.openConnection()
-                            async with self.pool.acquire() as conn:
-                                async with conn.cursor() as cur:
-                                    sql = """ INSERT INTO hnt_external_tx (`coin_name`, `user_id`, 
-                                    `amount`, `tx_fee`, `withdraw_fee`, `decimal`, `to_address`, `date`, 
-                                    `tx_hash`, `user_server`) 
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
-                                    await cur.execute(sql, (
-                                        coin_name, user_id, amount, fee, withdraw_fee, coin_decimal, payee,
-                                        int(time.time()), send_tx['result']['hash'], user_server))
-                                    await conn.commit()
-                                    return send_tx['result']['hash']
-                        except Exception as e:
-                            await logchanbot(traceback.format_exc())
-                        # return tx_hash
-                else:
-                    await logchanbot('[FAILED] send_external_hnt: Failed to unlock wallet...')
-                    return None
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            await logchanbot(traceback.format_exc())
-        return None
-
     async def send_external_ada(
         self, user_id: str, amount: float, coin_decimal: int, user_server: str, coin: str,
         withdraw_fee: float, to_address: str, time_out=32
@@ -2088,11 +1956,6 @@ class WalletTG:
                         sql = """ SELECT * FROM `nano_user` WHERE `balance_wallet_address`=%s LIMIT 1 """
                         await cur.execute(sql, (address))
                         result = await cur.fetchone()
-                    elif coin_family == "HNT":
-                        # if doge family, address is paymentid
-                        sql = """ SELECT * FROM `hnt_user` WHERE `main_address`=%s LIMIT 1 """
-                        await cur.execute(sql, (address))
-                        result = await cur.fetchone()
                     elif coin_family == "ADA":
                         # if ADA family, address is paymentid
                         sql = """ SELECT * FROM `ada_user` WHERE `balance_wallet_address`=%s LIMIT 1 """
@@ -2383,33 +2246,6 @@ class WalletTG:
                         AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s), 0))
                         """
                         query_param += [user_id, token_name, confirmed_depth, user_server, "CONFIRMED"]
-                    elif coin_family == "HNT":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
-                        FROM `hnt_external_tx` 
-                        WHERE `user_id`=%s AND `coin_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        
-                        address_memo = address.split()
-                        if top_block is None:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount)  
-                            FROM `hnt_get_transfers` 
-                            WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
-                            AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
-                        else:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount)  
-                            FROM `hnt_get_transfers` 
-                            WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
-                            AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address_memo[0], address_memo[2], token_name, nos_block, user_server]
-
                     elif coin_family == "XRP":
                         sql += """
                         - (SELECT IFNULL((SELECT SUM(amount+tx_fee)  
@@ -3728,44 +3564,6 @@ async def start_cmd_handler(message: types.Message):
                                         markdown.pre("You have another tx in process. Please wait it to finish."))
                     await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
                 return
-            elif type_coin == "HNT":
-                if tg_user not in TX_IN_PROGRESS:
-                    TX_IN_PROGRESS.append(tg_user)
-                    wallet_host = getattr(getattr(WalletAPI.coin_list, coin_name), "wallet_address")
-                    main_address = getattr(getattr(WalletAPI.coin_list, coin_name), "MainAddress")
-                    coin_decimal = getattr(getattr(WalletAPI.coin_list, coin_name), "decimal")
-                    password = decrypt_string(getattr(getattr(WalletAPI.coin_list, coin_name), "walletkey"))
-                    send_tx = await WalletAPI.send_external_hnt(
-                        tg_user, wallet_host, password, main_address, address,
-                        amount, coin_decimal, SERVER_BOT, coin_name, NetFee, 32
-                    )
-                    if send_tx:
-                        fee_txt = "\nWithdrew fee/node: `{} {}`.".format(
-                            num_format_coin(NetFee, coin_name, coin_decimal, False), coin_name)
-                        await log_to_channel(
-                            "withdraw",
-                            f"[{SERVER_BOT}] User {tg_user} successfully withdrew "\
-                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                            f"{token_display}{equivalent_usd}."
-                        )
-                        msg = f'You withdrew {num_format_coin(amount, coin_name, coin_decimal, False)} {token_display}{equivalent_usd} to {address}.\nTransaction hash: {send_tx}{fee_txt}'
-                        message_text = text(bold('COMPLETED:'),
-                                            markdown.pre(msg))
-                        await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                    else:
-                        await log_to_channel(
-                            "withdraw",
-                            f"[{SERVER_BOT}] [FAILED] User {tg_user} failed to withdraw "\
-                            f"{num_format_coin(amount, coin_name, coin_decimal, False)} "\
-                            f"{token_display}{equivalent_usd}."
-                        )
-                    TX_IN_PROGRESS.remove(tg_user)
-                else:
-                    # reject and tell to wait
-                    message_text = text(bold('ERROR:'),
-                                        markdown.pre("You have another tx in process. Please wait it to finish."))
-                    await message.reply(message_text, parse_mode=ParseMode.MARKDOWN_V2)
-                return
             elif type_coin == "XLM":
                 url = getattr(getattr(WalletAPI.coin_list, coin_name), "http_address")
                 main_address = getattr(getattr(WalletAPI.coin_list, coin_name), "MainAddress")
@@ -4318,16 +4116,6 @@ async def notify_new_confirmed_ada():
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
 
-async def notify_new_confirmed_hnt():
-    time_lap = 10  # seconds
-    while True:
-        try:
-            await asyncio.sleep(time_lap)
-            await notify_new_tx_coin("hnt_get_transfers", "txid")
-            await asyncio.sleep(time_lap)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
 async def notify_new_confirmed_xlm():
     time_lap = 10  # seconds
     while True:
@@ -4426,8 +4214,6 @@ if __name__ == '__main__':
     loop.create_task(notify_new_confirmed_cn())
     # ADA
     loop.create_task(notify_new_confirmed_ada())
-    # HNT
-    loop.create_task(notify_new_confirmed_hnt())
     # XLM
     loop.create_task(notify_new_confirmed_xlm())
 

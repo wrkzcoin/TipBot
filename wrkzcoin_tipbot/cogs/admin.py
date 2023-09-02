@@ -55,6 +55,12 @@ class Admin(commands.Cog):
         self.local_db_extra = None
         self.pool_local_db_extra = None
         self.old_message_data_age = 60 * 24 * 3600  # max. 2 month
+        self.enable_logchan = True
+        self.botLogChan = None
+
+    async def bot_log(self):
+        if self.botLogChan is None:
+            self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
     async def openConnection_extra(self):
         if self.local_db_extra is None:
@@ -1033,9 +1039,12 @@ class Admin(commands.Cog):
                 chain_id = getattr(getattr(self.bot.coin_list, coin_name), "chain_id")
                 start_time = time.time()
                 if type_coin == "ERC-20":
+                    endpoint = self.bot.erc_node_list[net_name]
+                    if self.bot.erc_node_list.get(net_name + "_WITHDRAW"):
+                        endpoint = self.bot.erc_node_list[net_name + "_WITHDRAW"]
                     check_min_deposit = functools.partial(
                         sql_check_minimum_deposit_erc20,
-                        self.bot.erc_node_list[net_name],
+                        endpoint,
                         net_name, coin_name,
                         contract, coin_decimal,
                         min_move_deposit, min_gas_tx,
@@ -2533,7 +2542,53 @@ class Admin(commands.Cog):
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name
-    
+
+    @commands.is_owner()
+    @admin.command(
+        hidden=True,
+        usage="featurerole <guild id>",
+        description="Enable/Disable feature role of a guild"
+    )
+    async def featurerole(self, ctx, guild_id: str):
+        try:
+            await self.bot_log()
+            serverinfo = self.bot.other_data['guild_list'].get(guild_id)
+            if serverinfo is None:
+                await ctx.reply(f"{ctx.author.mention}, guild ID {guild_id} is not in the database.")
+                return
+            else:
+                get_guild = self.bot.get_guild(int(guild_id))
+                if get_guild is None:
+                    await ctx.reply(f"{ctx.author.mention}, Bot can't get guild info for guild ID {guild_id}.")
+                    return
+
+            if serverinfo and serverinfo['enable_featurerole'] == 1:
+                await store.sql_changeinfo_by_server(guild_id, 'enable_featurerole', 0)
+                if self.enable_logchan:
+                    await self.botLogChan.send(
+                        f"{ctx.author.name} / {ctx.author.id} DISABLE featurerole in guild {get_guild.name} / {get_guild.id}."
+                    )
+                await ctx.reply(f"{ctx.author.mention}, successfully disable featurerole in {get_guild.name} / {get_guild.id}.")
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                return
+            elif serverinfo and serverinfo['enable_featurerole'] == 0:
+                await store.sql_changeinfo_by_server(guild_id, 'enable_featurerole', 1)
+                if self.enable_logchan:
+                    await self.botLogChan.send(
+                        f"{ctx.author.name} / {ctx.author.id} ENABLE featurerole in guild {get_guild.name} / {get_guild.id}"
+                    )
+                await ctx.reply(f"{ctx.author.mention}, successfully enable featurerole in {get_guild.name} / {get_guild.id}.")
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                return
+            else:
+                await ctx.reply(f"{ctx.author.mention}, internal error.")
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        await ctx.reply(f"{ctx.author.mention}, internal error.")
+
     @commands.is_owner()
     @admin.command(
         hidden=True,

@@ -76,7 +76,7 @@ from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SE
     seconds_str_days, log_to_channel
 
 from cogs.utils import MenuPage
-from cogs.utils import Utils, num_format_coin, chunks
+from cogs.utils import Utils, num_format_coin, chunks, http_wallet_getbalance, erc20_transfer_token_to_operator
 from cogs.utils import print_color
 
 Account.enable_unaudited_hdwallet_features()
@@ -89,7 +89,7 @@ async def erc20_approve_spender(
     operator_address: str
 ):
     try:
-        w3 = Web3(Web3.HTTPProvider(url))
+        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 60}))
 
         # inject the poa compatibility middleware to the innermost layer
         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -126,7 +126,7 @@ async def sql_check_minimum_deposit_erc20(
     global pool
     async def send_gas(url: str, chainId: str, to_address: str, move_gas_amount: float, min_gas_tx: float):
         # HTTPProvider:
-        w3 = Web3(Web3.HTTPProvider(url))
+        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 60}))
 
         # inject the poa compatibility middleware to the innermost layer
         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -183,7 +183,7 @@ async def sql_check_minimum_deposit_erc20(
         if len(list_user_addresses) > 0:
             # OK check them one by one, gas token is **18
             for each_address in list_user_addresses:
-                deposited_balance = await store.http_wallet_getbalance(
+                deposited_balance = await http_wallet_getbalance(
                     url, each_address['balance_wallet_address'], None, 64
                 )
                 if deposited_balance is None:
@@ -199,7 +199,7 @@ async def sql_check_minimum_deposit_erc20(
                 else:
                     balance_above_min += 1
                     try:
-                        w3 = Web3(Web3.HTTPProvider(url))
+                        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 60}))
 
                         # inject the poa compatibility middleware to the innermost layer
                         # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -291,7 +291,7 @@ async def sql_check_minimum_deposit_erc20(
     else:
         # ERC-20
         # get withdraw gas balance    
-        gas_main_balance = await store.http_wallet_getbalance(url, config['eth']['MainAddress'], None, 64)
+        gas_main_balance = await http_wallet_getbalance(url, config['eth']['MainAddress'], None, 64)
 
         # main balance has gas?
         main_balance_gas_sufficient = True
@@ -303,7 +303,7 @@ async def sql_check_minimum_deposit_erc20(
 
         if list_user_addresses and len(list_user_addresses) > 0:
             # OK check them one by one
-            # print("{} addresses for updating balance".format(len(list_user_addresses)))
+            # print("{} / {} addresses for updating balance".format(token_name, len(list_user_addresses)))
             if main_balance_gas_sufficient is False:
                 await logchanbot("Main address not having enough gas! net_name {}, main address: {}".format(
                     net_name, config['eth']['MainAddress']
@@ -312,7 +312,7 @@ async def sql_check_minimum_deposit_erc20(
                 return
 
             for each_address in list_user_addresses:
-                deposited_balance = await store.http_wallet_getbalance(
+                deposited_balance = await http_wallet_getbalance(
                     url, each_address['balance_wallet_address'], contract, 64
                 )
                 if deposited_balance is None:
@@ -321,7 +321,7 @@ async def sql_check_minimum_deposit_erc20(
                 if real_deposited_balance >= min_move_deposit:
                     print("{}/{} - {} having {}.".format(token_name, net_name, each_address['balance_wallet_address'], real_deposited_balance))
                     # Check if there is gas remaining to spend there
-                    gas_of_address = await store.http_wallet_getbalance(
+                    gas_of_address = await http_wallet_getbalance(
                         url, each_address['balance_wallet_address'], None, 64
                     )
                     if erc20_approve_spend == 1:
@@ -380,7 +380,7 @@ async def sql_check_minimum_deposit_erc20(
                         else:
                             # Transfer
                             if main_balance_gas_sufficient:
-                                transaction = await store.erc20_transfer_token_to_operator(
+                                transaction = await erc20_transfer_token_to_operator(
                                     url, int(chainId, 16), contract, 
                                     each_address['balance_wallet_address'],
                                     config['eth']['MainAddress'], config['eth']['MainAddress_seed'], 
@@ -413,7 +413,7 @@ async def sql_check_minimum_deposit_erc20(
                                 each_address['balance_wallet_address'], gas_ticker, gas_of_address / 10 ** 18))
                             # TODO: Let's move balance from there to withdraw address and save Tx
                             # HTTPProvider:
-                            w3 = Web3(Web3.HTTPProvider(url))
+                            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 60}))
 
                             # inject the poa compatibility middleware to the innermost layer
                             w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -1554,7 +1554,7 @@ class WalletAPI(commands.Cog):
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         if type_coin == "ERC-20":
-            main_balance = await store.http_wallet_getbalance(
+            main_balance = await http_wallet_getbalance(
                 self.bot.erc_node_list[net_name], self.bot.config['eth']['MainAddress'], contract, 16
             )
             balance = float(main_balance / 10 ** coin_decimal)
@@ -3159,7 +3159,7 @@ class WalletAPI(commands.Cog):
     ):
         try:
             # HTTPProvider:
-            w3 = Web3(Web3.HTTPProvider(url))
+            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 60}))
             signed_txn = None
             sent_tx = None
             if contract is None:
@@ -7664,9 +7664,9 @@ class Wallet(commands.Cog):
                                 proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_solana'])
                                 for each_coin in self.bot.coin_name_list:
                                     try:
+                                        type_coin = getattr(getattr(self.bot.coin_list, each_coin), "type")
                                         if type_coin != "SPL":
                                             continue
-                                        type_coin = getattr(getattr(self.bot.coin_list, each_coin), "type")
                                         real_min_deposit = getattr(getattr(self.bot.coin_list, each_coin), "real_min_deposit")
                                         coin_decimal = getattr(getattr(self.bot.coin_list, each_coin), "decimal")
                                         tx_fee = getattr(getattr(self.bot.coin_list, each_coin), "tx_fee")
@@ -10858,7 +10858,7 @@ class Wallet(commands.Cog):
 
         try:
             # HTTPProvider:
-            w3 = Web3(Web3.HTTPProvider(url))
+            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 60}))
             signed_txn = None
             sent_tx = None
             if contract is None:

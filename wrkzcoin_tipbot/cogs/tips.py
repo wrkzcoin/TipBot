@@ -381,6 +381,12 @@ class Tips(commands.Cog):
                     await self.bot.wait_until_ready()
                     channel = guild.get_channel(int(each_message_data['channel_id']))
                     if channel is None:
+                        # check Bot uptime
+                        uptime = round((datetime.now() - self.bot.start_time).total_seconds())
+                        if uptime + 300 >= int(time.time()):
+                            # skipped. Bot just re-connected
+                            continue
+
                         print("Channel {} found None".format(each_message_data['channel_id']))
                         change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
                         await logchanbot(

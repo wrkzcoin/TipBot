@@ -2975,6 +2975,8 @@ class Guild(commands.Cog):
                         f"[FEATUREROLE] Failed to adjust by User {str(ctx.author.id)} "\
                         f"in Guild {ctx.guild.name} / {str(ctx.guild.id)}."
                     )
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
             except Exception:
                 traceback.print_exc(file=sys.stdout)
         except Exception:
@@ -3021,6 +3023,8 @@ class Guild(commands.Cog):
             else:
                 msg = f"{ctx.author.mention}, there's no featurerole set for role __{role.name}__."
                 await ctx.edit_original_message(content=msg)
+            # re-load guild list
+            await self.utils.bot_reload_guilds()
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

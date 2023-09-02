@@ -23,9 +23,15 @@ from aiomysql.cursors import DictCursor
 import disnake
 from disnake.ext import commands
 
+from web3 import Web3
+from web3.middleware import geth_poa_middleware
+from ethtoken.abi import EIP20_ABI
+from eth_account import Account
+
 import store
 from Bot import RowButtonRowCloseAnyMessage, logchanbot, truncate
 plt.style.use('ggplot')
+Account.enable_unaudited_hdwallet_features()
 
 def makechart(data, save_path_name: str):
     try:
@@ -151,6 +157,112 @@ def print_color(prt, color: str):
         print(f"\033[98m{prt}\033[00m")
     else:
         print(f"\033[0m{prt}\033[00m")
+
+# ERC-20, isolated functions
+async def http_wallet_getbalance(
+    url: str, address: str, contract: str, time_out: int = 64
+):
+    if contract is None:
+        data = '{"jsonrpc":"2.0","method":"eth_getBalance","params":["' + address + '", "latest"],"id":1}'
+        try:
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+                async with session.post(
+                    url,
+                    headers={'Content-Type': 'application/json'},
+                    json=json.loads(data),
+                    timeout=time_out
+                ) as response:
+                    if response.status == 200:
+                        data = await response.read()
+                        try:
+                            data = data.decode('utf-8')
+                            decoded_data = json.loads(data)
+                            if decoded_data and 'result' in decoded_data:
+                                return int(decoded_data['result'], 16)
+                        except Exception as e:
+                            traceback.print_exc(file=sys.stdout)
+        except asyncio.TimeoutError:
+            print('TIMEOUT: get balance {} for {}s'.format(url, time_out))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+    else:
+        data = {
+            "jsonrpc": "2.0",
+            "method": "eth_call",
+            "params": [
+                {
+                    "to": contract,
+                    "data": "0x70a08231000000000000000000000000" + address[2:]
+                }, "latest"
+            ],
+            "id": 1
+        }
+        try:
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+                async with session.post(
+                    url, headers={'Content-Type': 'application/json'},
+                    json=data,
+                    timeout=time_out
+                ) as response:
+                    if response.status == 200:
+                        data = await response.read()
+                        data = data.decode('utf-8')
+                        decoded_data = json.loads(data)
+                        if decoded_data and 'result' in decoded_data:
+                            if decoded_data['result'] == "0x":
+                                return 0
+                            return int(decoded_data['result'], 16)
+        except aiohttp.client_exceptions.ServerDisconnectedError:
+            print("http_wallet_getbalance disconnected from url: {} for contract {}".format(url, contract))
+        except asyncio.TimeoutError:
+            print('TIMEOUT: get balance {} for {}s'.format(url, time_out))
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+    return None
+
+async def erc20_transfer_token_to_operator(
+    url: str, chainId: int, contract: str, 
+    sender_address: str, operator_address: str, 
+    operator_seed: str, atomic_amount: int
+):
+    try:
+        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 60}))
+
+        # inject the poa compatibility middleware to the innermost layer
+        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+        # check allowance:
+        unicorns = w3.eth.contract(address=w3.toChecksumAddress(contract), abi=EIP20_ABI)
+        allowance = unicorns.functions.allowance(w3.toChecksumAddress(sender_address), w3.toChecksumAddress(operator_address)).call()
+        if allowance and allowance < atomic_amount:
+            print("Contract: {} operator: {} allowance for address: {} is less than amount {} < {}.".format(contract, operator_address, sender_address, allowance, atomic_amount))
+            return None
+
+        nonce = w3.eth.getTransactionCount(w3.toChecksumAddress(operator_address))
+        unicorn_txn = unicorns.functions.transferFrom(
+            w3.toChecksumAddress(sender_address),
+            w3.toChecksumAddress(operator_address),
+            atomic_amount  # amount to send
+        ).buildTransaction({
+            'from': w3.toChecksumAddress(operator_address),
+            'gasPrice': w3.eth.gasPrice,
+            "chainId": chainId,
+            'nonce': nonce
+        })
+
+        acct = Account.from_mnemonic(
+            mnemonic=operator_seed)
+        signed_txn = w3.eth.account.signTransaction(unicorn_txn, private_key=acct.key)
+
+        sent_tx = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+        tx_receipt = w3.eth.waitForTransactionReceipt(sent_tx)
+        return tx_receipt.transactionHash.hex() # hash Tx
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        await logchanbot(traceback.format_exc())
+    return None
+## end of approve spender to operator
+
 
 async def get_all_coin_names(
     what: str,
@@ -1980,7 +2092,7 @@ class Utils(commands.Cog):
                 "addr": address
             }
             async with aiohttp.ClientSession() as cs:
-                async with cs.post(proxy + "/validate_address", json=data) as r:
+                async with cs.post(proxy, json=data) as r:
                     res_data = await r.read()
                     res_data = res_data.decode('utf-8')
                     result = json.loads(res_data)

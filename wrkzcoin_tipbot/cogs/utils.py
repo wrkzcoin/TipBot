@@ -2607,6 +2607,7 @@ class Utils(commands.Cog):
         self,
         proxy: str,
         url: str,
+        from_address: str,
         from_key: str,
         to_addr: str,
         atomic_amount: int,
@@ -2615,6 +2616,7 @@ class Utils(commands.Cog):
         try:
             data = {
                 "endpoint": url,
+                "from_address": from_address,
                 "from_key": from_key,
                 "to_addr": to_addr,
                 "atomic_amount": atomic_amount

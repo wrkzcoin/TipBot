@@ -572,6 +572,7 @@ class EthScan(commands.Cog):
                 self.bot.erc_node_list['NOVA_WITHDRAW'] = bot_settings['local_node_nova_withdraw']
             if "local_node_nova" in bot_settings and bot_settings['local_node_nova'] is not None:
                 self.bot.erc_node_list['NOVA'] = bot_settings['local_node_nova']
+                self.bot.erc_node_list['NOVAETH'] = bot_settings['local_node_nova']
             else:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(

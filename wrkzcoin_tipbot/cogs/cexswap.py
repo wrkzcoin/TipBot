@@ -1909,7 +1909,7 @@ class DropdownLP(disnake.ui.StringSelect):
                 label=each,
                 description="Select {}".format(each),
                 emoji=getattr(getattr(self.bot.coin_list, each), "coin_emoji_discord")
-            ) for each in self.list_chunks
+            ) for each in self.list_chunks if hasattr(self.bot.coin_list, each)
         ]
 
         super().__init__(

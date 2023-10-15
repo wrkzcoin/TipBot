@@ -4376,7 +4376,8 @@ class WalletAPI(commands.Cog):
             hash_tx = None
             if coin.upper() == "SOL":
                 send_tx = await self.utils.solana_send_tx(
-                    proxy + "/send_transaction", url, self.bot.config['sol']['MainAddress_key_hex'],
+                    proxy + "/send_transaction", url, self.bot.config['sol']['MainAddress'],
+                    self.bot.config['sol']['MainAddress_key_hex'],
                     to_address, int(amount * 10 ** coin_decimal), timeout=60
                 )
                 hash_tx = send_tx.get("hash")
@@ -7630,12 +7631,13 @@ class Wallet(commands.Cog):
                                         moving = await self.utils.solana_send_tx(
                                             proxy + "/send_transaction",
                                             self.bot.erc_node_list['SOL_WITHDRAW'],
+                                            each_addr['balance_wallet_address'],
                                             decrypt_string(each_addr['secret_key_hex']),
                                             self.bot.config['sol']['MainAddress'],
                                             remaining,
                                             timeout=60
                                         )
-                                        if moving.get('hash') and moving['hash']:
+                                        if moving.get('hash') and moving['hash'] is not None and str(moving['hash']) != "None":
                                             numb_update += 1
                                             await self.openConnection()
                                             async with self.pool.acquire() as conn:
@@ -7659,6 +7661,8 @@ class Wallet(commands.Cog):
                                             await self.utils.solana_reset_balance_cache(
                                                 proxy + "/reset_cache/" + each_addr['balance_wallet_address'], 30
                                             )
+                                        else:
+                                            print("SOL got txn None: {}".format(moving))
 
                                 # Check all SOL
                                 proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_solana'])
@@ -7706,7 +7710,7 @@ class Wallet(commands.Cog):
                                                     self.bot.config['sol']['MainAddress_key_hex'], # fee payer
                                                     timeout=60
                                                 )
-                                                if moving.get('result'):
+                                                if moving.get('result') and moving['result'] is not None:
                                                     numb_update += 1
                                                     await self.openConnection()
                                                     async with self.pool.acquire() as conn:

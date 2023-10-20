@@ -226,7 +226,7 @@ async def erc20_transfer_token_to_operator(
     operator_seed: str, atomic_amount: int
 ):
     try:
-        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 60}))
+        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 300}))
 
         # inject the poa compatibility middleware to the innermost layer
         w3.middleware_onion.inject(geth_poa_middleware, layer=0)

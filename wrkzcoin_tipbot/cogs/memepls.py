@@ -82,7 +82,7 @@ async def add_memetip(
 
 class MemeTipReport(disnake.ui.Modal):
     def __init__(self, ctx, bot, meme_id: str, owner_userid: str, get_meme) -> None:
-        self.meme_web_path = self.bot.config['discord']['meme_web_path']
+        self.meme_web_path = bot.config['discord']['meme_web_path']
         self.ctx = ctx
         self.bot = bot
         self.utils = Utils(self.bot)

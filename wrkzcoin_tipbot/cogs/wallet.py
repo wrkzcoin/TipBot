@@ -126,7 +126,7 @@ async def sql_check_minimum_deposit_erc20(
     global pool
     async def send_gas(url: str, chainId: str, to_address: str, move_gas_amount: float, min_gas_tx: float):
         # HTTPProvider:
-        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 300}))
+        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 600}))
 
         # inject the poa compatibility middleware to the innermost layer
         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -199,7 +199,7 @@ async def sql_check_minimum_deposit_erc20(
                 else:
                     balance_above_min += 1
                     try:
-                        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 300}))
+                        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 600}))
 
                         # inject the poa compatibility middleware to the innermost layer
                         # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -413,7 +413,7 @@ async def sql_check_minimum_deposit_erc20(
                                 each_address['balance_wallet_address'], gas_ticker, gas_of_address / 10 ** 18))
                             # TODO: Let's move balance from there to withdraw address and save Tx
                             # HTTPProvider:
-                            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 300}))
+                            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 600}))
 
                             # inject the poa compatibility middleware to the innermost layer
                             w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -5765,7 +5765,7 @@ class Wallet(commands.Cog):
                                                     try:
                                                         await log_to_channel(
                                                             "withdraw", 
-                                                            f"[{user_server}] User {tw_user} sucessfully withdrew "\
+                                                            f"[{user_server}] User {tw_user} successfully withdrew "\
                                                             f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}"
                                                         )
@@ -5794,7 +5794,7 @@ class Wallet(commands.Cog):
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
-                                                        f"[{user_server}] User {tw_user} sucessfully withdrew "\
+                                                        f"[{user_server}] User {tw_user} successfully withdrew "\
                                                         f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}"
                                                     )
@@ -8281,6 +8281,8 @@ class Wallet(commands.Cog):
                                     'amount'] > 0:
                                     list_balance_user[tx['address']] = tx['amount']
                                 try:
+                                    if tx.get('address') is None and tx.get('category') and tx['category'] == "send":
+                                        continue
                                     if "{}_{}".format(tx['txid'], tx['address']) not in d:
                                         user_paymentId = await store.sql_get_userwallet_by_paymentid(
                                             tx['address'], coin_name,
@@ -11972,7 +11974,7 @@ class Wallet(commands.Cog):
                         await log_to_channel(
                             "withdraw",
                             f"[{SERVER_BOT}] User {ctx.author.name}#{ctx.author.discriminator} / "\
-                            f"{ctx.author.mention} sucessfully withdrew {num_format_coin(amount)} "\
+                            f"{ctx.author.mention} successfully withdrew {num_format_coin(amount)} "\
                             f"{token_display}{equivalent_usd}.{explorer_link}"
                         )
                         return
@@ -12064,7 +12066,7 @@ class Wallet(commands.Cog):
                         await log_to_channel(
                             "withdraw",
                             f"[{SERVER_BOT}] User {ctx.author.name}#{ctx.author.discriminator} / "\
-                            f"{ctx.author.mention} sucessfully withdrew "\
+                            f"{ctx.author.mention} successfully withdrew "\
                             f"{num_format_coin(amount)} {token_display}{equivalent_usd}.{explorer_link}"
                         )
                         return
@@ -12496,8 +12498,8 @@ class Wallet(commands.Cog):
                             return
                         gas=120000
                         if coin_name in ["LUNC"]:
-                            gas = int(1.5*gas)
-                            fee = int(1.5*fee)
+                            gas = int(2.0*gas)
+                            fee = int(2.0*fee)
                         send_tx = await self.wallet_api.cosmos_send_tx(
                             rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),
                             int(get_wallet_seq['account']['sequence']), key,
@@ -12522,14 +12524,14 @@ class Wallet(commands.Cog):
                                     if denom in i:
                                         gas = int(int(i.replace(denom, ""))*1.20)
                                         break
-                                    fee = int(1.5*fee)
-                                    await log_to_channel(
-                                        "withdraw",
-                                        f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                        f"failed to withdraw {num_format_coin(amount)}."\
-                                        f"{token_display}{equivalent_usd} to address {address}.\nERROR: {error}.\n"\
-                                        f"Re-try with a new gas: {str(gas)}{denom}, fee: {str(fee)}{denom}..."
-                                    )
+                                fee = int(1.5*fee)
+                                await log_to_channel(
+                                    "withdraw",
+                                    f"🔴🔴🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"failed to withdraw {num_format_coin(amount)}."\
+                                    f"{token_display}{equivalent_usd} to address {address}.\nERROR: {error}.\n"\
+                                    f"Re-try with a new gas: {str(gas)}{denom}, fee: {str(fee)}{denom}..."
+                                )
                                 send_tx = await self.wallet_api.cosmos_send_tx(
                                     rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),
                                     int(get_wallet_seq['account']['sequence']), key,

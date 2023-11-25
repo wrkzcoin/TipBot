@@ -148,7 +148,7 @@ class FreeTip_Verify(disnake.ui.Modal):
                     pass
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                msg = "Sucessfully joined airdrop id: {}".format(str(interaction.message.id))
+                msg = "Successfully joined airdrop id: {}".format(str(interaction.message.id))
                 await interaction.edit_original_message(content=msg)
                 return
         except ValueError:
@@ -274,7 +274,7 @@ class FreeTip_Button(disnake.ui.View):
                             get_message['from_userid'], str(interaction.author.id),
                             "{}#{}".format(interaction.author.name, interaction.author.discriminator)
                         )
-                        msg = "Sucessfully joined airdrop id: {}".format(str(interaction.message.id))
+                        msg = "Successfully joined airdrop id: {}".format(str(interaction.message.id))
                         await interaction.response.send_message(content=msg, ephemeral=True)
                         # Update message
                         _msg: disnake.Message = await interaction.channel.fetch_message(int(interaction.message.id))

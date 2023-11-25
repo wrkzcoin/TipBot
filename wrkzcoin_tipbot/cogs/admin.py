@@ -1335,7 +1335,7 @@ class Admin(commands.Cog):
                                                       DELETE FROM `ada_wallets` WHERE `wallet_id`=%s LIMIT 1 """
                                             await cur.execute(sql, (wallet_id, wallet_id))
                                             await conn.commit()
-                                            msg = f"{ctx.author.mention}, sucessfully delete wallet `{wallet_name}` | `{wallet_id}`."
+                                            msg = f"{ctx.author.mention}, successfully delete wallet `{wallet_name}` | `{wallet_id}`."
                                             await ctx.reply(msg)
                                             return
                                 except Exception:
@@ -1792,6 +1792,14 @@ class Admin(commands.Cog):
                 list_users = [m.id for m in self.bot.get_all_members()]
                 list_guilds = [g.id for g in self.bot.guilds]
                 already_checked = []
+                # find LP
+                find_other_lp = await self.wallet_api.cexswap_get_all_poolshares(user_id=None, ticker=coin_name)
+                total_pool_coin = 0
+                for i in find_other_lp:
+                    if i['ticker_1_name'] == coin_name:
+                        total_pool_coin += i['amount_ticker_1']
+                    elif i['ticker_2_name'] == coin_name:
+                        total_pool_coin += i['amount_ticker_2']
                 if len(all_user_id) > 0:
                     msg = f"{ctx.author.mention}, {EMOJI_INFORMATION} **{coin_name}** there are "\
                         f"total {str(len(all_user_id))} user records. Wait a big while..."
@@ -1881,7 +1889,9 @@ class Admin(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
                     msg_checkcoin += wallet_stat_str + "\n"
                     msg_checkcoin += "Total record id in DB: " + str(sum_user) + "\n"
-                    msg_checkcoin += "Total balance: " + num_format_coin(sum_balance) + " " + coin_name + "\n"
+                    msg_checkcoin += "Total usable balance: " + num_format_coin(sum_balance) + " " + coin_name + "\n"
+                    msg_checkcoin += "Locked in LP: " + num_format_coin(total_pool_coin) + " " + coin_name + "\n"
+                    msg_checkcoin += "Total balance: " + num_format_coin(sum_balance + float(total_pool_coin)) + " " + coin_name + "\n"
                     msg_checkcoin += "Total user/guild not found (discord): " + str(sum_unfound_user) + "\n"
                     msg_checkcoin += "Total balance not found (discord): " + num_format_coin(
                         sum_unfound_balance) + " " + coin_name + "\n"

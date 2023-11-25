@@ -3798,7 +3798,7 @@ class Economy(commands.Cog):
             else:
                 upgrade = await self.db.economy_upgrade(field, 1, cost, str(ctx.author.id))
             if upgrade:
-                msg = f"{ctx.author.mention}, sucessfully upgrade `{item}`."
+                msg = f"{ctx.author.mention}, successfully upgrade `{item}`."
                 await ctx.response.send_message(msg)
             else:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, internal error."

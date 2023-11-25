@@ -1252,7 +1252,7 @@ class Twitter(commands.Cog):
                                 str(ctx.author.id), get_tweet['user']['id_str'], screen_name,
                                 status_link, get_tweet['text'], json.dumps(get_tweet), int_timestamp
                             )
-                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, sucessfully verified you with twitter `@{screen_name}`."
+                            msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, successfully verified you with twitter `@{screen_name}`."
                             await ctx.edit_original_message(content=msg)
                             await logchanbot(
                                 f"[TWITTER] - Discord User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} "\
@@ -1300,7 +1300,7 @@ class Twitter(commands.Cog):
                 str(ctx.author.id), "{}#{}".format(ctx.author.name, ctx.author.discriminator),
                 get_linkme['twitter_screen_name'], get_linkme['is_verified']
             )
-            msg = f"{ctx.author.mention}, sucessfully unlink with `{twitter_screen_name}`."
+            msg = f"{ctx.author.mention}, successfully unlink with `{twitter_screen_name}`."
             await ctx.edit_original_message(content=msg)
             await logchanbot(
                 f"[TWITTER] - Discord User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.id} "\

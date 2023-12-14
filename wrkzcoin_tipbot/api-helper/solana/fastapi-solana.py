@@ -42,9 +42,15 @@ async def fetch_wallet_balance(url: str, address: str, timeout: int=60):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def send_solana(url: str, from_key: str, to_address: str, atomic_amount: int, timeout: int=60):
+async def send_solana(url: str, from_address: str, from_key: str, to_address: str, atomic_amount: int, timeout: int=60):
     try:
-        sender = Keypair.from_bytes(bytes.fromhex(from_key))
+        # check if 32 or 64
+        byte_key = bytes.fromhex(from_key)
+        if len(byte_key) == 32:
+            public_key = Pubkey.from_string(from_address)
+            byte_key += bytes(public_key)
+
+        sender = Keypair.from_bytes(byte_key)
         print("{} SOL trying to send from {} to {}, lamports={}".format(
             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), sender.pubkey(), to_address, atomic_amount
 
@@ -119,8 +125,9 @@ async def post_verify_account_token(
 async def post_create_account_token(
     url: str, token_address: str, owner_address: str, program_id: str, from_key: str, timeout: int=60
 ):
+    # Not use?
     try:
-        async with AsyncClient(url, timeout=timeout) as client:            
+        async with AsyncClient(url, timeout=timeout) as client:
             spl_client = AsyncToken(
                 conn=client,
                 pubkey=Pubkey.from_string(token_address),
@@ -226,6 +233,7 @@ class Address(BaseModel):
 
 class TxData(BaseModel):
     endpoint: str
+    from_address: str
     from_key: str
     to_addr: str
     atomic_amount: int
@@ -511,7 +519,8 @@ async def send_transaction(item: TxData):
                 "timestamp": int(time.time())
             }
         else:
-            sending = await send_solana(item.endpoint, item.from_key, item.to_addr, item.atomic_amount, 60)
+            print(item.endpoint, item.from_key, item.to_addr, item.atomic_amount, 60)
+            sending = await send_solana(item.endpoint, item.from_address, item.from_key, item.to_addr, item.atomic_amount, 60)
             return {
                 "success": True,
                 "hash": str(sending),

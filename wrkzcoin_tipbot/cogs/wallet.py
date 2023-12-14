@@ -1201,6 +1201,7 @@ class SingleBalanceMenu(disnake.ui.View):
         owner_id: int,
         embed,
         coin_name,
+        locked_balance_list,
         is_fav: bool=False
     ):
         super().__init__(timeout=120.0)
@@ -1211,12 +1212,18 @@ class SingleBalanceMenu(disnake.ui.View):
         self.owner_id = owner_id
         self.embed = embed
         self.coin_name = coin_name
+        self.locked_balance_list = locked_balance_list
         if is_fav is True:
             self.btn_balance_single_add_fav.disabled = True
             self.btn_balance_single_remove_fav.disabled = False
         else:
             self.btn_balance_single_add_fav.disabled = False
             self.btn_balance_single_remove_fav.disabled = True
+
+        if len(self.locked_balance_list) == 0:
+            self.btn_locked_balance_list.disabled = True
+        else:
+            self.btn_locked_balance_list.disabled = False
 
     async def on_timeout(self):
         await self.ctx.edit_original_message(
@@ -1243,7 +1250,7 @@ class SingleBalanceMenu(disnake.ui.View):
             adding = await self.utils.fav_coin_add(str(inter.author.id), SERVER_BOT, self.coin_name)
             if adding is True:
                 await inter.delete_original_message()
-                view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=True)
+                view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, self.locked_balance_list, is_fav=True)
                 await self.ctx.edit_original_message(view=view)
 
     @disnake.ui.button(label="Remove", emoji="💙", style=ButtonStyle.grey, custom_id="balance_single_remove_fav")
@@ -1259,7 +1266,7 @@ class SingleBalanceMenu(disnake.ui.View):
             removing = await self.utils.fav_coin_remove(str(inter.author.id), SERVER_BOT, self.coin_name)
             if removing is True:
                 await inter.delete_original_message()
-                view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=False)
+                view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, self.locked_balance_list, is_fav=False)
                 await self.ctx.edit_original_message(view=view)
 
     @disnake.ui.button(label="Deposit", emoji="↪️", style=ButtonStyle.grey, custom_id="balance_single_deposit")
@@ -1288,6 +1295,34 @@ class SingleBalanceMenu(disnake.ui.View):
             # delete and show other menu
             await inter.response.send_message(f"{inter.author.mention}, loading all your balance ...", ephemeral=True)
             await self.wallet.async_balances(self.ctx)
+            await inter.delete_original_message()
+
+    @disnake.ui.button(label="Locked balance", emoji="🔒", style=ButtonStyle.grey, custom_id="balance_single_locked")
+    async def btn_locked_balance_list(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            # delete and show other menu
+            embed = self.embed.copy()
+            embed.clear_fields()
+            locked_text = "\n".join(self.locked_balance_list)
+            amount = 0
+            for i in self.locked_balance_list:
+                amount += float(i.split(":")[1].strip().replace(",", ""))
+            locked_text += "\n\n" + "Total locked ({}) pair(s): {} {}".format(len(self.locked_balance_list), num_format_coin(amount), self.coin_name)
+            embed.description = locked_text
+            embed.title = "Amount {} locked in CEXSwap".format(self.coin_name)
+            await inter.response.send_message(f"{inter.author.mention}, checking locked balance ...", ephemeral=True)
+            view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, self.locked_balance_list, is_fav=True)
+            await self.ctx.edit_original_message(content=None, embed=embed, view=view)
+            self.remove_item(self.btn_locked_balance_list)
+            self.remove_item(self.btn_balance_single_add_fav)
+            self.remove_item(self.btn_balance_single_remove_fav)
+            await self.ctx.edit_original_message(content=None, embed=embed, view=self)
             await inter.delete_original_message()
 
     @disnake.ui.button(label="Support", emoji="🏢", style=ButtonStyle.link, url="https://discord.com/invite/GpHzURM")
@@ -6791,10 +6826,9 @@ class Wallet(commands.Cog):
                                             return decoded_data
                                     else:
                                         print(url)
-                                        print("[RE-TRY update_balance_cosmos return status: {}".format(response.status))
+                                        print("[RE-TRY] update_balance_cosmos return status: {}".format(response.status))
                         else:
-                            print(url)
-                            print("update_balance_cosmos return status: {}".format(response.status))
+                            print("update_balance_cosmos {} URL return: ".format(url, response.status))
             except asyncio.exceptions.TimeoutError:
                 print("update_balance_cosmos timeout for {}".format(url))
             except Exception:
@@ -6824,6 +6858,7 @@ class Wallet(commands.Cog):
             if not rpchost.endswith("/"):
                 rpchost += "/"
             net_height = await cosmos_get_height(rpchost + "block", timeout)
+            # print("{}, height {}".format(coin_name, net_height))
             if net_height is None:
                 print("cosmos cosmos_get_height: {} = None".format(coin_name))
                 return
@@ -7231,6 +7266,10 @@ class Wallet(commands.Cog):
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
 
+        if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1 or getattr(
+                getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
+            return
+
         await asyncio.sleep(time_lap)
         # update Height
         height = None
@@ -7415,6 +7454,10 @@ class Wallet(commands.Cog):
         task_name = "unlocked_move_pending_sol"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+
+        if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1 or getattr(
+                getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
             return
 
         # Update height
@@ -9531,7 +9574,7 @@ class Wallet(commands.Cog):
             vet_contracts = await self.get_all_contracts("VET", False)
             # Check native
             coin_name = "VET"
-            if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") != 0:
+            if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
                 return
             get_status = await vet_get_status(self.bot.erc_node_list['VET'], 16)
             if get_status:
@@ -9945,7 +9988,7 @@ class Wallet(commands.Cog):
             rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
             proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
             get_head = await self.utils.tezos_get_head(
-                proxy, rpchost, 30
+                proxy, rpchost, 120
             )
             try:
                 if get_head:
@@ -9980,7 +10023,7 @@ class Wallet(commands.Cog):
                             continue
                         # check balance, skip if below minimum
                         check_balance = await self.utils.tezos_check_balance(
-                            proxy, self.bot.erc_node_list['XTZ'], decrypt_string(each_address['key']), 30
+                            proxy, self.bot.erc_node_list['XTZ'], decrypt_string(each_address['key']), 60
                         )
                         balance = check_balance['result']['balance']
                         if balance > real_min_deposit:
@@ -9990,7 +10033,7 @@ class Wallet(commands.Cog):
                                 continue
                             else:
                                 check_revealed = await self.utils.tezos_check_reveal(
-                                    proxy, rpchost, each_address['balance_wallet_address'], 32
+                                    proxy, rpchost, each_address['balance_wallet_address'], 60
                                 )
                                 print("XTZ Reveal checked {} is {}".format(each_address['balance_wallet_address'], check_revealed))
                                 if check_revealed is True:
@@ -10075,7 +10118,7 @@ class Wallet(commands.Cog):
                             elif token_type == "FA1.2" and len(token_addresses) > 0:
                                 for each_addr in token_addresses:
                                     token_balances = await self.utils.tezos_check_balances_token(
-                                        proxy, rpchost, each_addr, 30
+                                        proxy, rpchost, each_addr, 60
                                     )
                                     if token_balances is None:
                                         continue
@@ -10110,7 +10153,7 @@ class Wallet(commands.Cog):
                                             continue
                                         else:
                                             check_revealed = await self.utils.tezos_check_reveal(
-                                                proxy, rpchost, k, 32
+                                                proxy, rpchost, k, 60
                                             )
                                             if check_revealed is True:
                                                 # Add to DB if not exist
@@ -10121,7 +10164,7 @@ class Wallet(commands.Cog):
                                                 # 1] Check if balance has enough gas. If not, move gas
                                                 # 2] Push to reveal
                                                 check_gas = await self.utils.tezos_check_balance(
-                                                    proxy, self.bot.erc_node_list['XTZ'], decrypt_string(get_tezos_user['key']), 30
+                                                    proxy, self.bot.erc_node_list['XTZ'], decrypt_string(get_tezos_user['key']), 60
                                                 )
                                                 gas_balance = check_gas['result']['balance']
                                                 if gas_balance >= min_gas_tx:
@@ -10154,7 +10197,7 @@ class Wallet(commands.Cog):
                                         # re-check gas
                                         if can_move_token is True:
                                             check_gas = await self.utils.tezos_check_balance(
-                                                proxy, self.bot.erc_node_list['XTZ'], decrypt_string(get_tezos_user['key']), 30
+                                                proxy, self.bot.erc_node_list['XTZ'], decrypt_string(get_tezos_user['key']), 60
                                             )
                                             gas_balance = check_gas['result']['balance']
                                             if gas_balance >= min_gas_tx:
@@ -10241,7 +10284,7 @@ class Wallet(commands.Cog):
             rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
             proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
             get_head = await self.utils.tezos_get_head(
-                proxy, rpchost, 30
+                proxy, rpchost, 60
             )
             if get_head:
                 height = get_head['level']
@@ -11294,6 +11337,8 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Do the job
+        locked_balance_list = []
+        locked_balance_amounts = {}
         try:
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -11368,10 +11413,12 @@ class Wallet(commands.Cog):
                                         user_amount += i['amount_ticker_1']
                                         total_pool_coin += i['amount_ticker_1']
                                         pairs.append(i['ticker_2_name'])
+                                        locked_balance_amounts[i['ticker_2_name']] = i['amount_ticker_1']
                                     elif i['ticker_2_name'] == coin_name:
                                         user_amount += i['amount_ticker_2']
                                         total_pool_coin += i['amount_ticker_2']
                                         pairs.append(i['ticker_1_name'])
+                                        locked_balance_amounts[i['ticker_1_name']] = i['amount_ticker_2']
                             embed.description = "CEXSwap: ✅"
                             list_pairs = "\n```Locked with: " + ", ".join(list(set(pairs))) + "```"
                             embed.add_field(
@@ -11382,6 +11429,12 @@ class Wallet(commands.Cog):
                                 ),
                                 inline=False
                             )
+                    if len(locked_balance_amounts) > 0:
+                        total_locked_amt = 0
+                        locked_balance_amounts = dict(sorted(locked_balance_amounts.items(), key=lambda item: item[1], reverse=True))
+                        for k, v in locked_balance_amounts.items():
+                            locked_balance_list.append("{}: {}".format(k, num_format_coin(v)))
+                            total_locked_amt += v
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 if getattr(getattr(self.bot.coin_list, coin_name), "related_coins"):
@@ -11443,7 +11496,7 @@ class Wallet(commands.Cog):
                 embed.set_thumbnail(url=link)
 
             check_fav = await self.utils.check_if_fav_coin(str(ctx.author.id), SERVER_BOT, coin_name)
-            view = SingleBalanceMenu(self.bot, ctx, ctx.author.id, embed, coin_name, is_fav=check_fav)
+            view = SingleBalanceMenu(self.bot, ctx, ctx.author.id, embed, coin_name, locked_balance_list, is_fav=check_fav)
             await ctx.edit_original_message(content=None, embed=embed, view=view)
             # Add update for future call
             try:

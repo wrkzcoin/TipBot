@@ -170,7 +170,7 @@ async def sql_check_minimum_deposit_erc20(
             return tx_receipt.transactionHash.hex() # hash Tx
 
     token_name = coin.upper()
-    if net_name == token_name:
+    if net_name.upper() == token_name.upper():
         list_user_addresses = await store.sql_get_all_erc_user(net_name, time_lap)
     else:
         list_user_addresses = await store.sql_get_all_erc_user("ERC-20", time_lap)
@@ -1760,13 +1760,13 @@ class WalletAPI(commands.Cog):
             proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
             if coin_name == "XTZ":
                 check_balance = await self.utils.tezos_check_balance(
-                    proxy, self.bot.erc_node_list['XTZ'], key, 30
+                    proxy, self.bot.erc_node_list['XTZ'], key, 60
                 )
                 balance = check_balance['result']['balance']
             else:
                 token_id = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
                 token_balances = await self.utils.tezos_check_a_token_balance(
-                    proxy, self.bot.erc_node_list['XTZ'], contract, [main_address], int(token_id), 30
+                    proxy, self.bot.erc_node_list['XTZ'], contract, [main_address], int(token_id), 60
                 )
                 if token_balances is not None:
                     balance = token_balances[main_address] / 10 ** coin_decimal
@@ -1775,7 +1775,7 @@ class WalletAPI(commands.Cog):
             token_contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             if coin_name == "NEAR":
-                get_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], main_address, 32)
+                get_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], main_address, 60)
                 balance = int(get_balance['amount']) / 10 ** coin_decimal
             else:
                 get_balance = await near_check_balance_token(
@@ -4164,7 +4164,7 @@ class WalletAPI(commands.Cog):
     ):
         try:
             send_tx = await self.utils.tezos_send(
-                proxy, url, key, to_address, int(amount*10**coin_decimal), 30
+                proxy, url, key, to_address, int(amount*10**coin_decimal), 120
             )
             if send_tx:
                 await self.openConnection()

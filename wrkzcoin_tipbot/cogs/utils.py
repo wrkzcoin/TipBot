@@ -2178,7 +2178,10 @@ class Utils(commands.Cog):
                     if result.get('error'):
                         return None
                     return result['result']
+        except asyncio.exceptions.TimeoutError:
+            print("Timeout with endpoint: {} through proxy: {}".format(url, proxy))
         except Exception:
+            print("Error with endpoint: {} through proxy: {}".format(url, proxy))
             traceback.print_exc(file=sys.stdout)
         return None
 
@@ -2187,7 +2190,7 @@ class Utils(commands.Cog):
         proxy: str,
         url: str,
         key: str,
-        timeout: int=30      
+        timeout: int=60
     ):
         data = {
             "endpoint": url,
@@ -2209,7 +2212,7 @@ class Utils(commands.Cog):
         proxy: str,
         url: str,
         address: str,
-        timeout: int=30      
+        timeout: int=60      
     ):
         data = {
             "endpoint": url,
@@ -2233,7 +2236,7 @@ class Utils(commands.Cog):
         token_contract: str,
         address: List,
         token_id: int,
-        timeout: int=30      
+        timeout: int=60
     ):
         data = {
             "endpoint": url,
@@ -2259,7 +2262,7 @@ class Utils(commands.Cog):
         proxy: str,
         url: str,
         address: str,
-        timeout: int=30      
+        timeout: int=60      
     ):
         data = {
             "endpoint": url,
@@ -2282,7 +2285,7 @@ class Utils(commands.Cog):
         proxy: str,
         url: str,
         key: str,
-        timeout: int=30      
+        timeout: int=60
     ):
         data = {
             "endpoint": url,

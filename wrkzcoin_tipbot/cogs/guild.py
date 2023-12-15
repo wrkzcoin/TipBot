@@ -867,8 +867,11 @@ class Guild(commands.Cog):
                     result = await cur.fetchall()
                     if result and len(result) > 0:
                         for each_guild in result:
-                            # Check guild's balance
                             coin_name = each_guild['vote_reward_coin']
+                            if not hasattr(self.bot.coin_list, coin_name):
+                                # skip
+                                continue
+                            # Check guild's balance
                             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
                             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")

@@ -5772,7 +5772,7 @@ class Cexswap(commands.Cog):
                 get_user = main_guild.get_member(ctx.author.id)
                 if get_user is None:
                     await ctx.edit_original_message(
-                        content=f"{ctx.author.mention}, you need to stay in our main Discord guild to get API key!"
+                        content=f"{ctx.author.mention}, you need to stay in our main Discord guild <http://chat.wrkz.work> to get API key!"
                     )
                     return
         except Exception:

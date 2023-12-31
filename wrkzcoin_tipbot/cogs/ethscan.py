@@ -132,19 +132,27 @@ class EthScan(commands.Cog):
         bot_settings = await self.utils.get_bot_settings()
         if bot_settings is None:
             return
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                bot_settings['api_best_node_bsc'],
-                headers={'Content-Type': 'application/json'},
-                timeout=5.0
-            ) as response:
-                if response.status == 200:
-                    res_data = await response.read()
-                    res_data = res_data.decode('utf-8')
-                    # BSC needs to fetch best node from their public
-                    self.bot.erc_node_list['BSC'] = res_data.replace('"', '')
-                else:
-                    await logchanbot(f"Can not fetch best node for BSC.")
+        else:
+            # Use withdraw node differently
+            if bot_settings.get('local_node_bnb_withdraw'):
+                self.bot.erc_node_list['BNB_WITHDRAW'] = bot_settings['local_node_bnb_withdraw']
+            if "local_node_bnb" in bot_settings and bot_settings['local_node_bnb'] is not None:
+                self.bot.erc_node_list['BNB'] = bot_settings['local_node_bnb']
+            else:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        bot_settings['api_best_node_bsc'],
+                        headers={'Content-Type': 'application/json'},
+                        timeout=5.0
+                    ) as response:
+                        if response.status == 200:
+                            res_data = await response.read()
+                            res_data = res_data.decode('utf-8')
+                            # BSC needs to fetch best node from their public
+                            self.bot.erc_node_list['BSC'] = res_data.replace('"', '')
+                            self.bot.erc_node_list['BNB'] = res_data.replace('"', '')
+                        else:
+                            await logchanbot(f"Can not fetch best node for BSC.")
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
         await asyncio.sleep(10.0)
@@ -724,6 +732,7 @@ class EthScan(commands.Cog):
                         local_height = await store.erc_get_block_number(self.bot.erc_node_list[k])
                         try:
                             if local_height and local_height > 0:
+                                #print("{} new height: {}".format(k, local_height))
                                 await self.utils.async_set_cache_kv(
                                     "block",
                                     f"{self.bot.config['kv_db']['prefix'] + self.bot.config['kv_db']['daemon_height']}{k}",

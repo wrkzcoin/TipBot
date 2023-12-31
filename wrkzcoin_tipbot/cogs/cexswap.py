@@ -5,6 +5,7 @@ from hashlib import sha256
 import json
 import asyncio
 from cachetools import TTLCache
+import math
 
 import disnake
 from disnake.ext import commands, tasks
@@ -1303,7 +1304,11 @@ async def cexswap_sold(
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 liq_rows = []
+                if per_unit_get is None:
+                    per_unit_get = 0
                 for each in liquidators:
+                    if each[0] is None:
+                        continue
                     liq_rows.append((
                         sell_id, pool_id, got_ticker, float(amount_get),
                         each[0], float(each[0])*float(per_unit_get), each[1], each[2], int(time.time())
@@ -1320,6 +1325,8 @@ async def cexswap_sold(
                 liq_rows = []
                 credit_lp = []
                 for each in liquidators:
+                    if each[0] is None:
+                        continue
                     liq_rows.append((
                         got_ticker, contract, "SYSTEM", each[1], guild_id, channel_id,
                         each[0], each[0]*float(per_unit_get), coin_decimal, "CEXSWAPLP", int(time.time()), each[2],
@@ -2005,11 +2012,81 @@ class DropdownViewLP(disnake.ui.View):
         await self.ctx.edit_original_message(view=None)
 # End of DropdownLP Viewer
 
+# Dropdown page
+class DropDownMyPoolPage(disnake.ui.StringSelect):
+    def __init__(
+        self, ctx, bot,
+        list_chunks, list_pairs, total_liq,
+        pool_share, add, remove, gain_lose, list_earnings, embed, active_pair, is_admin: bool=False,
+        selected_page: int=0, total_pages: int=1
+    ):
+        self.ctx = ctx
+        self.bot = bot
+        self.selected_page = selected_page
+        self.total_pages = total_pages
+
+        self.list_chunks = list_chunks
+        self.list_pairs = list_pairs
+        self.total_liq = total_liq
+        self.pool_share = pool_share
+        self.add = add
+        self.remove = remove
+        self.gain_lose = gain_lose
+        self.list_earnings = list_earnings
+        self.embed = embed
+        self.active_pair = active_pair
+        self.utils = Utils(self.bot)
+        self.is_admin = is_admin
+
+        # list_chunks[int(self.page)*4:(int(self.page)+1)*4]
+        if total_pages == 1:
+            options = [
+                disnake.SelectOption(
+                    label="Page {}/{}".format(each + 1, self.total_pages), # label
+                    value=each,
+                    description="Page {}/{}".format(each + 1, self.total_pages),
+                ) for each in range(0, total_pages)
+            ]
+        else:
+            options = [
+                disnake.SelectOption(
+                    label="Page {}/{}".format(each + 1, self.total_pages), # label
+                    value=each,
+                    description="Page {}/{} - {}..".format(each + 1, self.total_pages, self.list_chunks[each*4][0]),
+                ) for each in range(0, total_pages)
+            ]
+
+        super().__init__(
+            placeholder="Go to page ..." if self.selected_page == 0 else "Page {}/{}".format(int(self.selected_page) + 1, self.total_pages),
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
+
+    async def callback(self, inter: disnake.MessageInteraction):
+        if inter.author.id != self.ctx.user.id:
+            await inter.response.defer()
+            return
+        else:
+            view = DropdownViewMyPool(
+                self.ctx, self.bot, self.list_pairs, self.total_liq, self.pool_share,
+                self.add, self.remove, self.gain_lose, self.list_earnings, self.embed, active_pair=self.active_pair,
+                is_admin=self.is_admin, page=self.values[0]
+            )
+            # Create the view containing our dropdown
+            await self.ctx.edit_original_message(
+                content=None,
+                embed=self.embed,
+                view=view
+            )
+            await inter.response.defer()
+
 # Dropdown mypool
 class DropdownMyPool(disnake.ui.StringSelect):
     def __init__(
             self, ctx, bot, list_chunks, list_pairs, total_liq,
-            pool_share, add, remove, gain_lose, list_earnings, embed, active_pair, is_admin: bool=False
+            pool_share, add, remove, gain_lose, list_earnings, embed, active_pair, is_admin: bool=False,
+            page: int=0
     ):
         self.ctx = ctx
         self.bot = bot
@@ -2025,6 +2102,7 @@ class DropdownMyPool(disnake.ui.StringSelect):
         self.active_pair = active_pair
         self.utils = Utils(self.bot)
         self.is_admin = is_admin
+        self.page = page
 
         options = [
             disnake.SelectOption(
@@ -2072,12 +2150,13 @@ class DropdownMyPool(disnake.ui.StringSelect):
                     value=self.pool_share[self.values[0]],
                     inline=False
                 )
-            if self.values[0] in self.gain_lose:
-                embed.add_field(
-                    name="Inc./Decr.",
-                    value="\n".join(self.gain_lose[self.values[0]]),
-                    inline=False
-                )
+            # TODO: fixing value
+            #if self.values[0] in self.gain_lose:
+            #    embed.add_field(
+            #        name="Inc./Decr.",
+            #        value="\n".join(self.gain_lose[self.values[0]]),
+            #        inline=False
+            #    )
             if self.values[0] in self.list_earnings:
                 embed.add_field(
                     name="Earning (LP Distribution Fee)",
@@ -2087,13 +2166,13 @@ class DropdownMyPool(disnake.ui.StringSelect):
                 embed.add_field(
                     name="Note",
                     value="Earning from LP Distribution fee isn't added to the LP. "\
-                        "It always go to you balance from each successful trade. You can check with __/recent cexswaplp <tokenn>__.",
+                        "It always go to you balance from each successful trade. You can check with __/recent cexswaplp <token>__.",
                     inline=False
                 )
             view = DropdownViewMyPool(
                 self.ctx, self.bot, self.list_pairs, self.total_liq, self.pool_share,
                 self.add, self.remove, self.gain_lose, self.list_earnings, embed, active_pair=self.values[0],
-                is_admin=self.is_admin
+                is_admin=self.is_admin, page=self.page
             )
             # Create the view containing our dropdown
             await self.ctx.edit_original_message(
@@ -2106,7 +2185,7 @@ class DropdownMyPool(disnake.ui.StringSelect):
 class DropdownViewMyPool(disnake.ui.View):
     def __init__(
             self, ctx, bot, list_pairs, total_liq, pool_share,
-            add, remove, gain_lose, list_earnings, embed, active_pair: str, is_admin: bool=False
+            add, remove, gain_lose, list_earnings, embed, active_pair: str, is_admin: bool=False, page: int=0
         ):
         super().__init__(timeout=300.0)
         self.ctx = ctx
@@ -2117,18 +2196,37 @@ class DropdownViewMyPool(disnake.ui.View):
         self.gain_lose = gain_lose
         self.list_earnings = list_earnings
         self.is_admin = is_admin
+        self.page = page
 
         # split to small chunks
-        list_chunks = list(chunks(self.list_pairs, 20))
-        for i in list_chunks:
-            self.add_item(DropdownMyPool(
-                self.ctx, self.bot, i, self.list_pairs, total_liq, 
+        list_chunks = list(chunks(self.list_pairs, 25))
+        if len(list_chunks) <= 5:
+            for i in list_chunks:
+                self.add_item(DropdownMyPool(
+                    self.ctx, self.bot, i, self.list_pairs, total_liq, 
+                    pool_share, add, remove, gain_lose, list_earnings, self.embed, self.active_pair,
+                    self.is_admin, page
+                ))
+        else:
+            # big list
+            for i in list_chunks[int(self.page)*4:(int(self.page)+1)*4]:
+                self.add_item(DropdownMyPool(
+                    self.ctx, self.bot, i, self.list_pairs, total_liq, 
+                    pool_share, add, remove, gain_lose, list_earnings, self.embed, self.active_pair,
+                    self.is_admin, page
+                ))
+            # add page navigation
+            num_pages = math.ceil(len(list_chunks) / 4)
+            self.add_item(DropDownMyPoolPage(
+                self.ctx, self.bot,
+                list_chunks, self.list_pairs, total_liq, 
                 pool_share, add, remove, gain_lose, list_earnings, self.embed, self.active_pair,
-                self.is_admin
+                self.is_admin, self.page, num_pages
             ))
 
     async def on_timeout(self):
         await self.ctx.edit_original_message(view=None)
+
 # End of dropdown mypool
 
 class ConfirmSell(disnake.ui.View):
@@ -2549,7 +2647,7 @@ class add_liquidity_btn(disnake.ui.View):
                 type_coin, height, deposit_confirm_depth, SERVER_BOT
             )
             actual_balance = float(userdata_balance['adjust'])
-            if actual_balance <= self.amount_1:
+            if actual_balance < self.amount_1:
                 msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Not sufficient balance. Please get more {coin_name}."
                 await inter.edit_original_message(content=msg)
                 try:
@@ -2598,7 +2696,7 @@ class add_liquidity_btn(disnake.ui.View):
                 type_coin, height, deposit_confirm_depth, SERVER_BOT
             )
             actual_balance = float(userdata_balance['adjust'])
-            if actual_balance <= self.amount_2:
+            if actual_balance < self.amount_2:
                 msg = f"{EMOJI_RED_NO} {inter.author.mention}, ⚠️ Not sufficient balance. Please get more {coin_name}."
                 await inter.edit_original_message(content=msg)
                 try:
@@ -3394,14 +3492,32 @@ class Cexswap(commands.Cog):
                 actual_balance = float(userdata_balance['adjust'])
 
                 # Check if amount is more than liquidity
+                path_trade_msg = ""
                 if truncate(float(amount), 8) > truncate(float(max_swap_sell_cap), 8):
+                    # find other path
+                    # Check if there is other path to trade
+                    find_route = await cexswap_route_trade(sell_token, for_token)
+                    if len(find_route) > 0:
+                        list_paths = []
+                        for i in find_route:
+                            list_paths.append("  ⚆ {} {} ➡️ {} {} ➡️ {} {}".format(
+                                self.utils.get_coin_emoji(sell_token), sell_token,
+                                self.utils.get_coin_emoji(i), i,
+                                self.utils.get_coin_emoji(for_token), for_token
+                            ))
+                        random.shuffle(list_paths)
+                        path_trades = "\n".join(list_paths[:15])
+                        path_trade_msg = f"\n__**Other possible trade(s):**__\n{path_trades}"
+
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount __{sell_amount_old}__"\
                         f" is more than allowable 10% of liquidity __{num_format_coin(max_swap_sell_cap)} {token_display}__." \
                         f"```Current LP: {num_format_coin(liq_pair['pool']['amount_ticker_1'])} "\
                         f"{liq_pair['pool']['ticker_1_name']} and "\
                         f"{num_format_coin(liq_pair['pool']['amount_ticker_2'])} "\
-                        f"{liq_pair['pool']['ticker_2_name']} for LP {liq_pair['pool']['ticker_1_name']}/{liq_pair['pool']['ticker_2_name']}.```"
+                        f"{liq_pair['pool']['ticker_2_name']} for LP {liq_pair['pool']['ticker_1_name']}/{liq_pair['pool']['ticker_2_name']}.```"\
+                        f"{path_trade_msg}"
                     await ctx.edit_original_message(content=msg)
+                    
                     return
 
                 # Check if too big rate gap
@@ -4262,9 +4378,10 @@ class Cexswap(commands.Cog):
                                 percent_2 = " - {:,.2f} {}".format(i['amount_ticker_2']/ i['pool_amount_2']*100, "%")
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
-                            your_pool_share[i['pairs']] = "{} {}{}\n{} {}{}{}".format(
+                            # use only percent_1
+                            your_pool_share[i['pairs']] = "{} {}{}\n{} {}{}".format(
                                     num_format_coin(i['amount_ticker_1']), i['ticker_1_name'], percent_1, 
-                                    num_format_coin(i['amount_ticker_2']), i['ticker_2_name'], percent_2,
+                                    num_format_coin(i['amount_ticker_2']), i['ticker_2_name'],
                                     "\n~{} {}".format(truncate(pair_amount, 2), "USD") if pair_amount > 0 else ""
                                 )
                             your_pool_share_num[i['pairs']] = {
@@ -4380,7 +4497,7 @@ class Cexswap(commands.Cog):
                     # list_pairs can be more than 25 - limit of Discord
                     view = DropdownViewMyPool(
                         ctx, self.bot, list_pairs, total_liq, your_pool_share,
-                        add_dict, remove_dict, gain_lose, list_earnings, embed, active_pair=None, is_admin=False
+                        add_dict, remove_dict, gain_lose, list_earnings, embed, active_pair=None, is_admin=False, page=0
                     )
 
                     await ctx.edit_original_message(
@@ -4537,11 +4654,12 @@ class Cexswap(commands.Cog):
                             percent_2 = " - {:,.2f} {}".format(liq_pair['pool_share']['amount_ticker_1']/ liq_pair['pool']['amount_ticker_1']*100, "%")
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
+                        # Use only percent_1
                         embed.add_field(
-                            name="Your current LP (Share %)",
-                            value="{} {}{}\n{} {}{}{}".format(
-                                num_format_coin(liq_pair['pool_share']['amount_ticker_1']), liq_pair['pool_share']['ticker_1_name'], percent_1, 
-                                num_format_coin(liq_pair['pool_share']['amount_ticker_2']), liq_pair['pool_share']['ticker_2_name'], percent_2,
+                            name="Your current LP (Share {})".format(percent_1),
+                            value="{} {}\n{} {}{}".format(
+                                num_format_coin(liq_pair['pool_share']['amount_ticker_1']), liq_pair['pool_share']['ticker_1_name'], 
+                                num_format_coin(liq_pair['pool_share']['amount_ticker_2']), liq_pair['pool_share']['ticker_2_name'],
                                 "\n~{} {}".format(truncate(pair_amount, 2), "USD") if pair_amount > 0 else ""
                             ),
                             inline=False
@@ -4792,7 +4910,7 @@ class Cexswap(commands.Cog):
                 # list_pairs can be more than 25 - limit of Discord
                 view = DropdownViewMyPool(
                     ctx, self.bot, list_pairs, total_liq, your_pool_share,
-                    add_dict, remove_dict, gain_lose, list_earnings, embed, active_pair=None, is_admin=True
+                    add_dict, remove_dict, gain_lose, list_earnings, embed, active_pair=None, is_admin=True, page=0
                 )
 
                 await ctx.edit_original_message(

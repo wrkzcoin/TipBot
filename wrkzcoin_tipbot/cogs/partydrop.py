@@ -174,6 +174,11 @@ class PartyDrop(commands.Cog):
                                 inline=True
                             )
                             try:
+                                # check Bot uptime
+                                uptime = round((datetime.now() - self.bot.start_time).total_seconds())
+                                if uptime + 300 >= int(time.time()):
+                                    # skipped. Bot just re-connected
+                                    continue
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 if channel is None:
                                     await logchanbot("party_check: can not find channel ID: {} for drop ID: {}".format(
@@ -285,6 +290,11 @@ class PartyDrop(commands.Cog):
                             try:
                                 channel = self.bot.get_channel(int(get_message['channel_id']))
                                 if channel is None:
+                                    # check Bot uptime
+                                    uptime = round((datetime.now() - self.bot.start_time).total_seconds())
+                                    if uptime + 300 >= int(time.time()):
+                                        # skipped. Bot just re-connected
+                                        continue
                                     await logchanbot("party_check: can not find channel ID: {} for drop ID: {}".format(
                                         each_party['channel_id'], each_party['message_id']
                                     ))
@@ -663,7 +673,9 @@ class PartyDrop(commands.Cog):
                 OptionChoice("4h", "14400"),
                 OptionChoice("12h", "43200"),
                 OptionChoice("1d", "86400"),
-                OptionChoice("2d", "172800")
+                OptionChoice("2d", "172800"),
+                OptionChoice("3d", "259200"),
+                OptionChoice("7d", "604800")
             ]),
         ],
         description="Create party drop and other people join."

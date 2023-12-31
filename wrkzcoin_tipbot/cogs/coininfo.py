@@ -111,6 +111,9 @@ class Coininfo(commands.Cog):
                     response_text += "Contract:\n   {}\n".format(contract)
                 elif contract and len(contract) > 4:
                     response_text += "Contract/Token ID:\n   {}\n".format(contract)
+            deposit_note = getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")
+            if deposit_note:
+                response_text += "🗒️ Deposit note:\n   {}\n".format(deposit_note)
             price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
             if price_with:
                 per_unit = await self.utils.get_coin_price(coin_name, price_with)

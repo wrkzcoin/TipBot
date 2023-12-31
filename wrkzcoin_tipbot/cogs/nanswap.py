@@ -866,7 +866,7 @@ class Nanswap(commands.Cog):
                                         await log_to_channel(
                                             "nanswap",
                                             f"[NANSWAP] User {ctx.author.mention} successfully created an order "\
-                                            f"{num_format_coin(amount)} {sell_token} to {for_token}!",
+                                            f"{num_format_coin(amount)} {sell_token} to {for_token}. Nanswap ID: {trade['id']}!",
                                             self.bot.config['discord']['nanswap']
                                         )
                                 elif sell_coin_family == "ERC-20":

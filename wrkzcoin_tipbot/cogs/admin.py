@@ -55,6 +55,12 @@ class Admin(commands.Cog):
         self.local_db_extra = None
         self.pool_local_db_extra = None
         self.old_message_data_age = 60 * 24 * 3600  # max. 2 month
+        self.enable_logchan = True
+        self.botLogChan = None
+
+    async def bot_log(self):
+        if self.botLogChan is None:
+            self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
 
     async def openConnection_extra(self):
         if self.local_db_extra is None:
@@ -1033,9 +1039,12 @@ class Admin(commands.Cog):
                 chain_id = getattr(getattr(self.bot.coin_list, coin_name), "chain_id")
                 start_time = time.time()
                 if type_coin == "ERC-20":
+                    endpoint = self.bot.erc_node_list[net_name]
+                    if self.bot.erc_node_list.get(net_name + "_WITHDRAW"):
+                        endpoint = self.bot.erc_node_list[net_name + "_WITHDRAW"]
                     check_min_deposit = functools.partial(
                         sql_check_minimum_deposit_erc20,
-                        self.bot.erc_node_list[net_name],
+                        endpoint,
                         net_name, coin_name,
                         contract, coin_decimal,
                         min_move_deposit, min_gas_tx,
@@ -1326,7 +1335,7 @@ class Admin(commands.Cog):
                                                       DELETE FROM `ada_wallets` WHERE `wallet_id`=%s LIMIT 1 """
                                             await cur.execute(sql, (wallet_id, wallet_id))
                                             await conn.commit()
-                                            msg = f"{ctx.author.mention}, sucessfully delete wallet `{wallet_name}` | `{wallet_id}`."
+                                            msg = f"{ctx.author.mention}, successfully delete wallet `{wallet_name}` | `{wallet_id}`."
                                             await ctx.reply(msg)
                                             return
                                 except Exception:
@@ -1783,6 +1792,14 @@ class Admin(commands.Cog):
                 list_users = [m.id for m in self.bot.get_all_members()]
                 list_guilds = [g.id for g in self.bot.guilds]
                 already_checked = []
+                # find LP
+                find_other_lp = await self.wallet_api.cexswap_get_all_poolshares(user_id=None, ticker=coin_name)
+                total_pool_coin = 0
+                for i in find_other_lp:
+                    if i['ticker_1_name'] == coin_name:
+                        total_pool_coin += i['amount_ticker_1']
+                    elif i['ticker_2_name'] == coin_name:
+                        total_pool_coin += i['amount_ticker_2']
                 if len(all_user_id) > 0:
                     msg = f"{ctx.author.mention}, {EMOJI_INFORMATION} **{coin_name}** there are "\
                         f"total {str(len(all_user_id))} user records. Wait a big while..."
@@ -1872,7 +1889,9 @@ class Admin(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
                     msg_checkcoin += wallet_stat_str + "\n"
                     msg_checkcoin += "Total record id in DB: " + str(sum_user) + "\n"
-                    msg_checkcoin += "Total balance: " + num_format_coin(sum_balance) + " " + coin_name + "\n"
+                    msg_checkcoin += "Total usable balance: " + num_format_coin(sum_balance) + " " + coin_name + "\n"
+                    msg_checkcoin += "Locked in LP: " + num_format_coin(total_pool_coin) + " " + coin_name + "\n"
+                    msg_checkcoin += "Total balance: " + num_format_coin(sum_balance + float(total_pool_coin)) + " " + coin_name + "\n"
                     msg_checkcoin += "Total user/guild not found (discord): " + str(sum_unfound_user) + "\n"
                     msg_checkcoin += "Total balance not found (discord): " + num_format_coin(
                         sum_unfound_balance) + " " + coin_name + "\n"
@@ -2533,7 +2552,53 @@ class Admin(commands.Cog):
             coin_list_name = await self.get_coin_list_name()
             if coin_list_name:
                 self.bot.coin_name_list = coin_list_name
-    
+
+    @commands.is_owner()
+    @admin.command(
+        hidden=True,
+        usage="featurerole <guild id>",
+        description="Enable/Disable feature role of a guild"
+    )
+    async def featurerole(self, ctx, guild_id: str):
+        try:
+            await self.bot_log()
+            serverinfo = self.bot.other_data['guild_list'].get(guild_id)
+            if serverinfo is None:
+                await ctx.reply(f"{ctx.author.mention}, guild ID {guild_id} is not in the database.")
+                return
+            else:
+                get_guild = self.bot.get_guild(int(guild_id))
+                if get_guild is None:
+                    await ctx.reply(f"{ctx.author.mention}, Bot can't get guild info for guild ID {guild_id}.")
+                    return
+
+            if serverinfo and serverinfo['enable_featurerole'] == 1:
+                await store.sql_changeinfo_by_server(guild_id, 'enable_featurerole', 0)
+                if self.enable_logchan:
+                    await self.botLogChan.send(
+                        f"{ctx.author.name} / {ctx.author.id} DISABLE featurerole in guild {get_guild.name} / {get_guild.id}."
+                    )
+                await ctx.reply(f"{ctx.author.mention}, successfully disable featurerole in {get_guild.name} / {get_guild.id}.")
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                return
+            elif serverinfo and serverinfo['enable_featurerole'] == 0:
+                await store.sql_changeinfo_by_server(guild_id, 'enable_featurerole', 1)
+                if self.enable_logchan:
+                    await self.botLogChan.send(
+                        f"{ctx.author.name} / {ctx.author.id} ENABLE featurerole in guild {get_guild.name} / {get_guild.id}"
+                    )
+                await ctx.reply(f"{ctx.author.mention}, successfully enable featurerole in {get_guild.name} / {get_guild.id}.")
+                # re-load guild list
+                await self.utils.bot_reload_guilds()
+                return
+            else:
+                await ctx.reply(f"{ctx.author.mention}, internal error.")
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        await ctx.reply(f"{ctx.author.mention}, internal error.")
+
     @commands.is_owner()
     @admin.command(
         hidden=True,

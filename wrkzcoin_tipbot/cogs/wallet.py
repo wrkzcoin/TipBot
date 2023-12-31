@@ -76,7 +76,7 @@ from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SE
     seconds_str_days, log_to_channel
 
 from cogs.utils import MenuPage
-from cogs.utils import Utils, num_format_coin, chunks
+from cogs.utils import Utils, num_format_coin, chunks, http_wallet_getbalance, erc20_transfer_token_to_operator
 from cogs.utils import print_color
 
 Account.enable_unaudited_hdwallet_features()
@@ -89,7 +89,7 @@ async def erc20_approve_spender(
     operator_address: str
 ):
     try:
-        w3 = Web3(Web3.HTTPProvider(url))
+        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 300}))
 
         # inject the poa compatibility middleware to the innermost layer
         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -126,7 +126,7 @@ async def sql_check_minimum_deposit_erc20(
     global pool
     async def send_gas(url: str, chainId: str, to_address: str, move_gas_amount: float, min_gas_tx: float):
         # HTTPProvider:
-        w3 = Web3(Web3.HTTPProvider(url))
+        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 600}))
 
         # inject the poa compatibility middleware to the innermost layer
         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -170,7 +170,7 @@ async def sql_check_minimum_deposit_erc20(
             return tx_receipt.transactionHash.hex() # hash Tx
 
     token_name = coin.upper()
-    if net_name == token_name:
+    if net_name.upper() == token_name.upper():
         list_user_addresses = await store.sql_get_all_erc_user(net_name, time_lap)
     else:
         list_user_addresses = await store.sql_get_all_erc_user("ERC-20", time_lap)
@@ -183,7 +183,7 @@ async def sql_check_minimum_deposit_erc20(
         if len(list_user_addresses) > 0:
             # OK check them one by one, gas token is **18
             for each_address in list_user_addresses:
-                deposited_balance = await store.http_wallet_getbalance(
+                deposited_balance = await http_wallet_getbalance(
                     url, each_address['balance_wallet_address'], None, 64
                 )
                 if deposited_balance is None:
@@ -199,7 +199,7 @@ async def sql_check_minimum_deposit_erc20(
                 else:
                     balance_above_min += 1
                     try:
-                        w3 = Web3(Web3.HTTPProvider(url))
+                        w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 600}))
 
                         # inject the poa compatibility middleware to the innermost layer
                         # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -291,7 +291,7 @@ async def sql_check_minimum_deposit_erc20(
     else:
         # ERC-20
         # get withdraw gas balance    
-        gas_main_balance = await store.http_wallet_getbalance(url, config['eth']['MainAddress'], None, 64)
+        gas_main_balance = await http_wallet_getbalance(url, config['eth']['MainAddress'], None, 64)
 
         # main balance has gas?
         main_balance_gas_sufficient = True
@@ -303,7 +303,7 @@ async def sql_check_minimum_deposit_erc20(
 
         if list_user_addresses and len(list_user_addresses) > 0:
             # OK check them one by one
-            # print("{} addresses for updating balance".format(len(list_user_addresses)))
+            # print("{} / {} addresses for updating balance".format(token_name, len(list_user_addresses)))
             if main_balance_gas_sufficient is False:
                 await logchanbot("Main address not having enough gas! net_name {}, main address: {}".format(
                     net_name, config['eth']['MainAddress']
@@ -312,7 +312,7 @@ async def sql_check_minimum_deposit_erc20(
                 return
 
             for each_address in list_user_addresses:
-                deposited_balance = await store.http_wallet_getbalance(
+                deposited_balance = await http_wallet_getbalance(
                     url, each_address['balance_wallet_address'], contract, 64
                 )
                 if deposited_balance is None:
@@ -321,7 +321,7 @@ async def sql_check_minimum_deposit_erc20(
                 if real_deposited_balance >= min_move_deposit:
                     print("{}/{} - {} having {}.".format(token_name, net_name, each_address['balance_wallet_address'], real_deposited_balance))
                     # Check if there is gas remaining to spend there
-                    gas_of_address = await store.http_wallet_getbalance(
+                    gas_of_address = await http_wallet_getbalance(
                         url, each_address['balance_wallet_address'], None, 64
                     )
                     if erc20_approve_spend == 1:
@@ -380,7 +380,7 @@ async def sql_check_minimum_deposit_erc20(
                         else:
                             # Transfer
                             if main_balance_gas_sufficient:
-                                transaction = await store.erc20_transfer_token_to_operator(
+                                transaction = await erc20_transfer_token_to_operator(
                                     url, int(chainId, 16), contract, 
                                     each_address['balance_wallet_address'],
                                     config['eth']['MainAddress'], config['eth']['MainAddress_seed'], 
@@ -413,7 +413,7 @@ async def sql_check_minimum_deposit_erc20(
                                 each_address['balance_wallet_address'], gas_ticker, gas_of_address / 10 ** 18))
                             # TODO: Let's move balance from there to withdraw address and save Tx
                             # HTTPProvider:
-                            w3 = Web3(Web3.HTTPProvider(url))
+                            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 600}))
 
                             # inject the poa compatibility middleware to the innermost layer
                             w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -1201,6 +1201,7 @@ class SingleBalanceMenu(disnake.ui.View):
         owner_id: int,
         embed,
         coin_name,
+        locked_balance_list,
         is_fav: bool=False
     ):
         super().__init__(timeout=120.0)
@@ -1211,12 +1212,18 @@ class SingleBalanceMenu(disnake.ui.View):
         self.owner_id = owner_id
         self.embed = embed
         self.coin_name = coin_name
+        self.locked_balance_list = locked_balance_list
         if is_fav is True:
             self.btn_balance_single_add_fav.disabled = True
             self.btn_balance_single_remove_fav.disabled = False
         else:
             self.btn_balance_single_add_fav.disabled = False
             self.btn_balance_single_remove_fav.disabled = True
+
+        if len(self.locked_balance_list) == 0:
+            self.btn_locked_balance_list.disabled = True
+        else:
+            self.btn_locked_balance_list.disabled = False
 
     async def on_timeout(self):
         await self.ctx.edit_original_message(
@@ -1243,7 +1250,7 @@ class SingleBalanceMenu(disnake.ui.View):
             adding = await self.utils.fav_coin_add(str(inter.author.id), SERVER_BOT, self.coin_name)
             if adding is True:
                 await inter.delete_original_message()
-                view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=True)
+                view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, self.locked_balance_list, is_fav=True)
                 await self.ctx.edit_original_message(view=view)
 
     @disnake.ui.button(label="Remove", emoji="💙", style=ButtonStyle.grey, custom_id="balance_single_remove_fav")
@@ -1259,7 +1266,7 @@ class SingleBalanceMenu(disnake.ui.View):
             removing = await self.utils.fav_coin_remove(str(inter.author.id), SERVER_BOT, self.coin_name)
             if removing is True:
                 await inter.delete_original_message()
-                view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, is_fav=False)
+                view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, self.locked_balance_list, is_fav=False)
                 await self.ctx.edit_original_message(view=view)
 
     @disnake.ui.button(label="Deposit", emoji="↪️", style=ButtonStyle.grey, custom_id="balance_single_deposit")
@@ -1288,6 +1295,34 @@ class SingleBalanceMenu(disnake.ui.View):
             # delete and show other menu
             await inter.response.send_message(f"{inter.author.mention}, loading all your balance ...", ephemeral=True)
             await self.wallet.async_balances(self.ctx)
+            await inter.delete_original_message()
+
+    @disnake.ui.button(label="Locked balance", emoji="🔒", style=ButtonStyle.grey, custom_id="balance_single_locked")
+    async def btn_locked_balance_list(
+        self, button: disnake.ui.Button,
+        inter: disnake.MessageInteraction
+    ):
+        if inter.author.id != self.owner_id:
+            await inter.response.send_message(f"{inter.author.mention}, that is not your menu!", delete_after=3.0)
+            return
+        else:
+            # delete and show other menu
+            embed = self.embed.copy()
+            embed.clear_fields()
+            locked_text = "\n".join(self.locked_balance_list)
+            amount = 0
+            for i in self.locked_balance_list:
+                amount += float(i.split(":")[1].strip().replace(",", ""))
+            locked_text += "\n\n" + "Total locked ({}) pair(s): {} {}".format(len(self.locked_balance_list), num_format_coin(amount), self.coin_name)
+            embed.description = locked_text
+            embed.title = "Amount {} locked in CEXSwap".format(self.coin_name)
+            await inter.response.send_message(f"{inter.author.mention}, checking locked balance ...", ephemeral=True)
+            view = SingleBalanceMenu(self.bot, self.ctx, self.owner_id, self.embed, self.coin_name, self.locked_balance_list, is_fav=True)
+            await self.ctx.edit_original_message(content=None, embed=embed, view=view)
+            self.remove_item(self.btn_locked_balance_list)
+            self.remove_item(self.btn_balance_single_add_fav)
+            self.remove_item(self.btn_balance_single_remove_fav)
+            await self.ctx.edit_original_message(content=None, embed=embed, view=self)
             await inter.delete_original_message()
 
     @disnake.ui.button(label="Support", emoji="🏢", style=ButtonStyle.link, url="https://discord.com/invite/GpHzURM")
@@ -1554,7 +1589,7 @@ class WalletAPI(commands.Cog):
         contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
         if type_coin == "ERC-20":
-            main_balance = await store.http_wallet_getbalance(
+            main_balance = await http_wallet_getbalance(
                 self.bot.erc_node_list[net_name], self.bot.config['eth']['MainAddress'], contract, 16
             )
             balance = float(main_balance / 10 ** coin_decimal)
@@ -1725,13 +1760,13 @@ class WalletAPI(commands.Cog):
             proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
             if coin_name == "XTZ":
                 check_balance = await self.utils.tezos_check_balance(
-                    proxy, self.bot.erc_node_list['XTZ'], key, 30
+                    proxy, self.bot.erc_node_list['XTZ'], key, 60
                 )
                 balance = check_balance['result']['balance']
             else:
                 token_id = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
                 token_balances = await self.utils.tezos_check_a_token_balance(
-                    proxy, self.bot.erc_node_list['XTZ'], contract, [main_address], int(token_id), 30
+                    proxy, self.bot.erc_node_list['XTZ'], contract, [main_address], int(token_id), 60
                 )
                 if token_balances is not None:
                     balance = token_balances[main_address] / 10 ** coin_decimal
@@ -1740,7 +1775,7 @@ class WalletAPI(commands.Cog):
             token_contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
             coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
             if coin_name == "NEAR":
-                get_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], main_address, 32)
+                get_balance = await near_check_balance(self.bot.erc_node_list['NEAR'], main_address, 60)
                 balance = int(get_balance['amount']) / 10 ** coin_decimal
             else:
                 get_balance = await near_check_balance_token(
@@ -1954,7 +1989,7 @@ class WalletAPI(commands.Cog):
                     # moving tip + / -
                     sql = """
                             SELECT 
-                            (SELECT IFNULL((SELECT `balance`  
+                            (SELECT IFNULL((SELECT (`balance`-`withdrew`+`deposited`)  
                             FROM `user_balance_mv_data` 
                             WHERE `user_id`=%s AND `token_name`=%s AND `user_server`=%s LIMIT 1), 0))
 
@@ -2004,366 +2039,6 @@ class WalletAPI(commands.Cog):
                                    user_id, token_name, "ONGOING",
                                    user_id, token_name, "ONGOING",
                                    user_id, token_name, "ONGOING"]
-                    if coin_family in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                        sql += """
-                            - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
-                            FROM `cn_external_tx` 
-                            WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s), 0))
-                            """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        if top_block is None:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount) FROM `cn_get_transfers` WHERE `payment_id`=%s AND `coin_name`=%s 
-                            AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address, token_name, int(time.time()) - nos_block, user_server]
-                        else:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount) FROM `cn_get_transfers` 
-                            WHERE `payment_id`=%s AND `coin_name`=%s 
-                            AND `amount`>0 AND `height`< %s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address, token_name, top_block, user_server]
-                    elif coin_family == "BTC":
-                        sql += """
-                            - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
-                            FROM `doge_external_tx` 
-                            WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s), 0))
-                            """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        if token_name not in ["PGO"]:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(`amount`) 
-                            FROM `doge_get_transfers` 
-                            WHERE `user_id`=%s AND `coin_name`=%s 
-                            AND (`category` = %s or `category` = %s) 
-                            AND `confirmations`>=%s AND `amount`>0), 0))
-                            """
-                            query_param += [user_id, token_name, 'receive', 'generate', confirmed_depth]
-                        else:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount)  
-                            FROM `doge_get_transfers` 
-                            WHERE `user_id`=%s AND `coin_name`=%s AND `category` = %s 
-                            AND `confirmations`>=%s AND `amount`>0), 0))
-                            """
-                            query_param += [user_id, token_name, 'receive', confirmed_depth]
-                    elif coin_family == "NEO":
-                        sql += """
-                            - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
-                            FROM `neo_external_tx` 
-                            WHERE `user_id`=%s AND `coin_name`=%s 
-                            AND `user_server`=%s AND `crediting`=%s), 0))
-                               """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        if top_block is None:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(`amount`)  
-                            FROM `neo_get_transfers` 
-                            WHERE `user_id`=%s 
-                            AND `coin_name`=%s AND `category` = %s 
-                            AND `time_insert`<=%s AND `amount`>0), 0))
-                                   """
-                            query_param += [user_id, token_name, 'received', int(time.time()) - nos_block]
-                        else:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(`amount`)  
-                            FROM `neo_get_transfers` 
-                            WHERE `user_id`=%s 
-                            AND `coin_name`=%s AND `category` = %s 
-                            AND `confirmations`<=%s AND `amount`>0), 0))
-                                   """
-                            query_param += [user_id, token_name, 'received', nos_block]
-                    elif coin_family == "NEAR":
-                        sql += """
-                            - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
-                            FROM `near_external_tx` 
-                            WHERE `user_id`=%s AND `token_name`=%s 
-                            AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        if top_block is None:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount-real_deposit_fee) 
-                            FROM `near_move_deposit` 
-                            WHERE `balance_wallet_address`=%s 
-                            AND `user_id`=%s AND `token_name`=%s 
-                            AND `time_insert`<=%s AND `amount`>0), 0))
-                            """
-                            query_param += [address, user_id, token_name, int(time.time()) - nos_block]
-                        else:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount-real_deposit_fee)  
-                            FROM `near_move_deposit` 
-                            WHERE `balance_wallet_address`=%s 
-                            AND `user_id`=%s AND `token_name`=%s 
-                            AND `confirmations`<=%s AND `amount`>0), 0))
-                            """
-                            query_param += [address, user_id, token_name, nos_block]
-                    elif coin_family == "NANO":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(`amount`)  
-                        FROM `nano_external_tx` 
-                        WHERE `user_id`=%s AND `coin_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-
-                        sql += """
-                        + (SELECT IFNULL((SELECT SUM(amount)  
-                        FROM `nano_move_deposit` WHERE `user_id`=%s 
-                        AND `coin_name`=%s 
-                        AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, int(time.time()) - confirmed_inserted, user_server]
-                    elif coin_family == "CHIA":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
-                        FROM `xch_external_tx` 
-                        WHERE `user_id`=%s AND `coin_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-
-                        if top_block is None:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(`amount`)  
-                            FROM `xch_get_transfers` 
-                            WHERE `address`=%s AND `coin_name`=%s AND `amount`>0 
-                            AND `time_insert`< %s), 0))
-                            """
-                            query_param += [address, token_name, int(time.time()) - nos_block]
-                        else:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(`amount`)  
-                            FROM `xch_get_transfers` 
-                            WHERE `address`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s), 0))
-                            """
-                            query_param += [address, token_name, top_block]
-                    elif coin_family == "ERC-20":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
-                        FROM `erc20_external_tx` 
-                        WHERE `user_id`=%s AND `token_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        
-                        sql += """
-                        + (SELECT IFNULL((SELECT SUM(real_amount-real_deposit_fee)  
-                        FROM `erc20_move_deposit` 
-                        WHERE `user_id`=%s AND `token_name`=%s 
-                        AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, confirmed_depth, user_server, "CONFIRMED"]
-                    elif coin_family == "XTZ":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
-                        FROM `tezos_external_tx` 
-                        WHERE `user_id`=%s AND `token_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        
-                        sql += """
-                        + (SELECT IFNULL((SELECT SUM(real_amount-real_deposit_fee)  
-                        FROM `tezos_move_deposit` 
-                        WHERE `user_id`=%s AND `token_name`=%s 
-                        AND `confirmed_depth`> %s AND `user_server`=%s 
-                        AND `status`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, 0, user_server, "CONFIRMED"]
-                    elif coin_family == "ZIL":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
-                        FROM `zil_external_tx` 
-                        WHERE `user_id`=%s AND `token_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        
-                        sql += """
-                        + (SELECT IFNULL((SELECT SUM(real_amount-real_deposit_fee)  
-                        FROM `zil_move_deposit` 
-                        WHERE `user_id`=%s AND `token_name`=%s 
-                        AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, 0, user_server, "CONFIRMED"]
-                    elif coin_family == "VET":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
-                        FROM `vet_external_tx` 
-                        WHERE `user_id`=%s AND `token_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        
-                        sql += """
-                        + (SELECT IFNULL((SELECT SUM(real_amount-real_deposit_fee)  
-                        FROM `vet_move_deposit` 
-                        WHERE `user_id`=%s AND `token_name`=%s 
-                        AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, 0, user_server, "CONFIRMED"]
-                    elif coin_family == "VITE":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
-                        FROM `vite_external_tx` 
-                        WHERE `user_id`=%s AND `coin_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        
-                        address_memo = address.split()
-                        if top_block is None:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount)  
-                                      FROM `vite_get_transfers` 
-                                      WHERE `address`=%s AND `memo`=%s 
-                                      AND `coin_name`=%s AND `amount`>0 
-                                      AND `time_insert`< %s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
-                        else:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount)  
-                            FROM `vite_get_transfers` 
-                            WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
-                            AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
-                    elif coin_family == "TRC-20":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
-                        FROM `trc20_external_tx` 
-                        WHERE `user_id`=%s AND `token_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s AND `sucess`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES", 1]
-                        
-                        sql += """
-                        + (SELECT IFNULL((SELECT SUM(real_amount-real_deposit_fee)  
-                        FROM `trc20_move_deposit` 
-                        WHERE `user_id`=%s AND `token_name`=%s 
-                        AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, confirmed_depth, user_server, "CONFIRMED"]
-                    elif coin_family == "XRP":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(amount+tx_fee)  
-                        FROM `xrp_external_tx` 
-                        WHERE `user_id`=%s AND `coin_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        
-                        if top_block is None:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount)  
-                            FROM `xrp_get_transfers` 
-                            WHERE `destination_tag`=%s AND `coin_name`=%s 
-                            AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address, token_name, int(time.time()) - nos_block, user_server]
-                        else:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount)  
-                            FROM `xrp_get_transfers` 
-                            WHERE `destination_tag`=%s AND `coin_name`=%s AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address, token_name, top_block, user_server]
-                    elif coin_family == "XLM":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
-                        FROM `xlm_external_tx` 
-                        WHERE `user_id`=%s AND `coin_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        
-                        address_memo = address.split()
-                        if top_block is None:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount)  
-                                      FROM `xlm_get_transfers` 
-                                      WHERE `address`=%s AND `memo`=%s 
-                                      AND `coin_name`=%s AND `amount`>0 
-                                      AND `time_insert`< %s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
-                        else:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount)  
-                            FROM `xlm_get_transfers` 
-                            WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
-                            AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
-                    elif coin_family == "COSMOS":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(amount+withdraw_fee)  
-                        FROM `cosmos_external_tx` 
-                        WHERE `user_id`=%s AND `coin_name`=%s 
-                        AND `user_server`=%s AND `crediting`=%s AND `success`=1), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        
-                        address_memo = address.split()
-                        if top_block is None:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount)  
-                                      FROM `cosmos_get_transfers` 
-                                      WHERE `address`=%s AND `memo`=%s 
-                                      AND `coin_name`=%s AND `amount`>0 
-                                      AND `time_insert`< %s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address_memo[0], address_memo[2], token_name, int(time.time()) - nos_block, user_server]
-                        else:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount)  
-                            FROM `cosmos_get_transfers` 
-                            WHERE `address`=%s AND `memo`=%s AND `coin_name`=%s 
-                            AND `amount`>0 AND `height`<%s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address_memo[0], address_memo[2], token_name, top_block, user_server]
-                    elif coin_family == "ADA":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
-                        FROM `ada_external_tx` 
-                        WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        if top_block is None:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount) 
-                            FROM `ada_get_transfers` WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
-                            AND `amount`>0 AND `time_insert`< %s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address, "incoming", token_name, int(time.time()) - nos_block, user_server]
-
-                        else:
-                            sql += """
-                            + (SELECT IFNULL((SELECT SUM(amount) 
-                            FROM `ada_get_transfers` 
-                            WHERE `output_address`=%s AND `direction`=%s AND `coin_name`=%s 
-                            AND `amount`>0 AND `inserted_at_height`<%s AND `user_server`=%s), 0))
-                            """
-                            query_param += [address, "incoming", token_name, top_block, user_server]
-                    elif coin_family == "SOL" or coin_family == "SPL":
-                        sql += """
-                        - (SELECT IFNULL((SELECT SUM(real_amount+real_external_fee)  
-                        FROM `sol_external_tx` 
-                        WHERE `user_id`=%s AND `coin_name`=%s AND `user_server`=%s AND `crediting`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, user_server, "YES"]
-                        
-                        sql += """
-                        + (SELECT IFNULL((SELECT SUM(real_amount-real_deposit_fee)  
-                        FROM `sol_move_deposit` 
-                        WHERE `user_id`=%s AND `token_name`=%s 
-                        AND `confirmed_depth`> %s AND `user_server`=%s AND `status`=%s), 0))
-                        """
-                        query_param += [user_id, token_name, confirmed_depth, user_server, "CONFIRMED"]
                     sql += """ AS mv_balance"""
                     await cur.execute(sql, tuple(query_param))
                     result = await cur.fetchone()
@@ -2892,7 +2567,7 @@ class WalletAPI(commands.Cog):
         self, user_id, coin: str, netname: str, type_coin: str,
         user_server: str = 'DISCORD', chat_id: int = 0
     ):
-        # netname null or None, xDai, MATIC, TRX, BSC
+        # netname null or None, xDai, MATIC, TRX, BNB
         user_server = user_server.upper()
         coin_name = coin.upper()
         if type_coin.upper() == "ZIL" and coin_name != netname.upper():
@@ -3159,7 +2834,7 @@ class WalletAPI(commands.Cog):
     ):
         try:
             # HTTPProvider:
-            w3 = Web3(Web3.HTTPProvider(url))
+            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 300}))
             signed_txn = None
             sent_tx = None
             if contract is None:
@@ -4376,7 +4051,8 @@ class WalletAPI(commands.Cog):
             hash_tx = None
             if coin.upper() == "SOL":
                 send_tx = await self.utils.solana_send_tx(
-                    proxy + "/send_transaction", url, self.bot.config['sol']['MainAddress_key_hex'],
+                    proxy + "/send_transaction", url, self.bot.config['sol']['MainAddress'],
+                    self.bot.config['sol']['MainAddress_key_hex'],
                     to_address, int(amount * 10 ** coin_decimal), timeout=60
                 )
                 hash_tx = send_tx.get("hash")
@@ -4488,7 +4164,7 @@ class WalletAPI(commands.Cog):
     ):
         try:
             send_tx = await self.utils.tezos_send(
-                proxy, url, key, to_address, int(amount*10**coin_decimal), 30
+                proxy, url, key, to_address, int(amount*10**coin_decimal), 120
             )
             if send_tx:
                 await self.openConnection()
@@ -6124,7 +5800,7 @@ class Wallet(commands.Cog):
                                                     try:
                                                         await log_to_channel(
                                                             "withdraw", 
-                                                            f"[{user_server}] User {tw_user} sucessfully withdrew "\
+                                                            f"[{user_server}] User {tw_user} successfully withdrew "\
                                                             f"{num_format_coin(amount)} "\
                                                             f"{token_display}{equivalent_usd}"
                                                         )
@@ -6153,7 +5829,7 @@ class Wallet(commands.Cog):
                                                     await update_bot_response(each_msg['text'], response, each_msg['id'])
                                                     await log_to_channel(
                                                         "withdraw",
-                                                        f"[{user_server}] User {tw_user} sucessfully withdrew "\
+                                                        f"[{user_server}] User {tw_user} successfully withdrew "\
                                                         f"{num_format_coin(amount)} "\
                                                         f"{token_display}{equivalent_usd}"
                                                     )
@@ -7132,9 +6808,27 @@ class Wallet(commands.Cog):
                             decoded_data = json.loads(res_data)
                             if len(decoded_data) > 0:
                                 return decoded_data
-                        else:
+                        elif response.status == 503 or response.status == 400:
                             print(url)
                             print("update_balance_cosmos return status: {}".format(response.status))
+                            print("update_balance_cosmos: re-try with order_by 2")
+                            url = endpoint + "?pagination.limit=50&events=coin_received.receiver={}&order_by=2".format("%27" + account_addr + "%27")
+                            async with aiohttp.ClientSession() as session:
+                                async with session.get(
+                                    url,
+                                    headers=headers, timeout=60
+                                ) as response:
+                                    if response.status == 200:
+                                        res_data = await response.read()
+                                        res_data = res_data.decode('utf-8')
+                                        decoded_data = json.loads(res_data)
+                                        if len(decoded_data) > 0:
+                                            return decoded_data
+                                    else:
+                                        print(url)
+                                        print("[RE-TRY] update_balance_cosmos return status: {}".format(response.status))
+                        else:
+                            print("update_balance_cosmos {} URL return: ".format(url, response.status))
             except asyncio.exceptions.TimeoutError:
                 print("update_balance_cosmos timeout for {}".format(url))
             except Exception:
@@ -7164,6 +6858,7 @@ class Wallet(commands.Cog):
             if not rpchost.endswith("/"):
                 rpchost += "/"
             net_height = await cosmos_get_height(rpchost + "block", timeout)
+            # print("{}, height {}".format(coin_name, net_height))
             if net_height is None:
                 print("cosmos cosmos_get_height: {} = None".format(coin_name))
                 return
@@ -7571,6 +7266,10 @@ class Wallet(commands.Cog):
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
 
+        if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1 or getattr(
+                getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
+            return
+
         await asyncio.sleep(time_lap)
         # update Height
         height = None
@@ -7630,12 +7329,13 @@ class Wallet(commands.Cog):
                                         moving = await self.utils.solana_send_tx(
                                             proxy + "/send_transaction",
                                             self.bot.erc_node_list['SOL_WITHDRAW'],
+                                            each_addr['balance_wallet_address'],
                                             decrypt_string(each_addr['secret_key_hex']),
                                             self.bot.config['sol']['MainAddress'],
                                             remaining,
                                             timeout=60
                                         )
-                                        if moving.get('hash') and moving['hash']:
+                                        if moving.get('hash') and moving['hash'] is not None and str(moving['hash']) != "None":
                                             numb_update += 1
                                             await self.openConnection()
                                             async with self.pool.acquire() as conn:
@@ -7659,14 +7359,16 @@ class Wallet(commands.Cog):
                                             await self.utils.solana_reset_balance_cache(
                                                 proxy + "/reset_cache/" + each_addr['balance_wallet_address'], 30
                                             )
+                                        else:
+                                            print("SOL got txn None: {}".format(moving))
 
                                 # Check all SOL
                                 proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_solana'])
                                 for each_coin in self.bot.coin_name_list:
                                     try:
+                                        type_coin = getattr(getattr(self.bot.coin_list, each_coin), "type")
                                         if type_coin != "SPL":
                                             continue
-                                        type_coin = getattr(getattr(self.bot.coin_list, each_coin), "type")
                                         real_min_deposit = getattr(getattr(self.bot.coin_list, each_coin), "real_min_deposit")
                                         coin_decimal = getattr(getattr(self.bot.coin_list, each_coin), "decimal")
                                         tx_fee = getattr(getattr(self.bot.coin_list, each_coin), "tx_fee")
@@ -7706,7 +7408,7 @@ class Wallet(commands.Cog):
                                                     self.bot.config['sol']['MainAddress_key_hex'], # fee payer
                                                     timeout=60
                                                 )
-                                                if moving.get('result'):
+                                                if moving.get('result') and moving['result'] is not None:
                                                     numb_update += 1
                                                     await self.openConnection()
                                                     async with self.pool.acquire() as conn:
@@ -7752,6 +7454,10 @@ class Wallet(commands.Cog):
         task_name = "unlocked_move_pending_sol"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+
+        if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1 or getattr(
+                getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
             return
 
         # Update height
@@ -8618,6 +8324,8 @@ class Wallet(commands.Cog):
                                     'amount'] > 0:
                                     list_balance_user[tx['address']] = tx['amount']
                                 try:
+                                    if tx.get('address') is None and tx.get('category') and tx['category'] == "send":
+                                        continue
                                     if "{}_{}".format(tx['txid'], tx['address']) not in d:
                                         user_paymentId = await store.sql_get_userwallet_by_paymentid(
                                             tx['address'], coin_name,
@@ -8683,6 +8391,8 @@ class Wallet(commands.Cog):
                 list_coins = [each['coin_name'].upper() for each in list_btc_api]
                 tasks = []
                 for coin_name in list_coins:
+                    if not hasattr(self.bot.coin_list, coin_name):
+                        continue
                     if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1 or getattr(
                             getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
                         continue
@@ -9866,7 +9576,7 @@ class Wallet(commands.Cog):
             vet_contracts = await self.get_all_contracts("VET", False)
             # Check native
             coin_name = "VET"
-            if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") != 0:
+            if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
                 return
             get_status = await vet_get_status(self.bot.erc_node_list['VET'], 16)
             if get_status:
@@ -10280,7 +9990,7 @@ class Wallet(commands.Cog):
             rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
             proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
             get_head = await self.utils.tezos_get_head(
-                proxy, rpchost, 30
+                proxy, rpchost, 120
             )
             try:
                 if get_head:
@@ -10315,7 +10025,7 @@ class Wallet(commands.Cog):
                             continue
                         # check balance, skip if below minimum
                         check_balance = await self.utils.tezos_check_balance(
-                            proxy, self.bot.erc_node_list['XTZ'], decrypt_string(each_address['key']), 30
+                            proxy, self.bot.erc_node_list['XTZ'], decrypt_string(each_address['key']), 60
                         )
                         balance = check_balance['result']['balance']
                         if balance > real_min_deposit:
@@ -10325,7 +10035,7 @@ class Wallet(commands.Cog):
                                 continue
                             else:
                                 check_revealed = await self.utils.tezos_check_reveal(
-                                    proxy, rpchost, each_address['balance_wallet_address'], 32
+                                    proxy, rpchost, each_address['balance_wallet_address'], 60
                                 )
                                 print("XTZ Reveal checked {} is {}".format(each_address['balance_wallet_address'], check_revealed))
                                 if check_revealed is True:
@@ -10410,8 +10120,10 @@ class Wallet(commands.Cog):
                             elif token_type == "FA1.2" and len(token_addresses) > 0:
                                 for each_addr in token_addresses:
                                     token_balances = await self.utils.tezos_check_balances_token(
-                                        proxy, rpchost, each_addr, 12
+                                        proxy, rpchost, each_addr, 60
                                     )
+                                    if token_balances is None:
+                                        continue
                                     get_token_balance = token_balances.get('result')
                                     bot_run_get_token_balances[each_addr] = 0
                                     if get_token_balance is not None and len(get_token_balance) > 0:
@@ -10443,7 +10155,7 @@ class Wallet(commands.Cog):
                                             continue
                                         else:
                                             check_revealed = await self.utils.tezos_check_reveal(
-                                                proxy, rpchost, k, 32
+                                                proxy, rpchost, k, 60
                                             )
                                             if check_revealed is True:
                                                 # Add to DB if not exist
@@ -10454,7 +10166,7 @@ class Wallet(commands.Cog):
                                                 # 1] Check if balance has enough gas. If not, move gas
                                                 # 2] Push to reveal
                                                 check_gas = await self.utils.tezos_check_balance(
-                                                    proxy, self.bot.erc_node_list['XTZ'], decrypt_string(get_tezos_user['key']), 30
+                                                    proxy, self.bot.erc_node_list['XTZ'], decrypt_string(get_tezos_user['key']), 60
                                                 )
                                                 gas_balance = check_gas['result']['balance']
                                                 if gas_balance >= min_gas_tx:
@@ -10487,7 +10199,7 @@ class Wallet(commands.Cog):
                                         # re-check gas
                                         if can_move_token is True:
                                             check_gas = await self.utils.tezos_check_balance(
-                                                proxy, self.bot.erc_node_list['XTZ'], decrypt_string(get_tezos_user['key']), 30
+                                                proxy, self.bot.erc_node_list['XTZ'], decrypt_string(get_tezos_user['key']), 60
                                             )
                                             gas_balance = check_gas['result']['balance']
                                             if gas_balance >= min_gas_tx:
@@ -10574,7 +10286,7 @@ class Wallet(commands.Cog):
             rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
             proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
             get_head = await self.utils.tezos_get_head(
-                proxy, rpchost, 30
+                proxy, rpchost, 120
             )
             if get_head:
                 height = get_head['level']
@@ -10858,7 +10570,7 @@ class Wallet(commands.Cog):
 
         try:
             # HTTPProvider:
-            w3 = Web3(Web3.HTTPProvider(url))
+            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 300}))
             signed_txn = None
             sent_tx = None
             if contract is None:
@@ -11627,6 +11339,8 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
         # Do the job
+        locked_balance_list = []
+        locked_balance_amounts = {}
         try:
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
@@ -11701,10 +11415,12 @@ class Wallet(commands.Cog):
                                         user_amount += i['amount_ticker_1']
                                         total_pool_coin += i['amount_ticker_1']
                                         pairs.append(i['ticker_2_name'])
+                                        locked_balance_amounts[i['ticker_2_name']] = i['amount_ticker_1']
                                     elif i['ticker_2_name'] == coin_name:
                                         user_amount += i['amount_ticker_2']
                                         total_pool_coin += i['amount_ticker_2']
                                         pairs.append(i['ticker_1_name'])
+                                        locked_balance_amounts[i['ticker_1_name']] = i['amount_ticker_2']
                             embed.description = "CEXSwap: ✅"
                             list_pairs = "\n```Locked with: " + ", ".join(list(set(pairs))) + "```"
                             embed.add_field(
@@ -11715,6 +11431,12 @@ class Wallet(commands.Cog):
                                 ),
                                 inline=False
                             )
+                    if len(locked_balance_amounts) > 0:
+                        total_locked_amt = 0
+                        locked_balance_amounts = dict(sorted(locked_balance_amounts.items(), key=lambda item: item[1], reverse=True))
+                        for k, v in locked_balance_amounts.items():
+                            locked_balance_list.append("{}: {}".format(k, num_format_coin(v)))
+                            total_locked_amt += v
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
                 if getattr(getattr(self.bot.coin_list, coin_name), "related_coins"):
@@ -11776,7 +11498,7 @@ class Wallet(commands.Cog):
                 embed.set_thumbnail(url=link)
 
             check_fav = await self.utils.check_if_fav_coin(str(ctx.author.id), SERVER_BOT, coin_name)
-            view = SingleBalanceMenu(self.bot, ctx, ctx.author.id, embed, coin_name, is_fav=check_fav)
+            view = SingleBalanceMenu(self.bot, ctx, ctx.author.id, embed, coin_name, locked_balance_list, is_fav=check_fav)
             await ctx.edit_original_message(content=None, embed=embed, view=view)
             # Add update for future call
             try:
@@ -12307,7 +12029,7 @@ class Wallet(commands.Cog):
                         await log_to_channel(
                             "withdraw",
                             f"[{SERVER_BOT}] User {ctx.author.name}#{ctx.author.discriminator} / "\
-                            f"{ctx.author.mention} sucessfully withdrew {num_format_coin(amount)} "\
+                            f"{ctx.author.mention} successfully withdrew {num_format_coin(amount)} "\
                             f"{token_display}{equivalent_usd}.{explorer_link}"
                         )
                         return
@@ -12399,7 +12121,7 @@ class Wallet(commands.Cog):
                         await log_to_channel(
                             "withdraw",
                             f"[{SERVER_BOT}] User {ctx.author.name}#{ctx.author.discriminator} / "\
-                            f"{ctx.author.mention} sucessfully withdrew "\
+                            f"{ctx.author.mention} successfully withdrew "\
                             f"{num_format_coin(amount)} {token_display}{equivalent_usd}.{explorer_link}"
                         )
                         return
@@ -12831,8 +12553,8 @@ class Wallet(commands.Cog):
                             return
                         gas=120000
                         if coin_name in ["LUNC"]:
-                            gas = int(1.5*gas)
-                            fee = int(1.5*fee)
+                            gas = int(2.0*gas)
+                            fee = int(2.0*fee)
                         send_tx = await self.wallet_api.cosmos_send_tx(
                             rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),
                             int(get_wallet_seq['account']['sequence']), key,
@@ -12852,19 +12574,19 @@ class Wallet(commands.Cog):
                                 if 'required' in send_tx['result']:
                                     check_fee = send_tx['result']['required'].split(",")
                                 elif 'required:' in send_tx['result']['log']:
-                                    check_fee = send_tx['result']['log'].split("required:")[1].repalce(":", "").split()
+                                    check_fee = send_tx['result']['log'].split("required:")[1].replace(":", "").split()
                                 for i in check_fee:
                                     if denom in i:
                                         gas = int(int(i.replace(denom, ""))*1.20)
                                         break
-                                    fee = int(1.5*fee)
-                                    await log_to_channel(
-                                        "withdraw",
-                                        f"🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                        f"failed to withdraw {num_format_coin(amount)}."\
-                                        f"{token_display}{equivalent_usd} to address {address}.\nERROR: {error}.\n"\
-                                        f"Re-try with a new gas: {str(gas)}{denom}, fee: {str(fee)}{denom}..."
-                                    )
+                                fee = int(1.5*fee)
+                                await log_to_channel(
+                                    "withdraw",
+                                    f"🔴🔴🔴 User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"failed to withdraw {num_format_coin(amount)}."\
+                                    f"{token_display}{equivalent_usd} to address {address}.\nERROR: {error}.\n"\
+                                    f"Re-try with a new gas: {str(gas)}{denom}, fee: {str(fee)}{denom}..."
+                                )
                                 send_tx = await self.wallet_api.cosmos_send_tx(
                                     rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),
                                     int(get_wallet_seq['account']['sequence']), key,
@@ -16219,6 +15941,7 @@ class Wallet(commands.Cog):
                 self.notify_balance_chia.start()
             if not self.update_balance_chia.is_running():
                 self.update_balance_chia.start()
+
             # ERC-20
             if not self.update_balance_erc20.is_running():
                 self.update_balance_erc20.start()

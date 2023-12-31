@@ -135,7 +135,7 @@ class Quickdrop_Verify(disnake.ui.Modal):
                             await _msg.edit(content=None, embed=embed, view=None)
                         except Exception:
                             traceback.print_exc(file=sys.stdout)
-                msg = "You sucessfully collected quicktip id: {}".format(get_message['message_id'])
+                msg = "You successfully collected quicktip id: {}".format(get_message['message_id'])
                 await interaction.edit_original_message(content=msg)
                 return
         except ValueError:
@@ -1585,7 +1585,7 @@ class Events(commands.Cog):
                         except Exception:
                             pass
                         if increase is True:
-                            await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: Sucessfully increased amount!")
+                            await inter.edit_original_message(content=f"Party ID {str(inter.message.id)}: Successfully increased amount!")
                             # Update view
                             embed = disnake.Embed(
                                 title=f"🎉 Party Drop 🎉",

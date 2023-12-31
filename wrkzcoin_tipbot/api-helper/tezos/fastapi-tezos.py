@@ -322,6 +322,8 @@ async def get_balance_token_tezos(
                     print("tezos_check_token_balances: return {}".format(response.status))
     except asyncio.exceptions.TimeoutError:
         print("Tezos check balances timeout for url: {} / addr: {}. Time: {}".format(item.endpoint, item.address, item.timeout))
+    except aiohttp.client_exceptions.ContentTypeError:
+        print("Tezos Content type error: ", response)
     except Exception:
         traceback.print_exc(file=sys.stdout)
     return {

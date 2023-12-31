@@ -252,7 +252,7 @@ class Core(commands.Cog):
                 "usage": "/guild <commands>",
                 "desc": "Various guild's command. Type to show them all.", 
                 "related": ["guildtip"],
-                "subcmd": ["createraffle", "raffle", "balance", "votereward", "deposit", "topgg", "mdeposit", "faucetclaim", "activedrop", "info"]
+                "subcmd": ["balance", "votereward", "deposit", "topgg", "mdeposit", "faucetclaim", "activedrop", "info"]
             },
             "mdeposit": {
                 "usage": "/mdeposit <coin>",

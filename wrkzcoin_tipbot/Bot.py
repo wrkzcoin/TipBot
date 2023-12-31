@@ -198,6 +198,7 @@ bot.LOG_CHAN = bot.config['discord']['logchan']
 bot.erc_node_list = {
     "FTM": bot.config['default_endpoints']['ftm'],
     "BSC": bot.config['default_endpoints']['bsc'],
+    "BNB": bot.config['default_endpoints']['bsc'],
     "MATIC": bot.config['default_endpoints']['matic'],
     "xDai":bot.config['default_endpoints']['xdai'],
     "ETH": bot.config['default_endpoints']['eth'],

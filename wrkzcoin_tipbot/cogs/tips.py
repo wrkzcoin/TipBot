@@ -148,7 +148,7 @@ class FreeTip_Verify(disnake.ui.Modal):
                     pass
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-                msg = "Sucessfully joined airdrop id: {}".format(str(interaction.message.id))
+                msg = "Successfully joined airdrop id: {}".format(str(interaction.message.id))
                 await interaction.edit_original_message(content=msg)
                 return
         except ValueError:
@@ -274,7 +274,7 @@ class FreeTip_Button(disnake.ui.View):
                             get_message['from_userid'], str(interaction.author.id),
                             "{}#{}".format(interaction.author.name, interaction.author.discriminator)
                         )
-                        msg = "Sucessfully joined airdrop id: {}".format(str(interaction.message.id))
+                        msg = "Successfully joined airdrop id: {}".format(str(interaction.message.id))
                         await interaction.response.send_message(content=msg, ephemeral=True)
                         # Update message
                         _msg: disnake.Message = await interaction.channel.fetch_message(int(interaction.message.id))
@@ -368,32 +368,44 @@ class Tips(commands.Cog):
                 time_left = each_message_data['airdrop_time'] - int(time.time())
                 # get message
                 try:
+                    # check Bot uptime
+                    uptime = round((datetime.now() - self.bot.start_time).total_seconds())
+                    if uptime + 600 >= int(time.time()):
+                        # skipped. Bot just re-connected
+                        continue
                     guild = self.bot.get_guild(int(each_message_data['guild_id']))
                     if guild is None and self.bot.is_ready():
-                        print("Guild {} found None".format(each_message_data['guild_id']))
-                        await logchanbot("[FREETIP]: can not find guild for message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
-                            each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],
-                            each_message_data['from_ownername']
-                        ))
-                        change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
-                        await asyncio.sleep(0.5)
+                        # Check if the tips is too recent or too old, 3 days is max of freetip
+                        if each_message_data['message_time'] + 3*24*3600 <= int(time.time()):
+                            print("Guild {} found None".format(each_message_data['guild_id']))
+                            await logchanbot("[FREETIP]: can not find guild for message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
+                                each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],
+                                each_message_data['from_ownername']
+                            ))
+                            change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                        else:
+                            await asyncio.sleep(0.5)
                         continue
                     await self.bot.wait_until_ready()
                     channel = guild.get_channel(int(each_message_data['channel_id']))
                     if channel is None:
-                        print("Channel {} found None".format(each_message_data['channel_id']))
-                        change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
-                        await logchanbot(
-                            "Failed to find channel: msg id: {}, channel id: {}, guild: {}/{}. Set it to failed.".format(
-                                each_message_data['message_id'], each_message_data['channel_id'],
-                                guild.name, each_message_data['guild_id']
+                        # Check if the tips is too recent or too old, 3 days is max of freetip
+                        if each_message_data['message_time'] + 3*24*3600 <= int(time.time()):
+                            print("Channel {} found None".format(each_message_data['channel_id']))
+                            change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                            await logchanbot(
+                                "Failed to find channel: msg id: {}, channel id: {}, guild: {}/{}. Set it to failed.".format(
+                                    each_message_data['message_id'], each_message_data['channel_id'],
+                                    guild.name, each_message_data['guild_id']
+                                )
                             )
-                        )
-                        find_owner = self.bot.get_user(int(each_message_data['from_userid']))
-                        if find_owner is not None:
-                            await find_owner.send("I cancelled your /freetip id: {} in guild {} because I can't find channel.".format(
-                                each_message_data['message_id'], guild.name
-                            ))
+                            find_owner = self.bot.get_user(int(each_message_data['from_userid']))
+                            if find_owner is not None:
+                                await find_owner.send("I cancelled your /freetip id: {} in guild {} because I can't find channel.".format(
+                                    each_message_data['message_id'], guild.name
+                                ))
+                        else:
+                            await asyncio.sleep(0.5)
                         continue
                     get_owner = guild.get_member(int(each_message_data['from_userid']))
                     owner_displayname = ""

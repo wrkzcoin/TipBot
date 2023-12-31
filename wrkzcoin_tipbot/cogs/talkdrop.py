@@ -555,7 +555,9 @@ class TalkDrop(commands.Cog):
                 OptionChoice("in 4h", "14400"),
                 OptionChoice("in 8h", "28800"),
                 OptionChoice("in 24h", "86400"),
-                OptionChoice("in 2d", "172800")
+                OptionChoice("in 2d", "172800"),
+                OptionChoice("in 3d", "259200"),
+                OptionChoice("in 7d", "604800")
             ]),
             Option('minimum_message', 'minimum_message', OptionType.integer, required=True)
         ],

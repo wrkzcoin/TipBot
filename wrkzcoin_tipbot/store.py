@@ -964,7 +964,7 @@ async def neo_get_existing_tx():
         await logchanbot("store " +str(traceback.format_exc()))
     return []
 
-# TODO: this is for ERC-20 only
+# TODO: this is for ERC-20 only, remove
 async def http_wallet_getbalance(
     url: str, address: str, contract: str, time_out: int = 64
 ):
@@ -3098,6 +3098,7 @@ async def erc20_if_approved(
         await logchanbot(traceback.format_exc())
     return False
 
+# TODO: remove
 async def erc20_transfer_token_to_operator(
     url: str, chainId: int, contract: str, 
     sender_address: str, operator_address: str, 

@@ -8391,6 +8391,8 @@ class Wallet(commands.Cog):
                 list_coins = [each['coin_name'].upper() for each in list_btc_api]
                 tasks = []
                 for coin_name in list_coins:
+                    if not hasattr(self.bot.coin_list, coin_name):
+                        continue
                     if getattr(getattr(self.bot.coin_list, coin_name), "is_maintenance") == 1 or getattr(
                             getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
                         continue

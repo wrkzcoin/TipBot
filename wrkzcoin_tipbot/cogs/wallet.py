@@ -2567,7 +2567,7 @@ class WalletAPI(commands.Cog):
         self, user_id, coin: str, netname: str, type_coin: str,
         user_server: str = 'DISCORD', chat_id: int = 0
     ):
-        # netname null or None, xDai, MATIC, TRX, BSC
+        # netname null or None, xDai, MATIC, TRX, BNB
         user_server = user_server.upper()
         coin_name = coin.upper()
         if type_coin.upper() == "ZIL" and coin_name != netname.upper():
@@ -10284,7 +10284,7 @@ class Wallet(commands.Cog):
             rpchost = getattr(getattr(self.bot.coin_list, coin_name), "rpchost")
             proxy = "http://{}:{}".format(self.bot.config['api_helper']['connect_ip'], self.bot.config['api_helper']['port_tezos'])
             get_head = await self.utils.tezos_get_head(
-                proxy, rpchost, 60
+                proxy, rpchost, 120
             )
             if get_head:
                 height = get_head['level']
@@ -12572,7 +12572,7 @@ class Wallet(commands.Cog):
                                 if 'required' in send_tx['result']:
                                     check_fee = send_tx['result']['required'].split(",")
                                 elif 'required:' in send_tx['result']['log']:
-                                    check_fee = send_tx['result']['log'].split("required:")[1].repalce(":", "").split()
+                                    check_fee = send_tx['result']['log'].split("required:")[1].replace(":", "").split()
                                 for i in check_fee:
                                     if denom in i:
                                         gas = int(int(i.replace(denom, ""))*1.20)
@@ -15939,6 +15939,7 @@ class Wallet(commands.Cog):
                 self.notify_balance_chia.start()
             if not self.update_balance_chia.is_running():
                 self.update_balance_chia.start()
+
             # ERC-20
             if not self.update_balance_erc20.is_running():
                 self.update_balance_erc20.start()

@@ -13,6 +13,9 @@ import sys
 import time
 import traceback
 from decimal import Decimal
+from cachetools import TTLCache
+import pickle
+import redis
 
 import aiomysql
 from aiohttp import web
@@ -28,22 +31,29 @@ config = load_config()
 class DBStore():
     def __init__(self):
         # DB
+        self.cache_db_ttl = TTLCache(maxsize=10000, ttl=60.0)
+        try:
+            self.redis_pool = redis.ConnectionPool(host='localhost', port=6379, db=0)
+            self.r = redis.Redis(connection_pool=self.redis_pool)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         self.pool = None
         self.enable_trade_coin = []
-        self.cache_kv_db_test = SqliteDict(config['cache']['temp_leveldb_gen'], tablename="test", flag='r')
-        self.cache_kv_db_general = SqliteDict(config['cache']['temp_leveldb_gen'], tablename="general", flag='r')
-        self.cache_kv_db_block = SqliteDict(config['cache']['temp_leveldb_gen'], tablename="block", flag='r')
 
     def get_cache_kv(self, table: str, key: str):
         try:
-            if table.lower() == "test":
-                return self.cache_kv_db_test[key.upper()]
-            elif table.lower() == "general":
-                return self.cache_kv_db_general[key.upper()]
-            elif table.lower() == "block":
-                return self.cache_kv_db_block[key.upper()]
-        except KeyError:
+            if table + "_" + key in self.cache_db_ttl:
+                return self.cache_db_ttl[table + "_" + key]
+            else:
+                res = self.r.get(table + "_" + key)
+                result = pickle.loads(res)
+                if result is not None:
+                    self.cache_db_ttl[table + "_" + key] = result
+                    return result
+        except TypeError:
             pass
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
         return None
 
     async def openConnection(self):
@@ -478,6 +488,12 @@ async def list_all_coin_information():
                     height = app.db.get_cache_kv(
                         "block",
                         f"{config['kv_db']['prefix'] + config['kv_db']['daemon_height']}{type_coin}"
+                    )
+                elif type_coin in ["SPL", "SOL"]:
+                    coin = "SOL"
+                    height = app.db.get_cache_kv(
+                        "block",
+                        f"{config['kv_db']['prefix'] + config['kv_db']['daemon_height']}{coin}"
                     )
                 else:
                     height = app.db.get_cache_kv(

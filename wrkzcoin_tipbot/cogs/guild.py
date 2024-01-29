@@ -676,9 +676,7 @@ class Guild(commands.Cog):
         self,
         ctx
     ):
-        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, loading..."
-        await ctx.response.send_message(msg)
-
+        await ctx.response.defer(ephemeral=False)
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/guild balance", int(time.time())))

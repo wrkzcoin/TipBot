@@ -229,6 +229,8 @@ class TopGGVote(commands.Cog):
                                                 traceback.print_exc(file=sys.stdout)
                                         # Tip
                                         coin_name = get_guild['vote_reward_coin']
+                                        if not hasattr(self.bot.coin_list, coin_name):
+                                            return web.Response(status=200, text="Thank you!")
                                         # Check balance of guild
                                         net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
                                         type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")

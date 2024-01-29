@@ -1983,7 +1983,7 @@ class DropdownLP(disnake.ui.StringSelect):
                     if len(list_remaining) > 0:
                         embed.add_field(
                             name="More with {} coin/token(s)".format(len(list_remaining)),
-                            value="{}".format(", ".join(list_remaining)),
+                            value="{}.\n\nUse /cexswap selectpool, for a specific pool detail.".format(", ".join(list_remaining)),
                             inline=False
                         )
             # Create the view containing our dropdown
@@ -2952,9 +2952,7 @@ class Cexswap(commands.Cog):
         self,
         ctx
     ):
-        msg = f"{EMOJI_INFORMATION} {ctx.author.mention}, /cexswap loading..."
-        await ctx.response.send_message(msg)
-
+        await ctx.response.defer(ephemeral=False)
         try:
             self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
                                          str(ctx.author.id), SERVER_BOT, "/cexswap summary", int(time.time())))
@@ -3506,7 +3504,7 @@ class Cexswap(commands.Cog):
                                 self.utils.get_coin_emoji(for_token), for_token
                             ))
                         random.shuffle(list_paths)
-                        path_trades = "\n".join(list_paths[:15])
+                        path_trades = "\n".join(list_paths[:12])
                         path_trade_msg = f"\n__**Other possible trade(s):**__\n{path_trades}"
 
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, the given amount __{sell_amount_old}__"\

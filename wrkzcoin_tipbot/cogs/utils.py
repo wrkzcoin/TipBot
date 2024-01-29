@@ -2171,7 +2171,7 @@ class Utils(commands.Cog):
         }
         try:
             async with aiohttp.ClientSession() as cs:
-                async with cs.post(proxy + "/get_head", json=data, timeout=timeout) as r:
+                async with cs.post(proxy + "/get_head", json=data, timeout=timeout*2) as r:
                     res_data = await r.read()
                     res_data = res_data.decode('utf-8')
                     result = json.loads(res_data)

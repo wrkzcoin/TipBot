@@ -43,7 +43,7 @@ def get_coin360(display_id: str, static_coin360_path, selenium_setting, coin360)
         options.add_argument('disable-infobars')
         options.add_argument("--disable-extensions")
         userAgent = selenium_setting['user_agent']
-        options.add_argument(f"user-agent={userAgent}")
+        options.add_argument(f"--user-agent={userAgent}")
         options.add_argument("--user-data-dir=chrome-data")
         options.headless = True
 
@@ -52,8 +52,9 @@ def get_coin360(display_id: str, static_coin360_path, selenium_setting, coin360)
         driver.set_window_size(selenium_setting['win_w'], selenium_setting['win_h'])
 
         driver.get(coin360['url'])
-        WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.ID, "SHA256")))
-        WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.ID, "EtHash")))
+        #WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.ID, "SHA256")))
+        #WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.ID, "EtHash")))
+        element = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "a[href='/coin/bitcoin-btc']"))) 
         time.sleep(3.0)
 
         # https://stackoverflow.com/questions/8900073/webdriver-screenshot

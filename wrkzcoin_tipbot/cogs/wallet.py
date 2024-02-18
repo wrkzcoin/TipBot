@@ -12731,7 +12731,8 @@ class Wallet(commands.Cog):
                             )
                         self.withdraw_tx[key_withdraw] = int(time.time())
                         get_wallet_seq = await cosmos_get_seq(wallet_host, main_address, 16)
-                        if get_wallet_seq is None:
+                        is_cosmwasm_token = getattr(getattr(self.bot.coin_list, coin_name), "is_cosmwasm_token")
+                        if get_wallet_seq is None and is_cosmwasm_token == 0:
                             await log_to_channel(
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
@@ -12750,7 +12751,6 @@ class Wallet(commands.Cog):
                         elif coin_name in ["OSMO"]:
                             gas = int(3.0*gas)
                             fee = int(1.5*fee)
-                        is_cosmwasm_token = getattr(getattr(self.bot.coin_list, coin_name), "is_cosmwasm_token")
                         if is_cosmwasm_token == 0:
                             send_tx = await self.wallet_api.cosmos_send_tx(
                                 rpchost, chain_id, coin_name, int(get_wallet_seq['account']['account_number']),

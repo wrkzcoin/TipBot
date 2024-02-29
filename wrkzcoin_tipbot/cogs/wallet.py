@@ -5858,7 +5858,7 @@ class Wallet(commands.Cog):
                                                             "withdraw", 
                                                             f"[{user_server}] User {tw_user} successfully withdrew "\
                                                             f"{num_format_coin(amount)} "\
-                                                            f"{token_display}{equivalent_usd}"
+                                                            f"{token_display}{equivalent_usd} to {address}."
                                                         )
                                                     except Exception:
                                                         traceback.print_exc(file=sys.stdout)
@@ -5887,7 +5887,7 @@ class Wallet(commands.Cog):
                                                         "withdraw",
                                                         f"[{user_server}] User {tw_user} successfully withdrew "\
                                                         f"{num_format_coin(amount)} "\
-                                                        f"{token_display}{equivalent_usd}"
+                                                        f"{token_display}{equivalent_usd} to {address}."
                                                     )
                                                     continue
                                             elif type_coin == "NANO":
@@ -5914,7 +5914,7 @@ class Wallet(commands.Cog):
                                                                 "withdraw",
                                                                 f"User {tw_user} successfully withdrew "\
                                                                 f"{num_format_coin(amount)} "\
-                                                                f"{token_display}{equivalent_usd}"
+                                                                f"{token_display}{equivalent_usd} to {address}."
                                                             )
                                                             continue
                                                         else:
@@ -5945,7 +5945,7 @@ class Wallet(commands.Cog):
                                                         "withdraw",
                                                         f"[{user_server}] User {tw_user} successfully withdrew "\
                                                         f"{num_format_coin(amount)} "\
-                                                        f"{token_display}{equivalent_usd}."
+                                                        f"{token_display}{equivalent_usd} to {address}."
                                                     )
                                                     continue
                                                 else:
@@ -5985,7 +5985,7 @@ class Wallet(commands.Cog):
                                                             "withdraw",
                                                             f"[{user_server}] User {tw_user} successfully withdrew "\
                                                             f"{num_format_coin(amount)} "\
-                                                            f"{token_display}{equivalent_usd}."
+                                                            f"{token_display}{equivalent_usd} to {address}."
                                                         )
                                                         continue
                                                     elif "code" in send_tx and "message" in send_tx:
@@ -6081,7 +6081,7 @@ class Wallet(commands.Cog):
                                                             "withdraw",
                                                             f"[{user_server}] User {tw_user} successfully withdrew "\
                                                             f"{num_format_coin(amount)} "\
-                                                            f"{token_display}{equivalent_usd}."
+                                                            f"{token_display}{equivalent_usd} to {address}."
                                                         )
                                                         continue
                                                     elif "code" in send_tx and "message" in send_tx:
@@ -6125,7 +6125,7 @@ class Wallet(commands.Cog):
                                                         "withdraw",
                                                         f"[{user_server}] User {tw_user} successfully withdrew "\
                                                         f"{num_format_coin(amount)} "\
-                                                        f"{token_display}{equivalent_usd}."
+                                                        f"{token_display}{equivalent_usd} to {address}."
                                                     )
                                                     continue
                                                 else:
@@ -6149,7 +6149,7 @@ class Wallet(commands.Cog):
                                                         "withdraw",
                                                         f"[{user_server}] User {tw_user} successfully withdrew "\
                                                         f"{num_format_coin(amount)} "\
-                                                        f"{token_display}{equivalent_usd}."
+                                                        f"{token_display}{equivalent_usd} to {address}."
                                                     )
                                                     continue
                                                 else:
@@ -12222,7 +12222,7 @@ class Wallet(commands.Cog):
                             "withdraw",
                             f"[{SERVER_BOT}] User {ctx.author.name}#{ctx.author.discriminator} / "\
                             f"{ctx.author.mention} successfully withdrew {num_format_coin(amount)} "\
-                            f"{token_display}{equivalent_usd}.{explorer_link}"
+                            f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                         )
                         return
                     else:
@@ -12314,7 +12314,7 @@ class Wallet(commands.Cog):
                             "withdraw",
                             f"[{SERVER_BOT}] User {ctx.author.name}#{ctx.author.discriminator} / "\
                             f"{ctx.author.mention} successfully withdrew "\
-                            f"{num_format_coin(amount)} {token_display}{equivalent_usd}.{explorer_link}"
+                            f"{num_format_coin(amount)} {token_display}{equivalent_usd} to {address}.{explorer_link}"
                         )
                         return
                     else:
@@ -12393,7 +12393,7 @@ class Wallet(commands.Cog):
                                         "withdraw",
                                         f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                         f"successfully withdrew {num_format_coin(amount)} "\
-                                        f"{token_display}{equivalent_usd}.{explorer_link}"
+                                        f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                                     )
                                 else:
                                     msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
@@ -12440,7 +12440,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
@@ -12500,7 +12500,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
@@ -12621,7 +12621,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
@@ -12783,7 +12783,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                             )
                         elif send_tx and is_cosmwasm_token == 0:
                             # code 13
@@ -12865,7 +12865,7 @@ class Wallet(commands.Cog):
                                     "withdraw",
                                     f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"successfully withdrew {num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd}.{explorer_link}"
+                                    f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                                 )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
@@ -12956,7 +12956,7 @@ class Wallet(commands.Cog):
                                     "withdraw",
                                     f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"successfully withdrew {num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd}.{explorer_link}"
+                                    f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                                 )
                             elif "code" in send_tx and "message" in send_tx:
                                 code = send_tx['code']
@@ -13097,7 +13097,7 @@ class Wallet(commands.Cog):
                                     "withdraw",
                                     f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                     f"successfully withdrew {num_format_coin(amount)} "\
-                                    f"{token_display}{equivalent_usd}.{explorer_link}"
+                                    f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                                 )
                             elif "code" in send_tx and "message" in send_tx:
                                 code = send_tx['code']
@@ -13219,7 +13219,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
@@ -13315,7 +13315,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
@@ -13410,7 +13410,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to "\
@@ -13504,7 +13504,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
@@ -13595,7 +13595,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
@@ -13708,7 +13708,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
@@ -13784,7 +13784,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully withdrew {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\

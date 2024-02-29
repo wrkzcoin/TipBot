@@ -1606,26 +1606,14 @@ class Guild(commands.Cog):
                 value="```{}```".format("\n".join(permission_list)),
                 inline=False
             )
-        if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_coin'] and serverinfo['vote_reward_channel']:
-            coin_decimal = getattr(getattr(self.bot.coin_list, serverinfo['vote_reward_coin']), "decimal")
-            vote_links = []
-            vote_links.append("https://top.gg/servers/{}/vote".format(ctx.guild.id))
-            embed.add_field(
-                name="Vote Reward {} {}".format(
-                    num_format_coin(serverinfo['vote_reward_amount']), serverinfo['vote_reward_coin']
-                ),
-                value="<#{}> | {}".format(serverinfo['vote_reward_channel'], "\n".join(vote_links)),
-                inline=False
-            )
         try:
             if serverinfo['feature_roles'] and len(serverinfo['feature_roles'].keys()) > 0:
                 list_featureroles = []
                 for k, v in serverinfo['feature_roles'].items():
                     faucet_str = '{:,.2f}'.format(v['faucet_multipled_by'])
-                    vote_str = '{:,.2f}'.format(v['guild_vote_multiplied_by'])
                     cut_str = '{:,.0f}{}'.format(v['faucet_cut_time_percent']*100, "%")
-                    list_featureroles.append("<@&{}>:\nFaucet (x): {}\nFaucet Reduced Time: {}\nVote Reward (x): {}".format(
-                        k, faucet_str, cut_str, vote_str
+                    list_featureroles.append("<@&{}>:\nFaucet (x): {}\nFaucet Reduced Time: {}".format(
+                        k, faucet_str, cut_str
                     ))
                 embed.add_field(
                     name="Featured Role(s)",
@@ -1712,10 +1700,9 @@ class Guild(commands.Cog):
                 list_featureroles = []
                 for k, v in serverinfo['feature_roles'].items():
                     faucet_str = '{:,.2f}'.format(v['faucet_multipled_by'])
-                    vote_str = '{:,.2f}'.format(v['guild_vote_multiplied_by'])
                     cut_str = '{:,.0f}{}'.format(v['faucet_cut_time_percent']*100, "%")
-                    list_featureroles.append("<@&{}>:\nFaucet (x): {}\nFaucet Reduced Time: {}\nVote Reward (x): {}".format(
-                        k, faucet_str, cut_str, vote_str
+                    list_featureroles.append("<@&{}>:\nFaucet (x): {}\nFaucet Reduced Time: {}".format(
+                        k, faucet_str, cut_str
                     ))
                 embed.add_field(name="Featured Role(s)", value="\n\n".join(list_featureroles), inline=False)
                 await ctx.edit_original_message(content=None, embed=embed)

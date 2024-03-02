@@ -425,22 +425,27 @@ class MemeTip_Button_Predefined(disnake.ui.View):
         self.meme_tip_channel = self.bot.config['discord']['meme_tip_channel']  # memetip
         self.meme_web_path = self.bot.config['discord']['meme_web_path']
         self.get_meme = get_meme
+        list_colors = [ButtonStyle.blurple, ButtonStyle.green, ButtonStyle.grey, ButtonStyle.blurple, ButtonStyle.green, ButtonStyle.grey]
+        random.shuffle(list_colors)
         if self.bot.other_data['memepls_pref'] and self.bot.other_data['memepls_pref'].get(str(self.ctx.guild.id)) and \
             len(self.bot.other_data['memepls_pref'][str(self.ctx.guild.id)]) > 0:
-            for c, item in enumerate(self.bot.other_data['memepls_pref'][str(self.ctx.guild.id)], start = 1):
+            ## if you want shuffle amount
+            # random.shuffle(self.bot.other_data['memepls_pref'][str(self.ctx.guild.id)])
+            for c, item in enumerate(self.bot.other_data['memepls_pref'][str(self.ctx.guild.id)], start = 0):
                 coin_emoji = getattr(getattr(self.bot.coin_list, item['token_name']), "coin_emoji_discord")
                 coin_emoji = coin_emoji + " " if coin_emoji else ""
                 self.add_item(disnake.ui.Button(
                     emoji = coin_emoji,
-                    style = ButtonStyle.blurple,
+                    style = list_colors[c],
                     label = "{} {}".format(num_format_coin(item['amount']), item['token_name']),
-                    custom_id="pre_def_memetipper_{}_{}_{}_{}_{}".format(meme_id, item['amount'], item['token_name'], owner_userid, m_id)
+                    custom_id="pre_def_memetipper_{}_{}_{}_{}_{}".format(meme_id, item['amount'], item['token_name'], owner_userid, m_id),
+                    row=1
                 ))
             self.add_item(disnake.ui.Button(
-                label="Tip other coin", style=ButtonStyle.blurple, custom_id="pre_def_memetip_other_{}_{}_{}".format(meme_id, owner_userid, m_id)
+                label="Tip other coin", style=ButtonStyle.blurple, custom_id="pre_def_memetip_other_{}_{}_{}".format(meme_id, owner_userid, m_id), row=2
             ))
             self.add_item(disnake.ui.Button(
-                label="⚠️ Report", style=ButtonStyle.red, custom_id="pre_def_memetip_report_{}_{}_{}".format(meme_id, owner_userid, m_id)
+                label="⚠️ Report", style=ButtonStyle.red, custom_id="pre_def_memetip_report_{}_{}_{}".format(meme_id, owner_userid, m_id), row=2
             ))
 
     async def on_timeout(self):
@@ -817,6 +822,7 @@ class MemePls(commands.Cog):
                 async with conn.cursor() as cur:
                     sql = """
                     SELECT * FROM `meme_predefined` 
+                    ORDER BY `token_name` ASC, `amount` ASC
                     """
                     await cur.execute(sql,)
                     result = await cur.fetchall()
@@ -1101,6 +1107,17 @@ class MemePls(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # reload memepls data
+        if self.bot.other_data['memepls_pref'] is None:
+            list_all_pref = await self.predefined_list_all()
+            if len(list_all_pref) > 0:
+                self.bot.other_data['memepls_pref'] = {}
+                for i in list_all_pref:
+                    if i['guild_id'] not in self.bot.other_data['memepls_pref']:
+                        self.bot.other_data['memepls_pref'][i['guild_id']] = []
+                    self.bot.other_data['memepls_pref'][i['guild_id']].append({"id": i['id'], "amount": i['amount'], "token_name": i['token_name']})
+                print("memepls predefined loaded {}...".format(len(list_all_pref)))
+
         if hasattr(ctx, "guild") and hasattr(ctx.guild, "id"):
             try:
                 serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
@@ -1150,12 +1167,12 @@ class MemePls(commands.Cog):
             embed.set_image(url=self.meme_web_path + get_meme['saved_name'])
             embed.set_footer(text="Random by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             try:
-                view = MemeTip_Button(ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme)
+                view = MemeTip_Button(ctx, self.bot, 600, get_meme['key'], get_meme['owner_userid'], get_meme)
                 if guild_id != "DM":
                     # get if there is pre-defined tips
                     list_predef = await self.predefined_list(str(ctx.guild.id))
                     if len(list_predef) > 0:
-                        view = MemeTip_Button_Predefined(ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme, get_meme['id'])
+                        view = MemeTip_Button_Predefined(ctx, self.bot, 600, get_meme['key'], get_meme['owner_userid'], get_meme, get_meme['id'])
                 view.message = await ctx.original_message()
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
                 await self.meme_update_view(
@@ -1211,12 +1228,12 @@ class MemePls(commands.Cog):
             embed.set_image(url=self.meme_web_path + get_meme['saved_name'])
             embed.set_footer(text="Random requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             try:
-                view = MemeTip_Button(ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme)
+                view = MemeTip_Button(ctx, self.bot, 600, get_meme['key'], get_meme['owner_userid'], get_meme)
                 if guild_id != "DM":
                     # get if there is pre-defined tips
                     list_predef = await self.predefined_list(str(ctx.guild.id))
                     if len(list_predef) > 0:
-                        view = MemeTip_Button_Predefined(ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme, get_meme['id'])
+                        view = MemeTip_Button_Predefined(ctx, self.bot, 600, get_meme['key'], get_meme['owner_userid'], get_meme, get_meme['id'])
                 view.message = await ctx.original_message()
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
                 guild_id = "DM"
@@ -1746,8 +1763,6 @@ class MemePls(commands.Cog):
                                 self.bot.other_data['memepls_pref'][i['guild_id']] = []
                             self.bot.other_data['memepls_pref'][i['guild_id']].append({"id": i['id'], "amount": i['amount'], "token_name": i['token_name']})
                         print("memepls predefined loaded {}...".format(len(list_all_pref)))
-                    else:
-                        self.bot.other_data['memepls_pref'] = None
                     await logchanbot(
                         "[MEMEPLS] {} / {} added predefined {} in Guild {} / {}.".format(
                             ctx.author.mention, ctx.author.id, original_amount, ctx.guild.name, ctx.guild.id
@@ -2015,7 +2030,16 @@ class MemePls(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        pass
+        if self.bot.other_data['memepls_pref'] is None:
+            # reload memepls data
+            list_all_pref = await self.predefined_list_all()
+            if len(list_all_pref) > 0:
+                self.bot.other_data['memepls_pref'] = {}
+                for i in list_all_pref:
+                    if i['guild_id'] not in self.bot.other_data['memepls_pref']:
+                        self.bot.other_data['memepls_pref'][i['guild_id']] = []
+                    self.bot.other_data['memepls_pref'][i['guild_id']].append({"id": i['id'], "amount": i['amount'], "token_name": i['token_name']})
+                print("memepls predefined loaded {}...".format(len(list_all_pref)))
 
     async def cog_load(self):
         # reload memepls data

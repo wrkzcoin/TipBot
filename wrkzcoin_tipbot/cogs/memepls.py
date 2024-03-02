@@ -29,6 +29,52 @@ from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_INFORMATION, second
 from cogs.wallet import WalletAPI
 
 
+async def get_id_meme(meme_id: str):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """
+                SELECT * FROM `meme_uploaded` 
+                WHERE `key`=%s
+                LIMIT 1
+                """
+                await cur.execute(sql, (meme_id))
+                result = await cur.fetchone()
+                if result:
+                    return result
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
+async def get_approved_meme_id(meme_id: str):
+    try:
+        await store.openConnection()
+        async with store.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                sql = """
+                SELECT * FROM `meme_uploaded` 
+                WHERE `id`=%s LIMIT 1
+                """
+                await cur.execute(sql, (meme_id))
+                result = await cur.fetchone()
+                if result:
+                    sql = """
+                    SELECT SUM(`tipped_amount`) AS `tipped_amount`, `tipped_coin` AS `coin_name`
+                    FROM `meme_tipped`
+                    WHERE `id`=%s
+                    GROUP BY `tipped_coin`
+                    """
+                    await cur.execute(sql, result['key'])
+                    tip_result = await cur.fetchall()
+                    if tip_result:
+                        return {"meme": result, "tipped": tip_result}
+                    else:
+                        return {"meme": result, "tipped": []}
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+    return None
+
 # Tip
 async def add_memetip(
     meme_id: str, owner_userid: str, from_userid: str, guild_id: str, channel_id: str,
@@ -365,6 +411,41 @@ class TipOtherCoin(disnake.ui.Modal):
         except Exception:
             pass
 
+class MemeTip_Button_Predefined(disnake.ui.View):
+    message: disnake.Message
+
+    def __init__(self, ctx, bot, timeout: float, meme_id: str, owner_userid: int, get_meme, m_id: int):
+        super().__init__(timeout=timeout)
+        self.bot = bot
+        self.wallet_api = WalletAPI(self.bot)
+        self.utils = Utils(self.bot)
+        self.ctx = ctx
+        self.meme_id = meme_id
+        self.owner_userid = owner_userid
+        self.meme_tip_channel = self.bot.config['discord']['meme_tip_channel']  # memetip
+        self.meme_web_path = self.bot.config['discord']['meme_web_path']
+        self.get_meme = get_meme
+        if self.bot.other_data['memepls_pref'] and self.bot.other_data['memepls_pref'].get(str(self.ctx.guild.id)) and \
+            len(self.bot.other_data['memepls_pref'][str(self.ctx.guild.id)]) > 0:
+            for c, item in enumerate(self.bot.other_data['memepls_pref'][str(self.ctx.guild.id)], start = 1):
+                coin_emoji = getattr(getattr(self.bot.coin_list, item['token_name']), "coin_emoji_discord")
+                coin_emoji = coin_emoji + " " if coin_emoji else ""
+                self.add_item(disnake.ui.Button(
+                    emoji = coin_emoji,
+                    style = ButtonStyle.blurple,
+                    label = "{} {}".format(num_format_coin(item['amount']), item['token_name']),
+                    custom_id="pre_def_memetipper_{}_{}_{}_{}_{}".format(meme_id, item['amount'], item['token_name'], owner_userid, m_id)
+                ))
+            self.add_item(disnake.ui.Button(
+                label="Tip other coin", style=ButtonStyle.blurple, custom_id="pre_def_memetip_other_{}_{}_{}".format(meme_id, owner_userid, m_id)
+            ))
+            self.add_item(disnake.ui.Button(
+                label="⚠️ Report", style=ButtonStyle.red, custom_id="pre_def_memetip_report_{}_{}_{}".format(meme_id, owner_userid, m_id)
+            ))
+
+    async def on_timeout(self):
+        original_message = await self.ctx.original_message()
+        await original_message.edit(view=None)
 
 class MemeTip_Button(disnake.ui.View):
     message: disnake.Message
@@ -388,7 +469,7 @@ class MemeTip_Button(disnake.ui.View):
     async def process_tipping(self, amount, coin_name, interaction):
         if int(self.owner_userid) == interaction.author.id:
             await interaction.response.send_message(
-                content=f"{interaction.author.mention}, you cannot tip your own meme!")
+                content=f"{interaction.author.mention}, you cannot tip your own meme!", ephemeral=True)
         else:
             try:
                 await interaction.response.send_message(
@@ -599,7 +680,7 @@ class MemeTip_Button(disnake.ui.View):
     ):
         if int(self.owner_userid) == interaction.author.id:
             await interaction.response.send_message(
-                content=f"{interaction.author.mention}, you cannot tip your own meme!")
+                content=f"{interaction.author.mention}, you cannot tip your own meme!", ephemeral=True)
         else:
             await interaction.response.send_modal(
                 modal=TipOtherCoin(interaction, self.bot, self.meme_id, self.owner_userid, self.get_meme))
@@ -705,6 +786,107 @@ class MemePls(commands.Cog):
         self.meme_web_path = self.bot.config['discord']['meme_web_path']
         self.meme_channel_upload = self.bot.config['discord']['meme_upload_channel_log']
         self.meme_reviewer = self.bot.config['discord']['meme_reviewer']
+        self.bot.other_data['memepls_pref'] = None
+
+    async def predefined_add(
+        self, guild_id: str, amount: float, token: str, created_by: str
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    INSERT INTO `meme_predefined` 
+                    (`guild_id`, `amount`, `token_name`, `created_by`, `created_date`)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """
+                    await cur.execute(sql, (
+                        guild_id, amount, token, created_by, int(time.time())))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def predefined_list_all(
+        self
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `meme_predefined` 
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def predefined_list(
+        self, guild_id: str
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `meme_predefined` 
+                    WHERE `guild_id`=%s
+                    """
+                    await cur.execute(sql, (
+                        guild_id
+                    ))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def predefined_delete(
+        self, guild_id: str, amount: float, token_name
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    DELETE FROM `meme_predefined` 
+                    WHERE `guild_id`=%s AND `amount`=%s AND `token_name`=%s
+                    """
+                    await cur.execute(sql, (
+                        guild_id, amount, token_name
+                    ))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def predefined_delete_all(
+        self, guild_id: str
+    ):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    DELETE FROM `meme_predefined` 
+                    WHERE `guild_id`=%s
+                    """
+                    await cur.execute(sql, (
+                        guild_id
+                    ))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
 
     async def save_uploaded(
         self, key: str, owner_userid: str, owner_name: str, guild_id: str, channel_id: str,
@@ -748,15 +930,15 @@ class MemePls(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
-    async def get_id_meme(self, meme_id: str, guild_id: str):
+    async def get_id_meme(self, meme_id: str):
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     sql = """ SELECT * FROM `meme_uploaded` 
-                    WHERE `key`=%s AND `guild_id`=%s 
+                    WHERE `key`=%s
                     LIMIT 1 """
-                    await cur.execute(sql, (meme_id, guild_id))
+                    await cur.execute(sql, (meme_id))
                     result = await cur.fetchone()
                     if result:
                         return result
@@ -969,6 +1151,11 @@ class MemePls(commands.Cog):
             embed.set_footer(text="Random by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             try:
                 view = MemeTip_Button(ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme)
+                if guild_id != "DM":
+                    # get if there is pre-defined tips
+                    list_predef = await self.predefined_list(str(ctx.guild.id))
+                    if len(list_predef) > 0:
+                        view = MemeTip_Button_Predefined(ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme, get_meme['id'])
                 view.message = await ctx.original_message()
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
                 await self.meme_update_view(
@@ -1025,6 +1212,11 @@ class MemePls(commands.Cog):
             embed.set_footer(text="Random requested by: {}#{}".format(ctx.author.name, ctx.author.discriminator))
             try:
                 view = MemeTip_Button(ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme)
+                if guild_id != "DM":
+                    # get if there is pre-defined tips
+                    list_predef = await self.predefined_list(str(ctx.guild.id))
+                    if len(list_predef) > 0:
+                        view = MemeTip_Button_Predefined(ctx, self.bot, 120, get_meme['key'], get_meme['owner_userid'], get_meme, get_meme['id'])
                 view.message = await ctx.original_message()
                 await ctx.edit_original_message(content=None, embed=embed, view=view)
                 guild_id = "DM"
@@ -1091,7 +1283,7 @@ class MemePls(commands.Cog):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
             else:
-                get_meme = await self.get_id_meme(meme_id, str(ctx.guild.id))
+                get_meme = await self.get_id_meme(meme_id)
                 if get_meme is None:
                     msg = f"{ctx.author.mention}, `meme_id` not found in this guild."
                     await ctx.edit_original_message(content=msg)
@@ -1164,7 +1356,7 @@ class MemePls(commands.Cog):
                     except Exception:
                         traceback.print_exc(file=sys.stdout)
             else:
-                get_meme = await self.get_id_meme(meme_id, "DM")
+                get_meme = await self.get_id_meme(meme_id)
                 if get_meme is None:
                     msg = f"{ctx.author.mention}, `meme_id` not found from DM."
                     await ctx.edit_original_message(content=msg)
@@ -1351,6 +1543,226 @@ class MemePls(commands.Cog):
         await self.bot_log()
         pass
 
+    @commands.guild_only()
+    @memepls.sub_command_group(
+        name="predefined",
+        usage="memepls predefined",
+        description="Add/Delete/List pre-defined tipped amount/coin.",
+    )
+    async def predefined(
+        self,
+        ctx
+    ):
+        await self.bot_log()
+
+    @predefined.sub_command(
+        name="list",
+        usage="memepls predefined list",
+        description = "List all predefined amount/coin for meme tipping."
+    )
+    async def predefined_sub_list(
+        self,
+        ctx
+    ):
+        await ctx.response.defer()
+        list_predef = await self.predefined_list(str(ctx.guild.id))
+        if len(list_predef) == 0:
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, there is no pre-defined amount/coin for memepls in this guild yet.")
+        else:
+            list_pref = []
+            for c, i in enumerate(list_predef, start = 1):
+                list_pref.append("{}) **{} {}** added <t:{}:f>.".format(c, num_format_coin(i['amount']), i['token_name'], i['created_date']))
+            await ctx.edit_original_message(
+                content="{}, list pre-defined for memepls:\n{}".format(
+                    ctx.author.mention, "\n".join(list_pref)
+                )
+            )
+
+    @commands.has_permissions(manage_channels=True)
+    @predefined.sub_command(
+        name="delete",
+        usage="memepls delete <item>",
+        description = "Delete from a predefined amount/coin",
+        options=[
+            Option('amount_coin', 'amount_coin', OptionType.string, required=True)
+        ],
+    )
+    async def predefined_sub_delete(
+        self,
+        ctx,
+        amount_coin: str
+    ):
+        await ctx.response.defer()
+        try:
+            amounts = amount_coin.split("-")
+            amount = float(amounts[0])
+            coin_name = amounts[1].upper()
+            original_amount = "{} - {}".format(amount, coin_name.upper())
+            if not hasattr(self.bot.coin_list, coin_name):
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
+                return
+            deleting = await self.predefined_delete(str(ctx.guild.id), amount, coin_name)
+            if deleting is True:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, successfully deleted **{original_amount}** from pre-defined /memepls.")
+                # reload memepls data
+                list_all_pref = await self.predefined_list_all()
+                if len(list_all_pref) > 0:
+                    self.bot.other_data['memepls_pref'] = {}
+                    for i in list_all_pref:
+                        if i['guild_id'] not in self.bot.other_data['memepls_pref']:
+                            self.bot.other_data['memepls_pref'][i['guild_id']] = []
+                        self.bot.other_data['memepls_pref'][i['guild_id']].append({"id": i['id'], "amount": i['amount'], "token_name": i['token_name']})
+                    print("memepls predefined loaded {}...".format(len(list_all_pref)))
+                    await logchanbot(
+                        "[MEMEPLS] {} / {} deleted predefined {} in Guild {} / {}.".format(
+                            ctx.author.mention, ctx.author.id, original_amount, ctx.guild.name, ctx.guild.id
+                        )
+                    )
+                else:
+                    self.bot.other_data['memepls_pref'] = None
+            else:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, internal error when deleting **{original_amount}**.")
+        except ValueError:
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, invalid input **{amount_coin}** for deleting from memepls template.")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.has_permissions(manage_channels=True)
+    @predefined.sub_command(
+        name="delete-all",
+        usage="memepls delete-all",
+        description = "Delete all predefined amount/coins",
+    )
+    async def predefined_sub_delete_all(
+        self,
+        ctx,
+    ):
+        await ctx.response.defer()
+        try:
+            list_predef = await self.predefined_list(str(ctx.guild.id))
+            if len(list_predef) == 0:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, there is nothing to delete from pre-defined memepls.")
+            else:
+                deleting = await self.predefined_delete_all(str(ctx.guild.id))
+                if deleting is True:
+                    await ctx.edit_original_message(content=f"{ctx.author.mention}, successfully deleted **{str(len(list_predef))}** pre-defined item(s) from this guild.")
+                    # reload memepls data
+                    list_all_pref = await self.predefined_list_all()
+                    if len(list_all_pref) > 0:
+                        self.bot.other_data['memepls_pref'] = {}
+                        for i in list_all_pref:
+                            if i['guild_id'] not in self.bot.other_data['memepls_pref']:
+                                self.bot.other_data['memepls_pref'][i['guild_id']] = []
+                            self.bot.other_data['memepls_pref'][i['guild_id']].append({"id": i['id'], "amount": i['amount'], "token_name": i['token_name']})
+                        print("memepls predefined loaded {}...".format(len(list_all_pref)))
+                    else:
+                        self.bot.other_data['memepls_pref'] = None
+                    await logchanbot(
+                        "[MEMEPLS] {} / {} deleted ALL predefined in Guild {} / {}.".format(
+                            ctx.author.mention, ctx.author.id, ctx.guild.name, ctx.guild.id
+                        )
+                    )
+                else:
+                    await ctx.edit_original_message(content=f"{ctx.author.mention}, internal error when deleting all pre-defined amount/coins.")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @predefined_sub_delete.autocomplete("amount_coin")
+    async def predefined_sub_delete_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        list_amount_token = ["N/A"]
+        if self.bot.other_data['memepls_pref'].get(str(inter.guild.id)) and len(self.bot.other_data['memepls_pref'][str(inter.guild.id)]) > 0:
+            list_amount_token = ["{}-{}".format(i['amount'], i['token_name']) for i in self.bot.other_data['memepls_pref'][str(inter.guild.id)]]
+        return [name for name in list_amount_token if string in name.lower()][:5]
+
+    @commands.has_permissions(manage_channels=True)
+    @predefined.sub_command(
+        name="add",
+        usage="memepls add <amount> <coin>",
+        description = "Add a predefined amount/coin",
+        options=[
+            Option('amount', 'amount', OptionType.string, required=True),
+            Option('token_name', 'token_name', OptionType.string, required=True),
+        ],
+    )
+    async def predefined_sub_add(
+        self,
+        ctx,
+        amount: str,
+        token_name: str
+    ):
+        coin_name = token_name.upper().strip()
+        original_amount = "{} - {}".format(amount, token_name.upper())
+        await ctx.response.defer()
+        list_predef = await self.predefined_list(str(ctx.guild.id))
+        if len(list_predef) > 0 and len(list_predef) >= self.bot.config['memepls']['max_predefined']:
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, this guild **{ctx.guild.name}** reached maximum number of pre-defined tip amount already!")
+        else:
+            # Token name check
+            if not hasattr(self.bot.coin_list, coin_name):
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, **{coin_name}** does not exist with us.")
+                return
+            else:
+                if getattr(getattr(self.bot.coin_list, coin_name), "enable_tip") != 1:
+                    await ctx.edit_original_message(content=f"{ctx.author.mention}, **{coin_name}** tipping is disable.")
+                    return
+
+            try:
+                coin_emoji = ""
+                try:
+                    if ctx.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
+                        coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                        coin_emoji = coin_emoji + " " if coin_emoji else ""
+                except Exception:
+                    traceback.print_exc(file=sys.stdout)
+
+                min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+                max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+                token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                amount = amount.replace(",", "")
+                amount = text_to_num(amount)
+                if amount is None:
+                    await ctx.edit_original_message(content=f"{EMOJI_RED_NO} {ctx.author.mention} Invalid given amount.")
+                    return
+
+                if amount > max_tip or amount < min_tip:
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, transactions cannot be bigger than "\
+                        f"**{num_format_coin(max_tip)} {token_display}** or "\
+                        f"smaller than **{num_format_coin(min_tip)} {token_display}**."
+                    await ctx.edit_original_message(content=msg)
+                    return
+                # let's add
+                adding = await self.predefined_add(
+                    str(ctx.guild.id), amount, coin_name, "{}#{}".format(ctx.author.name, ctx.author.discriminator)
+                )
+                if adding is True:
+                    await ctx.edit_original_message(content=f"{ctx.author.mention}, successfully created pre-defined tip for /memepls **{original_amount}**.")
+                    # reload memepls data
+                    list_all_pref = await self.predefined_list_all()
+                    if len(list_all_pref) > 0:
+                        self.bot.other_data['memepls_pref'] = {}
+                        for i in list_all_pref:
+                            if i['guild_id'] not in self.bot.other_data['memepls_pref']:
+                                self.bot.other_data['memepls_pref'][i['guild_id']] = []
+                            self.bot.other_data['memepls_pref'][i['guild_id']].append({"id": i['id'], "amount": i['amount'], "token_name": i['token_name']})
+                        print("memepls predefined loaded {}...".format(len(list_all_pref)))
+                    else:
+                        self.bot.other_data['memepls_pref'] = None
+                    await logchanbot(
+                        "[MEMEPLS] {} / {} added predefined {} in Guild {} / {}.".format(
+                            ctx.author.mention, ctx.author.id, original_amount, ctx.guild.name, ctx.guild.id
+                        )
+                    )
+                else:
+                    await ctx.edit_original_message(content=f"{ctx.author.mention}, internal error when adding **{original_amount}**.")
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+    @predefined_sub_add.autocomplete("token_name")
+    async def predefined_sub_add_token_name_autocomp(self, inter: disnake.CommandInteraction, string: str):
+        string = string.lower()
+        return [name for name in self.bot.coin_name_list if string in name.lower()][:10]
+
     @memepls.sub_command(
         usage="memepls view",
         description="View MEME randomly.",
@@ -1434,6 +1846,192 @@ class MemePls(commands.Cog):
             ctx
     ):
         await self.meme_disclaimer(ctx)
+
+
+    @commands.Cog.listener()
+    async def on_button_click(self, inter: disnake.MessageInteraction):
+        if not inter.component.custom_id.startswith("pre_def_memetip"): # this can block if not started with
+            return
+        if inter.message.author != self.bot.user:
+            return
+        if inter.component.custom_id.startswith("pre_def_memetip_report_"):
+            split_owner_meme_id = inter.component.custom_id.split("_")
+            get_meme = await get_approved_meme_id(split_owner_meme_id[-1])
+            await inter.response.send_modal(
+                modal=MemeTipReport(inter, self.bot, split_owner_meme_id[-3], split_owner_meme_id[-2], get_meme['meme']))
+        elif inter.component.custom_id.startswith("pre_def_memetip_other_"):
+            split_owner_meme_id = inter.component.custom_id.split("_")
+            get_meme = await get_approved_meme_id(split_owner_meme_id[-1])
+            await inter.response.send_modal(
+                modal=TipOtherCoin(inter, self.bot, split_owner_meme_id[-3], split_owner_meme_id[-2], get_meme['meme']))
+        elif inter.component.custom_id.startswith("pre_def_memetipper_"):
+            try:
+                split_amount = inter.component.custom_id.split("_")
+                meme_id = split_amount[-5]
+                amount = float(split_amount[-4])
+                coin_name = split_amount[-3].upper()
+                owner_id = split_amount[-2]
+                if not hasattr(self.bot.coin_list, coin_name):
+                    await inter.response.send_message(content=f"{inter.author.mention}, **{coin_name}** does not exist with us.")
+                    return
+                if inter.author.id == int(owner_id):
+                    await inter.response.send_message(
+                        content=f"{inter.author.mention}, you cannot tip your own meme!", ephemeral=True)
+                else:
+                    try:
+                        await inter.response.send_message(
+                            content=f"{inter.author.mention}, checking meme tipping...")
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                        await inter.response.send_message(
+                            content=f"{inter.author.mention}, failed to execute meme tipping. Try again later!",
+                            ephemeral=True)
+                        return
+                    get_meme = await get_approved_meme_id(split_amount[-1])
+                    # Check enough balance
+                    net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                    type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                    deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                    coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                    contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                    token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+
+                    min_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_min_tip")
+                    max_tip = getattr(getattr(self.bot.coin_list, coin_name), "real_max_tip")
+                    price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                    get_deposit = await self.wallet_api.sql_get_userwallet(
+                        str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
+                    if get_deposit is None:
+                        get_deposit = await self.wallet_api.sql_register_user(
+                            str(inter.author.id), coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                        )
+
+                    wallet_address = get_deposit['balance_wallet_address']
+                    if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                        wallet_address = get_deposit['paymentid']
+                    elif type_coin in ["XRP"]:
+                        wallet_address = get_deposit['destination_tag']
+
+                    # Check if tx in progress
+                    if str(inter.author.id) in self.bot.tipping_in_progress and \
+                        int(time.time()) - self.bot.tipping_in_progress[str(inter.author.id)] < 150:
+                        msg = f"{EMOJI_ERROR} {inter.author.mention}, you have another transaction in progress."
+                        await inter.edit_original_message(content=msg)
+                        return
+
+                    height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                    userdata_balance = await store.sql_user_balance_single(
+                        str(inter.author.id), coin_name, wallet_address, type_coin, height,
+                        deposit_confirm_depth, SERVER_BOT
+                    )
+                    actual_balance = float(userdata_balance['adjust'])
+                    if amount <= 0:
+                        msg = f"{EMOJI_RED_NO} {inter.author.mention}, please get more {token_display}."
+                        await inter.edit_original_message(content=msg)
+                        return
+                    elif amount > actual_balance:
+                        msg = f"{EMOJI_RED_NO} {inter.author.mention}, insufficient balance to give meme tip of "\
+                            f"**{num_format_coin(amount)} {token_display}**."
+                        await inter.edit_original_message(content=msg)
+                        return
+                    elif amount > max_tip or amount < min_tip:
+                        msg = f"{EMOJI_RED_NO} {inter.author.mention}, tipping cannot be bigger than "\
+                            f"**{num_format_coin(max_tip)} {token_display}** or smaller than "\
+                            f"**{num_format_coin(min_tip)} {token_display}**."
+                        await inter.edit_original_message(content=msg)
+                        return
+                    equivalent_usd = ""
+                    amount_in_usd = 0.0
+                    if price_with:
+                        per_unit = await self.utils.get_coin_price(coin_name, price_with)
+                        if per_unit and per_unit['price'] and per_unit['price'] > 0:
+                            per_unit = per_unit['price']
+                            amount_in_usd = float(Decimal(per_unit) * Decimal(amount))
+                            if amount_in_usd > 0.0001:
+                                equivalent_usd = " ~ {:,.4f} USD".format(amount_in_usd)
+
+                    if str(inter.author.id) not in self.bot.tipping_in_progress:
+                        self.bot.tipping_in_progress[str(inter.author.id)] = int(time.time())
+
+                    user_to = await self.wallet_api.sql_get_userwallet(
+                        owner_id, coin_name, net_name, type_coin, SERVER_BOT, 0
+                    )
+                    if user_to is None:
+                        user_to = await self.wallet_api.sql_register_user(
+                            owner_id, coin_name, net_name, type_coin, SERVER_BOT, 0
+                        )
+                    try:
+                        guild_id = "DM"
+                        channel_id = "DM"
+                        guild_name = " in DM"
+                        if hasattr(inter, "guild") and hasattr(inter.guild, "id"):
+                            guild_id = inter.guild.id
+                            channel_id = inter.channel.id
+                            guild_name = " in Guild {}".format(inter.guild.name)
+                        tip = await add_memetip(
+                            meme_id, owner_id, str(inter.author.id), guild_id,
+                            channel_id, amount, coin_name, coin_decimal, contract, amount_in_usd
+                        )
+                        if tip > 0:
+                            url_image = self.meme_web_path + get_meme['meme']['saved_name']
+                            try:
+                                msg = "A user ({}) has tipped to your meme `{}` with amount `{} {}`{}. Cheers!\n{}".format(
+                                    inter.author.mention, meme_id, amount, coin_name, guild_name, url_image
+                                )
+                                get_meme_owner = self.bot.get_user(int(owner_id))
+                                await get_meme_owner.send(content=msg)
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                            msg = f"{inter.author.mention}, you tipped **{num_format_coin(amount)} "\
+                                f"{token_display}** to meme `{meme_id}` by <@{owner_id}>."
+                            await inter.edit_original_message(content=msg)
+                            try:
+                                embed = disnake.Embed(
+                                    title="A meme got tipped{}!".format(guild_name),
+                                    description=f"Share your meme and get tipped!",
+                                    timestamp=datetime.now()
+                                )
+                                embed.add_field(name="Tipped with", value="{} {}".format(amount, coin_name), inline=True)
+                                embed.add_field(name="Uploader", value="<@{}>".format(owner_id), inline=True)
+                                embed.add_field(name="ID", value="`{}`".format(get_meme['meme']['key']), inline=False)
+                                embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar)
+                                embed.set_image(url=url_image)
+                                embed.set_footer(
+                                    text="Tipped by: {}#{}".format(inter.author.name, inter.author.discriminator))
+                                channel = self.bot.get_channel(self.bot.config['discord']['meme_tip_channel'] )
+                                await channel.send(embed=embed)
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                        await logchanbot(traceback.format_exc())
+                    try:
+                        del self.bot.tipping_in_progress[str(inter.author.id)]
+                    except Exception:
+                        pass
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        pass
+
+    async def cog_load(self):
+        # reload memepls data
+        list_all_pref = await self.predefined_list_all()
+        if len(list_all_pref) > 0:
+            self.bot.other_data['memepls_pref'] = {}
+            for i in list_all_pref:
+                if i['guild_id'] not in self.bot.other_data['memepls_pref']:
+                    self.bot.other_data['memepls_pref'][i['guild_id']] = []
+                self.bot.other_data['memepls_pref'][i['guild_id']].append({"id": i['id'], "amount": i['amount'], "token_name": i['token_name']})
+            print("memepls predefined loaded {}...".format(len(list_all_pref)))
+        else:
+            print("memepls predefined 0 data loaded...")
+
+    def cog_unload(self):
+        self.bot.other_data['memepls_pref'] = None
 
 
 def setup(bot):

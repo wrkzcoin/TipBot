@@ -426,7 +426,8 @@ class MemeTip_Button_Predefined(disnake.ui.View):
         self.meme_web_path = self.bot.config['discord']['meme_web_path']
         self.get_meme = get_meme
         list_colors = [ButtonStyle.blurple, ButtonStyle.green, ButtonStyle.grey, ButtonStyle.blurple, ButtonStyle.green, ButtonStyle.grey]
-        random.shuffle(list_colors)
+        # if you want to random color
+        # random.shuffle(list_colors)
         if self.bot.other_data['memepls_pref'] and self.bot.other_data['memepls_pref'].get(str(self.ctx.guild.id)) and \
             len(self.bot.other_data['memepls_pref'][str(self.ctx.guild.id)]) > 0:
             ## if you want shuffle amount
@@ -786,8 +787,6 @@ class MemePls(commands.Cog):
         self.utils = Utils(self.bot)
         self.botLogChan = self.bot.get_channel(self.bot.LOG_CHAN)
         self.enable_logchan = True
-        self.meme_accept = ["image/jpeg", "image/gif", "image/png"]
-        self.meme_storage = "./discordtip_v2_meme/"
         self.meme_web_path = self.bot.config['discord']['meme_web_path']
         self.meme_channel_upload = self.bot.config['discord']['meme_upload_channel_log']
         self.meme_reviewer = self.bot.config['discord']['meme_reviewer']
@@ -1047,9 +1046,11 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ SELECT * FROM `meme_uploaded` 
+                    sql = """
+                    SELECT * FROM `meme_uploaded` 
                     WHERE `owner_userid`=%s  
-                    ORDER BY `uploaded_date` DESC """
+                    ORDER BY `uploaded_date` DESC
+                    """
                     await cur.execute(sql, user_id)
                     result = await cur.fetchall()
                     if result:
@@ -1063,9 +1064,11 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `meme_uploaded` 
+                    sql = """
+                    UPDATE `meme_uploaded` 
                     SET `enable`=%s, `reviewed_by`=%s, `reviewed_date`=%s 
-                    WHERE `key`=%s LIMIT 1 """
+                    WHERE `key`=%s LIMIT 1
+                    """
                     await cur.execute(sql, (status, reviewed_by, reviewed_date, meme_id))
                     await conn.commit()
                     return cur.rowcount
@@ -1081,10 +1084,12 @@ class MemePls(commands.Cog):
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `meme_uploaded` SET `number_view`=number_view+%s WHERE `key`=%s LIMIT 1;
-                              INSERT INTO meme_viewed (`meme_id`, `owner_userid`, `called_by`, 
-                              `guild_id`, `channel_id`, `date`) 
-                              VALUES (%s, %s, %s, %s, %s, %s) """
+                    sql = """
+                    UPDATE `meme_uploaded` SET `number_view`=number_view+%s WHERE `key`=%s LIMIT 1;
+                    INSERT INTO meme_viewed (`meme_id`, `owner_userid`, `called_by`, 
+                    `guild_id`, `channel_id`, `date`) 
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """
                     await cur.execute(sql, (
                         inc, meme_id, meme_id, owner_userid, called_by, guild_id, channel_id, int(time.time())))
                     await conn.commit()
@@ -1482,7 +1487,7 @@ class MemePls(commands.Cog):
                             hash_object = hashlib.sha256(res_data)
                             hex_dig = str(hash_object.hexdigest())
                             mime_type = magic.from_buffer(res_data, mime=True)
-                            if mime_type not in self.meme_accept:
+                            if mime_type not in self.bot.config['memepls']['meme_file_accept']:
                                 msg = f"{ctx.author.mention}, the uploaded image is not a supported file."
                                 await ctx.edit_original_message(content=msg)
                                 return
@@ -1500,7 +1505,7 @@ class MemePls(commands.Cog):
                                     guild_name = ctx.guild.name
                                 # Write the stuff
                                 saved_name = hex_dig + "." + mime_type.split("/")[1]
-                                with open(self.meme_storage + saved_name, "wb") as f:
+                                with open(self.bot.config['memepls']['meme_storage'] + saved_name, "wb") as f:
                                     f.write(BytesIO(res_data).getbuffer())
                                 saving = await self.save_uploaded(
                                     random_string, str(ctx.author.id),
@@ -1572,6 +1577,7 @@ class MemePls(commands.Cog):
     ):
         await self.bot_log()
 
+    @commands.guild_only()
     @predefined.sub_command(
         name="list",
         usage="memepls predefined list",
@@ -1595,6 +1601,7 @@ class MemePls(commands.Cog):
                 )
             )
 
+    @commands.guild_only()
     @commands.has_permissions(manage_channels=True)
     @predefined.sub_command(
         name="delete",
@@ -1644,6 +1651,7 @@ class MemePls(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @commands.guild_only()
     @commands.has_permissions(manage_channels=True)
     @predefined.sub_command(
         name="delete-all",
@@ -1692,6 +1700,7 @@ class MemePls(commands.Cog):
             list_amount_token = ["{}-{}".format(i['amount'], i['token_name']) for i in self.bot.other_data['memepls_pref'][str(inter.guild.id)]]
         return [name for name in list_amount_token if string in name.lower()][:5]
 
+    @commands.guild_only()
     @commands.has_permissions(manage_channels=True)
     @predefined.sub_command(
         name="add",

@@ -11,6 +11,7 @@ from typing import Optional
 from decimal import Decimal
 from datetime import datetime
 import time
+import random
 from string import ascii_uppercase
 from disnake.enums import OptionType
 from disnake.app_commands import Option, OptionChoice
@@ -25,6 +26,14 @@ from cogs.wallet import WalletAPI
 from cogs.utils import Utils, num_format_coin, chunks, stellar_get_tx_info, btc_get_tx_info, \
     erc20_get_tx_info, erc20_get_block_number, tezos_get_tx
 
+
+def get_proxy_nanswap(config):
+    select_proxy = None
+    if len(config['nanswap']['proxy_list']) > 0 and config['nanswap']['enable_proxy'] == 1:
+        proxy_list = config['nanswap']['proxy_list'].copy()
+        random.shuffle(proxy_list)
+        select_proxy = proxy_list[0]
+    return select_proxy
 
 async def nanswap_get_pendings(status: str="ONGOING"):
     try:
@@ -244,13 +253,14 @@ async def nanswap_create_order(
         traceback.print_exc(file=sys.stdout)
     return False
 
-async def nanswap_get_create_order(data, api_key: str, timeout: int=30):
+async def nanswap_get_create_order(data, api_key: str, timeout: int=30, select_proxy: str = None):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://api.nanswap.com/v1/create-order",
                 json=data,
                 headers={'nanswap-api-key': api_key, 'Content-Type': 'application/json'},
+                proxy=select_proxy,
                 timeout=timeout
             ) as response:
                 if response.status == 200:
@@ -264,12 +274,13 @@ async def nanswap_get_create_order(data, api_key: str, timeout: int=30):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def nanswap_get_estimate(from_coin: str, to_coin: str, amount: float, timeout: int=30):
+async def nanswap_get_estimate(from_coin: str, to_coin: str, amount: float, timeout: int=30, select_proxy: str = None):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 "https://api.nanswap.com/v1/get-estimate?from="+from_coin+"&to="+to_coin+"&amount="+str(amount),
                 headers={'Content-Type': 'application/json'},
+                proxy=select_proxy,
                 timeout=timeout
             ) as response:
                 if response.status == 200:
@@ -283,12 +294,13 @@ async def nanswap_get_estimate(from_coin: str, to_coin: str, amount: float, time
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def nanswap_get_estimate_rev(from_coin: str, to_coin: str, amount: float, timeout: int=30):
+async def nanswap_get_estimate_rev(from_coin: str, to_coin: str, amount: float, timeout: int=30, select_proxy: str = None):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 "https://api.nanswap.com/v1/get-estimate-reverse?from="+from_coin+"&to="+to_coin+"&amount="+str(amount),
                 headers={'Content-Type': 'application/json'},
+                proxy=select_proxy,
                 timeout=timeout
             ) as response:
                 if response.status == 200:
@@ -302,13 +314,14 @@ async def nanswap_get_estimate_rev(from_coin: str, to_coin: str, amount: float, 
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def nanswap_get_limit(from_coin: str, to_coin: str, timeout: int=30):
+async def nanswap_get_limit(from_coin: str, to_coin: str, timeout: int=30, select_proxy: str = None):
     try:
         url = "https://api.nanswap.com/v1/get-limits?from="+from_coin+"&to="+to_coin
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 url,
                 headers={'Content-Type': 'application/json'},
+                proxy=select_proxy,
                 timeout=timeout
             ) as response:
                 if response.status == 200:
@@ -322,13 +335,14 @@ async def nanswap_get_limit(from_coin: str, to_coin: str, timeout: int=30):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def nanswap_check_id_partner(id_str: str, timeout: int=30):
+async def nanswap_check_id_partner(id_str: str, timeout: int=30, select_proxy: str = None):
     try:
         url = "https://api.nanswap.com/get-order-partner?id="+id_str
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 url,
                 headers={'Content-Type': 'application/json'},
+                proxy=select_proxy,
                 timeout=timeout
             ) as response:
                 if response.status == 200:
@@ -342,13 +356,14 @@ async def nanswap_check_id_partner(id_str: str, timeout: int=30):
         traceback.print_exc(file=sys.stdout)
     return None
 
-async def nanswap_check_id(id_str: str, timeout: int=30):
+async def nanswap_check_id(id_str: str, timeout: int=30, select_proxy: str = None):
     try:
         url = "https://api.nanswap.com/v1/get-order?id="+id_str
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 url,
                 headers={'Content-Type': 'application/json'},
+                proxy=select_proxy,
                 timeout=timeout
             ) as response:
                 if response.status == 200:
@@ -629,7 +644,7 @@ class Nanswap(commands.Cog):
             if for_token in self.bot.config['nanswap_network'].keys():
                 to_token_json = self.bot.config['nanswap_network'][for_token]
 
-            get_limit = await nanswap_get_limit(from_token_json, to_token_json, timeout=30)
+            get_limit = await nanswap_get_limit(from_token_json, to_token_json, timeout=30, select_proxy = get_proxy_nanswap(self.bot.config))
             max_sell_tx = getattr(getattr(self.bot.coin_list, sell_token), "real_max_tx")
             if get_limit is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, fetching limit error. Try again later!"
@@ -688,7 +703,13 @@ class Nanswap(commands.Cog):
                         from_token_json = self.bot.config['nanswap_network'][sell_token]
                     if for_token in self.bot.config['nanswap_network'].keys():
                         to_token_json = self.bot.config['nanswap_network'][for_token]
-                    get_estimate = await nanswap_get_estimate(from_coin=from_token_json, to_coin=to_token_json, amount=truncate(amount, 12), timeout=30)
+                    get_estimate = await nanswap_get_estimate(
+                        from_coin=from_token_json,
+                        to_coin=to_token_json,
+                        amount=truncate(amount, 12),
+                        timeout=30,
+                        select_proxy = get_proxy_nanswap(self.bot.config)
+                    )
                     if get_estimate is None:
                         msg = f"{EMOJI_RED_NO} {ctx.author.mention}, error during estimation, try again later!"
                         await ctx.edit_original_message(content=msg)
@@ -804,7 +825,12 @@ class Nanswap(commands.Cog):
                                 "amount": float(truncate(amount, 12)),
                                 "toAddress": main_address
                             }
-                            trade = await nanswap_get_create_order(data_json, self.bot.config['nanswap']['api_key'], 30)
+                            trade = await nanswap_get_create_order(
+                                data_json,
+                                self.bot.config['nanswap']['api_key'],
+                                30,
+                                select_proxy = get_proxy_nanswap(self.bot.config)
+                            )
                             if trade is None:
                                 await ctx.edit_original_message(
                                     content=f"{EMOJI_ERROR} {ctx.author.mention}, failed to created an order from __{sell_token}__ to __{for_token}__.",
@@ -1057,7 +1083,7 @@ class Nanswap(commands.Cog):
                                         )
                                 elif sell_coin_family == "XLM":
                                     # fetch the order
-                                    check_id = await nanswap_check_id_partner(trade['id'])
+                                    check_id = await nanswap_check_id_partner(trade['id'], timeout=30, select_proxy = get_proxy_nanswap(self.bot.config))
                                     if "error" in check_id:
                                         await ctx.edit_original_message(
                                             content=f"{EMOJI_ERROR} {ctx.author.mention}, error checking ID __{trade['id']}__.",
@@ -1320,7 +1346,13 @@ class Nanswap(commands.Cog):
                 await ctx.edit_original_message(content=msg)
                 return
             # get reverse order first
-            get_estimate = await nanswap_get_estimate_rev(from_coin=sell_token, to_coin=for_token, amount=truncate(amount, 12), timeout=30)
+            get_estimate = await nanswap_get_estimate_rev(
+                from_coin=sell_token,
+                to_coin=for_token,
+                amount=truncate(amount, 12),
+                timeout=30,
+                select_proxy = get_proxy_nanswap(self.bot.config)
+            )
             if get_estimate is None:
                 msg = f"{EMOJI_RED_NO} {ctx.author.mention}, error fetching estimation. Try again later!"
                 await ctx.edit_original_message(content=msg)
@@ -1328,7 +1360,7 @@ class Nanswap(commands.Cog):
             else:
                 amount_sell = Decimal(get_estimate['amountFrom'])
                 max_sell_tx = getattr(getattr(self.bot.coin_list, sell_token), "real_max_tx")
-                get_limit = await nanswap_get_limit(sell_token, for_token, timeout=30)
+                get_limit = await nanswap_get_limit(sell_token, for_token, timeout=30, select_proxy = get_proxy_nanswap(self.bot.config))
                 if get_limit is None:
                     msg = f"{EMOJI_RED_NO} {ctx.author.mention}, fetching limit error. Try again later!"
                     await ctx.edit_original_message(content=msg)
@@ -1457,7 +1489,12 @@ class Nanswap(commands.Cog):
                                 "amount": float(truncate(amount_sell, 12)),
                                 "toAddress": main_address
                             }
-                            trade = await nanswap_get_create_order(data_json, self.bot.config['nanswap']['api_key'], 30)
+                            trade = await nanswap_get_create_order(
+                                data_json,
+                                self.bot.config['nanswap']['api_key'],
+                                30,
+                                select_proxy = get_proxy_nanswap(self.bot.config)
+                            )
                             if trade is None:
                                 await ctx.edit_original_message(
                                     content=f"{EMOJI_ERROR} {ctx.author.mention}, failed to created an order from __{sell_token}__ to __{for_token}__.",
@@ -1641,9 +1678,9 @@ class Nanswap(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
         try:
-            check_id = await nanswap_check_id(id, timeout=20)
+            check_id = await nanswap_check_id(id, timeout=20, select_proxy = get_proxy_nanswap(self.bot.config))
             if check_id is None or "error" in check_id:
-                check_id = await nanswap_check_id_partner(id, timeout=20)
+                check_id = await nanswap_check_id_partner(id, timeout=30, select_proxy = get_proxy_nanswap(self.bot.config))
                 if check_id is None or "error" in check_id:
                     await ctx.edit_original_message(
                         content=f"{ctx.author.mention}, there is no such Nanswap ID: __{id}__."
@@ -1696,9 +1733,9 @@ payoutAddress: {}
                         )
                         await asyncio.sleep(30.0)
                     if i['to_coin'] in self.bot.config['nanswap']['partner_list'] or i['from_coin'] in self.bot.config['nanswap']['partner_list']:
-                        check_id = await nanswap_check_id_partner(i['nanswap_id'], timeout=10)
+                        check_id = await nanswap_check_id_partner(i['nanswap_id'], timeout=15, select_proxy = get_proxy_nanswap(self.bot.config))
                     else:
-                        check_id = await nanswap_check_id(i['nanswap_id'], timeout=10)
+                        check_id = await nanswap_check_id(i['nanswap_id'], timeout=10, select_proxy = get_proxy_nanswap(self.bot.config))
                     if check_id and check_id['status'] == "completed":
                         # credit user
                         main_address = getattr(getattr(self.bot.coin_list, i['to_coin']), "MainAddress")

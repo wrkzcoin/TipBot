@@ -2692,6 +2692,66 @@ class Utils(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return None
 
+    # leaderboard
+    async def get_tipper_leaderboard(self, guild_id: str, coin_name: str, lap: int=0):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    lap_duration =  int(time.time()) - lap
+                    sql_lap = ""
+                    if lap > 0:
+                        sql_lap = """ AND `date`>%s """
+                    sql = """
+                    SELECT `from_userid`, SUM(`real_amount`) AS `sum_tip` FROM `user_balance_mv`
+                    WHERE `guild_id`=%s AND `token_name`=%s 
+                    AND `type` IN ("TIP", "TIPS", "TIPALL", "FREETIP", "TRIVIATIP", "MATHTIP", "MEMETIP", "PARTYDROP", "QUICKDROP") 
+                    AND `from_userid`<>%s  
+                    """ + sql_lap + """
+                    GROUP BY `from_userid`
+                    ORDER BY `sum_tip` DESC
+                    """
+                    data_rows = [guild_id, coin_name, guild_id]
+                    if lap > 0:
+                        data_rows.append(lap_duration)
+                    await cur.execute(sql, tuple(data_rows))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
+    async def get_receiver_leaderboard(self, guild_id: str, coin_name: str, lap: int=0):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    lap_duration =  int(time.time()) - lap
+                    sql_lap = ""
+                    if lap > 0:
+                        sql_lap = """ AND `date`>%s """
+                    sql = """
+                    SELECT `to_userid`, SUM(`real_amount`) AS `sum_tip` FROM `user_balance_mv`
+                    WHERE `guild_id`=%s AND `token_name`=%s 
+                    AND `type` IN ("TIP", "TIPS", "TIPALL", "FREETIP", "TRIVIATIP", "MATHTIP", "MEMETIP", "PARTYDROP", "QUICKDROP") 
+                    AND `to_userid`<>%s 
+                    """ + sql_lap + """
+                    GROUP BY `to_userid`
+                    ORDER BY `sum_tip` DESC
+                    """
+                    data_rows = [guild_id, coin_name, guild_id]
+                    if lap > 0:
+                        data_rows.append(lap_duration)
+                    await cur.execute(sql, tuple(data_rows))
+                    result = await cur.fetchall()
+                    if result:
+                        return result
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+    # end leaderboard
+
     async def cog_load(self):
         pass
 

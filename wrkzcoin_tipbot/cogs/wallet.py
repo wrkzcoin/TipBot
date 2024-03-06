@@ -14403,15 +14403,6 @@ class Wallet(commands.Cog):
                     serverinfo['faucet_coin'] is not None:
                 extra_take_text = " Additional reward:\n\n⚆ You can also do /faucet in <#{}> which funded by the guild.".format(
                     serverinfo['faucet_channel'])
-                if serverinfo['vote_reward_amount'] and serverinfo['vote_reward_channel']:
-                    vote_reward_coin = serverinfo['vote_reward_coin']
-                    vote_coin_decimal = getattr(getattr(self.bot.coin_list, vote_reward_coin), "decimal")
-                    vote_reward_amount = num_format_coin(
-                        serverinfo['vote_reward_amount']
-                    )
-
-                    extra_take_text += "\n⚆ Vote {} at top.gg <https://top.gg/servers/{}/vote> for {} {} each vote.".format(
-                        ctx.guild.name, ctx.guild.id, vote_reward_amount, serverinfo['vote_reward_coin'])
                 if serverinfo['rt_reward_amount'] and serverinfo['rt_reward_coin'] and serverinfo[
                     'rt_end_timestamp'] and serverinfo['rt_end_timestamp'] - 600 > int(time.time()) and serverinfo[
                     'rt_link']:

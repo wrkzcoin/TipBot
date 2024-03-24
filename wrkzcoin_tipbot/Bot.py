@@ -137,8 +137,15 @@ async def log_to_channel(log_type: str, content: str, webhook: str=None) -> None
             url = webhook
         webhook = AsyncDiscordWebhook(
             url=url,
-            content=f'{disnake.utils.escape_markdown(content[:1000])}'
+            content=f'{disnake.utils.escape_markdown(content[:1000])}',
         )
+        if bot.config['discord'].get('webhook_proxy'):
+            proxies = json.loads(bot.config['discord']['webhook_proxy'])
+            webhook = AsyncDiscordWebhook(
+                url=url,
+                content=f'{disnake.utils.escape_markdown(content[:1000])}',
+                proxies=proxies
+            )
         await webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -150,6 +157,13 @@ async def logchanbot(content: str):
         webhook = AsyncDiscordWebhook(
             url=bot.config['discord']['webhook_default_url'],
             content=f'{disnake.utils.escape_markdown(content[:1000])}')
+        if bot.config['discord'].get('webhook_proxy'):
+            proxies = json.loads(bot.config['discord']['webhook_proxy'])
+            webhook = AsyncDiscordWebhook(
+                url=bot.config['discord']['webhook_default_url'],
+                content=f'{disnake.utils.escape_markdown(content[:1000])}',
+                proxies=proxies
+            )
         await webhook.execute()
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -531,7 +545,10 @@ def main():
         if filename.endswith('.py'):
             bot.load_extension(f'cogs.{filename[:-3]}')
 
-    bot.run(bot.config['discord']['token'], reconnect=True)
+    if bot.config['discord'].get("proxy"):
+        bot.run(bot.config['discord']['token'], proxy=bot.config['discord']['proxy'], reconnect=True)
+    else:
+        bot.run(bot.config['discord']['token'], reconnect=True)
 
 
 if __name__ == '__main__':

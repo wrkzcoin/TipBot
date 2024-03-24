@@ -9,6 +9,7 @@ import time
 import aiohttp
 import disnake
 import magic
+import random
 import store
 from Bot import logchanbot, EMOJI_INFORMATION, SERVER_BOT
 from disnake.app_commands import Option, OptionChoice
@@ -16,6 +17,14 @@ from disnake.enums import OptionType
 from disnake.ext import commands
 from cogs.utils import Utils
 
+
+def get_proxy(config):
+    select_proxy = None
+    if len(config['somerandomapi']['proxy_list']) > 0 and config['somerandomapi']['enable_proxy'] == 1:
+        proxy_list = config['somerandomapi']['proxy_list'].copy()
+        random.shuffle(proxy_list)
+        select_proxy = proxy_list[0]
+    return select_proxy
 
 class SomeRandomAPI(commands.Cog):
     def __init__(self, bot):
@@ -109,7 +118,7 @@ class SomeRandomAPI(commands.Cog):
                 'User-Agent': self.bot.config['selenium_setting']['user_agent']
             }
             async with aiohttp.ClientSession() as session:
-                async with session.get(image_url, headers=headers, timeout=timeout) as response:
+                async with session.get(image_url, headers=headers, proxy=get_proxy(self.bot.config), timeout=timeout) as response:
                     if response.status == 200:
                         res_data = await response.read()
                         hash_object = hashlib.sha256(res_data)
@@ -133,7 +142,7 @@ class SomeRandomAPI(commands.Cog):
                 'User-Agent': self.bot.config['selenium_setting']['user_agent']
             }
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers, timeout=timeout) as response:
+                async with session.get(url, headers=headers, proxy=get_proxy(self.bot.config), timeout=timeout) as response:
                     if response.status == 200:
                         res_data = await response.read()
                         res_data = res_data.decode('utf-8')

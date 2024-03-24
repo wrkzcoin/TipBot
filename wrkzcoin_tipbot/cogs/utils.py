@@ -2752,6 +2752,27 @@ class Utils(commands.Cog):
         return []
     # end leaderboard
 
+    # validate address
+    async def validate_address_coin(self, backend_url: str, address: str, coin: str, timeout: int=10):
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        try:
+            url = backend_url + "/validate_address?address=" + address + "&coin=" + coin
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    headers=headers,
+                    timeout=timeout
+                ) as response:
+                    json_resp = await response.json()
+                    if response.status == 200 or response.status == 201:
+                        return json_resp['valid']
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+    # end of validate address
+
     async def cog_load(self):
         pass
 

@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, Optional
 import re
+import importlib
 
 import aiohttp
 import aiomysql
@@ -6180,7 +6181,7 @@ class Wallet(commands.Cog):
                                                     await log_to_channel(
                                                         "withdraw",
                                                         f"[{user_server}] User {tw_user} successfully executed withdraw "\
-                                                        f"{num_format_coin(amount)} {token_display}{equivalent_usd}."
+                                                        f"{num_format_coin(amount)} {token_display}{equivalent_usd} to {address}."
                                                     )
                                                     continue
                                                 else:
@@ -6890,9 +6891,9 @@ class Wallet(commands.Cog):
                             if len(decoded_data) > 0:
                                 return decoded_data
                         elif response.status == 503 or response.status == 400:
-                            print(url)
-                            print("update_balance_cosmos return status: {}".format(response.status))
-                            print("update_balance_cosmos: re-try with order_by 2")
+                            #print(url)
+                            #print("update_balance_cosmos return status: {}".format(response.status))
+                            #print("update_balance_cosmos: re-try with order_by 2")
                             url = endpoint + "?pagination.limit=50&events=coin_received.receiver={}&order_by=2".format("%27" + account_addr + "%27")
                             async with aiohttp.ClientSession() as session:
                                 async with session.get(
@@ -6906,8 +6907,9 @@ class Wallet(commands.Cog):
                                         if len(decoded_data) > 0:
                                             return decoded_data
                                     else:
-                                        print(url)
-                                        print("[RE-TRY] update_balance_cosmos return status: {}".format(response.status))
+                                        pass
+                                        #print(url)
+                                        #print("[RE-TRY] update_balance_cosmos return status: {}".format(response.status))
                         else:
                             print("update_balance_cosmos {} URL return: ".format(url, response.status))
             except asyncio.exceptions.TimeoutError:
@@ -7768,6 +7770,9 @@ class Wallet(commands.Cog):
         task_name = "update_ada_wallets_sync"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
+            return
+        coin_name = "ADA"
+        if getattr(getattr(self.bot.coin_list, coin_name), "enable_deposit") == 0:
             return
         async def fetch_wallet_status(url, timeout):
             try:
@@ -11417,7 +11422,7 @@ class Wallet(commands.Cog):
                     getattr(self.bot.coin_list, coin_name),
                     "split_main_paymentid") != 1:
                     # Add optional address and payment Id
-                    embed.add_field(name="Or Address + PaymentId", value="Address: ```{}```\nPaymentId: ```{}```".format(main_address, get_deposit['paymentid']), inline=False)
+                    embed.add_field(name="Or Address + PaymentId", value="```diff\n{}\n\n- PaymentId: {}```".format(main_address, get_deposit['paymentid']), inline=False)
                 embed.set_thumbnail(url=self.bot.config['storage']['deposit_url'] + address_path + ".png")
 
             if getattr(getattr(self.bot.coin_list, coin_name), "related_coins"):
@@ -12001,6 +12006,75 @@ class Wallet(commands.Cog):
                     msg = f"{EMOJI_ERROR} {ctx.author.mention}, you cannot send to this address _{address}_."
                     await ctx.edit_original_message(content=msg)
                     return
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+
+            # check address for certain coins
+            try:
+                if self.bot.config['api_helper']['address_validator_enable'] == 1:
+                    invalid_address_note_txt = ""
+                    invalid_address_note = getattr(getattr(self.bot.coin_list, coin_name), "invalid_address_note")
+                    if invalid_address_note:
+                        invalid_address_note_txt = " " + invalid_address_note
+                    if type_coin.upper() in ["TRTL-API", "TRTL-SERVICE", "BCN"]:
+                        get_prefix_char = getattr(getattr(self.bot.coin_list, coin_name), "get_prefix_char")
+                        get_prefix = getattr(getattr(self.bot.coin_list, coin_name), "get_prefix")
+                        get_addrlen = getattr(getattr(self.bot.coin_list, coin_name), "get_addrlen")
+                        get_intaddrlen = getattr(getattr(self.bot.coin_list, coin_name), "get_intaddrlen")
+                        validate_address = cn_addressvalidation.cn_validate_address(
+                            address, get_prefix, get_addrlen, get_prefix_char
+                        )
+                        if validate_address is False:
+                            validate_address = cn_addressvalidation.cn_validate_integrated(
+                                address, get_prefix_char, get_prefix, get_intaddrlen
+                            )
+                            
+                            if validate_address is False:
+                                await ctx.edit_original_message(
+                                    content=f"{EMOJI_ERROR} {ctx.author.mention}, given address `{address}` is invalid for coin/token **{token.upper()}**.{invalid_address_note_txt}"\
+                                    " If you think this is an error, please join our Discord for support."
+                                )
+                                await log_to_channel(
+                                    "withdraw",
+                                    f"🔴 [INVALID ADDRESS] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"submit a withdraw amount: {amount} with an invalid address {address} for coin {token.upper()}."
+                                )
+                                return
+                    else:
+                        check_type = None
+                        if type_coin == "ERC-20":
+                            check_type = "eth"
+                        elif type_coin == "TRC-20" or type_coin == "TRC-10":
+                            check_type = "trx"
+                        elif type_coin == "SOL" and type_coin == "SPL":
+                            check_type = "sol"
+                        elif type_coin == "XLM":
+                            check_type = "xlm"
+                        elif type_coin == "XRP":
+                            check_type = "xrp"
+                        elif type_coin == "ADA":
+                            check_type = "ada"
+                        elif type_coin == "VET":
+                            check_type = "vet"
+                        elif type_coin == "XTZ":
+                            check_type = "xtz"
+                        elif token in self.bot.config['api_helper']['address_validator_list']:
+                            check_type = token.lower()
+                        if check_type is not None:
+                            check_address = await self.utils.validate_address_coin(
+                                self.bot.config['api_helper']['address_validator'], address, check_type, timeout=20
+                            )
+                            if check_address is False:
+                                await ctx.edit_original_message(
+                                    content=f"{EMOJI_ERROR} {ctx.author.mention}, given address `{address}` is invalid for coin/token **{token.upper()}**.{invalid_address_note_txt}"\
+                                    " If you think this is an error, please join our Discord for support."
+                                )
+                                await log_to_channel(
+                                    "withdraw",
+                                    f"🔴 [INVALID ADDRESS] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"submit a withdraw amount: {amount} with an invalid address {address} for coin {token.upper()}."
+                                )
+                                return
             except Exception:
                 traceback.print_exc(file=sys.stdout)
 
@@ -13945,7 +14019,7 @@ class Wallet(commands.Cog):
                                 "withdraw",
                                 f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
                                 f"successfully executed withdraw {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd}.{explorer_link}"
+                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
                             )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\

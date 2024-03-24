@@ -36,6 +36,7 @@ class PartyButton(disnake.ui.View):
         self.coin_list = coin_list
         self.ctx = ctx
         self.channel_interact = channel_interact
+        
 
     async def on_timeout(self):
         for child in self.children:
@@ -81,6 +82,7 @@ class PartyDrop(commands.Cog):
         self.max_ongoing_by_guild = self.bot.config['discord']['max_ongoing_by_guild']
         self.party_cache = TTLCache(maxsize=2000, ttl=60.0) # if previous value and new value the same, no need to edit
         self.wallet_api = WalletAPI(self.bot)
+        self.ttlcache_rate = TTLCache(maxsize=500, ttl=60.0)
 
     @tasks.loop(seconds=30.0)
     async def party_check(self):
@@ -97,6 +99,8 @@ class PartyDrop(commands.Cog):
                     await self.bot.wait_until_ready()
                     # print("Checkping party: {}".format(each_party['message_id']))
                     try:
+                        if self.ttlcache_rate.get(each_party['channel_id']):
+                            continue
                         get_message = await store.get_party_id(each_party['message_id'])
                         attend_list = await store.get_party_attendant(each_party['message_id'])
                         # Update view
@@ -203,6 +207,13 @@ class PartyDrop(commands.Cog):
                                     party = await store.sql_user_balance_mv_multiple(str(self.bot.user.id), all_name_list, get_message['guild_id'], get_message['channel_id'], indiv_amount, coin_name, "PARTYDROP", coin_decimal, SERVER_BOT, get_message['contract'], float(amount_in_usd), None)
                                     if party is True:
                                         await store.update_party_id(each_party['message_id'], "COMPLETED" if len(attend_list) > 0 else "NOCOLLECT")
+                            except disnake.errors.HTTPException:
+                                    await logchanbot("[PARTYDROP]: ERROR: disnake.errors.HTTPException message ID: {} of channel {} in guild: {}.".format(
+                                        each_party['message_id'], each_party['channel_id'], each_party['guild_id']
+                                    ))
+                                    # if rate limit
+                                    self.ttlcache_rate[each_party['channel_id']] = int(time.time())
+                                    continue
                             except disnake.errors.NotFound:
                                     await logchanbot("[PARTYDROP]: can not find message ID: {} of channel {} in guild: {}. Set that to FAILED.".format(
                                         each_party['message_id'], each_party['channel_id'], each_party['guild_id']
@@ -217,6 +228,7 @@ class PartyDrop(commands.Cog):
                                     continue
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
+                                await asyncio.sleep(5.0)
                         else:
                             # If time_left is too long
                             if 'fetched_msg' not in self.bot.other_data:

@@ -353,6 +353,7 @@ class Tips(commands.Cog):
         self.utils = Utils(self.bot)
         self.max_ongoing_by_user = self.bot.config['discord']['max_ongoing_by_user']
         self.max_ongoing_by_guild = self.bot.config['discord']['max_ongoing_by_guild']
+        self.ttlcache_rate = TTLCache(maxsize=500, ttl=60.0)
 
     @tasks.loop(seconds=30.0)
     async def freetip_check(self):
@@ -368,6 +369,8 @@ class Tips(commands.Cog):
                 time_left = each_message_data['airdrop_time'] - int(time.time())
                 # get message
                 try:
+                    if self.ttlcache_rate.get(each_message_data['channel_id']):
+                        continue
                     # check Bot uptime
                     uptime = round((datetime.now() - self.bot.start_time).total_seconds())
                     if uptime + 600 >= int(time.time()):
@@ -627,6 +630,13 @@ class Tips(commands.Cog):
                             )
                         )
                         await asyncio.sleep(1.0)
+                except disnake.errors.HTTPException:
+                        await logchanbot("[FREETIP]: ERROR: disnake.errors.HTTPException message ID: {} of channel {} in guild: {}.".format(
+                            each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id']
+                        ))
+                        # if rate limit
+                        self.ttlcache_rate[each_message_data['channel_id']] = int(time.time())
+                        continue
                 except disnake.errors.NotFound:
                     await logchanbot("[FREETIP]: can not find message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
                         each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],

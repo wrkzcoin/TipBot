@@ -67,6 +67,7 @@ class TalkDrop(commands.Cog):
         self.talkdrop_cache = TTLCache(maxsize=2000, ttl=60.0) # if previous value and new value the same, no need to edit
         self.wallet_api = WalletAPI(self.bot)
         self.utils = Utils(self.bot)
+        self.ttlcache_rate = TTLCache(maxsize=500, ttl=60.0)
 
     @tasks.loop(seconds=30.0)
     async def talkdrop_check(self):
@@ -80,6 +81,8 @@ class TalkDrop(commands.Cog):
             get_list_talkdrop = await store.get_all_talkdrop("ONGOING")
             if len(get_list_talkdrop) > 0:
                 for each_talkdrop in get_list_talkdrop:
+                    if self.ttlcache_rate.get(each_talkdrop['channel_id']):
+                        continue
                     await self.bot.wait_until_ready()
                     # print("Checkping talkdrop: {}".format(each_talkdrop['message_id']))
                     coin_name = each_talkdrop['token_name']
@@ -157,6 +160,10 @@ class TalkDrop(commands.Cog):
                                         if len(all_name_list) > 0:
                                             talkdrop = await store.sql_user_balance_mv_multiple(each_talkdrop['from_userid'], all_name_list, each_talkdrop['guild_id'], each_talkdrop['channel_id'], indiv_amount, coin_name, "TALKDROP", coin_decimal, SERVER_BOT, each_talkdrop['contract'], float(amount_in_usd), None)
                                         await store.update_talkdrop_id(each_talkdrop['message_id'], "COMPLETED" if len(all_name_list) > 0 else "NOCOLLECT")
+                                    except disnake.errors.HTTPException:
+                                        # if rate limit
+                                        self.ttlcache_rate[each_talkdrop['channel_id']] = int(time.time())
+                                        continue
                                     except disnake.errors.NotFound:
                                         await logchanbot("talkdrop_check: can not find message ID: {} in channel {}.".format(each_talkdrop['message_id'], each_talkdrop['channel_id']))
                                     except Exception:

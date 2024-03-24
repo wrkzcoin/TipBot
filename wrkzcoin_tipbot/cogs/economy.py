@@ -188,13 +188,15 @@ class database_economy():
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    sql = """ UPDATE `discord_economy_activities` 
+                    sql = """
+                    UPDATE `discord_economy_activities` 
                     SET `completed`=%s, `status`=%s 
                     WHERE `id`=%s AND `user_id`=%s
                     """
                     await cur.execute(sql, (int(time.time()), 'COMPLETED', act_id, user_id,))
                     # 2nd query
-                    sql = """ UPDATE `discord_economy_userinfo` 
+                    sql = """
+                    UPDATE `discord_economy_userinfo` 
                     SET `exp`=`exp`+%s, `health_current`=`health_current`+%s,
                     `energy_current`=`energy_current`+%s WHERE `user_id`=%s """
                     await cur.execute(sql, (exp, health, energy, user_id,))
@@ -3288,8 +3290,11 @@ class Economy(commands.Cog):
                                         str(get_last_act['guild_id']) + f" runs out of balance for coin {coin_name}. "\
                                             "Stop rewarding."
                                     )
-                                    msg = f"{EMOJI_ERROR} {ctx.author.mention}, this guild runs out of balance to give reward."
-                                    await ctx.edit_original_message(content=msg)
+                                    update_work = await self.db.economy_update_activity(get_last_act['id'], str(ctx.author.id), get_last_act['exp'], health=0, energy=0)
+                                    completed_task = ' You completed task #{} without a reward.'.format(get_last_act['id'])
+                                    await ctx.edit_original_message(content=
+                                        f"{EMOJI_ERROR} {ctx.author.mention}, the guild you last worked runs out of **{coin_name}** "\
+                                        f"balance to give reward. Guild name/id: {played_guild.name}/{played_guild.id}.{completed_task}")
                                     return
                                 # OK, let him claim
                                 try:

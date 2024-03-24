@@ -3221,6 +3221,7 @@ class Cexswap(commands.Cog):
             )
         except Exception:
             traceback.print_exc(file=sys.stdout)
+            await ctx.edit_original_message(content=f"{ctx.author.mention}, internal error!")
 
     @cexswap.sub_command(
         name="listpools",
@@ -6437,23 +6438,24 @@ class Cexswap(commands.Cog):
                         else:
                             # Check if user not in main guild
                             try:
-                                main_guild = self.bot.get_guild(self.bot.config['cexswap_api']['main_guild_id'])
-                                if main_guild is not None and find_user['user_server'] == SERVER_BOT:
-                                    get_user = main_guild.get_member(int(find_user['user_id']))
-                                    if get_user is None:
-                                        result = {
-                                            "success": False,
-                                            "data": None,
-                                            "error": "Your Discord Account needs to be in our main Discord Guild to execute this!",
-                                            "id": id_call,
-                                            "time": int(time.time())
-                                        }
-                                        await log_to_channel(
-                                            "cexswap",
-                                            f"[API REJECT]: User <@{find_user['user_id']}> / {find_user['user_id']} not in our Discord Guild!",
-                                            self.bot.config['discord']['cexswap']
-                                        )
-                                        return web.json_response(result, status=200)
+                                if self.bot.config['cexswap_api']['required_api_in_guild'] == 1:
+                                    main_guild = self.bot.get_guild(self.bot.config['cexswap_api']['main_guild_id'])
+                                    if main_guild is not None and find_user['user_server'] == SERVER_BOT and find_user['user_id'] != self.bot.config['autoswap']['autoswap']:
+                                        get_user = main_guild.get_member(int(find_user['user_id']))
+                                        if get_user is None:
+                                            result = {
+                                                "success": False,
+                                                "data": None,
+                                                "error": "Your Discord Account needs to be in our main Discord Guild to execute this!",
+                                                "id": id_call,
+                                                "time": int(time.time())
+                                            }
+                                            await log_to_channel(
+                                                "cexswap",
+                                                f"[API REJECT]: User <@{find_user['user_id']}> / {find_user['user_id']} not in our Discord Guild!",
+                                                self.bot.config['discord']['cexswap']
+                                            )
+                                            return web.json_response(result, status=200)
                             except Exception:
                                 traceback.print_exc(file=sys.stdout)
                             # Update API calls
@@ -7072,6 +7074,7 @@ class Cexswap(commands.Cog):
                                             "for_token": selling['for_token'],
                                             "price_impact_percent": selling['price_impact_percent'],
                                             "message": selling['message'],
+                                            "ref": selling['ref'],
                                             "error": None,
                                             "time": int(time.time())
                                         }
@@ -7157,7 +7160,7 @@ class Cexswap(commands.Cog):
         await self.bot.wait_until_ready()
         await self.site.start()
 
-    @tasks.loop(seconds=60.0)
+    @tasks.loop(seconds=30.0)
     async def api_trade_announce(self):
         time_lap = 20  # seconds
         await self.bot.wait_until_ready()
@@ -7168,7 +7171,7 @@ class Cexswap(commands.Cog):
             return
         await asyncio.sleep(time_lap)
         try:
-            lap = int(time.time()) - 600 # not later than 10mn
+            lap = int(time.time()) - 300 # not later than 5mn
             await store.openConnection()
             async with store.pool.acquire() as conn:
                 async with conn.cursor() as cur:
@@ -7178,60 +7181,81 @@ class Cexswap(commands.Cog):
                     """
                     await cur.execute(sql, lap)
                     result = await cur.fetchall()
+                    if len(result) > self.bot.config['cexswap']['notification_trade_max']:
+                        await log_to_channel(
+                            "cexswap",
+                            f"[ANN]: There are totally {str(len(result))} from API from the last 5mn to announce the trade in every trade channel!",
+                            self.bot.config['discord']['cexswap']
+                        )
+                        # reduce some
+                    get_guilds = await self.utils.get_trade_channel_list()
                     if result and len(result) > 0:
-                        get_guilds = await self.utils.get_trade_channel_list()
                         if len(get_guilds) > 0 and self.bot.config['cexswap']['disable'] == 0 and \
                             self.bot.config['cexswap_api']['api_trade_announcement'] == 1:
                             # too many announcement, skip. Take 10 first
-                            result = result[:10]
+                            # We need to send them in a batch per message to minimize rate limit
+                            result = result[:self.bot.config['cexswap']['notification_trade_max']] # 15
+                            ann_list = []
                             for each_ann in result:
-                                # check if the amount is more than minimum.
-                                try:
-                                    coin_got = each_ann['got_ticker']
-                                    coin_sold = each_ann['sold_ticker']
-                                    min_got = getattr(getattr(self.bot.coin_list, coin_got), "cexswap_min_sold_ann")
-                                    min_sold = getattr(getattr(self.bot.coin_list, coin_sold), "cexswap_min_sold_ann")
-                                    if self.bot.config['cexswap']['ann_sold_limit'] == 2:
-                                        # continue without announcement
-                                        pass
-                                    elif self.bot.config['cexswap']['ann_sold_limit'] == 0 or (min_got is None or min_sold is None or \
-                                        (min_sold and float(each_ann['total_sold_amount']) > min_sold) or \
-                                            (min_got and float(each_ann['got_total_amount']) > min_got)):
-                                        list_guild_ids = [i.id for i in self.bot.guilds]
-                                        for item in get_guilds:
-                                            if int(item['serverid']) not in list_guild_ids:
-                                                continue
-                                            try:
-                                                key_cache = item['serverid'] + "_" + SERVER_BOT
-                                                get_guild = self.bot.get_guild(int(item['serverid']))
-                                                if get_guild:
-                                                    channel = get_guild.get_channel(int(item['trade_channel']))
-                                                    if channel is None:
-                                                        continue
-                                                    else:
-                                                        if key_cache in self.cache_sold_notify and self.cache_sold_notify[key_cache] == self.bot.config['cexswap']['sold_mute_channel']:
-                                                            await channel.send("**[CEXSWAP API] mutes trade notification for a few seconds.**")
-                                                        elif key_cache in self.cache_sold_notify and self.cache_sold_notify[key_cache] > 10:
-                                                            pass
-                                                        else:
-                                                            await channel.send(each_ann['api_messsage'])
-                                                        if key_cache not in self.cache_sold_notify:
-                                                            self.cache_sold_notify[key_cache] = 1
-                                                        else:
-                                                            self.cache_sold_notify[key_cache] += 1
-                                            except Exception:
-                                                traceback.print_exc(file=sys.stdout)
-                                    # Update announcement
+                                if self.bot.config['cexswap']['enable_sold_ann'] == 0:
+                                    sql = """
+                                    UPDATE `cexswap_sell_logs` 
+                                    SET `is_api_announced`=1
+                                    WHERE `log_id`=%s LIMIT 1;
+                                    """
+                                    await cur.execute(sql, each_ann['log_id'])
+                                    await conn.commit()
+                                else:
+                                    # check if the amount is more than minimum.
                                     try:
-                                        sql = """
-                                        UPDATE `cexswap_sell_logs` 
-                                        SET `is_api_announced`=1
-                                        WHERE `log_id`=%s LIMIT 1;
-                                        """
-                                        await cur.execute(sql, each_ann['log_id'])
-                                        await conn.commit()
+                                        coin_got = each_ann['got_ticker']
+                                        coin_sold = each_ann['sold_ticker']
+                                        min_got = getattr(getattr(self.bot.coin_list, coin_got), "cexswap_min_sold_ann")
+                                        min_sold = getattr(getattr(self.bot.coin_list, coin_sold), "cexswap_min_sold_ann")
+                                        if self.bot.config['cexswap']['ann_sold_limit'] == 2:
+                                            # continue without announcement
+                                            pass
+                                        elif self.bot.config['cexswap']['ann_sold_limit'] == 0 or (min_got is None or min_sold is None or \
+                                            (min_sold and float(each_ann['total_sold_amount']) > min_sold) or \
+                                                (min_got and float(each_ann['got_total_amount']) > min_got)):
+                                            ann_list.append(
+                                                each_ann['api_messsage']
+                                            )
+                                        # Update announcement
+                                        try:
+                                            sql = """
+                                            UPDATE `cexswap_sell_logs` 
+                                            SET `is_api_announced`=1
+                                            WHERE `log_id`=%s LIMIT 1;
+                                            """
+                                            await cur.execute(sql, each_ann['log_id'])
+                                            await conn.commit()
+                                        except Exception:
+                                            traceback.print_exc(file=sys.stdout)
                                     except Exception:
                                         traceback.print_exc(file=sys.stdout)
+                            if len(ann_list) == 0 or len(get_guilds) == 0:
+                                return
+                            list_guild_ids = [i.id for i in self.bot.guilds]
+                            for item in get_guilds:
+                                if int(item['serverid']) not in list_guild_ids:
+                                    continue
+                                try:
+                                    key_cache = item['serverid'] + "_" + SERVER_BOT
+                                    get_guild = self.bot.get_guild(int(item['serverid']))
+                                    if get_guild:
+                                        channel = get_guild.get_channel(int(item['trade_channel']))
+                                        if channel is None:
+                                            continue
+                                        else:
+                                            if key_cache in self.cache_sold_notify and self.cache_sold_notify[key_cache] > 10:
+                                                pass
+                                            else:
+                                                await channel.send("\n".join(ann_list))
+                                            if key_cache not in self.cache_sold_notify:
+                                                self.cache_sold_notify[key_cache] = 1
+                                            else:
+                                                self.cache_sold_notify[key_cache] += 1
                                 except Exception:
                                     traceback.print_exc(file=sys.stdout)
         except Exception:

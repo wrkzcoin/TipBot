@@ -42,7 +42,7 @@ async def openConnection():
     try:
         if pool is None:
             pool = await aiomysql.create_pool(
-                host=config['mysql']['host'], port=3306, minsize=2, maxsize=4,
+                host=config['mysql']['host'], port=3306, minsize=8, maxsize=16,
                 user=config['mysql']['user'], password=config['mysql']['password'],
                 db=config['mysql']['db'], cursorclass=DictCursor, autocommit=True
             )

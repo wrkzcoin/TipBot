@@ -1285,6 +1285,12 @@ class VaultMenu(disnake.ui.View):
                 if len(get_free_slot) == 0:
                     await interaction.edit_original_message(
                         content=f"{interaction.author.mention}, there is no free slot wallet service right now! Try again later!")
+                    await log_to_channel(
+                        "vault",
+                        f"[VAULT INFO] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
+                        f"try to open wallet service slot but not available or out of slots!",
+                        self.bot.config['discord']['vault_webhook']
+                    )
                     return
                 wallet_url = get_free_slot[0]['rpc_address']
                 slot_id = get_free_slot[0]['id']
@@ -1627,6 +1633,12 @@ class VaultMenu(disnake.ui.View):
                         if len(get_free_slot) == 0:
                             await interaction.response.send_message(
                                 content=f"{interaction.author.mention}, there is no free slot wallet service right now! Try again later!")
+                            await log_to_channel(
+                                "vault",
+                                f"[VAULT INFO] User {interaction.author.name}#{interaction.author.discriminator} / {interaction.author.mention} "\
+                                f"try to open wallet service slot but not available or out of slots!",
+                                self.bot.config['discord']['vault_webhook']
+                            )
                             return
 
                         wallet_url = get_free_slot[0]['rpc_address']

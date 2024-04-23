@@ -191,8 +191,8 @@ class Paprika(commands.Cog):
                                     )
                                 update_list.append((
                                     each_coin['id'], each_coin['symbol'], each_coin['name'],
-                                    each_coin['rank'], each_coin['circulating_supply'],
-                                    each_coin['total_supply'], each_coin['max_supply'],
+                                    each_coin['rank'], each_coin['circulating_supply'] if each_coin.get('circulating_supply') else None,
+                                    each_coin['total_supply'] if each_coin.get('total_supply') else None, each_coin['max_supply'],
                                     quote_usd['price'], update_time, last_updated, quote_usd['price'],
                                     quote_usd['volume_24h'], quote_usd['volume_24h_change_24h'],
                                     quote_usd['market_cap'], quote_usd['market_cap_change_24h'],

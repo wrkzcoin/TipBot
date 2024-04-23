@@ -12,6 +12,7 @@ import math
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import base64
 
+import stellar_sdk
 from stellar_sdk.exceptions import Ed25519PublicKeyInvalidError
 from stellar_sdk import (
     Account,
@@ -86,50 +87,52 @@ async def send_token(
     coin: str, asset_ticker: str = None, asset_issuer: str = None, memo=None,
     base_fee: int=50000
 ):
-    coin_name = coin.upper()
-    asset_sending = Asset.native()
-    if coin_name != "XLM":
-        asset_sending = Asset(asset_ticker, asset_issuer)
-    kp = Keypair.from_secret(withdraw_keypair)
-    async with ServerAsync(
-        horizon_url=url, client=AiohttpClient()
-    ) as server:
         try:
-            src_account = await server.load_account(kp.public_key)
-            print("{} {} trying to send from {} to {}, amount={}".format(
-                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), coin_name, src_account, to_address, amount
+            coin_name = coin.upper()
+            asset_sending = Asset.native()
+            if coin_name != "XLM":
+                asset_sending = Asset(asset_ticker, asset_issuer)
+            kp = Keypair.from_secret(withdraw_keypair)
+            async with ServerAsync(
+                horizon_url=url, client=AiohttpClient()
+            ) as server:
+                src_account = await server.load_account(kp.public_key)
+                print("{} {} trying to send from {} to {}, amount={}".format(
+                    datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), coin_name, src_account, to_address, amount
 
-            ))
-            if memo is not None:
-                transaction = (
-                    TransactionBuilder(
-                        source_account=src_account,
-                        network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
-                        base_fee=base_fee,
+                ))
+                if memo is not None:
+                    transaction = (
+                        TransactionBuilder(
+                            source_account=src_account,
+                            network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
+                            base_fee=base_fee,
+                        )
+                        .add_text_memo(memo)
+                        .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
+                        .set_timeout(30)
+                        .build()
                     )
-                    .add_text_memo(memo)
-                    .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
-                    .set_timeout(30)
-                    .build()
-                )
-            else:
-                transaction = (
-                    TransactionBuilder(
-                        source_account=src_account,
-                        network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
-                        base_fee=base_fee,
+                else:
+                    transaction = (
+                        TransactionBuilder(
+                            source_account=src_account,
+                            network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE,
+                            base_fee=base_fee,
+                        )
+                        .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
+                        .set_timeout(30)
+                        .build()
                     )
-                    .append_payment_op(to_address, asset_sending, str(truncate(amount, 6)))
-                    .set_timeout(30)
-                    .build()
-                )
-            transaction.sign(kp)
-            response = await server.submit_transaction(transaction)
-            print("{} {} successfully sent from {} to {}, amount={}. {}".format(
-                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), coin_name, src_account, to_address, amount,
-                response['hash']
-            ))
-            return {"hash": response['hash'], "fee": float(response['fee_charged']) / 10000000}
+                transaction.sign(kp)
+                response = await server.submit_transaction(transaction)
+                print("{} {} successfully sent from {} to {}, amount={}. {}".format(
+                    datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), coin_name, src_account, to_address, amount,
+                    response['hash']
+                ))
+                return {"hash": response['hash'], "fee": float(response['fee_charged']) / 10000000}
+        except stellar_sdk.sep.exceptions.AccountRequiresMemoError:
+            return {"error": f"Destination account address {to_address} requires a memo in the transaction."}
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return None

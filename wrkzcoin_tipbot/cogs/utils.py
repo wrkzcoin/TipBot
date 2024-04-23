@@ -33,6 +33,15 @@ from Bot import RowButtonRowCloseAnyMessage, logchanbot, truncate
 plt.style.use('ggplot')
 Account.enable_unaudited_hdwallet_features()
 
+
+def get_proxy_random(list_proxies):
+    select_proxy = None
+    if list_proxies is not None and len(list_proxies) > 0:
+        proxy_list = list_proxies.copy()
+        random.shuffle(proxy_list)
+        select_proxy = proxy_list[0]
+    return select_proxy
+
 def makechart(data, save_path_name: str):
     try:
         color = 'grey'
@@ -581,6 +590,7 @@ class Utils(commands.Cog):
     async def get_list_guilds(self):
         result_guilds = []
         list_roles_feature = {}
+        list_activedrops = {}
         try:
             await store.openConnection()
             async with store.pool.acquire() as conn:
@@ -606,9 +616,20 @@ class Utils(commands.Cog):
                                 'guild_vote_multiplied_by': each['guild_vote_multiplied_by'],
                                 'faucet_cut_time_percent': each['faucet_cut_time_percent']
                             }
+
+                    sql = """
+                    SELECT * FROM `discord_server_activedrops`
+                    """
+                    await cur.execute(sql,)
+                    activedrops = await cur.fetchall()
+                    if activedrops and len(activedrops) > 0:
+                        for each in activedrops:
+                            if each['guild_id'] not in list_activedrops:
+                                list_activedrops[each['guild_id']] = []
+                            list_activedrops[each['guild_id']].append(each)
         except Exception:
             traceback.print_exc(file=sys.stdout)
-        return {'guilds': result_guilds, 'feature_roles': list_roles_feature}
+        return {'guilds': result_guilds, 'feature_roles': list_roles_feature, 'activedrops': list_activedrops}
 
     async def bot_reload_guilds(self):
         try:
@@ -622,9 +643,53 @@ class Utils(commands.Cog):
                         guild_data[i['serverid']]['feature_roles'] = list_guilds['feature_roles'][i['serverid']]
                     else:
                         guild_data[i['serverid']]['feature_roles'] = None
+    
+                    if i['serverid'] in list_guilds.get('activedrops') and len(list_guilds['activedrops'][i['serverid']]) > 0:
+                        guild_data[i['serverid']]['activedrops'] = list_guilds['activedrops'][i['serverid']]
+                    else:
+                        guild_data[i['serverid']]['activedrops'] = None
                 self.bot.other_data['guild_list'] = guild_data.copy()
                 del guild_data
                 return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def bot_add_activedrop(self, guild_id: str, amount: float, coin_name: str, channel: str, duration: int, set_by: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    INSERT INTO `discord_server_activedrops` (`guild_id`, `amount`, `coin_name`, `channel`, `duration`, `set_by`, `set_date`)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY 
+                    UPDATE 
+                    `amount`=VALUES(`amount`),
+                    `coin_name`=VALUES(`coin_name`),
+                    `duration`=VALUES(`duration`),
+                    `set_by`=VALUES(`set_by`),
+                    `set_date`=VALUES(`set_date`)
+                    """
+                    await cur.execute(sql, (guild_id, amount, coin_name, channel, duration, set_by, int(time.time())))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def bot_del_activedrop(self, guild_id: str, channel: str):
+        try:
+            await self.openConnection()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    DELETE FROM `discord_server_activedrops` 
+                    WHERE `guild_id`=%s AND `channel`=%s LIMIT 1
+                    """
+                    await cur.execute(sql, (guild_id, channel))
+                    await conn.commit()
+                    return True
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return False
@@ -798,7 +863,7 @@ class Utils(commands.Cog):
 
     # Recent Activity
     async def recent_tips(
-        self, user_id: str, user_server: str, token_name: str, coin_family: str, what: str, limit: int
+        self, user_id: str, user_server: str, token_name: str, coin_family: str, what: str, limit: int, cexswap_api: bool=False
     ):
         global pool
         coin_name = token_name.upper()
@@ -1163,6 +1228,14 @@ class Utils(commands.Cog):
                             AND `cexswap_distributing_fee`.`distributed_user_server`=%s 
                         ORDER BY `cexswap_distributing_fee`.`date` DESC LIMIT """+ str(limit)
                         await cur.execute(sql, (user_id, coin_name, user_server))
+                        result = await cur.fetchall()
+                        if result:
+                            return result
+                    elif what.lower() == "cexswap":
+                        sql = """
+                        SELECT * FROM `cexswap_sell_logs` WHERE `sell_user_id`=%s AND `user_server`=%s AND `api`=%s
+                        ORDER BY `log_id` DESC LIMIT """+ str(limit)
+                        await cur.execute(sql, (user_id, user_server, 1 if cexswap_api is True else 0))
                         result = await cur.fetchall()
                         if result:
                             return result
@@ -1980,7 +2053,7 @@ class Utils(commands.Cog):
             if source == "PAPRIKA":
                 coin_name = id_paprika
                 try:
-                    if coin_name in self.bot.other_data['price_paprika'] and \
+                    if self.bot.other_data.get('price_paprika') and coin_name in self.bot.other_data['price_paprika'] and \
                         int(time.time()) - self.bot.other_data['price_paprika'][coin_name]['fetched_time'] < 10*60:
                         return self.bot.other_data['price_paprika'][coin_name]
                 except Exception:
@@ -2167,7 +2240,7 @@ class Utils(commands.Cog):
     ):
         data = {
             "endpoint": url,
-            "address": timeout
+            "timeout": timeout
         }
         try:
             async with aiohttp.ClientSession() as cs:

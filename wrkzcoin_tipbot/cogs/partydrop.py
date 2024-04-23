@@ -110,7 +110,15 @@ class PartyDrop(commands.Cog):
                         coin_name = get_message['token_name']
                         coin_emoji = ""
                         try:
-                            channel = self.bot.get_channel(int(get_message['channel_id']))
+                            if self.bot.other_data.get('cache_channels') and get_message['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                self.bot.other_data['cache_channels'][get_message['channel_id']] is not None:
+                                channel = self.bot.other_data['cache_channels'][get_message['channel_id']]
+                            else:
+                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                if channel is not None:
+                                    if self.bot.other_data.get('cache_channels') is None:
+                                        self.bot.other_data['cache_channels'] = {}  
+                                    self.bot.other_data['cache_channels'][get_message['channel_id']] = channel
                             if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
                                 coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                                 coin_emoji = coin_emoji + " " if coin_emoji else ""
@@ -180,10 +188,18 @@ class PartyDrop(commands.Cog):
                             try:
                                 # check Bot uptime
                                 uptime = round((datetime.now() - self.bot.start_time).total_seconds())
-                                if uptime + 300 >= int(time.time()):
+                                if uptime < 60:
                                     # skipped. Bot just re-connected
                                     continue
-                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                if self.bot.other_data.get('cache_channels') and get_message['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                    self.bot.other_data['cache_channels'][get_message['channel_id']] is not None:
+                                    channel = self.bot.other_data['cache_channels'][get_message['channel_id']]
+                                else:
+                                    channel = self.bot.get_channel(int(get_message['channel_id']))
+                                    if channel is not None:
+                                        if self.bot.other_data.get('cache_channels') is None:
+                                            self.bot.other_data['cache_channels'] = {}  
+                                        self.bot.other_data['cache_channels'][get_message['channel_id']] = channel
                                 if channel is None:
                                     await logchanbot("party_check: can not find channel ID: {} for drop ID: {}".format(
                                         each_party['channel_id'], each_party['message_id']
@@ -300,11 +316,19 @@ class PartyDrop(commands.Cog):
                                 inline=True
                             )
                             try:
-                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                if self.bot.other_data.get('cache_channels') and get_message['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                    self.bot.other_data['cache_channels'][get_message['channel_id']] is not None:
+                                    channel = self.bot.other_data['cache_channels'][get_message['channel_id']]
+                                else:
+                                    channel = self.bot.get_channel(int(get_message['channel_id']))
+                                    if channel is not None:
+                                        if self.bot.other_data.get('cache_channels') is None:
+                                            self.bot.other_data['cache_channels'] = {}  
+                                        self.bot.other_data['cache_channels'][get_message['channel_id']] = channel
                                 if channel is None:
                                     # check Bot uptime
                                     uptime = round((datetime.now() - self.bot.start_time).total_seconds())
-                                    if uptime + 300 >= int(time.time()):
+                                    if uptime < 60:
                                         # skipped. Bot just re-connected
                                         continue
                                     await logchanbot("party_check: can not find channel ID: {} for drop ID: {}".format(
@@ -326,6 +350,13 @@ class PartyDrop(commands.Cog):
                                         _msg: disnake.Message = await channel.fetch_message(int(each_party['message_id']))
                                         if _msg is not None and _msg.edited_at and int(time.time()) - int(_msg.edited_at.timestamp()) > 60:
                                             await _msg.edit(content=None, embed=embed)
+                                    except disnake.errors.HTTPException:
+                                            await logchanbot("[PARTYDROP]: ERROR: disnake.errors.HTTPException message ID: {} of channel {} in guild: {}.".format(
+                                                each_party['message_id'], each_party['channel_id'], each_party['guild_id']
+                                            ))
+                                            # if rate limit
+                                            self.ttlcache_rate[each_party['channel_id']] = int(time.time())
+                                            continue
                                     except disnake.errors.NotFound:
                                         # add fail check
                                         turn_off = False

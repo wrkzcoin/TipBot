@@ -1057,6 +1057,9 @@ class Bidding(commands.Cog):
         self.bid_storage = "./discordtip_v2_bidding/"
         self.bid_web_path = self.bot.config['bidding']['web_path']
         self.bid_channel_upload = self.bot.config['bidding']['upload_channel_log']
+        self.ttlcache_rate = TTLCache(maxsize=500, ttl=60.0)
+        self.ttlcache_long_tip = TTLCache(maxsize=500, ttl=600.0)
+
 
     @tasks.loop(seconds=30.0)
     async def bidding_check(self):
@@ -1077,6 +1080,10 @@ class Bidding(commands.Cog):
             # COMPLETE BUT NOT PAID
             if len(list_complete_gone) > 0:
                 for each_bid in list_complete_gone:
+                    if self.ttlcache_rate.get(each_bid['channel_id']):
+                        continue
+                    if self.ttlcache_long_tip.get(each_bid['channel_id']):
+                        continue
                     await self.bot.wait_until_ready()
                     _msg = None
                     get_message = await self.utils.get_bid_id(each_bid['message_id'])
@@ -1102,7 +1109,15 @@ class Bidding(commands.Cog):
                         list_joined = []
                         list_joined_key = []
                         try:
-                            channel = self.bot.get_channel(int(get_message['channel_id']))
+                            if self.bot.other_data.get('cache_channels') and get_message['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                self.bot.other_data['cache_channels'][get_message['channel_id']] is not None:
+                                channel = self.bot.other_data['cache_channels'][get_message['channel_id']]
+                            else:
+                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                if channel is not None:
+                                    if self.bot.other_data.get('cache_channels') is None:
+                                        self.bot.other_data['cache_channels'] = {}  
+                                    self.bot.other_data['cache_channels'][get_message['channel_id']] = channel
                             if channel is None:
                                 await logchanbot("bidding_check: can not find channel ID: {}".format(each_bid['channel_id']))
                                 await asyncio.sleep(2.0)
@@ -1224,6 +1239,13 @@ class Bidding(commands.Cog):
                                     #     self.bot.config['discord']['bid_webhook']
                                     # )
                                 continue
+                        except disnake.errors.HTTPException:
+                                await logchanbot("[BID]: ERROR: disnake.errors.HTTPException message ID: {} of channel {} in guild: {}.".format(
+                                    each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id']
+                                ))
+                                # if rate limit
+                                self.ttlcache_rate[each_bid['channel_id']] = int(time.time())
+                                continue
                         except disnake.errors.NotFound:
                             await log_to_channel(
                                 "bid",
@@ -1250,6 +1272,10 @@ class Bidding(commands.Cog):
             # ONGOING
             if len(get_list_bids) > 0:
                 for each_bid in get_list_bids:
+                    if self.ttlcache_rate.get(each_bid['channel_id']):
+                        continue
+                    if self.ttlcache_long_tip.get(each_bid['channel_id']):
+                        continue
                     link_bid = "https://discord.com/channels/{}/{}/{}".format(
                         each_bid['guild_id'], each_bid['channel_id'], each_bid['message_id']
                     )
@@ -1275,7 +1301,15 @@ class Bidding(commands.Cog):
                         list_joined = []
                         list_joined_key = []
                         try:
-                            channel = self.bot.get_channel(int(get_message['channel_id']))
+                            if self.bot.other_data.get('cache_channels') and get_message['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                self.bot.other_data['cache_channels'][get_message['channel_id']] is not None:
+                                channel = self.bot.other_data['cache_channels'][get_message['channel_id']]
+                            else:
+                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                if channel is not None:
+                                    if self.bot.other_data.get('cache_channels') is None:
+                                        self.bot.other_data['cache_channels'] = {}  
+                                    self.bot.other_data['cache_channels'][get_message['channel_id']] = channel
                             if channel is None:
                                 await logchanbot("bidding_check: can not find channel ID: {}".format(each_bid['channel_id']))
                                 await asyncio.sleep(2.0)
@@ -1289,6 +1323,8 @@ class Bidding(commands.Cog):
                                         if int(time.time()) - last_fetched < 90 and duration > 10*3600:
                                             continue
                                 _msg: disnake.Message = await channel.fetch_message(int(each_bid['message_id']))
+                                if duration > 600:
+                                    self.ttlcache_long_tip[each_bid['channel_id']] = int(time.time())
                                 embed = _msg.embeds[0] # embeds is list, we take 0
                                 embed.clear_fields()
                                 embed.add_field(
@@ -1349,6 +1385,13 @@ class Bidding(commands.Cog):
                                     value=bid_note,
                                     inline=False
                                 )
+                        except disnake.errors.HTTPException:
+                                await logchanbot("[BID]: ERROR: disnake.errors.HTTPException message ID: {} of channel {} in guild: {}.".format(
+                                    each_bid['message_id'], each_bid['channel_id'], each_bid['guild_id']
+                                ))
+                                # if rate limit
+                                self.ttlcache_rate[each_bid['channel_id']] = int(time.time())
+                                continue
                         except disnake.errors.NotFound:
                             await log_to_channel(
                                 "bid",
@@ -1895,7 +1938,15 @@ class Bidding(commands.Cog):
             list_joined = []
             list_joined_key = []
             try:
-                channel = self.bot.get_channel(int(get_message['channel_id']))
+                if self.bot.other_data.get('cache_channels') and get_message['channel_id'] in self.bot.other_data['cache_channels'] and \
+                    self.bot.other_data['cache_channels'][get_message['channel_id']] is not None:
+                    channel = self.bot.other_data['cache_channels'][get_message['channel_id']]
+                else:
+                    channel = self.bot.get_channel(int(get_message['channel_id']))
+                    if channel is not None:
+                        if self.bot.other_data.get('cache_channels') is None:
+                            self.bot.other_data['cache_channels'] = {}  
+                        self.bot.other_data['cache_channels'][get_message['channel_id']] = channel
                 if channel is None:
                     await ctx.edit_original_message(content="Currently unavailable!")
                     return
@@ -2020,7 +2071,15 @@ class Bidding(commands.Cog):
                     await ctx.edit_original_message(content=f"I can't find guild {get_message['guild_id']}.")
                     return
                 else:
-                    channel = get_guild.get_channel(int(get_message['channel_id']))
+                    if self.bot.other_data.get('cache_channels') and get_message['channel_id'] in self.bot.other_data['cache_channels'] and \
+                        self.bot.other_data['cache_channels'][get_message['channel_id']] is not None:
+                        channel = self.bot.other_data['cache_channels'][get_message['channel_id']]
+                    else:
+                        channel = self.bot.get_channel(int(get_message['channel_id']))
+                        if channel is not None:
+                            if self.bot.other_data.get('cache_channels') is None:
+                                self.bot.other_data['cache_channels'] = {}  
+                            self.bot.other_data['cache_channels'][get_message['channel_id']] = channel
                     if channel is None:
                         await ctx.edit_original_message(content=f"I can't find guild {get_message['channel_id']}.")
                     else:

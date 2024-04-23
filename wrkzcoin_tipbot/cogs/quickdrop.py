@@ -84,7 +84,15 @@ class QuickDrop(commands.Cog):
                         equivalent_usd = each_drop['real_amount_usd_text']
                         coin_name = each_drop['token_name']
                         try:
-                            channel = self.bot.get_channel(int(each_drop['channel_id']))
+                            if self.bot.other_data.get('cache_channels') and each_drop['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                self.bot.other_data['cache_channels'][each_drop['channel_id']] is not None:
+                                channel = self.bot.other_data['cache_channels'][each_drop['channel_id']]
+                            else:
+                                channel = self.bot.get_channel(int(each_drop['channel_id']))
+                                if channel is not None:
+                                    if self.bot.other_data.get('cache_channels') is None:
+                                        self.bot.other_data['cache_channels'] = {}  
+                                    self.bot.other_data['cache_channels'][each_drop['channel_id']] = channel
                             coin_emoji = ""
                             if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
                                 coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
@@ -124,7 +132,15 @@ class QuickDrop(commands.Cog):
                                 inline=False
                             )
                             try:
-                                channel = self.bot.get_channel(int(each_drop['channel_id']))
+                                if self.bot.other_data.get('cache_channels') and each_drop['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                    self.bot.other_data['cache_channels'][each_drop['channel_id']] is not None:
+                                    channel = self.bot.other_data['cache_channels'][each_drop['channel_id']]
+                                else:
+                                    channel = self.bot.get_channel(int(each_drop['channel_id']))
+                                    if channel is not None:
+                                        if self.bot.other_data.get('cache_channels') is None:
+                                            self.bot.other_data['cache_channels'] = {}  
+                                        self.bot.other_data['cache_channels'][each_drop['channel_id']] = channel
                                 _msg: disnake.Message = await channel.fetch_message(int(each_drop['message_id']))
                                 await _msg.edit(content=None, embed=embed, view=None)
                                 # Update balance

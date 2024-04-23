@@ -939,7 +939,14 @@ class TaskGuild(commands.Cog):
                 return
             else:
                 serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
-                log_channel = self.bot.get_channel(int(serverinfo['reward_task_channel']))
+                if self.bot.other_data.get('cache_channels') and serverinfo['reward_task_channel'] in self.bot.other_data['cache_channels'] and \
+                    self.bot.other_data['cache_channels'][serverinfo['reward_task_channel']] is not None:
+                    log_channel = self.bot.other_data['cache_channels'][serverinfo['reward_task_channel']]
+                else:
+                    log_channel = self.bot.get_channel(int(serverinfo['reward_task_channel']))
+                    if log_channel is not None:
+                        self.bot.other_data['cache_channels'][serverinfo['reward_task_channel']] = log_channel
+
                 closing_task = await self.close_task(str(ctx.guild.id), ref_id)
                 if closing_task is True:
                     await ctx.edit_original_message(content=f"{ctx.author.mention}, successfully closed task {str(ref_id)} - {get_task['title']}!")
@@ -1391,7 +1398,13 @@ class TaskGuild(commands.Cog):
                             traceback.print_exc(file=sys.stdout)
                         # message assigned channel
                         try:
-                            task_channel = self.bot.get_channel(int(check_task['channel_id']))
+                            if self.bot.other_data.get('cache_channels') and check_task['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                self.bot.other_data['cache_channels'][check_task['channel_id']] is not None:
+                                task_channel = self.bot.other_data['cache_channels'][check_task['channel_id']]
+                            else:
+                                task_channel = self.bot.get_channel(int(check_task['channel_id']))
+                                if task_channel is not None:
+                                    self.bot.other_data['cache_channels'][check_task['channel_id']] = task_channel
                             if task_channel is not None:
                                 await task_channel.send(f"{ctx.author.mention} rejected Task ID: **{str(ref_id)}** - [{check_task['title']}] "\
                                                         f"submitted by {user.mention} <t:{check_task['time']}:f>. {user.mention} can still re-submit.")
@@ -1916,7 +1929,13 @@ class TaskGuild(commands.Cog):
                             elif len(get_unpaid_list) == 1:
                                 user_paying = f" There is {str(len(get_unpaid_list))} pending user to pay for task ID: **{str(i['id'])}**."
                             if update_status is True:
-                                channel = self.bot.get_channel(int(i['channel_id']))
+                                if self.bot.other_data.get('cache_channels') and i['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                    self.bot.other_data['cache_channels'][i['channel_id']] is not None:
+                                    channel = self.bot.other_data['cache_channels'][i['channel_id']]
+                                else:
+                                    channel = self.bot.get_channel(int(i['channel_id']))
+                                    if channel is not None:
+                                        self.bot.other_data['cache_channels'][i['channel_id']] = channel
                                 if channel is not None:
                                     try:
                                         await channel.send(f"Task ID: **{str(i['id'])}** - [{i['title']}] expired!{user_paying}")

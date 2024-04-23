@@ -88,7 +88,15 @@ class TalkDrop(commands.Cog):
                     coin_name = each_talkdrop['token_name']
                     coin_emoji = ""
                     try:
-                        channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
+                        if self.bot.other_data.get('cache_channels') and each_talkdrop['channel_id'] in self.bot.other_data['cache_channels'] and \
+                            self.bot.other_data['cache_channels'][each_talkdrop['channel_id']] is not None:
+                            channel = self.bot.other_data['cache_channels'][each_talkdrop['channel_id']]
+                        else:
+                            channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
+                            if channel is not None:
+                                if self.bot.other_data.get('cache_channels') is None:
+                                    self.bot.other_data['cache_channels'] = {}  
+                                self.bot.other_data['cache_channels'][each_talkdrop['channel_id']] = channel
                         if channel and channel.guild.get_member(int(self.bot.user.id)).guild_permissions.external_emojis is True:
                             coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
                             coin_emoji = coin_emoji + " " if coin_emoji else ""
@@ -151,7 +159,15 @@ class TalkDrop(commands.Cog):
                                 inline=True
                             )
                             try:
-                                channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
+                                if self.bot.other_data.get('cache_channels') and each_talkdrop['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                    self.bot.other_data['cache_channels'][each_talkdrop['channel_id']] is not None:
+                                    channel = self.bot.other_data['cache_channels'][each_talkdrop['channel_id']]
+                                else:
+                                    channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
+                                    if channel is not None:
+                                        if self.bot.other_data.get('cache_channels') is None:
+                                            self.bot.other_data['cache_channels'] = {}  
+                                        self.bot.other_data['cache_channels'][each_talkdrop['channel_id']] = channel
                                 if channel:
                                     try:
                                         _msg: disnake.Message = await channel.fetch_message(int(each_talkdrop['message_id']))
@@ -228,7 +244,15 @@ class TalkDrop(commands.Cog):
                                 inline=True
                             )
                             try:
-                                channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
+                                if self.bot.other_data.get('cache_channels') and each_talkdrop['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                    self.bot.other_data['cache_channels'][each_talkdrop['channel_id']] is not None:
+                                    channel = self.bot.other_data['cache_channels'][each_talkdrop['channel_id']]
+                                else:
+                                    channel = self.bot.get_channel(int(each_talkdrop['channel_id']))
+                                    if channel is not None:
+                                        if self.bot.other_data.get('cache_channels') is None:
+                                            self.bot.other_data['cache_channels'] = {}  
+                                        self.bot.other_data['cache_channels'][each_talkdrop['channel_id']] = channel
                                 if channel is None:
                                     await logchanbot("talkdrop_check: can not find channel ID: {}".format(each_talkdrop['channel_id']))
                                     await asyncio.sleep(2.0)

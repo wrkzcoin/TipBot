@@ -98,9 +98,10 @@ class Quickdrop_Verify(disnake.ui.Modal):
                             try:
                                 # Send message to receiver
                                 await interaction.author.send("🎉🎉🎉 Congratulation! You collected {} {} in guild `{}`.".format(
-                                    num_format_coin(get_message['real_amount'], 
-                                    get_message['token_name'], get_message['token_decimal'], False), 
-                                    interaction.guild.name))
+                                    num_format_coin(get_message['real_amount'], get_message['token_name'], get_message['token_decimal'], False),
+                                    get_message['token_name'], 
+                                    interaction.guild.name
+                                ))
                             except Exception:
                                 pass
                         # Update embed
@@ -130,7 +131,15 @@ class Quickdrop_Verify(disnake.ui.Modal):
                                     get_message['token_name']),
                                 inline=False
                             )
-                            channel = self.bot.get_channel(int(get_message['channel_id']))
+                            if self.bot.other_data.get('cache_channels') and get_message['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                self.bot.other_data['cache_channels'][get_message['channel_id']] is not None:
+                                channel = self.bot.other_data['cache_channels'][get_message['channel_id']]
+                            else:
+                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                if channel is not None:
+                                    if self.bot.other_data.get('cache_channels') is None:
+                                        self.bot.other_data['cache_channels'] = {}  
+                                    self.bot.other_data['cache_channels'][get_message['channel_id']] = channel
                             _msg: disnake.Message = await channel.fetch_message(int(get_message['message_id']))
                             await _msg.edit(content=None, embed=embed, view=None)
                         except Exception:
@@ -750,7 +759,7 @@ class Events(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
-    @tasks.loop(seconds=20.0)
+    @tasks.loop(seconds=10.0)
     async def process_saving_message(self):
         time_lap = 10  # seconds
         await self.bot.wait_until_ready()
@@ -1368,7 +1377,15 @@ class Events(commands.Cog):
                                         value="🎉🎉 {} {} 🎉🎉".format(num_format_coin(get_message['real_amount'], get_message['token_name'], get_message['token_decimal'], False), get_message['token_name']),
                                         inline=False
                                     )
-                                    channel = self.bot.get_channel(int(get_message['channel_id']))
+                                    if self.bot.other_data.get('cache_channels') and get_message['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                        self.bot.other_data['cache_channels'][get_message['channel_id']] is not None:
+                                        channel = self.bot.other_data['cache_channels'][get_message['channel_id']]
+                                    else:
+                                        channel = self.bot.get_channel(int(get_message['channel_id']))
+                                        if channel is not None:
+                                            if self.bot.other_data.get('cache_channels') is None:
+                                                self.bot.other_data['cache_channels'] = {}  
+                                            self.bot.other_data['cache_channels'][get_message['channel_id']] = channel
                                     _msg: disnake.Message = await channel.fetch_message(int(get_message['message_id']))
                                     await _msg.edit(content=None, embed=embed, view=None)
                                 except Exception:
@@ -1485,7 +1502,17 @@ class Events(commands.Cog):
                                 inline=True
                             )
                             try:
-                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                #if get_message['talkdrop_time'] - int(time.time()) > 90:
+                                #    return
+                                if self.bot.other_data.get('cache_channels') and get_message['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                    self.bot.other_data['cache_channels'][get_message['channel_id']] is not None:
+                                    channel = self.bot.other_data['cache_channels'][get_message['channel_id']]
+                                else:
+                                    channel = self.bot.get_channel(int(get_message['channel_id']))
+                                    if channel is not None:
+                                        if self.bot.other_data.get('cache_channels') is None:
+                                            self.bot.other_data['cache_channels'] = {}  
+                                        self.bot.other_data['cache_channels'][get_message['channel_id']] = channel
                                 if channel is None:
                                     await logchanbot("talkdrop_check: can not find channel ID: {}".format(get_message['channel_id']))
                                     await asyncio.sleep(5.0)
@@ -1612,7 +1639,17 @@ class Events(commands.Cog):
                             embed.add_field(name='Started amount', value=num_format_coin(get_message['init_amount'], coin_name, coin_decimal, False) + " " + coin_name, inline=True)
                             embed.add_field(name='Party Pot', value=num_format_coin(total_amount, coin_name, coin_decimal, False) + " " + coin_name, inline=True)
                             try:
-                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                #if get_message['talkdrop_time'] - int(time.time()) > 90:
+                                #    return
+                                if self.bot.other_data.get('cache_channels') and get_message['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                    self.bot.other_data['cache_channels'][get_message['channel_id']] is not None:
+                                    channel = self.bot.other_data['cache_channels'][get_message['channel_id']]
+                                else:
+                                    channel = self.bot.get_channel(int(get_message['channel_id']))
+                                    if channel is not None:
+                                        if self.bot.other_data.get('cache_channels') is None:
+                                            self.bot.other_data['cache_channels'] = {}  
+                                        self.bot.other_data['cache_channels'][get_message['channel_id']] = channel
                                 _msg: disnake.Message = await channel.fetch_message(inter.message.id)
                                 await _msg.edit(content=None, embed=embed)
                                 if 'fetched_msg' not in self.bot.other_data:
@@ -1646,7 +1683,7 @@ class Events(commands.Cog):
                             del self.bot.tipping_in_progress[str(inter.author.id)]
                         except Exception:
                             pass
-
+                            
                         if attend is True:
                             # Update view
                             embed = disnake.Embed(
@@ -1698,7 +1735,17 @@ class Events(commands.Cog):
                                 inline=True
                             )
                             try:
-                                channel = self.bot.get_channel(int(get_message['channel_id']))
+                                #if get_message['partydrop_time'] - int(time.time()) > 90:
+                                #    return
+                                if self.bot.other_data.get('cache_channels') and get_message['channel_id'] in self.bot.other_data['cache_channels'] and \
+                                    self.bot.other_data['cache_channels'][get_message['channel_id']] is not None:
+                                    channel = self.bot.other_data['cache_channels'][get_message['channel_id']]
+                                else:
+                                    channel = self.bot.get_channel(int(get_message['channel_id']))
+                                    if channel is not None:
+                                        if self.bot.other_data.get('cache_channels') is None:
+                                            self.bot.other_data['cache_channels'] = {}  
+                                        self.bot.other_data['cache_channels'][get_message['channel_id']] = channel
                                 _msg: disnake.Message = await channel.fetch_message(inter.message.id)
                                 await _msg.edit(content=None, embed=embed)
                                 if 'fetched_msg' not in self.bot.other_data:
@@ -2117,6 +2164,29 @@ class Events(commands.Cog):
     async def on_guild_join(self, guild):
         await self.bot_log()
         try:
+            if self.bot.other_data.get('blacklist_discord_servers') and len(self.bot.other_data['blacklist_discord_servers']) > 0 and \
+                str(guild.id) in self.bot.other_data['blacklist_discord_servers']:
+                await guild.leave()
+                await self.botLogChan.send(
+                    f"🗲 Bot leaving a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. Guild {str(guild.id)} was in blocklist!"
+                )
+                return
+            # if owner is locked account
+            # check lock
+            try:
+                is_user_locked = self.utils.is_locked_user(str(guild.owner.id), SERVER_BOT)
+                if is_user_locked is True:
+                    await guild.leave()
+                    await self.botLogChan.send(
+                        f"🗲 Bot leaving a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. Guild Owner {guild.owner.mention} / {str(guild.owner.id)} in blocklist!"
+                    )
+                    return
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+            # end check lock
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        try:
             num_server = len(self.bot.guilds)
             total_online = sum(1 for m in self.bot.get_all_members() if m.status != disnake.Status.offline)
             total_unique = len(self.bot.users)
@@ -2182,7 +2252,7 @@ class Events(commands.Cog):
             str(guild.id), guild.name, self.bot.config['discord']['prefixCmd'], "WRKZ", True
         )
         await self.botLogChan.send(
-            f"Bot joins a new guild {guild.name} / {guild.id} / Users: {len(guild.members)}. "\
+            f"Bot joins a new guild {guild.name} / {guild.id} / Owner: {guild.owner.mention} - {guild.owner.name} / Users: {len(guild.members)}. "\
             f"Total guilds: {len(self.bot.guilds)}."
         )
         # re-load guild list

@@ -200,7 +200,7 @@ def send_erc_token(
 
 async def bnc_get_balance(
     coin_name: str, wallet_api_url: str,
-    header: str, address: str, timeout: int=30
+    header: str, address: str, timeout: int=60
 ):
     try:
         if coin_name in ["WRKZ", "DEGO"]:
@@ -1032,7 +1032,7 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                     if coin_setting is not None:
                         if self.values[0] in ["WRKZ", "DEGO"]:
                             get_balance = await bnc_get_balance(
-                                self.values[0], coin_setting['wallet_address'], coin_setting['header'], get_a_vault['address'], 30
+                                self.values[0], coin_setting['wallet_address'], coin_setting['header'], get_a_vault['address'], 60
                             )
                             if get_balance is not None:
                                 self.embed.add_field(
@@ -1145,7 +1145,7 @@ class DropdownVaultCoin(disnake.ui.StringSelect):
                                     return
                                 wallet_api_url = get_slot['rpc_address']
                             get_balance = await bnc_get_balance(
-                                self.values[0], wallet_api_url, None, None, 30
+                                self.values[0], wallet_api_url, None, None, 60
                             )
                             if get_balance is not None:
                                 self.embed.add_field(
@@ -1413,7 +1413,7 @@ class VaultMenu(disnake.ui.View):
                     disable_archive = False
                     try:
                         get_balance = await bnc_get_balance(
-                            self.selected_coin, wallet_url, None, None, 30
+                            self.selected_coin, wallet_url, None, None, 60
                         )
                         if get_balance is not None:
                             self.embed.add_field(

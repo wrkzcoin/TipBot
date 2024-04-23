@@ -164,7 +164,8 @@ async def get_head(item: EndpointData):
     }
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(item.endpoint + "head/", headers=headers, timeout=item.timeout) as response:
+            uri = "head/"
+            async with session.get(item.endpoint + uri, headers=headers, timeout=item.timeout) as response:
                 json_resp = await response.json()
                 if response.status == 200 or response.status == 201:
                     if 'synced' in json_resp and json_resp['synced'] is True:
@@ -283,7 +284,7 @@ async def get_address_token_balances(
         addresses = []
         for each_address in item.address:
             addresses.append({'owner': each_address, 'token_id': item.token_id})
-        token_balance = token.balance_of(requests=addresses, callback=None).view()
+        token_balance = token.balance_of(requests=addresses, callback=None).callback_view()
         if token_balance:
             result_balance = {}
             for each in token_balance:

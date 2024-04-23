@@ -8,12 +8,12 @@ import sys
 import time
 import traceback
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Dict, Optional
 import re
 import importlib
-
+from io import BytesIO
 import aiohttp
 import aiomysql
 import asyncio
@@ -73,10 +73,10 @@ import cn_addressvalidation
 import store
 from Bot import logchanbot, EMOJI_ERROR, EMOJI_RED_NO, EMOJI_ARROW_RIGHTHOOK, SERVER_BOT, \
     RowButtonRowCloseAnyMessage, text_to_num, truncate, seconds_str, encrypt_string, decrypt_string, \
-    EMOJI_HOURGLASS_NOT_DONE, alert_if_userlock, MSG_LOCKED_ACCOUNT, EMOJI_MONEYFACE, EMOJI_INFORMATION, \
+    EMOJI_HOURGLASS_NOT_DONE, MSG_LOCKED_ACCOUNT, EMOJI_MONEYFACE, EMOJI_INFORMATION, \
     seconds_str_days, log_to_channel
 
-from cogs.utils import MenuPage
+from cogs.utils import MenuPage, get_proxy_random
 from cogs.utils import Utils, num_format_coin, chunks, http_wallet_getbalance, erc20_transfer_token_to_operator
 from cogs.utils import print_color
 
@@ -470,7 +470,7 @@ async def sql_check_minimum_deposit_erc20(
                             print('Main address has no sufficient balance to supply gas {}'.format(each_address['balance_wallet_address']))
 
 
-async def cosmos_get_height(url: str, timeout: int=16):
+async def cosmos_get_height(url: str, proxy: str, timeout: int=16):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -1771,7 +1771,7 @@ class WalletAPI(commands.Cog):
             else:
                 token_id = getattr(getattr(self.bot.coin_list, coin_name), "wallet_address")
                 token_balances = await self.utils.tezos_check_a_token_balance(
-                    proxy, self.bot.erc_node_list['XTZ'], contract, [main_address], int(token_id), 60
+                    proxy, self.bot.erc_node_list['XTZ'], contract, [main_address], int(token_id), 1200
                 )
                 if token_balances is not None:
                     balance = token_balances[main_address] / 10 ** coin_decimal
@@ -3654,26 +3654,29 @@ class WalletAPI(commands.Cog):
                 coin_name, asset_ticker, asset_issuer, memo, base_fee = 50000
             )
             if sending.get('result'):
-                fee = sending['result']['fee']
-                try:
-                    await self.openConnection()
-                    async with self.pool.acquire() as conn:
-                        async with conn.cursor() as cur:
-                            sql = """
-                            INSERT INTO xlm_external_tx 
-                            (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
-                            `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                            """
-                            await cur.execute(sql, (
-                                coin_name, user_id, amount, fee, withdraw_fee, coin_decimal,
-                                to_address, int(time.time()), sending['result']['hash'], user_server
-                            ))
-                            await conn.commit()
-                            return sending['result']['hash']
-                except Exception:
-                    await logchanbot("wallet send_external_xlm " + str(traceback.format_exc()))
-                    traceback.print_exc(file=sys.stdout)
+                if "error" in sending['result'] and sending['result']['error'] is not None:
+                    return sending['result']
+                else:
+                    fee = sending['result']['fee']
+                    try:
+                        await self.openConnection()
+                        async with self.pool.acquire() as conn:
+                            async with conn.cursor() as cur:
+                                sql = """
+                                INSERT INTO xlm_external_tx 
+                                (`coin_name`, `user_id`, `amount`, `tx_fee`, `withdraw_fee`, 
+                                `decimal`, `to_address`, `date`, `tx_hash`, `user_server`) 
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                """
+                                await cur.execute(sql, (
+                                    coin_name, user_id, amount, fee, withdraw_fee, coin_decimal,
+                                    to_address, int(time.time()), sending['result']['hash'], user_server
+                                ))
+                                await conn.commit()
+                                return sending['result']['hash']
+                    except Exception:
+                        await logchanbot("wallet send_external_xlm " + str(traceback.format_exc()))
+                        traceback.print_exc(file=sys.stdout)
         except Exception:
             traceback.print_exc(file=sys.stdout)
             await logchanbot("wallet send_external_xlm " + str(traceback.format_exc()))
@@ -6797,7 +6800,7 @@ class Wallet(commands.Cog):
                 url = endpoint + "?pagination.limit=50&events=wasm._contract_address={}&events=wasm.to={}&order_by=ORDER_BY_DESC".format("%27" + contract + "%27", "%27" + account_addr + "%27")
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
-                        url,
+                        url, proxy=get_proxy_random(self.bot.config['cosmos']['proxy_list']),
                         headers=headers, timeout=60
                     ) as response:
                         if response.status == 200:
@@ -6821,7 +6824,7 @@ class Wallet(commands.Cog):
                 url = endpoint + "?pagination.limit=50&events=coin_received.receiver={}&order_by=ORDER_BY_DESC".format("%27" + account_addr + "%27")
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
-                        url,
+                        url, proxy=get_proxy_random(self.bot.config['cosmos']['proxy_list']),
                         headers=headers, timeout=60
                     ) as response:
                         if response.status == 200:
@@ -6837,7 +6840,7 @@ class Wallet(commands.Cog):
                             url = endpoint + "?pagination.limit=50&events=coin_received.receiver={}&order_by=2".format("%27" + account_addr + "%27")
                             async with aiohttp.ClientSession() as session:
                                 async with session.get(
-                                    url,
+                                    url, proxy=get_proxy_random(self.bot.config['cosmos']['proxy_list']),
                                     headers=headers, timeout=60
                                 ) as response:
                                     if response.status == 200:
@@ -6880,7 +6883,7 @@ class Wallet(commands.Cog):
             rpchost = getattr(getattr(bot.coin_list, main_token), "rpchost")
             if not rpchost.endswith("/"):
                 rpchost += "/"
-            net_height = await cosmos_get_height(rpchost + "block", timeout)
+            net_height = await cosmos_get_height(rpchost + "block", proxy=get_proxy_random(self.bot.config['cosmos']['proxy_list']), timeout=timeout)
             # print("{}/{}, height {}".format(main_token, token_name, net_height))
             if net_height is None:
                 print("cosmos cosmos_get_height: {} = None/{}".format(main_token, token_name))
@@ -6981,7 +6984,7 @@ class Wallet(commands.Cog):
             rpchost = getattr(getattr(bot.coin_list, coin_name), "rpchost")
             if not rpchost.endswith("/"):
                 rpchost += "/"
-            net_height = await cosmos_get_height(rpchost + "block", timeout)
+            net_height = await cosmos_get_height(rpchost + "block", proxy=get_proxy_random(self.bot.config['cosmos']['proxy_list']), timeout=timeout)
             # print("{}, height {}".format(coin_name, net_height))
             if net_height is None:
                 print("cosmos cosmos_get_height: {} = None".format(coin_name))
@@ -7792,7 +7795,7 @@ class Wallet(commands.Cog):
                                 all_addresses = each_wallet['addresses'].split("\n")
                                 # fetch txes last 48h
                                 time_end = str(datetime.utcnow().isoformat()).split(".")[0] + "Z"
-                                time_start = str((datetime.utcnow() - timedelta(hours=24.0)).isoformat()).split(".")[0] + "Z"
+                                time_start = str((datetime.utcnow() - timedelta(hours=3*24.0)).isoformat()).split(".")[0] + "Z"
                                 fetch_transactions = await fetch_wallet_status(
                                     each_wallet['wallet_rpc'] + "v2/wallets/" + each_wallet[
                                         'wallet_id'] + "/transactions?start={}&end={}".format(time_start, time_end), 60)
@@ -10164,6 +10167,8 @@ class Wallet(commands.Cog):
                         check_balance = await self.utils.tezos_check_balance(
                             proxy, self.bot.erc_node_list['XTZ'], decrypt_string(each_address['key']), 60
                         )
+                        if check_balance is None:
+                            continue
                         balance = check_balance['result']['balance']
                         if balance > real_min_deposit:
                             # Check if reveal
@@ -10251,9 +10256,10 @@ class Wallet(commands.Cog):
                                     token_contract,
                                     token_addresses,
                                     int(token_id),
-                                    300
+                                    1200
                                 )
-                                print("FA2 checked having > 0: ", len([k for k, v in bot_run_get_token_balances.items() if v > 0]))
+                                if bot_run_get_token_balances is not None:
+                                    print("FA2 checked having > 0: ", len([k for k, v in bot_run_get_token_balances.items() if v > 0]))
                             elif token_type == "FA1.2" and len(token_addresses) > 0:
                                 for each_addr in token_addresses:
                                     token_balances = await self.utils.tezos_check_balances_token(
@@ -11293,7 +11299,7 @@ class Wallet(commands.Cog):
             token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
             if getattr(getattr(self.bot.coin_list, coin_name), "deposit_note") and len(
                     getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")) > 0:
-                description = getattr(getattr(self.bot.coin_list, coin_name), "deposit_note")
+                description = getattr(getattr(self.bot.coin_list, coin_name), "deposit_note") + "\n\n"
             if getattr(getattr(self.bot.coin_list, coin_name), "real_deposit_fee") and getattr(
                     getattr(self.bot.coin_list, coin_name), "real_deposit_fee") > 0:
                 real_min_deposit = getattr(getattr(self.bot.coin_list, coin_name), "real_min_deposit")
@@ -11931,6 +11937,17 @@ class Wallet(commands.Cog):
         # remove space from address
         address = address.replace(" ", "")
         try:
+            # if address in blacklist, no need further check
+            if self.bot.other_data.get('blacklist_addresses') and len(self.bot.other_data.get('blacklist_addresses')) > 0 and \
+                address in self.bot.other_data['blacklist_addresses']:
+                msg = f"{EMOJI_ERROR} {ctx.author.mention}, you can not send to this address {address}. If you believe this is an error, please report to TipBot Dev."
+                await ctx.edit_original_message(content=msg)
+                await log_to_channel(
+                    "withdraw",
+                    f"🔴 [BLACKLIST ADDRESS] User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                    f"submit a withdraw amount: {amount} {token.upper()} with an blacklist address {address}."
+                )
+                return
             net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
             type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
             deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
@@ -12620,23 +12637,33 @@ class Wallet(commands.Cog):
                             coin_name, NetFee, asset_ticker, asset_issuer,
                             90, extra_option
                         )
-                        if send_tx:
-                            fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
-                                num_format_coin(NetFee), coin_name
-                            )
-                            explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
-                            msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
-                                f"{num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
-                            if extra_option is not None:
-                                msg += "\nWith memo: __{}__".format(extra_option)
-                            await ctx.edit_original_message(content=msg, view=None)
-                            await log_to_channel(
-                                "withdraw",
-                                f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
-                                f"successfully withdrew {num_format_coin(amount)} "\
-                                f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
-                            )
+                        if send_tx is not None:
+                            if "error" in send_tx:
+                                msg = "ERROR, {}".format(send_tx['error'])
+                                await ctx.edit_original_message(content=msg, view=None)
+                                await log_to_channel(
+                                    "withdraw",
+                                    f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"failed to withdrew {num_format_coin(amount)} "\
+                                    f"{token_display}{equivalent_usd} to {address}. Error: {send_tx['error']}"
+                                )
+                            else:
+                                fee_txt = "\nWithdrew fee/node: __{} {}__.".format(
+                                    num_format_coin(NetFee), coin_name
+                                )
+                                explorer_link = self.utils.get_explorer_link(coin_name, send_tx)
+                                msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, you withdrew "\
+                                    f"{num_format_coin(amount)} "\
+                                    f"{token_display}{equivalent_usd} to _{address}_.\nTransaction hash: _{send_tx}_{fee_txt}{explorer_link}"
+                                if extra_option is not None:
+                                    msg += "\nWith memo: __{}__".format(extra_option)
+                                await ctx.edit_original_message(content=msg, view=None)
+                                await log_to_channel(
+                                    "withdraw",
+                                    f"User {ctx.author.name}#{ctx.author.discriminator} / {ctx.author.mention} "\
+                                    f"successfully withdrew {num_format_coin(amount)} "\
+                                    f"{token_display}{equivalent_usd} to {address}.{explorer_link}"
+                                )
                         else:
                             msg = f"{EMOJI_ARROW_RIGHTHOOK} {ctx.author.mention}, failed to withdraw "\
                                 f"{num_format_coin(amount)} "\
@@ -14314,6 +14341,19 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # check lock
+        try:
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                await ctx.edit_original_message(
+                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked from using the Bot. "\
+                    "Please contact bot dev by /about link."
+                )
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # end check lock
+
         faucet_simu = False
         # bot check in the first place
         if ctx.author.bot is True:
@@ -14386,23 +14426,21 @@ class Wallet(commands.Cog):
             serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
-                    botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    if botChan is not None:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
-                        await ctx.edit_original_message(content=msg)
-                        # add penalty:
-                        try:
-                            key = self.bot.config['kv_db']['prefix_faucet_take_penalty'] + SERVER_BOT + "_" + str(ctx.author.id)
-                            await self.utils.async_set_cache_kv(
-                                "faucet",
-                                key,
-                                {
-                                    'penalty_at': int(time.time())
-                                }
-                            )
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                        return
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, <#{serverinfo['botchan']}> was assigned for the bot channel!"
+                    await ctx.edit_original_message(content=msg)
+                    # add penalty:
+                    try:
+                        key = self.bot.config['kv_db']['prefix_faucet_take_penalty'] + SERVER_BOT + "_" + str(ctx.author.id)
+                        await self.utils.async_set_cache_kv(
+                            "faucet",
+                            key,
+                            {
+                                'penalty_at': int(time.time())
+                            }
+                        )
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                    return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
 
@@ -14463,14 +14501,6 @@ class Wallet(commands.Cog):
                         return
         except Exception:
             traceback.print_exc(file=sys.stdout)
-
-        # check if account locked
-        account_lock = await alert_if_userlock(ctx, 'take')
-        if account_lock:
-            msg = f"{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}"
-            await ctx.edit_original_message(content=msg)
-            return
-        # end of check if account locked
 
         # check if user create account less than 3 days
         try:
@@ -14668,6 +14698,19 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+        # check lock
+        try:
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                await ctx.edit_original_message(
+                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked from using the Bot. "\
+                    "Please contact bot dev by /about link."
+                )
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # end check lock
+
         # check if user create account less than 3 days
         try:
             # x 5 account_age_to_claim
@@ -14692,21 +14735,11 @@ class Wallet(commands.Cog):
             serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
-                    botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    if botChan is not None:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
-                        await ctx.edit_original_message(content=msg)
-                        return
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, <#{serverinfo['botchan']}> was assigned for the bot channel!"
+                    await ctx.edit_original_message(content=msg)
+                    return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-
-            # check if account locked
-            account_lock = await alert_if_userlock(ctx, 'daily')
-            if account_lock:
-                msg = f"{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}"
-                await ctx.edit_original_message(content=msg)
-                return
-            # end of check if account locked
 
             advert_txt = ""
             # if advert enable
@@ -14945,25 +14978,28 @@ class Wallet(commands.Cog):
             await ctx.edit_original_message(content=msg)
             return
 
+        # check lock
+        try:
+            is_user_locked = self.utils.is_locked_user(str(ctx.author.id), SERVER_BOT)
+            if is_user_locked is True:
+                await ctx.edit_original_message(
+                    content = f"{EMOJI_RED_NO} {ctx.author.mention}, your account is locked from using the Bot. "\
+                    "Please contact bot dev by /about link."
+                )
+                return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        # end check lock
+
         try:
             serverinfo = self.bot.other_data['guild_list'].get(str(ctx.guild.id))
             if serverinfo and serverinfo['botchan'] and ctx.channel.id != int(serverinfo['botchan']):
                 try:
-                    botChan = self.bot.get_channel(int(serverinfo['botchan']))
-                    if botChan is not None:
-                        msg = f'{EMOJI_RED_NO} {ctx.author.mention}, {botChan.mention} was assigned for the bot channel!'
-                        await ctx.edit_original_message(content=msg)
-                        return
+                    msg = f"{EMOJI_RED_NO} {ctx.author.mention}, <#{serverinfo['botchan']}> was assigned for the bot channel!"
+                    await ctx.edit_original_message(content=msg)
+                    return
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
-
-            # check if account locked
-            account_lock = await alert_if_userlock(ctx, 'hourly')
-            if account_lock:
-                msg = f"{EMOJI_RED_NO} {MSG_LOCKED_ACCOUNT}"
-                await ctx.edit_original_message(content=msg)
-                return
-            # end of check if account locked
 
             advert_txt = ""
             # if advert enable
@@ -15663,6 +15699,59 @@ class Wallet(commands.Cog):
         except Exception:
             traceback.print_exc(file=sys.stdout)
 
+    @recent.sub_command(
+        name="cexswap",
+        options=[
+            Option('including_api', 'including_api', OptionType.boolean, required=True)
+        ],
+        usage="recent cexswap <including api>", 
+        description="Get list recent trade with CEXSwap"
+    )
+    async def recent_cexswap_sell(
+        self, 
+        ctx,
+        including_api: bool=False
+    ):
+        await ctx.response.send_message(f"{EMOJI_HOURGLASS_NOT_DONE}, checking recent CEXSwap..", ephemeral=True)
+        try:
+            self.bot.commandings.append((str(ctx.guild.id) if hasattr(ctx, "guild") and hasattr(ctx.guild, "id") else "DM",
+                                         str(ctx.author.id), SERVER_BOT, "/recent cexswap", int(time.time())))
+            await self.utils.add_command_calls()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        
+        try:
+            get_recent = await self.utils.recent_tips(str(ctx.author.id), SERVER_BOT, "all", "all", "cexswap", 500, including_api)
+            if len(get_recent) == 0:
+                await ctx.edit_original_message(content=f"{ctx.author.mention}, you do not have any recent CEXSwap trading.")
+            else:
+                list_tx = []
+                list_tx_no_time = []
+                for each in get_recent:
+                    list_tx.append("Ref: {} Sold {} {} for {} {} {}".format(
+                        each['ref_log'],
+                        num_format_coin(each['total_sold_amount']), each['sold_ticker'],
+                        num_format_coin(each['got_total_amount']), each['got_ticker'],
+                        disnake.utils.format_dt(each['time'], style='R')
+                        )
+                    )
+                    list_tx_no_time.append("Ref: {} Sold {} {} for {} {} - {}.".format(
+                        each['ref_log'],
+                        num_format_coin(each['total_sold_amount']), each['sold_ticker'],
+                        num_format_coin(each['got_total_amount']), each['got_ticker'],
+                        datetime.fromtimestamp(each['time'], timezone.utc)
+                        )
+                    )                 
+                list_tx_str = f"{ctx.author.mention}, last CEXSwap trades:\n" + "\n".join(list_tx)
+                if len(list_tx_str) < 950:
+                    await ctx.edit_original_message(content=list_tx_str)
+                else:
+                    list_tx_str = f"{ctx.author.name}, last CEXSwap trades:\n" + "\n".join(list_tx_no_time)
+                    data_file = disnake.File(BytesIO(list_tx_str.encode()), filename=f"cexswap_trade_{str(int(time.time()))}.txt")
+                    await ctx.edit_original_message(content=None, file=data_file)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+    
     @recent.sub_command(
         name="deposit",
         usage="recent deposit <token/coin>", 

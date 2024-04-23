@@ -48,7 +48,6 @@ class BackgroundRunner:
     async def fetch_paprika_price(
         self
     ):
-        config = load_config()
         while True:
             try:
                 await store.openConnection()
@@ -116,7 +115,7 @@ class BackgroundRunner:
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return []
-    
+
     async def coingecko_price_token(self, token_name: str, by_id: bool=False):
         try:
             await store.openConnection()
@@ -147,6 +146,39 @@ class BackgroundRunner:
         except Exception:
             traceback.print_exc(file=sys.stdout)
         return []
+
+    async def get_trade_history(self, token_name: str = None, limit: int=2000):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `cexswap_sell_logs`
+                    """
+                    data_rows = []
+                    if token_name is not None:
+                        sql += " WHERE `sold_ticker`=%s OR `got_ticker`=%s "
+                        data_rows += [token_name, token_name]
+                    sql += " ORDER BY `log_id` DESC LIMIT %s "
+                    data_rows += [limit]
+                    await cur.execute(sql, tuple(data_rows))
+                    result = await cur.fetchall()
+                    if result:
+                        selling_list = []
+                        for i in result:
+                            selling_list.append({
+                                "ref_log": i['ref_log'],
+                                "sold_ticker": i['sold_ticker'],
+                                "for_ticker": i['got_ticker'],
+                                "sold_amount": i['total_sold_amount'],
+                                "for_amount": i['got_total_amount'],
+                                "time": i['time']
+                            })
+                        return selling_list
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return []
+
 
 runner = BackgroundRunner(app)
 
@@ -799,6 +831,159 @@ async def get_withdraw_list(
             return {
                 "success": True,
                 "result": list_coins,
+                "time": int(time.time())
+            }
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+
+@app.get("/trade_history/{token}")
+async def get_trade_history_token(
+    token: str, request: Request, Authorization: Union[str, None] = Header(default=None)
+):
+    """
+    List trade history data of a token (sell or for). Limit 500 by default.
+    """
+    if config['cexswap_api']['api_enable'] != 1:
+        return {
+            "success": False,
+            "data": None,
+            "error": "API is currently disabled!",
+            "time": int(time.time())
+        }
+    try:
+        coin_name = token.upper()
+        coin_data = await cexswap_get_coin_setting(coin_name)
+        if coin_data is None:
+            return {
+                "success": False,
+                "data": None,
+                "error": "could not find such coin or not enable!",
+                "time": int(time.time())
+            }
+
+        user_id = "PUBLIC"
+        user_server = "PUBLIC"
+
+        if config['cexswap_api']['is_trade_history_pub'] != 1 and Authorization is not None:
+            hash_key = sha256(Authorization.encode()).hexdigest()
+            find_user = await find_user_by_apikey(hash_key)
+            if find_user is None:
+                return {
+                    "success": False,
+                    "data": None,
+                    "error": "Invalid given Authorization API Key!",
+                    "time": int(time.time())
+                }
+            else:
+                user_id = find_user['user_id']
+                user_server = find_user['user_server']
+
+        # check usage of API by user_id and user_server
+        if config['cexswap_api']['is_trade_history_pub'] != 1:
+            if user_id == "PUBLIC" and user_server == "PUBLIC":
+                count = await cexswap_count_api_usage(user_id, user_server, 1, 3600)
+                if count >= config['cexswap_api']['public_api_call_1h']:
+                    return {
+                        "success": False,
+                        "data": None,
+                        "error": "Public usage reached limit for the last hour, please use with API key as 'Authorization'!",
+                        "time": int(time.time())
+                    }
+
+                count = await cexswap_count_api_usage(user_id, user_server, 1, 24*3600)
+                if count >= config['cexswap_api']['public_api_call_24h']:
+                    return {
+                        "success": False,
+                        "data": None,
+                        "error": "Public usage reached limit for the last 24 hours, please use with API key as 'Authorization'!",
+                        "time": int(time.time())
+                    }
+            else:
+                count = await cexswap_count_api_usage(user_id, user_server, 1, 3600)
+                if count >= config['cexswap_api']['private_api_estimate_1h']:
+                    return {
+                        "success": False,
+                        "data": None,
+                        "error": "Your API usage reached limit for the last hour!",
+                        "time": int(time.time())
+                    }
+        data = await runner.get_trade_history(token_name=coin_name, limit=500)
+        if len(data) > 0:
+            return {
+                "success": True,
+                "result": data,
+                "time": int(time.time())
+            }
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+
+@app.get("/trade_history")
+async def get_trade_history(
+    request: Request, Authorization: Union[str, None] = Header(default=None)
+):
+    """
+    List trade history data. Limit 1000 by default.
+    """
+    if config['cexswap_api']['api_enable'] != 1:
+        return {
+            "success": False,
+            "data": None,
+            "error": "API is currently disabled!",
+            "time": int(time.time())
+        }
+
+    try:
+        user_id = "PUBLIC"
+        user_server = "PUBLIC"
+
+        if config['cexswap_api']['is_trade_history_pub'] != 1 and Authorization is not None:
+            hash_key = sha256(Authorization.encode()).hexdigest()
+            find_user = await find_user_by_apikey(hash_key)
+            if find_user is None:
+                return {
+                    "success": False,
+                    "data": None,
+                    "error": "Invalid given Authorization API Key!",
+                    "time": int(time.time())
+                }
+            else:
+                user_id = find_user['user_id']
+                user_server = find_user['user_server']
+
+        # check usage of API by user_id and user_server
+        if config['cexswap_api']['is_trade_history_pub'] != 1:
+            if user_id == "PUBLIC" and user_server == "PUBLIC":
+                count = await cexswap_count_api_usage(user_id, user_server, 1, 3600)
+                if count >= config['cexswap_api']['public_api_call_1h']:
+                    return {
+                        "success": False,
+                        "data": None,
+                        "error": "Public usage reached limit for the last hour, please use with API key as 'Authorization'!",
+                        "time": int(time.time())
+                    }
+
+                count = await cexswap_count_api_usage(user_id, user_server, 1, 24*3600)
+                if count >= config['cexswap_api']['public_api_call_24h']:
+                    return {
+                        "success": False,
+                        "data": None,
+                        "error": "Public usage reached limit for the last 24 hours, please use with API key as 'Authorization'!",
+                        "time": int(time.time())
+                    }
+            else:
+                count = await cexswap_count_api_usage(user_id, user_server, 1, 3600)
+                if count >= config['cexswap_api']['private_api_estimate_1h']:
+                    return {
+                        "success": False,
+                        "data": None,
+                        "error": "Your API usage reached limit for the last hour!",
+                        "time": int(time.time())
+                    }
+        data = await runner.get_trade_history(limit=1000)
+        if len(data) > 0:
+            return {
+                "success": True,
+                "result": data,
                 "time": int(time.time())
             }
     except Exception:

@@ -647,7 +647,7 @@ class Twitter(commands.Cog):
                     fetch_tweets = await self.bot.loop.run_in_executor(None, func_tweets)
                     if fetch_tweets is None:
                         user = each_sub['subscribe_to_user_id']
-                        await logchanbot(f"[TWITTER] - Fetch @{user} doesn't get any response.")
+                        #await logchanbot(f"[TWITTER] - Fetch @{user} doesn't get any response.")
                         await asyncio.sleep(time_lap)
                         continue
                     else:

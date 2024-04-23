@@ -128,6 +128,72 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
         return False
 
+    async def insert_blacklist_address(self, address: str, reason: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    INSERT INTO `bot_blacklisted_addresses`
+                    (`address`, `reason`, `time`) VALUES (%s, %s, %s)
+                    """
+                    await cur.execute(sql, (address, reason, int(time.time())))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def get_list_blacklist(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `bot_blacklisted_addresses`
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        return [i['address'] for i in result]
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot("admin " +str(traceback.format_exc()))
+        return []
+
+    async def insert_blacklist_discord_server(self, server_id: str, reason: str):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    INSERT INTO `bot_blacklisted_discord_server`
+                    (`guild_id`, `reason`, `time`) VALUES (%s, %s, %s)
+                    """
+                    await cur.execute(sql, (server_id, reason, int(time.time())))
+                    await conn.commit()
+                    return True
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        return False
+
+    async def get_list_blacklist_discord_server(self):
+        try:
+            await store.openConnection()
+            async with store.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    sql = """
+                    SELECT * FROM `bot_blacklisted_discord_server`
+                    """
+                    await cur.execute(sql,)
+                    result = await cur.fetchall()
+                    if result and len(result) > 0:
+                        return [i['guild_id'] for i in result]
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await logchanbot("admin " +str(traceback.format_exc()))
+        return []
+
     async def get_local_db_extra_auth(self):
         try:
             await store.openConnection()
@@ -914,6 +980,62 @@ class Admin(commands.Cog):
             traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
+    @admin.command(
+        hidden=True,
+        usage="admin blacklist <address> <reason>",
+        description="Blacklist an address from withdraw."
+    )
+    async def blacklist(
+        self, ctx, address: str, *, reasons: str=None
+    ):
+        try:
+            # Check in table
+            if self.bot.other_data.get('blacklist_addresses') and len(self.bot.other_data.get('blacklist_addresses')) > 0 and \
+                address in self.bot.other_data['blacklist_addresses']:
+                msg = f"{ctx.author.mention}, ✅ address `{address}` was already in the blacklist."
+                await ctx.reply(msg)
+            else:
+                adding = await self.insert_blacklist_address(address, reasons)
+                if adding is True:
+                    # reload
+                    self.bot.other_data['blacklist_addresses'] = await self.get_list_blacklist()
+                    msg = f"{ctx.author.mention}, ✅ successfully blacklisted `{address}` with reasons ```{reasons if reasons else 'N/A'}```"
+                    await ctx.reply(msg)
+                else:
+                    await ctx.reply(f"{ctx.author.mention}, 🔴 error adding user `{address}` to blacklist.")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.reply(f"{ctx.author.mention}, internal error.")
+
+    @commands.is_owner()
+    @admin.command(
+        hidden=True,
+        usage="admin blockserver <server> <reason>",
+        description="Blockserver from user Bot. Bot leave it."
+    )
+    async def blockserver(
+        self, ctx, server_id: str, *, reasons: str=None
+    ):
+        try:
+            # Check in table
+            if self.bot.other_data.get('blacklist_discord_servers') and len(self.bot.other_data.get('blacklist_discord_servers')) > 0 and \
+                server_id in self.bot.other_data['blacklist_discord_servers']:
+                msg = f"{ctx.author.mention}, ✅ server `{server_id}` was already in the blockserver."
+                await ctx.reply(msg)
+            else:
+                adding = await self.insert_blacklist_discord_server(server_id, reasons)
+                if adding is True:
+                    # reload
+                    self.bot.other_data['blacklist_discord_servers'] = await self.get_list_blacklist_discord_server()
+                    msg = f"{ctx.author.mention}, ✅ successfully blockserver `{server_id}` with reasons ```{reasons if reasons else 'N/A'}```"
+                    await ctx.reply(msg)
+                else:
+                    await ctx.reply(f"{ctx.author.mention}, 🔴 error adding server `{server_id}` to blockserver.")
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            await ctx.reply(f"{ctx.author.mention}, internal error.")
+
+    @commands.is_owner()
     @admin.command(hidden=True, usage='admin enableuser <user id> <user_server>', description="Disable a user from using command.")
     async def enableuser(self, ctx, user_id: str, user_server: str="DISCORD"):
         try:
@@ -949,6 +1071,82 @@ class Admin(commands.Cog):
                     await ctx.reply(msg)
                 else:
                     await ctx.reply(f"{ctx.author.mention}, 🔴 error deleting a blocked user `{user_id}@{user_server}`.")
+                return
+        except ValueError:
+            msg = f"{ctx.author.mention}, invalid given user ID."
+            await ctx.reply(msg)
+            return
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+
+    @commands.is_owner()
+    @admin.command(
+        hidden=True,
+        usage="admin disableusers <user_server> <reasons> <list of user ids by space>",
+        description="Disable user lists from using command."
+    )
+    async def disableusers(
+        self, ctx, user_server: str="DISCORD", reasons: str=None, *, user_ids: str=None
+    ):
+        try:
+            if reasons is None:
+                msg = f"{ctx.author.mention}, please have reasons (<server> <reason> <list of ids>)!"
+                await ctx.reply(msg)
+                return
+            
+            user_server = user_server.upper()
+            if user_server not in ["DISCORD", "TELEGRAM"]:
+                msg = f"{ctx.author.mention}, invalid user_server `{user_server}`."
+                await ctx.reply(msg)
+                return
+
+            list_ids = []
+            error_list = []
+            success_ids = []
+            if user_server == "DISCORD":
+                split_ids = user_ids.split(" ")
+                for ea in split_ids:
+                    if ea.isdigit():
+                        member = self.bot.get_user(int(ea))
+                        if member is None:
+                            error_list.append("Not found user id: {}@{}".format(ea, user_server))
+                        else:
+                            list_ids.append(ea)
+            if len(list_ids) == 0:
+                await ctx.reply(f"{ctx.author.mention}, got 0 user list from {str(len(user_ids))} user list.")
+                return
+            else:
+                # Check in table
+                messages = ""
+                for ea in list_ids:
+                    try:
+                        if int(ea) == self.bot.user.id:
+                            continue
+                        if self.bot.other_data.get('ban_list') and len(self.bot.other_data.get('ban_list')) > 0 and \
+                            ea in self.bot.other_data.get('ban_list'):
+                            error_list.append(f"✅ user `{ea}` was already blocked.")
+                        else:
+                            adding = await self.insert_ban_user(ea, user_server, reasons)
+                            if adding is True:
+                                # reload
+                                self.bot.other_data['ban_list'] = await self.get_list_bans()
+                                success_ids.append(f"✅ successfully blocked `{ea}@{user_server}`.")
+                            else:
+                                error_list.append(f"🔴 error adding user `{ea}@{user_server}`")
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
+                if len(success_ids) > 0:
+                    messages += "Success:\n" + "\n".join(success_ids)
+                if len(error_list) > 0:
+                    messages += "\nError:\n" + "\n".join(error_list)
+                if len(messages) == 0:
+                    await ctx.author.send(f"{ctx.author.mention}, got empty message or already blocked.")
+                if len(messages) >= 950:
+                    data_file = disnake.File(BytesIO(messages.encode()),
+                                                filename=f"banlist_{str(int(time.time()))}.csv")
+                    await ctx.author.send(file=data_file)
+                else:
+                    await ctx.author.send(messages)
                 return
         except ValueError:
             msg = f"{ctx.author.mention}, invalid given user ID."
@@ -1380,6 +1578,32 @@ class Admin(commands.Cog):
         else:
             msg = f"{ctx.author.mention}, action not exist!"
             await ctx.reply(msg)
+
+    @commands.is_owner()
+    @admin.command(
+        hidden=True,
+        usage="admin finduser <id>",
+        description="Find user guild."
+    )
+    async def finduser(self, ctx, user_id: str):
+        try:
+            list_g = []
+            user = self.bot.get_user(int(user_id))
+            if user is None:
+                msg = f"{ctx.author.mention}, can not find user id {user_id}!"
+                await ctx.reply(msg)
+            else:
+                for g in self.bot.guilds:
+                    if user in g.members:
+                        list_g.append(str(g.id))
+                if len(list_g) > 0:
+                    msg = "```" + "\n".join(list_g) + "```" + f"Found {user_id}."
+                    await ctx.reply(msg)
+                else:
+                    msg = f"{ctx.author.mention}, user id {user_id} not found in any guild!"
+                    await ctx.reply(msg)
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
 
     @commands.is_owner()
     @admin.command(
@@ -2717,9 +2941,14 @@ class Admin(commands.Cog):
         try:
             with contextlib.redirect_stdout(str_obj):
                 exec(code)
+            if len(str(str_obj.getvalue())) >= 950:
+                data_file = disnake.File(BytesIO(str(str_obj.getvalue()).encode()),
+                            filename=f"eval_{str(int(time.time()))}.txt")
+                await ctx.reply(file=data_file)
+            else:
+                await ctx.reply(f"```{str_obj.getvalue()}```")
         except Exception as e:
             return await ctx.reply(f"```{e.__class__.__name__}: {e}```")
-        await ctx.reply(f"```{str_obj.getvalue()}```")
 
     @commands.is_owner()
     @admin.command(

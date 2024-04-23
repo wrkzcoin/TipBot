@@ -276,16 +276,18 @@ class FreeTip_Button(disnake.ui.View):
                         )
                         msg = "Successfully joined airdrop id: {}".format(str(interaction.message.id))
                         await interaction.response.send_message(content=msg, ephemeral=True)
+                        get_freetip = await store.get_discord_freetip_by_msgid(str(interaction.message.id))
+                        time_left = get_freetip['airdrop_time'] - int(time.time())
+                        if time_left > 90:
+                            return
                         # Update message
                         _msg: disnake.Message = await interaction.channel.fetch_message(int(interaction.message.id))
                         if _msg:
                             embed = _msg.embeds[0] # embeds is list, we take 0
                             embed.clear_fields()
-                            get_freetip = await store.get_discord_freetip_by_msgid(str(interaction.message.id))
                             if get_freetip is None:
                                 return
                             try:
-                                time_left = get_freetip['airdrop_time'] - int(time.time())
                                 owner_displayname = ""
                                 get_owner = self.bot.get_user(int(get_freetip['from_userid']))
                                 if get_owner:
@@ -357,307 +359,341 @@ class Tips(commands.Cog):
 
     @tasks.loop(seconds=30.0)
     async def freetip_check(self):
-        get_active_freetip = await store.get_active_discord_freetip(lap=7*24*3600)
-        get_inactive_freetip = await store.get_inactive_discord_freetip(lap=7*24*3600)
+        get_active_freetip = await store.get_active_discord_freetip(lap=5*24*3600)
+        get_inactive_freetip = await store.get_inactive_discord_freetip(lap=5*24*3600)
         # Check if task recently run @bot_task_logs
         task_name = "tips_freetip_check"
         check_last_running = await self.utils.bot_task_logs_check(task_name)
         if check_last_running and int(time.time()) - check_last_running['run_at'] < 15: # not running if less than 15s
             return
         if len(get_active_freetip) > 0:
+            await self.bot.wait_until_ready()
             for each_message_data in get_active_freetip:
-                time_left = each_message_data['airdrop_time'] - int(time.time())
-                # get message
                 try:
-                    if self.ttlcache_rate.get(each_message_data['channel_id']):
+                    # check if coin exist?
+                    coin_name = each_message_data['token_name']
+                    if not hasattr(self.bot.coin_list, coin_name):
+                        _msg: disnake.Message = await channel.fetch_message(int(each_message_data['message_id']))
+                        change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                        await _msg.edit(view=None)
                         continue
-                    # check Bot uptime
-                    uptime = round((datetime.now() - self.bot.start_time).total_seconds())
-                    if uptime + 600 >= int(time.time()):
-                        # skipped. Bot just re-connected
-                        continue
-                    guild = self.bot.get_guild(int(each_message_data['guild_id']))
-                    if guild is None and self.bot.is_ready():
-                        # Check if the tips is too recent or too old, 3 days is max of freetip
-                        if each_message_data['message_time'] + 3*24*3600 <= int(time.time()):
-                            print("Guild {} found None".format(each_message_data['guild_id']))
-                            await logchanbot("[FREETIP]: can not find guild for message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
+                    time_left = each_message_data['airdrop_time'] - int(time.time())
+                    # get message
+                    try:
+                        if self.ttlcache_rate.get(each_message_data['channel_id']):
+                            continue
+                        # check Bot uptime
+                        uptime = round((datetime.now() - self.bot.start_time).total_seconds())
+                        if uptime < 60:
+                            # skipped. Bot just re-connected
+                            continue
+                        guild = self.bot.get_guild(int(each_message_data['guild_id']))
+                        if guild is None and self.bot.is_ready():
+                            # Check if the tips is too recent or too old, 3 days is max of freetip
+                            if each_message_data['message_time'] + 3*24*3600 <= int(time.time()):
+                                print("Guild {} found None".format(each_message_data['guild_id']))
+                                await logchanbot("[FREETIP]: can not find guild for message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
+                                    each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],
+                                    each_message_data['from_ownername']
+                                ))
+                                change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                            else:
+                                await asyncio.sleep(0.5)
+                            continue
+
+                        if self.bot.other_data.get('cache_channels') and each_message_data['channel_id'] in self.bot.other_data['cache_channels'] and \
+                            self.bot.other_data['cache_channels'][each_message_data['channel_id']] is not None:
+                            channel = self.bot.other_data['cache_channels'][each_message_data['channel_id']]
+                        else:
+                            channel = self.bot.get_channel(int(each_message_data['channel_id']))
+                            if channel is not None:
+                                if self.bot.other_data.get('cache_channels') is None:
+                                    self.bot.other_data['cache_channels'] = {}  
+                                self.bot.other_data['cache_channels'][each_message_data['channel_id']] = channel
+                        if channel is None:
+                            # Check if the tips is too recent or too old, 3 days is max of freetip
+                            if each_message_data['message_time'] + 3*24*3600 <= int(time.time()):
+                                print("Channel {} found None".format(each_message_data['channel_id']))
+                                change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                                await logchanbot(
+                                    "Failed to find channel: msg id: {}, channel id: {}, guild: {}/{}. Set it to failed.".format(
+                                        each_message_data['message_id'], each_message_data['channel_id'],
+                                        guild.name, each_message_data['guild_id']
+                                    )
+                                )
+                                find_owner = self.bot.get_user(int(each_message_data['from_userid']))
+                                if find_owner is not None:
+                                    await find_owner.send("I cancelled your /freetip id: {} in guild {} because I can't find channel.".format(
+                                        each_message_data['message_id'], guild.name
+                                    ))
+                            else:
+                                await asyncio.sleep(0.5)
+                            continue
+                        get_owner = guild.get_member(int(each_message_data['from_userid']))
+                        owner_displayname = ""
+                        if get_owner is None:
+                            # In some case, user left the drop and we can't find them. Let tip process and ignore to DM them.
+                            print("Airdroper None {}".format(each_message_data['from_userid']))
+                            await asyncio.sleep(2.0)
+                            get_owner = guild.get_member(int(each_message_data['from_userid']))
+                        if get_owner:
+                            owner_displayname = f" by {get_owner.name}#{get_owner.discriminator}"
+
+                        # If time_left is too long
+                        if 'fetched_msg' not in self.bot.other_data:
+                            self.bot.other_data['fetched_msg'] = {}
+                        elif time_left > 0:
+                            if each_message_data['message_id'] in self.bot.other_data['fetched_msg']:
+                                last_fetched = self.bot.other_data['fetched_msg'][each_message_data['message_id']]
+                                if int(time.time()) - last_fetched < 90 and time_left > 10*3600:
+                                    continue
+                        _msg = None
+                        try:
+                            _msg: disnake.Message = await channel.fetch_message(int(each_message_data['message_id']))
+                        except disnake.errors.Forbidden:
+                            # disnake.errors.Forbidden: 403 Forbidden (error code: 50001): Missing Access
+                            change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                            await asyncio.sleep(0.5)
+                            await logchanbot("[FREETIP]: I have no permission for message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
                                 each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],
                                 each_message_data['from_ownername']
                             ))
-                            change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
-                        else:
-                            await asyncio.sleep(0.5)
-                        continue
-                    await self.bot.wait_until_ready()
-                    channel = guild.get_channel(int(each_message_data['channel_id']))
-                    if channel is None:
-                        # Check if the tips is too recent or too old, 3 days is max of freetip
-                        if each_message_data['message_time'] + 3*24*3600 <= int(time.time()):
-                            print("Channel {} found None".format(each_message_data['channel_id']))
-                            change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
-                            await logchanbot(
-                                "Failed to find channel: msg id: {}, channel id: {}, guild: {}/{}. Set it to failed.".format(
-                                    each_message_data['message_id'], each_message_data['channel_id'],
-                                    guild.name, each_message_data['guild_id']
-                                )
-                            )
-                            find_owner = self.bot.get_user(int(each_message_data['from_userid']))
-                            if find_owner is not None:
-                                await find_owner.send("I cancelled your /freetip id: {} in guild {} because I can't find channel.".format(
-                                    each_message_data['message_id'], guild.name
+                            # Tell owner that Bot has no permission
+                            get_member = self.bot.get_user(int(each_message_data['from_userid']))
+                            if get_member is not None:
+                                await get_member.send("/freetip failed: I have no permission to get message: {} of channel {} in guild: {}.".format(
+                                    each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id']
                                 ))
-                        else:
-                            await asyncio.sleep(0.5)
-                        continue
-                    get_owner = guild.get_member(int(each_message_data['from_userid']))
-                    owner_displayname = ""
-                    if get_owner is None:
-                        # In some case, user left the drop and we can't find them. Let tip process and ignore to DM them.
-                        print("Airdroper None {}".format(each_message_data['from_userid']))
-                        await asyncio.sleep(2.0)
-                        get_owner = guild.get_member(int(each_message_data['from_userid']))
-                    if get_owner:
-                        owner_displayname = f" by {get_owner.name}#{get_owner.discriminator}"
-
-                    # If time_left is too long
-                    if 'fetched_msg' not in self.bot.other_data:
-                        self.bot.other_data['fetched_msg'] = {}
-                    else:
-                        if each_message_data['message_id'] in self.bot.other_data['fetched_msg']:
-                            last_fetched = self.bot.other_data['fetched_msg'][each_message_data['message_id']]
-                            if int(time.time()) - last_fetched < 90 and time_left > 10*3600:
-                                continue
-                    _msg: disnake.Message = await channel.fetch_message(int(each_message_data['message_id']))
-                    if _msg:
-                        # check if coin exist?
-                        coin_name = each_message_data['token_name']
-                        if not hasattr(self.bot.coin_list, coin_name):
-                            change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
-                            await _msg.edit(view=None)
                             continue
-
-                        verify = "ON" if each_message_data['verify'] == 1 else "OFF"
-                        view = FreeTip_Button(self.bot, verify, int(each_message_data['from_userid']))
-                        try:
-                            embed = _msg.embeds[0] # embeds is list, we take 0
-                            embed.clear_fields()
-                            amount = each_message_data['real_amount']
-                            coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
-                            coin_emoji = coin_emoji + " " if coin_emoji else ""
-                            net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
-                            type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
-                            deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
-                            token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
-                            coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
-                            contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
-                            collectors = await store.get_freetip_collector_by_id(
-                                each_message_data['message_id'], each_message_data['from_userid']
-                            )
-
-                            indiv_amount = num_format_coin(truncate(amount / len(collectors), 12)) \
-                                if len(collectors) > 0 else num_format_coin(truncate(amount, 12))
-                            if each_message_data['airdrop_content'] and \
-                                len(each_message_data['airdrop_content']) > 0:
-                                embed.add_field(
-                                    name="Comment",
-                                    value=each_message_data['airdrop_content'],
-                                    inline=False
+                        except Exception:
+                            traceback.print_exc(file=sys.stdout)
+                            continue
+                        if _msg:
+                            verify = "ON" if each_message_data['verify'] == 1 else "OFF"
+                            view = FreeTip_Button(self.bot, verify, int(each_message_data['from_userid']))
+                            try:
+                                embed = _msg.embeds[0] # embeds is list, we take 0
+                                embed.clear_fields()
+                                amount = each_message_data['real_amount']
+                                coin_emoji = getattr(getattr(self.bot.coin_list, coin_name), "coin_emoji_discord")
+                                coin_emoji = coin_emoji + " " if coin_emoji else ""
+                                net_name = getattr(getattr(self.bot.coin_list, coin_name), "net_name")
+                                type_coin = getattr(getattr(self.bot.coin_list, coin_name), "type")
+                                deposit_confirm_depth = getattr(getattr(self.bot.coin_list, coin_name), "deposit_confirm_depth")
+                                token_display = getattr(getattr(self.bot.coin_list, coin_name), "display_name")
+                                coin_decimal = getattr(getattr(self.bot.coin_list, coin_name), "decimal")
+                                contract = getattr(getattr(self.bot.coin_list, coin_name), "contract")
+                                collectors = await store.get_freetip_collector_by_id(
+                                    each_message_data['message_id'], each_message_data['from_userid']
                                 )
-                            if len(collectors) > 0:
-                                name_list = []
-                                for each_att in collectors:
-                                    name_list.append("<@{}>".format(each_att['collector_id']))
-                                    if len(name_list) > 0 and len(name_list) % 25 == 0:
+
+                                indiv_amount = num_format_coin(truncate(amount / len(collectors), 12)) \
+                                    if len(collectors) > 0 else num_format_coin(truncate(amount, 12))
+                                if each_message_data['airdrop_content'] and \
+                                    len(each_message_data['airdrop_content']) > 0:
+                                    embed.add_field(
+                                        name="Comment",
+                                        value=each_message_data['airdrop_content'],
+                                        inline=False
+                                    )
+                                if len(collectors) > 0:
+                                    name_list = []
+                                    for each_att in collectors:
+                                        name_list.append("<@{}>".format(each_att['collector_id']))
+                                        if len(name_list) > 0 and len(name_list) % 25 == 0:
+                                            embed.add_field(name='Attendees', value=" | ".join(name_list), inline=False)
+                                            name_list = []
+                                    if len(name_list) > 0:
                                         embed.add_field(name='Attendees', value=" | ".join(name_list), inline=False)
-                                        name_list = []
-                                if len(name_list) > 0:
-                                    embed.add_field(name='Attendees', value=" | ".join(name_list), inline=False)
-                            else:
+                                else:
+                                    embed.add_field(
+                                        name='Attendees',
+                                        value="N/A",
+                                        inline=False
+                                    )
                                 embed.add_field(
-                                    name='Attendees',
-                                    value="N/A",
-                                    inline=False
+                                    name="Num. Attendees",
+                                    value=f"**{len(collectors)}** member(s)",
+                                    inline=True
                                 )
-                            embed.add_field(
-                                name="Num. Attendees",
-                                value=f"**{len(collectors)}** member(s)",
-                                inline=True
-                            )
-                            embed.add_field(
-                                name='Each Member Receives:',
-                                value=f"{coin_emoji}{indiv_amount} {token_display}",
-                                inline=True
-                            )
-                            if time_left > 0:
-                                if 'fetched_msg' in self.bot.other_data and \
-                                    each_message_data['message_id'] in self.bot.other_data['fetched_msg']:
-                                    last_fetched = self.bot.other_data['fetched_msg'][each_message_data['message_id']]
-                                    if int(time.time()) - last_fetched < 30:
-                                        # skip
-                                        continue
-                                if int(time.time()) - int(_msg.edited_at.timestamp()) > 30:
-                                    embed.set_footer(
-                                        text=f"FreeTip {owner_displayname}, Time Left: {seconds_str_days(time_left)}")
-                                    try:
-                                        await _msg.edit(embed=embed, view=view)
-                                    except disnake.errors.Forbidden:
-                                        change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
-                                        await logchanbot(
-                                            "Failed to edit message (Forbidden): msg id: {}, channel id: {}, guild: {}/{}. Set it to failed.".format(
-                                                each_message_data['message_id'], each_message_data['channel_id'],
-                                                guild.name, each_message_data['guild_id']
-                                            )
-                                        )
-                                        find_owner = self.bot.get_user(int(each_message_data['from_userid']))
-                                        if find_owner is not None:
-                                            await find_owner.send("I cancelled your /freetip id: {} in guild {} because I got no permission to edit embed message.".format(
-                                                each_message_data['message_id'], guild.name
-                                            ))
-                                    if 'fetched_msg' in self.bot.other_data:
-                                        self.bot.other_data['fetched_msg'][each_message_data['message_id']] = int(time.time())
-                            else:
-                                ## Update content
-                                if each_message_data['status'] == "ONGOING":
-                                    if len(collectors) == 0:
-                                        embed.set_footer(text=f"FreeTip by {owner_displayname}, and no one collected!")
+                                embed.add_field(
+                                    name='Each Member Receives:',
+                                    value=f"{coin_emoji}{indiv_amount} {token_display}",
+                                    inline=True
+                                )
+                                if time_left > 0:
+                                    if 'fetched_msg' in self.bot.other_data and \
+                                        each_message_data['message_id'] in self.bot.other_data['fetched_msg']:
+                                        last_fetched = self.bot.other_data['fetched_msg'][each_message_data['message_id']]
+                                        if int(time.time()) - last_fetched < 30:
+                                            # skip
+                                            continue
+                                    if int(time.time()) - int(_msg.edited_at.timestamp()) > 30:
+                                        embed.set_footer(
+                                            text=f"FreeTip {owner_displayname}, Time Left: {seconds_str_days(time_left)}")
                                         try:
-                                            await _msg.edit(embed=embed, view=None)
-                                            # update status
-                                            change_status = await store.discord_freetip_update(each_message_data['message_id'], "NOCOLLECT")
-                                        except Exception:
-                                            traceback.print_exc(file=sys.stdout)
-                                        link_to_msg = "https://discord.com/channels/{}/{}/{}".format(
-                                            each_message_data['guild_id'], each_message_data['channel_id'],
-                                            each_message_data['message_id']
-                                        )
-                                        # free tip shall always get DM. Ignore notifying list
-                                        try:
-                                            if get_owner is not None:
-                                                await get_owner.send(
-                                                    f"FreeTip of {coin_emoji}{num_format_coin(amount)} "\
-                                                    f"{token_display} expired and no one collected.\n{link_to_msg}"
+                                            await _msg.edit(embed=embed, view=view)
+                                        except disnake.errors.Forbidden:
+                                            change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                                            await logchanbot(
+                                                "Failed to edit message (Forbidden): msg id: {}, channel id: {}, guild: {}/{}. Set it to failed.".format(
+                                                    each_message_data['message_id'], each_message_data['channel_id'],
+                                                    guild.name, each_message_data['guild_id']
                                                 )
-                                        except (disnake.Forbidden, disnake.errors.Forbidden) as e:
-                                            pass
-                                    elif len(collectors) > 0:
-                                        # re-check balance
-                                        get_deposit = await self.wallet_api.sql_get_userwallet(
-                                            each_message_data['from_userid'], coin_name, net_name, type_coin, SERVER_BOT, 0
-                                        )
-                                        if get_deposit is None:
-                                            get_deposit = await self.wallet_api.sql_register_user(
-                                                each_message_data['from_userid'], coin_name, net_name, type_coin, SERVER_BOT, 0, 0
                                             )
-
-                                        wallet_address = get_deposit['balance_wallet_address']
-                                        if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
-                                            wallet_address = get_deposit['paymentid']
-                                        elif type_coin in ["XRP"]:
-                                            wallet_address = get_deposit['destination_tag']
-
-                                        height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
-                                        userdata_balance = await store.sql_user_balance_single(
-                                            each_message_data['from_userid'], coin_name, wallet_address, 
-                                            type_coin, height, deposit_confirm_depth, SERVER_BOT
-                                        )
-                                        actual_balance = float(userdata_balance['adjust'])
-
-                                        # We need only to check if balance > 0 his balance already pending.
-                                        if actual_balance < 0:
-                                            embed.set_footer(text=f"FreeTip by {owner_displayname}, failed!")
+                                            find_owner = self.bot.get_user(int(each_message_data['from_userid']))
+                                            if find_owner is not None:
+                                                await find_owner.send("I cancelled your /freetip id: {} in guild {} because I got no permission to edit embed message.".format(
+                                                    each_message_data['message_id'], guild.name
+                                                ))
+                                        if 'fetched_msg' in self.bot.other_data:
+                                            self.bot.other_data['fetched_msg'][each_message_data['message_id']] = int(time.time())
+                                else:
+                                    ## Update content
+                                    if each_message_data['status'] == "ONGOING":
+                                        print("FreeTip ID: {}, completing. {} / {}".format(each_message_data['message_id'], each_message_data['guild_id'], each_message_data['channel_id']))
+                                        if len(collectors) == 0:
+                                            embed.set_footer(text=f"FreeTip by {owner_displayname}, and no one collected!")
                                             try:
                                                 await _msg.edit(embed=embed, view=None)
                                                 # update status
-                                                change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                                                change_status = await store.discord_freetip_update(each_message_data['message_id'], "NOCOLLECT")
                                             except Exception:
                                                 traceback.print_exc(file=sys.stdout)
-                                            # end of re-check balance
-                                        else:
-                                            # Multiple tip here
-                                            amount_div = truncate(amount / len(collectors), 12)
-                                            tipAmount = num_format_coin(amount)
-                                            ActualSpend_str = num_format_coin(amount_div * len(collectors))
-                                            amountDiv_str = num_format_coin(amount_div)
-                                            amount_in_usd = 0.0
-                                            per_unit = None
-                                            price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
-                                            if price_with:
-                                                per_unit = each_message_data['unit_price_usd']
-                                                if per_unit and per_unit > 0:
-                                                    amount_in_usd = per_unit * float(amount_div)
-
+                                            link_to_msg = "https://discord.com/channels/{}/{}/{}".format(
+                                                each_message_data['guild_id'], each_message_data['channel_id'],
+                                                each_message_data['message_id']
+                                            )
+                                            # free tip shall always get DM. Ignore notifying list
                                             try:
-                                                tips = await store.sql_user_balance_mv_multiple(
-                                                    each_message_data['from_userid'], [i['collector_id'] for i in collectors],
-                                                    each_message_data['guild_id'],
-                                                    each_message_data['channel_id'], float(amount_div),
-                                                    coin_name, "FREETIP", coin_decimal, SERVER_BOT,
-                                                    contract, float(amount_in_usd), None
-                                                )
-                                                # If tip, update status
-                                                change_status = await store.discord_freetip_update(each_message_data['message_id'], "COMPLETED")
-                                                embed.set_footer(text=f"Completed! Collected by {len(collectors)} member(s)")
-                                                await _msg.edit(embed=embed, view=None)
-                                                if tips:
-                                                    link_to_msg = "https://discord.com/channels/{}/{}/{}".format(
-                                                        each_message_data['guild_id'], each_message_data['channel_id'],
-                                                        each_message_data['message_id']
+                                                if get_owner is not None:
+                                                    await get_owner.send(
+                                                        f"FreeTip of {coin_emoji}{num_format_coin(amount)} "\
+                                                        f"{token_display} expired and no one collected.\n{link_to_msg}"
                                                     )
-                                                    # free tip shall always get DM. Ignore notifying list
-                                                    try:
-                                                        guild = self.bot.get_guild(int(each_message_data['guild_id']))
-                                                        msg_freetip = f"{EMOJI_ARROW_RIGHTHOOK} FreeTip of {coin_emoji}{tipAmount} {token_display} "\
-                                                            f"was sent to ({len(collectors)}) members in server __{guild.name}__.\n"\
-                                                            f"Each member got: {coin_emoji}**{amountDiv_str} {token_display}**\n"\
-                                                            f"Actual spending: {coin_emoji}**{ActualSpend_str} {token_display}**\n{link_to_msg}"
-                                                        if get_owner is not None:
-                                                            await get_owner.send(
-                                                                msg_freetip
-                                                            )
-                                                        await _msg.reply(msg_freetip)
-                                                    except (disnake.Forbidden, disnake.errors.Forbidden) as e:
-                                                        pass
-                                            except Exception:
-                                                traceback.print_exc(file=sys.stdout)
-                                                await logchanbot("tips " +str(traceback.format_exc()))
-                        except Exception:
-                            traceback.print_exc(file=sys.stdout)
-                    else:
-                        await logchanbot(
-                            "I cannot fetch message: {}, channel id: {}".format(
-                                each_message_data['message_id'], each_message_data['channel_id']
+                                            except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                                pass
+                                        elif len(collectors) > 0:
+                                            # re-check balance
+                                            get_deposit = await self.wallet_api.sql_get_userwallet(
+                                                each_message_data['from_userid'], coin_name, net_name, type_coin, SERVER_BOT, 0
+                                            )
+                                            if get_deposit is None:
+                                                get_deposit = await self.wallet_api.sql_register_user(
+                                                    each_message_data['from_userid'], coin_name, net_name, type_coin, SERVER_BOT, 0, 0
+                                                )
+
+                                            wallet_address = get_deposit['balance_wallet_address']
+                                            if type_coin in ["TRTL-API", "TRTL-SERVICE", "BCN", "XMR"]:
+                                                wallet_address = get_deposit['paymentid']
+                                            elif type_coin in ["XRP"]:
+                                                wallet_address = get_deposit['destination_tag']
+
+                                            height = await self.wallet_api.get_block_height(type_coin, coin_name, net_name)
+                                            userdata_balance = await store.sql_user_balance_single(
+                                                each_message_data['from_userid'], coin_name, wallet_address, 
+                                                type_coin, height, deposit_confirm_depth, SERVER_BOT
+                                            )
+                                            actual_balance = float(userdata_balance['adjust'])
+
+                                            # We need only to check if balance > 0 his balance already pending.
+                                            if actual_balance < 0:
+                                                embed.set_footer(text=f"FreeTip by {owner_displayname}, failed!")
+                                                try:
+                                                    await _msg.edit(embed=embed, view=None)
+                                                    # update status
+                                                    change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                                                except Exception:
+                                                    traceback.print_exc(file=sys.stdout)
+                                                # end of re-check balance
+                                            else:
+                                                # Multiple tip here
+                                                amount_div = truncate(amount / len(collectors), 12)
+                                                tipAmount = num_format_coin(amount)
+                                                ActualSpend_str = num_format_coin(amount_div * len(collectors))
+                                                amountDiv_str = num_format_coin(amount_div)
+                                                amount_in_usd = 0.0
+                                                per_unit = None
+                                                price_with = getattr(getattr(self.bot.coin_list, coin_name), "price_with")
+                                                if price_with:
+                                                    per_unit = each_message_data['unit_price_usd']
+                                                    if per_unit and per_unit > 0:
+                                                        amount_in_usd = per_unit * float(amount_div)
+
+                                                try:
+                                                    tips = await store.sql_user_balance_mv_multiple(
+                                                        each_message_data['from_userid'], [i['collector_id'] for i in collectors],
+                                                        each_message_data['guild_id'],
+                                                        each_message_data['channel_id'], float(amount_div),
+                                                        coin_name, "FREETIP", coin_decimal, SERVER_BOT,
+                                                        contract, float(amount_in_usd), None
+                                                    )
+                                                    # If tip, update status
+                                                    change_status = await store.discord_freetip_update(each_message_data['message_id'], "COMPLETED")
+                                                    embed.set_footer(text=f"Completed! Collected by {len(collectors)} member(s)")
+                                                    await _msg.edit(embed=embed, view=None)
+                                                    if tips:
+                                                        link_to_msg = "https://discord.com/channels/{}/{}/{}".format(
+                                                            each_message_data['guild_id'], each_message_data['channel_id'],
+                                                            each_message_data['message_id']
+                                                        )
+                                                        # free tip shall always get DM. Ignore notifying list
+                                                        try:
+                                                            guild = self.bot.get_guild(int(each_message_data['guild_id']))
+                                                            msg_freetip = f"{EMOJI_ARROW_RIGHTHOOK} FreeTip of {coin_emoji}{tipAmount} {token_display} "\
+                                                                f"was sent to ({len(collectors)}) members in server __{guild.name}__.\n"\
+                                                                f"Each member got: {coin_emoji}**{amountDiv_str} {token_display}**\n"\
+                                                                f"Actual spending: {coin_emoji}**{ActualSpend_str} {token_display}**\n{link_to_msg}"
+                                                            if get_owner is not None:
+                                                                await get_owner.send(
+                                                                    msg_freetip
+                                                                )
+                                                            await _msg.reply(msg_freetip)
+                                                        except (disnake.Forbidden, disnake.errors.Forbidden) as e:
+                                                            pass
+                                                except Exception:
+                                                    traceback.print_exc(file=sys.stdout)
+                                                    await logchanbot("tips " +str(traceback.format_exc()))
+                            except Exception:
+                                traceback.print_exc(file=sys.stdout)
+                        else:
+                            await logchanbot(
+                                "I cannot fetch message: {}, channel id: {}".format(
+                                    each_message_data['message_id'], each_message_data['channel_id']
+                                )
                             )
-                        )
-                        await asyncio.sleep(1.0)
-                except disnake.errors.HTTPException:
-                        await logchanbot("[FREETIP]: ERROR: disnake.errors.HTTPException message ID: {} of channel {} in guild: {}.".format(
-                            each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id']
+                            await asyncio.sleep(1.0)
+                    except disnake.errors.HTTPException:
+                            await logchanbot("[FREETIP]: ERROR: disnake.errors.HTTPException message ID: {} of channel {} in guild: {}.".format(
+                                each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id']
+                            ))
+                            # if rate limit
+                            self.ttlcache_rate[each_message_data['channel_id']] = int(time.time())
+                            traceback.print_exc(file=sys.stdout)
+                            continue
+                    except disnake.errors.NotFound:
+                        await logchanbot("[FREETIP]: can not find message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
+                            each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],
+                            each_message_data['from_ownername']
                         ))
-                        # if rate limit
-                        self.ttlcache_rate[each_message_data['channel_id']] = int(time.time())
-                        continue
-                except disnake.errors.NotFound:
-                    await logchanbot("[FREETIP]: can not find message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
-                        each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],
-                        each_message_data['from_ownername']
-                    ))
-                    change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
-                    await asyncio.sleep(0.5)
-                except disnake.errors.Forbidden:
-                    # disnake.errors.Forbidden: 403 Forbidden (error code: 50001): Missing Access
-                    change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
-                    await asyncio.sleep(0.5)
-                    await logchanbot("[FREETIP]: I have no permission for message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
-                        each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],
-                        each_message_data['from_ownername']
-                    ))
-                    # Tell owner that Bot has no permission
-                    get_member = self.bot.get_user(int(each_message_data['from_userid']))
-                    if get_member is not None:
-                        await get_member.send("/freetip failed: I have no permission to get message: {} of channel {} in guild: {}.".format(
-                            each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id']
+                        change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                        await asyncio.sleep(0.5)
+                    except disnake.errors.Forbidden:
+                        # disnake.errors.Forbidden: 403 Forbidden (error code: 50001): Missing Access
+                        change_status = await store.discord_freetip_update(each_message_data['message_id'], "FAILED")
+                        await asyncio.sleep(0.5)
+                        await logchanbot("[FREETIP]: I have no permission for message ID: {} of channel {} in guild: {} by {}. Set that to FAILED.".format(
+                            each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id'],
+                            each_message_data['from_ownername']
                         ))
+                        # Tell owner that Bot has no permission
+                        get_member = self.bot.get_user(int(each_message_data['from_userid']))
+                        if get_member is not None:
+                            await get_member.send("/freetip failed: I have no permission to get message: {} of channel {} in guild: {}.".format(
+                                each_message_data['message_id'], each_message_data['channel_id'], each_message_data['guild_id']
+                            ))
+                    except Exception:
+                        traceback.print_exc(file=sys.stdout)
                 except Exception:
                     traceback.print_exc(file=sys.stdout)
             await asyncio.sleep(2.0)
@@ -674,8 +710,9 @@ class Tips(commands.Cog):
                             SERVER_BOT, "FAILED", each_message_data['message_id'], each_message_data['guild_id'],
                             each_message_data['channel_id'], each_message_data['from_ownername'],
                             each_message_data['from_userid']))
-
-                    # Notifytip
+                _msg: disnake.Message = await channel.fetch_message(int(each_message_data['message_id']))
+                if _msg:
+                    await _msg.edit(view=None)
         # Update @bot_task_logs
         await self.utils.bot_task_logs_add(task_name, int(time.time()))
 
@@ -2074,13 +2111,13 @@ class Tips(commands.Cog):
     @commands.bot_has_permissions(send_messages=True)
     @commands.slash_command(
         dm_permission=False,
-        usage='tip <amount> <token> @mention .... [last 10u, last 10mn]',
+        usage='tip <amount> <token> <who>',
         options=[
             Option('amount', 'amount', OptionType.string, required=True),
             Option('token', 'token', OptionType.string, required=True),
             Option(
-                'args',
-                '<@mention1> <@mention2> ... | <@role> ... | last 10u | last 10mn ',
+                'who',
+                '@mention1 @mention2 ... | <@role> ... | last 10u | last 10mn ',
                 OptionType.string,
                 required=True
             ),
@@ -2100,12 +2137,12 @@ class Tips(commands.Cog):
         ctx,
         amount: str,
         token: str,
-        args: str,
+        who: str,
         split: str = "EACH",
         ping: str = "YES"
     ):
         try:
-            await self.async_tip(ctx, amount, token, args, split, ping)
+            await self.async_tip(ctx, amount, token, who, split, ping)
         except Exception:
             traceback.print_exc(file=sys.stdout)
 

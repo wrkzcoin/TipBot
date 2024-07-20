@@ -27,6 +27,8 @@
 
 ### Intro
 
+### Archived!!!
+
 This TipBot's code is not ready for deployment. We keep it here for easier bug tracking.
 
 ### Our Discord
